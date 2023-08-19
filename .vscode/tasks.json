@@ -1,0 +1,32 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "test did-webplus",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--all-features",
+				"--",
+				"--nocapture",
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative",
+					]
+				}
+			]
+		},
+	]
+}
