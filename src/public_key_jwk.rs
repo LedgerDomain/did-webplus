@@ -1,16 +1,14 @@
-use crate::DIDWebplusWithFragment;
+use crate::{DIDWebplusWithFragment, PublicKeyParams};
 
-// NOTE: This only supports EC keys for now.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct PublicKeyJWK {
     // TODO: kid field is optional; consider taking this out to simplify things.
     #[serde(rename = "kid")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kid_o: Option<DIDWebplusWithFragment>,
-    pub kty: String,
-    pub crv: String,
-    pub x: String,
-    pub y: String,
+    // Note that this will use the "kty" field in serde to determine the variant of the enum.
+    #[serde(flatten)]
+    pub public_key_params: PublicKeyParams,
 }
 
 impl PublicKeyJWK {

@@ -8,11 +8,10 @@ mod did_webplus_with_query_and_fragment;
 mod error;
 mod microledger;
 mod microledger_node;
-mod public_key_base58;
 mod public_key_jwk;
+mod public_key_params;
 mod said_placeholder;
 mod verification_method;
-mod verification_method_public_key;
 
 pub use crate::{
     did_document::DIDDocument,
@@ -25,11 +24,10 @@ pub use crate::{
     error::Error,
     microledger::Microledger,
     microledger_node::MicroledgerNode,
-    public_key_base58::PublicKeyBase58,
     public_key_jwk::PublicKeyJWK,
+    public_key_params::{PublicKeyParams, PublicKeyParamsEC, PublicKeyParamsOKP},
     said_placeholder::{said_placeholder, said_placeholder_for_uri},
     verification_method::VerificationMethod,
-    verification_method_public_key::VerificationMethodPublicKey,
 };
 
 pub const DID_DOCUMENT_HASH_FUNCTION_CODE: said::derivation::HashFunctionCode =
