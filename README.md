@@ -21,7 +21,7 @@ The idea is:
     -   `version_time`: specifies the `validFrom` timestamp of the most recent DID document (though the DID spec makes it unclear if this can be any time within the validity duration of the DID document).
     -   `hl`: specifies the hash of the most recent DID document.  This provides verifiable content integrity.
 
-## Example
+## Example 1 -- Microledger
 
 Root DID document:
 ```
@@ -106,10 +106,67 @@ Next DID document:
 }
 ```
 
+## Example 2 -- Signature committing to a particular DID document
+
+Root DID document:
+```
+{
+  "id": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8",
+  "validFrom": "2023-08-22T07:07:12.711593231Z",
+  "versionId": 0,
+  "verificationMethod": [
+    {
+      "id": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8#key-1",
+      "type": "JsonWebKey2020",
+      "controller": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8",
+      "publicKeyJwk": {
+        "kid": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8#key-1",
+        "kty": "EC",
+        "crv": "secp256k1",
+        "x": "-dAda8Qsqjn7LN5qsYK5pKo0Dao6JHP4mBh8Mylr5nQ",
+        "y": "bPR-iXPx_IItdf_0hB3jyLWJJ5Ugi7eCODxYrJ4_6Mg"
+      }
+    }
+  ],
+  "authentication": [
+    "#key-1"
+  ],
+  "assertionMethod": [
+    "#key-1"
+  ],
+  "keyAgreement": [
+    "#key-1"
+  ],
+  "capabilityInvocation": [
+    "#key-1"
+  ],
+  "capabilityDelegation": [
+    "#key-1"
+  ]
+}
+```
+
+JWS (signature using `#key-1` over message `"HIPPOS are much better than OSTRICHES"`):
+```
+eyJhbGciOiJFUzI1NksiLCJraWQiOiJkaWQ6d2VicGx1czpleGFtcGxlLmNvbTpFQnNRRkVDdHhkeE5QdGdHSm4wbUIxTXhycjcwamxEN3YxX0hWbnZfSEZZOD92ZXJzaW9uSWQ9MCZobD1FTDRjOTRxUkFDSHNfVUZMRlZ2MzgwUXBuX2FJMGMwRXNIT3lTVnpZWFhLaCNrZXktMSIsImNyaXQiOlsiYjY0Il0sImI2NCI6ZmFsc2V9..QBenZBa3OAjBnkgbIMIlqkgWzui3egtUaGZOwUot7JpLjirOJ1FXGmVGS5BTni9IwoUJ9DNw6KTkthOLbWHR2w
+```
+
+The header of the above JWS is as follows.  Note that they key ID specified by the header commits to the versionId and hl (hash) of the DID document, so that the DID's microledger is anchored in two places -- the root DID document (by virtue of the SAID embedded in the DID itself) and this JWS (which is witnessed by some party and therefore is a commitment represented outside of the VDR for the DID).
+```
+{
+  "alg": "ES256K",
+  "kid": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8?versionId=0&hl=EL4c94qRACHs_UFLFVv380Qpn_aI0c0EsHOySVzYXXKh#key-1",
+  "crit": [
+    "b64"
+  ],
+  "b64": false
+}
+```
+
 ## Strengths/Weaknesses
 
 -   Strength: The root DID document of a given DID can't be altered (i.e. it's computationally infeasible to alter), due to the use of a SAID to form a portion of the DID itself.
--   Weakness: It is possible for a non-root DID document to be altered, but it requires the VDR sysadmin and the DID controller to collude.  This is obviously easier if they're the same person.  However, if the DID controller has produced any signatures that have been witnessed by others
+-   Weakness: It is possible for a non-root DID document to be altered, but it requires the VDR sysadmin and the DID controller to collude.  This is obviously easier if they're the same person.  However, if the DID controller has produced any signatures that have been witnessed by others, then this could be detected.
 -   Strength: In principle it is possible to detect an illegally branched DID microledger (i.e. where the VDR sysadmin and the DID controller collude to alter or otherwise provide a fraudulent DID document) simply by witnessing two verified signatures from the same DID where the signature `kid` includes the same `versionId` query param value but different `hl` query param values.
 -   Weakness: It is possible for the VDR sysadmin to delete any number of DID documents, thereby weakening non-repudiability.
 

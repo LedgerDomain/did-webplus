@@ -1,9 +1,9 @@
 use crate::{
-    said_placeholder, said_placeholder_for_uri, DIDURIComponents, DIDWebplus,
-    DIDWebplusWithQueryAndFragment, Error, SAID_HASH_FUNCTION_CODE,
+    said_placeholder, said_placeholder_for_uri, DIDURIComponents, DIDWebplusWithFragment,
+    DIDWebplusWithQuery, Error, SAID_HASH_FUNCTION_CODE,
 };
 
-// A base DID with method "webplus" having fragment but no query params.
+// A base DID with method "webplus" having query params and fragment.
 #[derive(
     Clone,
     Debug,
@@ -13,20 +13,26 @@ use crate::{
     serde::Serialize,
     serde::Deserialize,
 )]
-pub struct DIDWebplusWithFragment(pub(crate) String);
+pub struct DIDWebplusWithQueryAndFragment(pub(crate) String);
 
-impl DIDWebplusWithFragment {
-    pub fn with_host_and_fragment(host: &str, fragment: &str) -> Result<Self, Error> {
+impl DIDWebplusWithQueryAndFragment {
+    pub fn with_host_and_query_and_fragment(
+        host: &str,
+        query: &str,
+        fragment: &str,
+    ) -> Result<Self, Error> {
         Self::try_from(format!(
-            "did:webplus:{}:{}#{}",
+            "did:webplus:{}:{}?{}#{}",
             host,
             said_placeholder_for_uri(&SAID_HASH_FUNCTION_CODE),
-            fragment
+            query,
+            fragment,
         ))
     }
-    pub fn with_host_and_said_and_fragment(
+    pub fn with_host_and_said_and_query_and_fragment(
         host: &str,
         said: &str,
+        query: &str,
         fragment: &str,
     ) -> Result<Self, Error> {
         use said::sad::DerivationCode;
@@ -35,27 +41,32 @@ impl DIDWebplusWithFragment {
                 "SAID length does not match hash function code 'full_size' value",
             ));
         }
-        Self::try_from(format!("did:webplus:{}:{}#{}", host, said, fragment))
+        Self::try_from(format!(
+            "did:webplus:{}:{}?{}#{}",
+            host, said, query, fragment
+        ))
     }
     pub fn into_string(self) -> String {
         self.0
     }
-    pub fn with_query(&self, query: &str) -> Result<DIDWebplusWithQueryAndFragment, Error> {
+    pub fn without_fragment(&self) -> DIDWebplusWithQuery {
         let did_uri_components = DIDURIComponents::try_from(self.as_str()).unwrap();
-        DIDWebplusWithQueryAndFragment::try_from(format!(
-            "did:{}:{}:{}?{}#{}",
+        DIDWebplusWithQuery(format!(
+            "did:{}:{}:{}?{}",
             did_uri_components.method,
             did_uri_components.host,
             did_uri_components.path,
-            query,
-            did_uri_components.fragment_o.unwrap(),
+            did_uri_components.query_o.unwrap(),
         ))
     }
-    pub fn without_fragment(&self) -> DIDWebplus {
+    pub fn without_query(&self) -> DIDWebplusWithFragment {
         let did_uri_components = DIDURIComponents::try_from(self.as_str()).unwrap();
-        DIDWebplus(format!(
-            "did:{}:{}:{}",
-            did_uri_components.method, did_uri_components.host, did_uri_components.path,
+        DIDWebplusWithFragment(format!(
+            "did:{}:{}:{}#{}",
+            did_uri_components.method,
+            did_uri_components.host,
+            did_uri_components.path,
+            did_uri_components.fragment_o.unwrap(),
         ))
     }
     pub fn said_derivation_value(
@@ -72,25 +83,27 @@ impl DIDWebplusWithFragment {
                 "programmer error: SAID length does not match hash function code 'full_size' value"
             );
             Self(format!(
-                "did:{}:{}:{}#{}",
+                "did:{}:{}:{}?{}#{}",
                 did_uri_components.method,
                 did_uri_components.host,
                 said,
-                did_uri_components.fragment_o.unwrap()
+                did_uri_components.query_o.unwrap(),
+                did_uri_components.fragment_o.unwrap(),
             ))
         } else {
             Self(format!(
-                "did:{}:{}:{}#{}",
+                "did:{}:{}:{}?{}#{}",
                 did_uri_components.method,
                 did_uri_components.host,
                 said_placeholder(hash_function_code),
-                did_uri_components.fragment_o.unwrap()
+                did_uri_components.query_o.unwrap(),
+                did_uri_components.fragment_o.unwrap(),
             ))
         }
     }
 }
 
-impl said::sad::SAD for DIDWebplusWithFragment {
+impl said::sad::SAD for DIDWebplusWithQueryAndFragment {
     fn compute_digest(&mut self) {
         let with_placeholder = self.said_derivation_value(&SAID_HASH_FUNCTION_CODE, None);
         let said = said::derivation::HashFunction::from(SAID_HASH_FUNCTION_CODE)
@@ -107,22 +120,24 @@ impl said::sad::SAD for DIDWebplusWithFragment {
     }
 }
 
-impl TryFrom<String> for DIDWebplusWithFragment {
+impl TryFrom<String> for DIDWebplusWithQueryAndFragment {
     type Error = Error;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let did_url_components = DIDURIComponents::try_from(value.as_str())?;
         if did_url_components.method != "webplus" {
             return Err(Error::Malformed(
-                "DIDWebplusWithFragment expected method 'webplus'",
+                "DIDWebplusWithQueryAndFragment expected method 'webplus'",
             ));
         }
-        if did_url_components.query_o.is_some() {
+        if did_url_components.query_o.is_none() {
             return Err(Error::Malformed(
-                "DIDWebplusWithFragment encountered unexpected query params",
+                "DIDWebplusWithQueryAndFragment expected query params",
             ));
         }
         if did_url_components.fragment_o.is_none() {
-            return Err(Error::Malformed("DIDWebplusWithFragment expected fragment"));
+            return Err(Error::Malformed(
+                "DIDWebplusWithQueryAndFragment expected fragment",
+            ));
         }
         Ok(Self(value.into()))
     }

@@ -3,6 +3,8 @@ mod did_document_metadata;
 mod did_uri_components;
 mod did_webplus;
 mod did_webplus_with_fragment;
+mod did_webplus_with_query;
+mod did_webplus_with_query_and_fragment;
 mod error;
 mod microledger;
 mod microledger_node;
@@ -18,6 +20,8 @@ pub use crate::{
     did_uri_components::DIDURIComponents,
     did_webplus::DIDWebplus,
     did_webplus_with_fragment::DIDWebplusWithFragment,
+    did_webplus_with_query::DIDWebplusWithQuery,
+    did_webplus_with_query_and_fragment::DIDWebplusWithQueryAndFragment,
     error::Error,
     microledger::Microledger,
     microledger_node::MicroledgerNode,

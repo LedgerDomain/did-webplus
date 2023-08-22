@@ -16,6 +16,7 @@ impl VerificationMethod {
     /// DID document.  Note that the DIDWebplusWithFragment's fragment is the relative DID URI for
     /// this specific key within the DID document.  Note that this will ignore the "kid" field of
     /// public_key_jwk and replace it with the DIDWebplusWithFragment.
+    // TODO: Deprecate
     pub fn ecdsa_secp256k1_verification_key_2019(
         did_webplus_with_fragment: DIDWebplusWithFragment,
         mut public_key_jwk: PublicKeyJWK,
@@ -33,6 +34,7 @@ impl VerificationMethod {
     /// DID document.  Note that the DIDWebplusWithFragment's fragment is the relative DID URI for
     /// this specific key within the DID document.  Note that this will ignore the "kid" field of
     /// public_key_jwk and replace it with the DIDWebplusWithFragment.
+    // TODO: Deprecate
     pub fn ed25519_verification_key_2018(
         did_webplus_with_fragment: DIDWebplusWithFragment,
         public_key_base_58: PublicKeyBase58,
@@ -43,6 +45,23 @@ impl VerificationMethod {
             r#type: "Ed25519VerificationKey2018".into(),
             controller,
             public_key: public_key_base_58.into(),
+        }
+    }
+    /// Convenience method for making a well-formed JsonWebKey2020 entry for a DID document.  Note
+    /// that the DIDWebplusWithFragment's fragment is the relative DID URI for this specific key
+    /// within the DID document.  Note that this will ignore the "kid" field of public_key_jwk and
+    /// replace it with the DIDWebplusWithFragment.
+    pub fn json_web_key_2020(
+        did_webplus_with_fragment: DIDWebplusWithFragment,
+        mut public_key_jwk: PublicKeyJWK,
+    ) -> Self {
+        public_key_jwk.kid_o = Some(did_webplus_with_fragment.clone().into());
+        let controller = did_webplus_with_fragment.without_fragment();
+        Self {
+            id: did_webplus_with_fragment,
+            r#type: "JsonWebKey2020".into(),
+            controller,
+            public_key: public_key_jwk.into(),
         }
     }
     pub fn said_derivation_value(
