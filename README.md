@@ -26,83 +26,83 @@ The idea is:
 Root DID document:
 ```
 {
-  "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
-  "validFrom": "2023-08-18T23:56:15.674525690Z",
-  "versionId": 0,
-  "verificationMethod": [
-    {
-      "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
-      "type": "EcdsaSecp256k1VerificationKey2019",
-      "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
-      "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
-        "kty": "EC",
-        "crv": "secp256k1",
-        "x": "1pKM4zhV7FSGcfsrwDNA7pkYBxCEeLhxZuLLSedk2c0",
-        "y": "3jvUoto-2AemhXVgXabEa7n97jKEmZu8RDiBXFPML4E"
-      }
-    }
-  ],
-  "authentication": [
-    "#key-1"
-  ],
-  "assertionMethod": [
-    "#key-1"
-  ],
-  "keyAgreement": [
-    "#key-1"
-  ],
-  "capabilityInvocation": [
-    "#key-1"
-  ],
-  "capabilityDelegation": [
-    "#key-1"
-  ]
+    "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
+    "validFrom": "2023-08-18T23:56:15.674525690Z",
+    "versionId": 0,
+    "verificationMethod": [
+        {
+            "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
+            "type": "EcdsaSecp256k1VerificationKey2019",
+            "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
+            "publicKeyJwk": {
+                "kid": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
+                "kty": "EC",
+                "crv": "secp256k1",
+                "x": "1pKM4zhV7FSGcfsrwDNA7pkYBxCEeLhxZuLLSedk2c0",
+                "y": "3jvUoto-2AemhXVgXabEa7n97jKEmZu8RDiBXFPML4E"
+            }
+        }
+    ],
+    "authentication": [
+        "#key-1"
+    ],
+    "assertionMethod": [
+        "#key-1"
+    ],
+    "keyAgreement": [
+        "#key-1"
+    ],
+    "capabilityInvocation": [
+        "#key-1"
+    ],
+    "capabilityDelegation": [
+        "#key-1"
+    ]
 }
 ```
 
 Next DID document:
 ```
 {
-  "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
-  "prevDIDDocumentHash": "EPaPQSYlD7-Lb58Zc42gOyXwK4puxaRXW3jb-vVBPxzW",
-  "validFrom": "2023-08-18T23:56:15.674958562Z",
-  "versionId": 1,
-  "verificationMethod": [
-    {
-      "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
-      "type": "EcdsaSecp256k1VerificationKey2019",
-      "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
-      "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
-        "kty": "EC",
-        "crv": "secp256k1",
-        "x": "1pKM4zhV7FSGcfsrwDNA7pkYBxCEeLhxZuLLSedk2c0",
-        "y": "3jvUoto-2AemhXVgXabEa7n97jKEmZu8RDiBXFPML4E"
-      }
-    },
-    {
-      "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-2",
-      "type": "Ed25519VerificationKey2018",
-      "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
-      "publicKeyBase58": "WxbNdA24kW64p8eg7FMeW1hYYL72FYUcpPz5wDJ4s7N"
-    }
-  ],
-  "authentication": [
-    "#key-1"
-  ],
-  "assertionMethod": [
-    "#key-2"
-  ],
-  "keyAgreement": [
-    "#key-1"
-  ],
-  "capabilityInvocation": [
-    "#key-2"
-  ],
-  "capabilityDelegation": [
-    "#key-1"
-  ]
+    "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
+    "prevDIDDocumentHash": "EPaPQSYlD7-Lb58Zc42gOyXwK4puxaRXW3jb-vVBPxzW",
+    "validFrom": "2023-08-18T23:56:15.674958562Z",
+    "versionId": 1,
+    "verificationMethod": [
+        {
+            "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
+            "type": "EcdsaSecp256k1VerificationKey2019",
+            "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
+            "publicKeyJwk": {
+                "kid": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
+                "kty": "EC",
+                "crv": "secp256k1",
+                "x": "1pKM4zhV7FSGcfsrwDNA7pkYBxCEeLhxZuLLSedk2c0",
+                "y": "3jvUoto-2AemhXVgXabEa7n97jKEmZu8RDiBXFPML4E"
+            }
+        },
+        {
+            "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-2",
+            "type": "Ed25519VerificationKey2018",
+            "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
+            "publicKeyBase58": "WxbNdA24kW64p8eg7FMeW1hYYL72FYUcpPz5wDJ4s7N"
+        }
+    ],
+    "authentication": [
+        "#key-1"
+    ],
+    "assertionMethod": [
+        "#key-2"
+    ],
+    "keyAgreement": [
+        "#key-1"
+    ],
+    "capabilityInvocation": [
+        "#key-2"
+    ],
+    "capabilityDelegation": [
+        "#key-1"
+    ]
 }
 ```
 
@@ -111,38 +111,38 @@ Next DID document:
 Root DID document:
 ```
 {
-  "id": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8",
-  "validFrom": "2023-08-22T07:07:12.711593231Z",
-  "versionId": 0,
-  "verificationMethod": [
-    {
-      "id": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8#key-1",
-      "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8",
-      "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8#key-1",
-        "kty": "EC",
-        "crv": "secp256k1",
-        "x": "-dAda8Qsqjn7LN5qsYK5pKo0Dao6JHP4mBh8Mylr5nQ",
-        "y": "bPR-iXPx_IItdf_0hB3jyLWJJ5Ugi7eCODxYrJ4_6Mg"
-      }
-    }
-  ],
-  "authentication": [
-    "#key-1"
-  ],
-  "assertionMethod": [
-    "#key-1"
-  ],
-  "keyAgreement": [
-    "#key-1"
-  ],
-  "capabilityInvocation": [
-    "#key-1"
-  ],
-  "capabilityDelegation": [
-    "#key-1"
-  ]
+    "id": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8",
+    "validFrom": "2023-08-22T07:07:12.711593231Z",
+    "versionId": 0,
+    "verificationMethod": [
+        {
+            "id": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8#key-1",
+            "type": "JsonWebKey2020",
+            "controller": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8",
+            "publicKeyJwk": {
+                "kid": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8#key-1",
+                "kty": "EC",
+                "crv": "secp256k1",
+                "x": "-dAda8Qsqjn7LN5qsYK5pKo0Dao6JHP4mBh8Mylr5nQ",
+                "y": "bPR-iXPx_IItdf_0hB3jyLWJJ5Ugi7eCODxYrJ4_6Mg"
+            }
+        }
+    ],
+    "authentication": [
+        "#key-1"
+    ],
+    "assertionMethod": [
+        "#key-1"
+    ],
+    "keyAgreement": [
+        "#key-1"
+    ],
+    "capabilityInvocation": [
+        "#key-1"
+    ],
+    "capabilityDelegation": [
+        "#key-1"
+    ]
 }
 ```
 
@@ -154,12 +154,12 @@ eyJhbGciOiJFUzI1NksiLCJraWQiOiJkaWQ6d2VicGx1czpleGFtcGxlLmNvbTpFQnNRRkVDdHhkeE5Q
 The header of the above JWS is as follows.  Note that they key ID specified by the header commits to the versionId and hl (hash) of the DID document, so that the DID's microledger is anchored in two places -- the root DID document (by virtue of the SAID embedded in the DID itself) and this JWS (which is witnessed by some party and therefore is a commitment represented outside of the VDR for the DID).
 ```
 {
-  "alg": "ES256K",
-  "kid": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8?versionId=0&hl=EL4c94qRACHs_UFLFVv380Qpn_aI0c0EsHOySVzYXXKh#key-1",
-  "crit": [
-    "b64"
-  ],
-  "b64": false
+    "alg": "ES256K",
+    "kid": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8?versionId=0&hl=EL4c94qRACHs_UFLFVv380Qpn_aI0c0EsHOySVzYXXKh#key-1",
+    "crit": [
+        "b64"
+    ],
+    "b64": false
 }
 ```
 
@@ -197,3 +197,14 @@ The criteria listed on the left are phrased such that "No" is bad, and "Yes" is 
 -   [DID spec](https://www.w3.org/TR/did-core/)
 -   [Self-Addressing Identifiers](https://www.ietf.org/archive/id/draft-ssmith-said-03.html) (SAIDs)
 -   [said crate](https://crates.io/crates/said) which provides an implementation of SAIDs
+
+## To-dos
+
+-   Incorporate SAID into the DID document itself, and use that as the `hl` query param value.
+    -   This requires two different SAID structures on a DID document:
+        -   A root DID document, in which the SAID slots are:
+            -   Everywhere the DID shows up.
+            -   The "said" field of the DID document itself.
+        -   A non-root DID document, where there is only one SAID slot:
+            -   The "said" field of the DID document itself.
+-   Require DID document updates to include a Self-Signed Identifier (SSID) (apparently this is called Self-Certifying Identifier (SCID); see https://github.com/WebOfTrust/keri/discussions/43) over the new DID document using a key listed in the previous DID document (need to figure out which key purpose is appropriate; it would be good to use one different than authentication or assertionMethod).  SSID is analogous to SAID except that instead of a hash, it produces a signature.  This requires defining SSIDs and writing an implementation of it.
