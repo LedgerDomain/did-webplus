@@ -29,14 +29,36 @@ pub struct NonRootDIDDocument {
     pub key_material: KeyMaterial,
 }
 
-impl NonRootDIDDocument {
-    /// This assumes that the expected_prev_did_document_b has already been verified, so that
-    /// this call doesn't recurse fully, and only performs one level of verification for the
-    /// DID's microledger.
-    pub fn verify(
+impl DIDDocumentTrait for NonRootDIDDocument {
+    fn id(&self) -> &DIDWebplus {
+        &self.id
+    }
+    fn said(&self) -> &said::SelfAddressingIdentifier {
+        self.said_o.as_ref().unwrap()
+    }
+    fn prev_did_document_said_o(&self) -> Option<&said::SelfAddressingIdentifier> {
+        Some(&self.prev_did_document_said)
+    }
+    fn valid_from(&self) -> &chrono::DateTime<chrono::Utc> {
+        &self.valid_from
+    }
+    fn version_id(&self) -> u32 {
+        self.version_id
+    }
+    fn key_material(&self) -> &crate::KeyMaterial {
+        &self.key_material
+    }
+    fn verify(
         &self,
-        expected_prev_did_document_b: Box<&dyn DIDDocumentTrait>,
+        expected_prev_did_document_bo: Option<Box<&dyn DIDDocumentTrait>>,
     ) -> Result<(), Error> {
+        if expected_prev_did_document_bo.is_none() {
+            return Err(Error::Malformed(
+                "Non-root DID document must have a previous DID document",
+            ));
+        }
+        let expected_prev_did_document_b = expected_prev_did_document_bo.unwrap();
+
         if self.said_o.is_none() {
             return Err(Error::Malformed("Non-root DID document must have a SAID"));
         }
@@ -76,27 +98,6 @@ impl NonRootDIDDocument {
         }
 
         Ok(())
-    }
-}
-
-impl DIDDocumentTrait for NonRootDIDDocument {
-    fn id(&self) -> &DIDWebplus {
-        &self.id
-    }
-    fn said(&self) -> &said::SelfAddressingIdentifier {
-        self.said_o.as_ref().unwrap()
-    }
-    fn prev_did_document_said_o(&self) -> Option<&said::SelfAddressingIdentifier> {
-        Some(&self.prev_did_document_said)
-    }
-    fn valid_from(&self) -> &chrono::DateTime<chrono::Utc> {
-        &self.valid_from
-    }
-    fn version_id(&self) -> u32 {
-        self.version_id
-    }
-    fn key_material(&self) -> &crate::KeyMaterial {
-        &self.key_material
     }
 }
 

@@ -23,8 +23,35 @@ pub struct RootDIDDocument {
     pub key_material: KeyMaterial,
 }
 
-impl RootDIDDocument {
-    pub fn verify(&self) -> Result<(), Error> {
+impl DIDDocumentTrait for RootDIDDocument {
+    fn id(&self) -> &DIDWebplus {
+        &self.id
+    }
+    fn said(&self) -> &said::SelfAddressingIdentifier {
+        self.said_o.as_ref().unwrap()
+    }
+    fn prev_did_document_said_o(&self) -> Option<&said::SelfAddressingIdentifier> {
+        None
+    }
+    fn valid_from(&self) -> &chrono::DateTime<chrono::Utc> {
+        &self.valid_from
+    }
+    fn version_id(&self) -> u32 {
+        self.version_id
+    }
+    fn key_material(&self) -> &KeyMaterial {
+        &self.key_material
+    }
+    fn verify(
+        &self,
+        expected_prev_did_document_bo: Option<Box<&dyn DIDDocumentTrait>>,
+    ) -> Result<(), Error> {
+        if expected_prev_did_document_bo.is_some() {
+            return Err(Error::Malformed(
+                "Root DID document must not have a previous DID document",
+            ));
+        }
+
         if self.said_o.is_none() {
             return Err(Error::Malformed("Root DID document must have a SAID"));
         }
@@ -61,27 +88,6 @@ impl RootDIDDocument {
         }
 
         Ok(())
-    }
-}
-
-impl DIDDocumentTrait for RootDIDDocument {
-    fn id(&self) -> &DIDWebplus {
-        &self.id
-    }
-    fn said(&self) -> &said::SelfAddressingIdentifier {
-        self.said_o.as_ref().unwrap()
-    }
-    fn prev_did_document_said_o(&self) -> Option<&said::SelfAddressingIdentifier> {
-        None
-    }
-    fn valid_from(&self) -> &chrono::DateTime<chrono::Utc> {
-        &self.valid_from
-    }
-    fn version_id(&self) -> u32 {
-        self.version_id
-    }
-    fn key_material(&self) -> &KeyMaterial {
-        &self.key_material
     }
 }
 

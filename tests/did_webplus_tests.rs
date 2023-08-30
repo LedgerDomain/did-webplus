@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use did_webplus::{
     said_placeholder, said_placeholder_for_uri, DIDDocument, DIDWebplus, DIDWebplusWithFragment,
-    KeyMaterial, NonRootDIDDocument, PublicKeyJWK, PublicKeyParams, PublicKeyParamsEC,
-    PublicKeyParamsOKP, RootDIDDocument, VerificationMethod, SAID_HASH_FUNCTION_CODE,
+    KeyMaterial, Microledger, NonRootDIDDocument, NonRootDIDDocumentParams, PublicKeyJWK,
+    PublicKeyParams, PublicKeyParamsEC, PublicKeyParamsOKP, RootDIDDocument, RootDIDDocumentParams,
+    VerificationMethod, SAID_HASH_FUNCTION_CODE,
 };
 
 #[test]
@@ -250,7 +251,8 @@ fn test_did_document_verification_2() {
         "did_document_0:\n{}",
         serde_json::to_string_pretty(&did_document_0).unwrap()
     );
-    did_document_0.verify().expect("pass");
+    use did_webplus::DIDDocumentTrait;
+    did_document_0.verify_root().expect("pass");
 
     let mut did_document_1 = NonRootDIDDocument {
         id: did.clone(),
@@ -283,7 +285,7 @@ fn test_did_document_verification_2() {
         serde_json::to_string_pretty(&did_document_1).unwrap()
     );
     did_document_1
-        .verify(Box::new(&did_document_0))
+        .verify_non_root(Box::new(&did_document_0))
         .expect("pass");
 }
 
@@ -407,7 +409,8 @@ fn test_signature_generation_2() {
             "did_document_0:\n{}",
             serde_json::to_string_pretty(&did_document_0).unwrap()
         );
-        did_document_0.verify().expect("pass");
+        use did_webplus::DIDDocumentTrait;
+        did_document_0.verify_root().expect("pass");
 
         // Add query params for versionId and hl (which is set to the current DID document's SAID), so that
         // the signature produced with this key commits the DID document with the given versionId to have
@@ -442,6 +445,79 @@ fn test_signature_generation_2() {
         ssi_jws::detached_verify(&jws, b"fake payload, this should fail", &pub_jwk)
             .expect_err("pass");
     }
+}
+
+#[test]
+#[serial_test::serial]
+fn test_microledger() {
+    println!("-- TESTING MICROLEDGER ---------------------------------");
+    // Create a DID and its associated Microledger
+    let (mut microledger, _key_1_priv_jwk) = {
+        let did = DIDWebplus::with_host("example.com").unwrap();
+        let key_1_fragment = "key-1";
+        let did_with_fragment = did.with_fragment(key_1_fragment).expect("pass");
+        let relative_did_with_fragment = format!("#{}", key_1_fragment);
+        let (verification_method, mut key_1_priv_jwk) =
+            secp256k1_generate_key_pair(did_with_fragment.clone());
+        let microledger = Microledger::create(RootDIDDocumentParams {
+            did_webplus_with_placeholder: did.clone(),
+            valid_from: chrono::Utc::now(),
+            key_material: KeyMaterial {
+                verification_method_v: vec![verification_method],
+                authentication_fragment_v: vec![relative_did_with_fragment.clone()],
+                assertion_method_fragment_v: vec![relative_did_with_fragment.clone()],
+                key_agreement_fragment_v: vec![relative_did_with_fragment.clone()],
+                capability_invocation_fragment_v: vec![relative_did_with_fragment.clone()],
+                capability_delegation_fragment_v: vec![relative_did_with_fragment.clone()],
+            },
+        })
+        .expect("pass");
+        let did = microledger.did().clone();
+        let did_with_fragment = did.with_fragment(key_1_fragment).expect("pass");
+        key_1_priv_jwk.key_id = Some(did_with_fragment.into_string());
+        println!("did: {}", did);
+        println!("microledger:\n{:#?}", microledger);
+        println!(
+            "key_1_priv_jwk: {}",
+            serde_json::to_string(&key_1_priv_jwk).expect("pass")
+        );
+        (microledger, key_1_priv_jwk)
+    };
+
+    println!("updating microledger --");
+    // Update the Microledger.
+    let _key_2_priv_jwk = {
+        let key_2_fragment = "key-2";
+        let did_with_fragment = microledger
+            .did()
+            .with_fragment(key_2_fragment)
+            .expect("pass");
+        let relative_did_with_fragment = format!("#{}", key_2_fragment);
+        let (verification_method, key_2_priv_jwk) =
+            ed25519_generate_key_pair(did_with_fragment.clone());
+        assert_eq!(key_2_priv_jwk.key_id, Some(did_with_fragment.into_string()));
+        let mut key_material = microledger.head().did_document().key_material().clone();
+        key_material.verification_method_v.push(verification_method);
+        key_material
+            .authentication_fragment_v
+            .push(relative_did_with_fragment.clone());
+        key_material.assertion_method_fragment_v.clear();
+        key_material
+            .assertion_method_fragment_v
+            .push(relative_did_with_fragment.clone());
+        microledger
+            .update_as_controller(NonRootDIDDocumentParams {
+                valid_from: chrono::Utc::now(),
+                key_material,
+            })
+            .expect("pass");
+        println!("microledger:\n{:#?}", microledger);
+        println!(
+            "key_2_priv_jwk: {}",
+            serde_json::to_string(&key_2_priv_jwk).expect("pass")
+        );
+        key_2_priv_jwk
+    };
 }
 
 // Convenience function for creating a test ed25519 public key.
@@ -546,7 +622,8 @@ fn public_key_params_from_ssi_jwk(ssi_jwk: &ssi_jwk::JWK) -> Result<PublicKeyPar
 fn ed25519_generate_key_pair(
     did_webplus_with_fragment: DIDWebplusWithFragment,
 ) -> (VerificationMethod, ssi_jwk::JWK) {
-    let priv_jwk = ssi_jwk::JWK::generate_ed25519().unwrap();
+    let mut priv_jwk = ssi_jwk::JWK::generate_ed25519().unwrap();
+    priv_jwk.key_id = Some(did_webplus_with_fragment.to_string());
     println!(
         "priv JWK: {}",
         serde_json::to_string_pretty(&priv_jwk).unwrap()
@@ -560,7 +637,8 @@ fn ed25519_generate_key_pair(
 fn secp256k1_generate_key_pair(
     did_webplus_with_fragment: DIDWebplusWithFragment,
 ) -> (VerificationMethod, ssi_jwk::JWK) {
-    let priv_jwk = ssi_jwk::JWK::generate_secp256k1().unwrap();
+    let mut priv_jwk = ssi_jwk::JWK::generate_secp256k1().unwrap();
+    priv_jwk.key_id = Some(did_webplus_with_fragment.to_string());
     println!(
         "priv JWK: {}",
         serde_json::to_string_pretty(&priv_jwk).unwrap()
