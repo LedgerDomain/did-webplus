@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use did_webplus::{
     said_placeholder, said_placeholder_for_uri, DIDDocument, DIDWebplus, DIDWebplusWithFragment,
-    NonRootDIDDocument, PublicKeyJWK, PublicKeyParams, PublicKeyParamsEC, PublicKeyParamsOKP,
-    RootDIDDocument, VerificationMethod, SAID_HASH_FUNCTION_CODE,
+    KeyMaterial, NonRootDIDDocument, PublicKeyJWK, PublicKeyParams, PublicKeyParamsEC,
+    PublicKeyParamsOKP, RootDIDDocument, VerificationMethod, SAID_HASH_FUNCTION_CODE,
 };
 
 #[test]
@@ -81,7 +81,7 @@ fn test_did_document_said() {
             ),
         ],
         authentication_fragment_v: vec!["#key-1".into()],
-        assertion_fragment_v: vec!["#key-2".into()],
+        assertion_method_fragment_v: vec!["#key-2".into()],
         key_agreement_fragment_v: vec!["#key-1".into()],
         capability_invocation_fragment_v: vec!["#key-2".into()],
         capability_delegation_fragment_v: vec!["#key-1".into()],
@@ -117,7 +117,7 @@ fn test_did_document_verification() {
             public_key_params_ec_example_secp256k1().into(),
         )],
         authentication_fragment_v: vec!["#key-1".into()],
-        assertion_fragment_v: vec!["#key-1".into()],
+        assertion_method_fragment_v: vec!["#key-1".into()],
         key_agreement_fragment_v: vec!["#key-1".into()],
         capability_invocation_fragment_v: vec!["#key-1".into()],
         capability_delegation_fragment_v: vec!["#key-1".into()],
@@ -151,7 +151,7 @@ fn test_did_document_verification() {
             ),
         ],
         authentication_fragment_v: vec!["#key-1".into()],
-        assertion_fragment_v: vec!["#key-2".into()],
+        assertion_method_fragment_v: vec!["#key-2".into()],
         key_agreement_fragment_v: vec!["#key-1".into()],
         capability_invocation_fragment_v: vec!["#key-2".into()],
         capability_delegation_fragment_v: vec!["#key-1".into()],
@@ -185,21 +185,23 @@ fn test_root_did_document_said() {
         said_o: None,
         valid_from: chrono::Utc::now(),
         version_id: 0,
-        verification_method_v: vec![
-            VerificationMethod::json_web_key_2020(
-                did.with_fragment("key-1").expect("pass"),
-                public_key_params_ec_example_secp256k1().into(),
-            ),
-            VerificationMethod::json_web_key_2020(
-                did.with_fragment("key-2").expect("pass"),
-                public_key_params_okp_example_ed25519().into(),
-            ),
-        ],
-        authentication_fragment_v: vec!["#key-1".into()],
-        assertion_fragment_v: vec!["#key-2".into()],
-        key_agreement_fragment_v: vec!["#key-1".into()],
-        capability_invocation_fragment_v: vec!["#key-2".into()],
-        capability_delegation_fragment_v: vec!["#key-1".into()],
+        key_material: KeyMaterial {
+            verification_method_v: vec![
+                VerificationMethod::json_web_key_2020(
+                    did.with_fragment("key-1").expect("pass"),
+                    public_key_params_ec_example_secp256k1().into(),
+                ),
+                VerificationMethod::json_web_key_2020(
+                    did.with_fragment("key-2").expect("pass"),
+                    public_key_params_okp_example_ed25519().into(),
+                ),
+            ],
+            authentication_fragment_v: vec!["#key-1".into()],
+            assertion_method_fragment_v: vec!["#key-2".into()],
+            key_agreement_fragment_v: vec!["#key-1".into()],
+            capability_invocation_fragment_v: vec!["#key-2".into()],
+            capability_delegation_fragment_v: vec!["#key-1".into()],
+        },
     };
     println!(
         "root did_document:\n{}",
@@ -226,15 +228,17 @@ fn test_did_document_verification_2() {
         said_o: None,
         valid_from: chrono::Utc::now(),
         version_id: 0,
-        verification_method_v: vec![VerificationMethod::json_web_key_2020(
-            did.with_fragment("key-1").expect("pass"),
-            public_key_params_ec_example_secp256k1().into(),
-        )],
-        authentication_fragment_v: vec!["#key-1".into()],
-        assertion_fragment_v: vec!["#key-1".into()],
-        key_agreement_fragment_v: vec!["#key-1".into()],
-        capability_invocation_fragment_v: vec!["#key-1".into()],
-        capability_delegation_fragment_v: vec!["#key-1".into()],
+        key_material: KeyMaterial {
+            verification_method_v: vec![VerificationMethod::json_web_key_2020(
+                did.with_fragment("key-1").expect("pass"),
+                public_key_params_ec_example_secp256k1().into(),
+            )],
+            authentication_fragment_v: vec!["#key-1".into()],
+            assertion_method_fragment_v: vec!["#key-1".into()],
+            key_agreement_fragment_v: vec!["#key-1".into()],
+            capability_invocation_fragment_v: vec!["#key-1".into()],
+            capability_delegation_fragment_v: vec!["#key-1".into()],
+        },
     };
     // The initial DID document is what produces the DID.
     use said::sad::SAD;
@@ -254,21 +258,23 @@ fn test_did_document_verification_2() {
         prev_did_document_said: did_document_0.said_o.as_ref().unwrap().clone(),
         valid_from: chrono::Utc::now(),
         version_id: 1,
-        verification_method_v: vec![
-            VerificationMethod::json_web_key_2020(
-                did.with_fragment("key-1").expect("pass"),
-                public_key_params_ec_example_secp256k1().into(),
-            ),
-            VerificationMethod::json_web_key_2020(
-                did.with_fragment("key-2").expect("pass"),
-                public_key_params_okp_example_ed25519().into(),
-            ),
-        ],
-        authentication_fragment_v: vec!["#key-1".into()],
-        assertion_fragment_v: vec!["#key-2".into()],
-        key_agreement_fragment_v: vec!["#key-1".into()],
-        capability_invocation_fragment_v: vec!["#key-2".into()],
-        capability_delegation_fragment_v: vec!["#key-1".into()],
+        key_material: KeyMaterial {
+            verification_method_v: vec![
+                VerificationMethod::json_web_key_2020(
+                    did.with_fragment("key-1").expect("pass"),
+                    public_key_params_ec_example_secp256k1().into(),
+                ),
+                VerificationMethod::json_web_key_2020(
+                    did.with_fragment("key-2").expect("pass"),
+                    public_key_params_okp_example_ed25519().into(),
+                ),
+            ],
+            authentication_fragment_v: vec!["#key-1".into()],
+            assertion_method_fragment_v: vec!["#key-2".into()],
+            key_agreement_fragment_v: vec!["#key-1".into()],
+            capability_invocation_fragment_v: vec!["#key-2".into()],
+            capability_delegation_fragment_v: vec!["#key-1".into()],
+        },
     };
     // This will populate the said_o field.
     did_document_1.compute_digest();
@@ -305,7 +311,7 @@ fn test_signature_generation() {
             version_id: 0,
             verification_method_v: vec![verification_method],
             authentication_fragment_v: vec![relative_did_with_fragment.clone()],
-            assertion_fragment_v: vec![relative_did_with_fragment.clone()],
+            assertion_method_fragment_v: vec![relative_did_with_fragment.clone()],
             key_agreement_fragment_v: vec![relative_did_with_fragment.clone()],
             capability_invocation_fragment_v: vec![relative_did_with_fragment.clone()],
             capability_delegation_fragment_v: vec![relative_did_with_fragment.clone()],
@@ -380,12 +386,14 @@ fn test_signature_generation_2() {
             said_o: None,
             valid_from: chrono::Utc::now(),
             version_id: 0,
-            verification_method_v: vec![verification_method],
-            authentication_fragment_v: vec![relative_did_with_fragment.clone()],
-            assertion_fragment_v: vec![relative_did_with_fragment.clone()],
-            key_agreement_fragment_v: vec![relative_did_with_fragment.clone()],
-            capability_invocation_fragment_v: vec![relative_did_with_fragment.clone()],
-            capability_delegation_fragment_v: vec![relative_did_with_fragment.clone()],
+            key_material: KeyMaterial {
+                verification_method_v: vec![verification_method],
+                authentication_fragment_v: vec![relative_did_with_fragment.clone()],
+                assertion_method_fragment_v: vec![relative_did_with_fragment.clone()],
+                key_agreement_fragment_v: vec![relative_did_with_fragment.clone()],
+                capability_invocation_fragment_v: vec![relative_did_with_fragment.clone()],
+                capability_delegation_fragment_v: vec![relative_did_with_fragment.clone()],
+            },
         };
         // The initial DID document is what produces the DID.
         use said::sad::SAD;

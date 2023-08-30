@@ -1,4 +1,4 @@
-use crate::{DIDDocumentTrait, DIDWebplus, Error, VerificationMethod};
+use crate::{DIDDocumentTrait, DIDWebplus, Error, KeyMaterial};
 
 // TEMP hacks because of https://github.com/THCLab/cesrox/issues/5
 use said::sad::{SerializationFormats, SAD};
@@ -25,18 +25,8 @@ pub struct NonRootDIDDocument {
     // This should be exactly 1 greater than the previous DID document's version_id.
     #[serde(rename = "versionId")]
     pub version_id: u32,
-    #[serde(rename = "verificationMethod")]
-    pub verification_method_v: Vec<VerificationMethod>,
-    #[serde(rename = "authentication")]
-    pub authentication_fragment_v: Vec<String>,
-    #[serde(rename = "assertionMethod")]
-    pub assertion_fragment_v: Vec<String>,
-    #[serde(rename = "keyAgreement")]
-    pub key_agreement_fragment_v: Vec<String>,
-    #[serde(rename = "capabilityInvocation")]
-    pub capability_invocation_fragment_v: Vec<String>,
-    #[serde(rename = "capabilityDelegation")]
-    pub capability_delegation_fragment_v: Vec<String>,
+    #[serde(flatten)]
+    pub key_material: KeyMaterial,
 }
 
 impl NonRootDIDDocument {
@@ -71,11 +61,8 @@ impl NonRootDIDDocument {
                 "Non-root DID document must have version_id exactly equal to 1 plus the previous DID document's version_id",
             ));
         }
-        // Check verification methods.
-        for verification_method in self.verification_method_v.iter() {
-            verification_method.verify(&self.id)?;
-        }
-
+        // Check key material
+        self.key_material.verify(&self.id)?;
         // Now verify that the SAID for this DID document is correct.
         {
             let mut c = self.clone();
@@ -108,23 +95,8 @@ impl DIDDocumentTrait for NonRootDIDDocument {
     fn version_id(&self) -> u32 {
         self.version_id
     }
-    fn verification_method_v(&self) -> &[VerificationMethod] {
-        self.verification_method_v.as_slice()
-    }
-    fn authentication_fragment_v(&self) -> &[String] {
-        self.authentication_fragment_v.as_slice()
-    }
-    fn assertion_fragment_v(&self) -> &[String] {
-        self.assertion_fragment_v.as_slice()
-    }
-    fn key_agreement_fragment_v(&self) -> &[String] {
-        self.key_agreement_fragment_v.as_slice()
-    }
-    fn capability_invocation_fragment_v(&self) -> &[String] {
-        self.capability_invocation_fragment_v.as_slice()
-    }
-    fn capability_delegation_fragment_v(&self) -> &[String] {
-        self.capability_delegation_fragment_v.as_slice()
+    fn key_material(&self) -> &crate::KeyMaterial {
+        &self.key_material
     }
 }
 

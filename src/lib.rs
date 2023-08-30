@@ -7,6 +7,7 @@ mod did_webplus_with_fragment;
 mod did_webplus_with_query;
 mod did_webplus_with_query_and_fragment;
 mod error;
+mod key_material;
 mod microledger;
 mod microledger_node;
 mod non_root_did_document;
@@ -26,6 +27,7 @@ pub use crate::{
     did_webplus_with_query::DIDWebplusWithQuery,
     did_webplus_with_query_and_fragment::DIDWebplusWithQueryAndFragment,
     error::Error,
+    key_material::KeyMaterial,
     microledger::Microledger,
     microledger_node::MicroledgerNode,
     non_root_did_document::NonRootDIDDocument,

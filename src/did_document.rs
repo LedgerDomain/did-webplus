@@ -25,7 +25,7 @@ pub struct DIDDocument {
     #[serde(rename = "authentication")]
     pub authentication_fragment_v: Vec<String>,
     #[serde(rename = "assertionMethod")]
-    pub assertion_fragment_v: Vec<String>,
+    pub assertion_method_fragment_v: Vec<String>,
     #[serde(rename = "keyAgreement")]
     pub key_agreement_fragment_v: Vec<String>,
     #[serde(rename = "capabilityInvocation")]
