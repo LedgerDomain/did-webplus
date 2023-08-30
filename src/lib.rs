@@ -1,4 +1,3 @@
-mod did_document;
 mod did_document_metadata;
 mod did_document_trait;
 mod did_uri_components;
@@ -21,7 +20,6 @@ mod said_placeholder;
 mod verification_method;
 
 pub use crate::{
-    did_document::DIDDocument,
     did_document_metadata::DIDDocumentMetadata,
     did_document_trait::DIDDocumentTrait,
     did_uri_components::DIDURIComponents,
