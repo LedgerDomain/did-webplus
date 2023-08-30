@@ -126,7 +126,9 @@ impl DIDDocument {
         Ok(())
     }
     pub fn verify_verification_methods(&self) -> Result<(), Error> {
-        // TODO
+        for verification_method in self.verification_method_v.iter() {
+            verification_method.verify(&self.id)?;
+        }
         Ok(())
     }
 }

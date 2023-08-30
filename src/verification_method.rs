@@ -1,4 +1,4 @@
-use crate::{DIDWebplus, DIDWebplusWithFragment, PublicKeyJWK, PublicKeyParams};
+use crate::{DIDWebplus, DIDWebplusWithFragment, Error, PublicKeyJWK, PublicKeyParams};
 
 // TODO: Refactor to use jsonWebKey2020 specifically, absorb "type" field into serde tag.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -45,5 +45,44 @@ impl VerificationMethod {
             .public_key_jwk
             .said_derivation_value(hash_function_code, said);
         c
+    }
+    pub fn verify(&self, expected_controller: &DIDWebplus) -> Result<(), crate::Error> {
+        if self.controller != *expected_controller {
+            return Err(Error::Malformed(
+                "VerificationMethod controller does not match expected DID",
+            ));
+        }
+        if self.public_key_jwk.kid_o.is_none() {
+            return Err(Error::Malformed(
+                "VerificationMethod publicKeyJwk does not have a 'kid' field",
+            ));
+        }
+
+        let verification_method_id_did_uri_components = self.id.components();
+        let expected_controller_did_uri_components = expected_controller.components();
+        assert_eq!(verification_method_id_did_uri_components.method, "webplus");
+        assert_eq!(expected_controller_did_uri_components.method, "webplus");
+        if verification_method_id_did_uri_components.host
+            != expected_controller_did_uri_components.host
+        {
+            return Err(Error::Malformed(
+                "Verification method host does not match expected DID host",
+            ));
+        }
+        if verification_method_id_did_uri_components.path
+            != expected_controller_did_uri_components.path
+        {
+            return Err(Error::Malformed(
+                "Verification method SAID (i.e. path) does not match expected DID SAID (i.e. path)",
+            ));
+        }
+
+        if self.id != *self.public_key_jwk.kid_o.as_ref().unwrap() {
+            return Err(Error::Malformed(
+                "VerificationMethod id does not match publicKeyJwk 'kid' field",
+            ));
+        }
+
+        Ok(())
     }
 }

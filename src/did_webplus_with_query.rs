@@ -8,10 +8,12 @@ use crate::{
     Clone,
     Debug,
     derive_more::Deref,
-    derive_more::Display,
-    derive_more::Into,
-    serde::Serialize,
     serde::Deserialize,
+    derive_more::Display,
+    Eq,
+    derive_more::Into,
+    PartialEq,
+    serde::Serialize,
 )]
 pub struct DIDWebplusWithQuery(pub(crate) String);
 
@@ -36,6 +38,10 @@ impl DIDWebplusWithQuery {
             ));
         }
         Self::try_from(format!("did:webplus:{}:{}?{}", host, said, query))
+    }
+    pub fn components(&self) -> DIDURIComponents {
+        DIDURIComponents::try_from(self.as_str())
+            .expect("programmer error: should be valid by construction")
     }
     pub fn into_string(self) -> String {
         self.0
