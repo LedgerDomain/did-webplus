@@ -10,36 +10,37 @@ The `did:webplus` DID method described and prototyped in this git repository is 
 
 The idea is:
 -   Each DID has an associated microledger of DID documents; each DID document references the hash of the previous DID document.  The microledger is intended to be immutable and append-only, and provides a totally-ordered sequence of DID documents whose validity durations are non-overlapping.
--   The first DID document in the microledger, called the root DID document, contains a Self-Addressing Identifier (SAID) which forms part of the DID itself, and therefore ties the DID to its root DID document, and prevents alterations to the root DID document.  The root DID document has its "versionId" field set to 0, and its "prevDIDDocumentHash" field is omitted to indicate that there is no previous DID document.  Currently the SAID uses the BLAKE3_256 hash function, rendered as `"E" + base64url_no_pad(hash(said_digest))`, as specified in the [SAID spec](https://www.ietf.org/archive/id/draft-ssmith-said-03.html).
+-   The first DID document in the microledger, called the root DID document, contains a Self-Addressing Identifier (SAID) which forms part of the DID itself, and therefore ties the DID to its root DID document, and prevents alterations to the root DID document.  The root DID document has its "versionId" field set to 0, and its "prevDIDDocumentHash" field is omitted to indicate that there is no previous DID document.  The root DID document also has a "said" field which is set to the same SAID as in the DID, but in non-root DID documents, the "said" field is the only self-addressing part of the DID document.  Currently the SAID uses the BLAKE3_256 hash function, rendered as `"E" + base64url_no_pad(hash(said_digest))`, as specified in the [SAID spec](https://www.ietf.org/archive/id/draft-ssmith-said-03.html).
 -   Each DID document following the root DID document must obey strict constraints in order to provide the guarantees of the microledger.  In particular:
-    -   The "prevDIDDocumentHash" field of DID document must be equal to the hash of the DID document immediately preceding it in the microledger.  Currently this is the BLAKE3-256 hash of the document, rendered as `"E" + base64url_no_pad(hash)` (this is the same formatting as specified in the [SAID spec](https://www.ietf.org/archive/id/draft-ssmith-said-03.html), for consistency and to allow for the rendered hash to specify which hash function is used).
+    -   The "prevDIDDocumentSAID" field of DID document must be equal to the SAID field of the DID document immediately preceding it in the microledger.
     -   The "validFrom" field of a DID document must be later than that of the DID document immediately preceding it in the microledger.
     -   The "versionId" field of a DID document must be equal to 1 plus that of the DID document immediately preceding it in the microledger.
     -   Later development on the `did:webplus` DID method may add requirements about DID documents including signatures that prove the DID controller authored the update.
 -   Signatures produced by the DID controller must include the following query params in the DID fragment which specifies the signing key.  The inclusion of these values makes commitments about the content of the microledger in data that is external to the `did:webplus` host, and therefore prevents certain modes of altering/forging DID document data.  See https://www.w3.org/TR/did-core/#did-parameters for a definition of the query params.
     -   `version_id`: specifies the `versionId` value of the most recent DID document.
     -   `version_time`: specifies the `validFrom` timestamp of the most recent DID document (though the DID spec makes it unclear if this can be any time within the validity duration of the DID document).
-    -   `hl`: specifies the hash of the most recent DID document.  This provides verifiable content integrity.
+    -   `hl`: specifies the SAID field value of the most recent DID document.  This provides verifiable content integrity.
 
 ## Example 1 -- Microledger
 
 Root DID document:
 ```
 {
-    "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
-    "validFrom": "2023-08-18T23:56:15.674525690Z",
+    "id": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze",
+    "said": "EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze",
+    "validFrom": "2023-08-30T10:30:53.717406807Z",
     "versionId": 0,
     "verificationMethod": [
         {
-            "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
-            "type": "EcdsaSecp256k1VerificationKey2019",
-            "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
+            "id": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze#key-1",
+            "type": "JsonWebKey2020",
+            "controller": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze",
             "publicKeyJwk": {
-                "kid": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
+                "kid": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze#key-1",
                 "kty": "EC",
                 "crv": "secp256k1",
-                "x": "1pKM4zhV7FSGcfsrwDNA7pkYBxCEeLhxZuLLSedk2c0",
-                "y": "3jvUoto-2AemhXVgXabEa7n97jKEmZu8RDiBXFPML4E"
+                "x": "0h4EEkloDOUJKW1WiDl-VLxQsEIaiKWCdZ9MzuiV59s",
+                "y": "xzPBko1rZXAKfayRT1Os8mYctdsqP-ot7jTV_OEIuXw"
             }
         }
     ],
@@ -64,32 +65,39 @@ Root DID document:
 Next DID document:
 ```
 {
-    "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
-    "prevDIDDocumentHash": "EPaPQSYlD7-Lb58Zc42gOyXwK4puxaRXW3jb-vVBPxzW",
-    "validFrom": "2023-08-18T23:56:15.674958562Z",
+    "id": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze",
+    "said": "EFZ27Bip1XQMamfhO9kF045m-4Vcn3grQInzwzqN1hAR",
+    "prevDIDDocumentSAID": "EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze",
+    "validFrom": "2023-08-30T10:30:53.719012649Z",
     "versionId": 1,
     "verificationMethod": [
         {
-            "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
-            "type": "EcdsaSecp256k1VerificationKey2019",
-            "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
+            "id": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze#key-1",
+            "type": "JsonWebKey2020",
+            "controller": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze",
             "publicKeyJwk": {
-                "kid": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-1",
+                "kid": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze#key-1",
                 "kty": "EC",
                 "crv": "secp256k1",
-                "x": "1pKM4zhV7FSGcfsrwDNA7pkYBxCEeLhxZuLLSedk2c0",
-                "y": "3jvUoto-2AemhXVgXabEa7n97jKEmZu8RDiBXFPML4E"
+                "x": "0h4EEkloDOUJKW1WiDl-VLxQsEIaiKWCdZ9MzuiV59s",
+                "y": "xzPBko1rZXAKfayRT1Os8mYctdsqP-ot7jTV_OEIuXw"
             }
         },
         {
-            "id": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP#key-2",
-            "type": "Ed25519VerificationKey2018",
-            "controller": "did:webplus:example.com:EAHf6EEBKQ5KCMHs5mDkJTJFPXozUiUJKTsoyXTFyNRP",
-            "publicKeyBase58": "WxbNdA24kW64p8eg7FMeW1hYYL72FYUcpPz5wDJ4s7N"
+            "id": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze#key-2",
+            "type": "JsonWebKey2020",
+            "controller": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze",
+            "publicKeyJwk": {
+                "kid": "did:webplus:example.com:EN4mSHxoKO6Uq7NGr_Bx8UIluPIlg82XTQbYPH-7Ihze#key-2",
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": "92f5g_G6MIPh2J5eYZXeEbuGFjFi7PV88KNCfi5l9vo"
+            }
         }
     ],
     "authentication": [
-        "#key-1"
+        "#key-1",
+        "#key-2"
     ],
     "assertionMethod": [
         "#key-2"
@@ -98,7 +106,7 @@ Next DID document:
         "#key-1"
     ],
     "capabilityInvocation": [
-        "#key-2"
+        "#key-1"
     ],
     "capabilityDelegation": [
         "#key-1"
@@ -111,20 +119,20 @@ Next DID document:
 Root DID document:
 ```
 {
-    "id": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8",
-    "validFrom": "2023-08-22T07:07:12.711593231Z",
+    "id": "did:webplus:example.com:EIqLYiI01qxNEZ8dRKdkDnXXqYUK0f-uxTHbChAe6kmU",
+    "said": "EIqLYiI01qxNEZ8dRKdkDnXXqYUK0f-uxTHbChAe6kmU",
+    "validFrom": "2023-08-30T10:33:54.895435859Z",
     "versionId": 0,
     "verificationMethod": [
         {
-            "id": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8#key-1",
+            "id": "did:webplus:example.com:EIqLYiI01qxNEZ8dRKdkDnXXqYUK0f-uxTHbChAe6kmU#key-1",
             "type": "JsonWebKey2020",
-            "controller": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8",
+            "controller": "did:webplus:example.com:EIqLYiI01qxNEZ8dRKdkDnXXqYUK0f-uxTHbChAe6kmU",
             "publicKeyJwk": {
-                "kid": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8#key-1",
-                "kty": "EC",
-                "crv": "secp256k1",
-                "x": "-dAda8Qsqjn7LN5qsYK5pKo0Dao6JHP4mBh8Mylr5nQ",
-                "y": "bPR-iXPx_IItdf_0hB3jyLWJJ5Ugi7eCODxYrJ4_6Mg"
+                "kid": "did:webplus:example.com:EIqLYiI01qxNEZ8dRKdkDnXXqYUK0f-uxTHbChAe6kmU#key-1",
+                "kty": "OKP",
+                "crv": "Ed25519",
+                "x": "Qd829OrKoqvL1vGYQjR3NCDyPSJwAXdIy_a7qKI5WdQ"
             }
         }
     ],
@@ -148,14 +156,14 @@ Root DID document:
 
 JWS (signature using `#key-1` over message `"HIPPOS are much better than OSTRICHES"`):
 ```
-eyJhbGciOiJFUzI1NksiLCJraWQiOiJkaWQ6d2VicGx1czpleGFtcGxlLmNvbTpFQnNRRkVDdHhkeE5QdGdHSm4wbUIxTXhycjcwamxEN3YxX0hWbnZfSEZZOD92ZXJzaW9uSWQ9MCZobD1FTDRjOTRxUkFDSHNfVUZMRlZ2MzgwUXBuX2FJMGMwRXNIT3lTVnpZWFhLaCNrZXktMSIsImNyaXQiOlsiYjY0Il0sImI2NCI6ZmFsc2V9..QBenZBa3OAjBnkgbIMIlqkgWzui3egtUaGZOwUot7JpLjirOJ1FXGmVGS5BTni9IwoUJ9DNw6KTkthOLbWHR2w
+eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmV4YW1wbGUuY29tOkVJcUxZaUkwMXF4TkVaOGRSS2RrRG5YWHFZVUswZi11eFRIYkNoQWU2a21VP3ZlcnNpb25JZD0wJmhsPUVJcUxZaUkwMXF4TkVaOGRSS2RrRG5YWHFZVUswZi11eFRIYkNoQWU2a21VI2tleS0xIiwiY3JpdCI6WyJiNjQiXSwiYjY0IjpmYWxzZX0..ZiZ9ZdwoKYh4rv3iJqM8OzX68c-ypiExfZ1CvkJRXjnDgpeEDHUJ0I3KhtqNxX5Mg9Dl3MaMV0zJFyknK-IsCg
 ```
 
-The header of the above JWS is as follows.  Note that they key ID specified by the header commits to the versionId and hl (hash) of the DID document, so that the DID's microledger is anchored in two places -- the root DID document (by virtue of the SAID embedded in the DID itself) and this JWS (which is witnessed by some party and therefore is a commitment represented outside of the VDR for the DID).
+The header of the above JWS is as follows.  Note that they key ID specified by the header commits to the versionId and hl (SAID field value) of the DID document, so that the DID's microledger is anchored in two places -- the root DID document (by virtue of the SAID embedded in the DID itself) and this JWS (which is witnessed by some party and therefore is a commitment represented outside of the VDR for the DID).
 ```
 {
-    "alg": "ES256K",
-    "kid": "did:webplus:example.com:EBsQFECtxdxNPtgGJn0mB1Mxrr70jlD7v1_HVnv_HFY8?versionId=0&hl=EL4c94qRACHs_UFLFVv380Qpn_aI0c0EsHOySVzYXXKh#key-1",
+    "alg": "EdDSA",
+    "kid": "did:webplus:example.com:EIqLYiI01qxNEZ8dRKdkDnXXqYUK0f-uxTHbChAe6kmU?versionId=0&hl=EIqLYiI01qxNEZ8dRKdkDnXXqYUK0f-uxTHbChAe6kmU#key-1",
     "crit": [
         "b64"
     ],
@@ -200,11 +208,5 @@ The criteria listed on the left are phrased such that "No" is bad, and "Yes" is 
 
 ## To-dos
 
--   Incorporate SAID into the DID document itself, and use that as the `hl` query param value.
-    -   This requires two different SAID structures on a DID document:
-        -   A root DID document, in which the SAID slots are:
-            -   Everywhere the DID shows up.
-            -   The "said" field of the DID document itself.
-        -   A non-root DID document, where there is only one SAID slot:
-            -   The "said" field of the DID document itself.
+-   Prototype a did:webplus resolver (via `ssi`` crate) and incorporate that into this demo.
 -   Require DID document updates to include a Self-Signed Identifier (SSID) (apparently this is called Self-Certifying Identifier (SCID); see https://github.com/WebOfTrust/keri/discussions/43) over the new DID document using a key listed in the previous DID document (need to figure out which key purpose is appropriate; it would be good to use one different than authentication or assertionMethod).  SSID is analogous to SAID except that instead of a hash, it produces a signature.  This requires defining SSIDs and writing an implementation of it.

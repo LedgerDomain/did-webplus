@@ -518,6 +518,18 @@ fn test_microledger() {
         );
         key_2_priv_jwk
     };
+
+    println!(
+        "root DID document:\n{}",
+        serde_json::to_string_pretty(microledger.root().typed_did_document()).expect("pass")
+    );
+    for non_root_microledger_node in microledger.non_root_v() {
+        println!(
+            "non-root DID document:\n{}",
+            serde_json::to_string_pretty(&non_root_microledger_node.typed_did_document())
+                .expect("pass")
+        );
+    }
 }
 
 // Convenience function for creating a test ed25519 public key.

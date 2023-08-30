@@ -80,6 +80,10 @@ impl Microledger {
     pub fn root(&self) -> &MicroledgerNode<RootDIDDocument> {
         &self.root_microledger_node
     }
+    /// Returns the sequence of non-root nodes of the microledger.
+    pub fn non_root_v(&self) -> &[MicroledgerNode<NonRootDIDDocument>] {
+        self.non_root_microledger_node_v.as_slice()
+    }
     /// Returns the head (latest) node of the microledger.
     pub fn head(&self) -> Box<&dyn MicroledgerNodeTrait> {
         if self.non_root_microledger_node_v.is_empty() {
@@ -133,6 +137,17 @@ impl Microledger {
             .1;
         self.node_for_version_id(*version_id)
     }
+    // pub fn node_iter<'a>(
+    //     &'a self,
+    // ) -> Box<dyn std::iter::Iterator<Item = Box<&'a dyn MicroledgerNodeTrait>> + 'a> {
+    //     let root_microledger_node_b =
+    //         Box::<&dyn MicroledgerNodeTrait>::new(&self.root_microledger_node);
+    //     let non_root_microledger_node_v_b = self
+    //         .non_root_microledger_node_v
+    //         .iter()
+    //         .map(|x| Box::<&dyn MicroledgerNodeTrait>::new(x) as Box<&dyn MicroledgerNodeTrait>);
+    //     Box::new(std::iter::once(root_microledger_node_b).chain(non_root_microledger_node_v_b))
+    // }
     /// This would be used when the new DID document is being specified by the DID controller.
     pub fn update_as_controller(
         &mut self,
