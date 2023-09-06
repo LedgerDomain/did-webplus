@@ -1,4 +1,4 @@
-use crate::{DIDDocumentTrait, DIDWebplus, Error, KeyMaterial};
+use crate::{DIDDocumentTrait, DIDWebplus, Error, KeyMaterial, NonRootDIDDocumentParams};
 
 // TEMP hacks because of https://github.com/THCLab/cesrox/issues/5
 use said::sad::{SerializationFormats, SAD};
@@ -27,6 +27,30 @@ pub struct NonRootDIDDocument {
     pub version_id: u32,
     #[serde(flatten)]
     pub key_material: KeyMaterial,
+}
+
+impl NonRootDIDDocument {
+    pub fn create(
+        non_root_did_document_params: NonRootDIDDocumentParams,
+        prev_did_document_b: Box<&dyn DIDDocumentTrait>,
+    ) -> Result<Self, Error> {
+        // Form the new DID document
+        let mut new_non_root_did_document = NonRootDIDDocument {
+            id: prev_did_document_b.id().clone(),
+            said_o: None,
+            prev_did_document_said: prev_did_document_b.said().clone(),
+            version_id: prev_did_document_b.version_id() + 1,
+            valid_from: non_root_did_document_params.valid_from,
+            key_material: non_root_did_document_params.key_material,
+        };
+        // Compute and populate its SAID.
+        new_non_root_did_document.compute_digest();
+        // Verify it against the previous DID document.
+        new_non_root_did_document
+            .verify_non_root(prev_did_document_b)
+            .expect("programmer error: DID document should be valid by construction");
+        Ok(new_non_root_did_document)
+    }
 }
 
 impl DIDDocumentTrait for NonRootDIDDocument {

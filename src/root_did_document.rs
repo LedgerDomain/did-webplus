@@ -1,6 +1,9 @@
 use said::sad::SAD;
 
-use crate::{DIDDocumentTrait, DIDWebplus, Error, KeyMaterial, SAID_HASH_FUNCTION_CODE};
+use crate::{
+    DIDDocumentTrait, DIDWebplus, Error, KeyMaterial, RootDIDDocumentParams,
+    SAID_HASH_FUNCTION_CODE,
+};
 
 /// DID document specific for did:webplus.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
@@ -88,6 +91,26 @@ impl DIDDocumentTrait for RootDIDDocument {
         }
 
         Ok(())
+    }
+}
+
+impl TryFrom<RootDIDDocumentParams> for RootDIDDocument {
+    type Error = Error;
+    fn try_from(root_did_document_params: RootDIDDocumentParams) -> Result<Self, Self::Error> {
+        let mut root_did_document = Self {
+            id: root_did_document_params.did_webplus_with_placeholder,
+            said_o: None,
+            version_id: 0,
+            valid_from: root_did_document_params.valid_from,
+            key_material: root_did_document_params.key_material,
+        };
+        // Compute the SAID of the root DID document.
+        root_did_document.compute_digest();
+        // Verify just for good measure.
+        root_did_document
+            .verify_root()
+            .expect("programmer error: DID document should be valid by construction");
+        Ok(root_did_document)
     }
 }
 

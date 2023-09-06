@@ -285,10 +285,19 @@ fn test_microledger() {
             "key_1_priv_jwk: {}",
             serde_json::to_string(&key_1_priv_jwk).expect("pass")
         );
+        let latest_did_document_b = microledger.latest_did_document();
+        println!(
+            "latest DID document (which by construction is the root):\n{:#?}",
+            latest_did_document_b
+        );
+        println!(
+            "latest DID document metadata:\n{:#?}",
+            microledger.did_document_metadata_for(latest_did_document_b)
+        );
         (microledger, key_1_priv_jwk)
     };
 
-    println!("updating microledger --");
+    println!("-- updating microledger -----------------------------------------------");
     // Update the Microledger.
     let _key_2_priv_jwk = {
         let key_2_fragment = "key-2";
@@ -300,7 +309,7 @@ fn test_microledger() {
         let (verification_method, key_2_priv_jwk) =
             ed25519_generate_key_pair(did_with_fragment.clone());
         assert_eq!(key_2_priv_jwk.key_id, Some(did_with_fragment.into_string()));
-        let mut key_material = microledger.head().did_document().key_material().clone();
+        let mut key_material = microledger.latest_did_document().key_material().clone();
         key_material.verification_method_v.push(verification_method);
         key_material
             .authentication_fragment_v
@@ -320,20 +329,35 @@ fn test_microledger() {
             "key_2_priv_jwk: {}",
             serde_json::to_string(&key_2_priv_jwk).expect("pass")
         );
+        println!(
+            "root DID document metadata:\n{:#?}",
+            microledger.did_document_metadata_for(Box::new(microledger.root_did_document()))
+        );
+        let latest_did_document_b = microledger.latest_did_document();
+        println!(
+            "latest DID document (which by construction is the second):\n{:#?}",
+            latest_did_document_b
+        );
+        println!(
+            "latest DID document metadata:\n{:#?}",
+            microledger.did_document_metadata_for(latest_did_document_b)
+        );
         key_2_priv_jwk
     };
 
     println!(
         "root DID document:\n{}",
-        serde_json::to_string_pretty(microledger.root().typed_did_document()).expect("pass")
+        serde_json::to_string_pretty(microledger.root_did_document()).expect("pass")
     );
-    for non_root_microledger_node in microledger.non_root_v() {
+    for non_root_microledger_node in microledger.non_root_did_document_v() {
         println!(
             "non-root DID document:\n{}",
-            serde_json::to_string_pretty(&non_root_microledger_node.typed_did_document())
-                .expect("pass")
+            serde_json::to_string_pretty(&non_root_microledger_node).expect("pass")
         );
     }
+
+    // // Now have an "external" party pull the Microledger one node at a time, verifying it as it goes.
+    // let mut external_microledger = Microledger::create()
 }
 
 // Convenience function for creating a test ed25519 public key.

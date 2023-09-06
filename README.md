@@ -209,7 +209,7 @@ TODO: Add a non-cryptocurrency-based DID method to the table.
 
 ## Final Thoughts and To-dos
 
--   Prototype a did:webplus resolver (via `ssi`` crate) and incorporate that into this demo.
+-   Prototype a did:webplus resolver (via `ssi` crate) and incorporate that into this demo.
 -   Require DID document updates to be signed by an appropriate key in the previous DID document.  The [Capability Invocation](https://www.w3.org/TR/did-core/#capability-invocation) key purpose is intended for this use.
     -   Ideally this would be done using a Self-Certifying Identifier (SCID) (analogous to SAID except that instead of a hash over the document, a SCID is a signature over the document; see https://github.com/WebOfTrust/keri/discussions/43).  This would make it unambiguous that what is being signed is the DID document itself.  However, this requires defining SCIDs and writing an implementation of it.  This SCID would be used instead of the SAID to form the DID's microledger and as the hl field value in signatures using the DID.
     -   Another option would be to produce a JWS over the DID document, though this would be complicated by the fact that the JWS can't be embedded in the document in the same way a SCID could be.  There would need to be a specified deterministic procedure for producing the message-to-be-signed from the JWS-included DID document.  JSON is not particularly amenable to this, so this option is not ideal.  SCID (in analogy) to SAID, essentially already defines this procedure, and therefore would avoid this problem.

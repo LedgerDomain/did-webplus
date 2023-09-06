@@ -1,7 +1,7 @@
 use crate::{DIDWebplus, Error, KeyMaterial};
 
 // TODO: Maybe make this an enum called DIDDocument instead for static dispatch.
-pub trait DIDDocumentTrait {
+pub trait DIDDocumentTrait: std::fmt::Debug {
     fn id(&self) -> &DIDWebplus;
     fn said(&self) -> &said::SelfAddressingIdentifier;
     fn prev_did_document_said_o(&self) -> Option<&said::SelfAddressingIdentifier>;

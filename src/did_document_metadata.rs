@@ -1,15 +1,21 @@
-/// This data is not immutable, but may only be changed by appending a new DID document, and
-/// therefore may only be changed once.  Furthermore, the changes are "monotonic" in the sense that
-/// optional fields may be set, but not unset, and the values of existing fields can not be changed.
+/// See https://www.w3.org/TR/did-core/#did-document-metadata
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct DIDDocumentMetadata {
-    /// This is when the DID was initially created.
+    /// This is the "validFrom" timestamp of the first DID document for the DID (i.e. the timestamp of
+    /// this DID's initial creation).
     pub created: chrono::DateTime<chrono::Utc>,
-
-    // NOTE: This is commented out because it only introduces a redundancy that has to be verified.
-    // /// This is the hash of this DID document.
-    // pub did_document_hash: String,
-    /// If there is a DID document following this one, then this is equal to its valid_from value.
-    /// Otherwise, this is the most recent DID document for this DID, and this field is None.
-    pub valid_until_o: Option<chrono::DateTime<chrono::Utc>>,
+    /// This is the "validFrom" timestamp of the most recent DID document for this DID.
+    #[serde(rename = "updated")]
+    pub most_recent_update: chrono::DateTime<chrono::Utc>,
+    /// This is the "validFrom" timestamp for DID document immediately following this one, if this
+    /// is not the latest DID document.  If this is the latest DID document, then this field is None.
+    #[serde(rename = "nextUpdate")]
+    pub next_update_o: Option<chrono::DateTime<chrono::Utc>>,
+    /// This is the "versionId" value of the most recent DID document for this DID.
+    #[serde(rename = "versionId")]
+    pub most_recent_version_id: u32,
+    /// This is the "versionId" value for DID document immediately following this one, if this
+    /// is not the latest DID document.  If this is the latest DID document, then this field is None.
+    #[serde(rename = "nextVersionId")]
+    pub next_version_id_o: Option<u32>,
 }

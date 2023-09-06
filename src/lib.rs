@@ -8,8 +8,6 @@ mod did_webplus_with_query_and_fragment;
 mod error;
 mod key_material;
 mod microledger;
-mod microledger_node;
-mod microledger_node_trait;
 mod non_root_did_document;
 mod non_root_did_document_params;
 mod public_key_jwk;
@@ -30,10 +28,6 @@ pub use crate::{
     error::Error,
     key_material::KeyMaterial,
     microledger::Microledger,
-    microledger_node::{
-        create_non_root_microledger_node, create_root_microledger_node, MicroledgerNode,
-    },
-    microledger_node_trait::MicroledgerNodeTrait,
     non_root_did_document::NonRootDIDDocument,
     non_root_did_document_params::NonRootDIDDocumentParams,
     public_key_jwk::PublicKeyJWK,
