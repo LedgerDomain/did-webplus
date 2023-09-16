@@ -1,44 +1,50 @@
+mod did_document_create_params;
 mod did_document_metadata;
 mod did_document_trait;
+mod did_document_update_params;
 mod did_uri_components;
 mod did_webplus;
+mod did_webplus_fragment;
 mod did_webplus_with_fragment;
 mod did_webplus_with_query;
 mod did_webplus_with_query_and_fragment;
 mod error;
-mod key_material;
 mod microledger;
 mod non_root_did_document;
-mod non_root_did_document_params;
 mod public_key_jwk;
+mod public_key_material;
 mod public_key_params;
+mod public_key_params_ec;
+mod public_key_params_okp;
+mod public_key_set;
 mod root_did_document;
-mod root_did_document_params;
-mod said_placeholder;
 mod verification_method;
 
 pub use crate::{
+    did_document_create_params::DIDDocumentCreateParams,
     did_document_metadata::DIDDocumentMetadata,
     did_document_trait::DIDDocumentTrait,
+    did_document_update_params::DIDDocumentUpdateParams,
     did_uri_components::DIDURIComponents,
     did_webplus::DIDWebplus,
+    did_webplus_fragment::{DIDWebplusFragment, Fragment},
     did_webplus_with_fragment::DIDWebplusWithFragment,
     did_webplus_with_query::DIDWebplusWithQuery,
     did_webplus_with_query_and_fragment::DIDWebplusWithQueryAndFragment,
     error::Error,
-    key_material::KeyMaterial,
     microledger::Microledger,
     non_root_did_document::NonRootDIDDocument,
-    non_root_did_document_params::NonRootDIDDocumentParams,
     public_key_jwk::PublicKeyJWK,
-    public_key_params::{PublicKeyParams, PublicKeyParamsEC, PublicKeyParamsOKP},
+    public_key_material::PublicKeyMaterial,
+    public_key_params::PublicKeyParams,
+    public_key_params_ec::PublicKeyParamsEC,
+    public_key_params_okp::PublicKeyParamsOKP,
+    public_key_set::PublicKeySet,
     root_did_document::RootDIDDocument,
-    root_did_document_params::RootDIDDocumentParams,
-    said_placeholder::{said_placeholder, said_placeholder_for_uri},
     verification_method::VerificationMethod,
 };
 
-pub const DID_DOCUMENT_HASH_FUNCTION_CODE: said::derivation::HashFunctionCode =
-    said::derivation::HashFunctionCode::Blake3_256;
-pub const SAID_HASH_FUNCTION_CODE: said::derivation::HashFunctionCode =
-    said::derivation::HashFunctionCode::Blake3_256;
+pub type DIDWebplusKeyIdFragment = DIDWebplusFragment<selfsign::KERIVerifier<'static>>;
+pub type DIDWebplusWithKeyIdFragment = DIDWebplusWithFragment<selfsign::KERIVerifier<'static>>;
+pub type DIDWebplusWithQueryAndKeyIdFragment =
+    DIDWebplusWithQueryAndFragment<selfsign::KERIVerifier<'static>>;

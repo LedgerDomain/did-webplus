@@ -3,6 +3,9 @@ name = "did-webplus"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+ed25519-dalek = ["selfsign/ed25519-dalek"]
+
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["serde"] }
 derive_more = { version = "0.99.17", default-features = false, features = [
@@ -11,11 +14,20 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "from",
     "into",
 ] }
-said = { version = "0.3.0", default-features = false, features = ["macros"] }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "46dcc1b7d1cdd48ea0cc5e9b468dc6f92f024f47", features = [
+    "serde",
+] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = "1.0.106"
+serde_with = { version = "3.3.0", optional = true, default-features = false, features = [
+    "macros",
+] }
 thiserror = { version = "1.0.47", default-features = false }
 
 [dev-dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
+rand = "0.8"
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [

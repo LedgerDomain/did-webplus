@@ -1,29 +1,30 @@
-use crate::{DIDWebplus, Error, KeyMaterial};
+use crate::{DIDWebplus, Error, PublicKeyMaterial};
 
-// TODO: Maybe make this an enum called DIDDocument instead for static dispatch.
-pub trait DIDDocumentTrait: std::fmt::Debug {
+pub trait DIDDocumentTrait: std::fmt::Debug + selfsign::SelfSignable {
     fn id(&self) -> &DIDWebplus;
-    fn said(&self) -> &said::SelfAddressingIdentifier;
-    fn prev_did_document_said_o(&self) -> Option<&said::SelfAddressingIdentifier>;
+    fn self_signature(&self) -> &selfsign::KERISignature<'static>;
+    fn prev_did_document_self_signature_o(&self) -> Option<&selfsign::KERISignature<'static>>;
     fn valid_from(&self) -> &chrono::DateTime<chrono::Utc>;
     fn version_id(&self) -> u32;
-    fn key_material(&self) -> &KeyMaterial;
+    fn public_key_material(&self) -> &PublicKeyMaterial;
     /// This assumes that the specified prev DID document (if any) has already been verified, so
     /// that this call doesn't recurse fully, and only performs one level of verification for the
     /// DID's microledger.
-    fn verify(
+    fn verify_nonrecursive(
         &self,
         expected_prev_did_document_bo: Option<Box<&dyn DIDDocumentTrait>>,
-    ) -> Result<(), Error>;
+    ) -> Result<&selfsign::KERISignature<'static>, Error>;
     /// Convenience method for calling self.verify(None).
-    fn verify_root(&self) -> Result<(), Error> {
-        self.verify(None)
+    fn verify_root(&self) -> Result<&selfsign::KERISignature<'static>, Error> {
+        self.verify_nonrecursive(None)
     }
     /// Convenience method for calling self.verify(Some(expected_prev_did_document_b)).
-    fn verify_non_root(
+    fn verify_non_root_nonrecursive(
         &self,
         expected_prev_did_document_b: Box<&dyn DIDDocumentTrait>,
-    ) -> Result<(), Error> {
-        self.verify(Some(expected_prev_did_document_b))
+    ) -> Result<&selfsign::KERISignature<'static>, Error> {
+        self.verify_nonrecursive(Some(expected_prev_did_document_b))
     }
+    // TEMP HACK
+    fn to_json_pretty(&self) -> String;
 }

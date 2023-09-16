@@ -12,4 +12,16 @@ pub enum Error {
     MalformedKeyFragment(&'static str, &'static str),
     #[error("Not found: {0}")]
     NotFound(&'static str),
+    #[error("Generic error: {0}")]
+    Generic(&'static str),
+    #[error("Unrecognized: {0}")]
+    Unrecognized(&'static str),
+    #[error("Unsupported: {0}")]
+    Unsupported(&'static str),
+}
+
+impl From<&'static str> for Error {
+    fn from(s: &'static str) -> Self {
+        Self::Generic(s)
+    }
 }
