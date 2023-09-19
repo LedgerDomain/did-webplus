@@ -15,14 +15,14 @@ The `did:webplus` DID method described and prototyped in this git repository is 
 Briefly, the idea is that each DID has an associated microledger of DID documents, with each DID document referencing the self-signature of the previous DID document.  The microledger is intended to be immutable, append-only, and allow updates only from authorized parties.  It provides a totally-ordered sequence of DID documents whose validity durations are non-overlapping. This is accomplished by the use of successive validFrom dates, as outlined in more detail below.
 -   General structure and constraints on all DID documents
     -   Each DID document has an "id" field which defines the DID itself.
-    -   Each DID document is self-signed, having fields "selfSignature" and "selfSignatureVerifier" which define the signature and the public key that verifies the self-signature.  The process for verifying a self-signature is explained [in the `selfsign` crate readme](github.com/LedgerDomain/selfsign).
+    -   Each DID document is self-signed, having fields "selfSignature" and "selfSignatureVerifier" which define the signature and the public key that verifies the self-signature.  The process for verifying a self-signature is explained [in the `selfsign` crate readme](https://github.com/LedgerDomain/selfsign).
     -   Each DID document has a "versionId" field, which starts at 0 upon DID creation and increases by 1 with each update.
     -   Each DID document has a "validFrom" field, defining the timestamp at which the DID document becomes current.
     -   The fragments defining the key IDs for each public key in the DID document are derived from the public keys themselves, using conventions found in KERI (a prefix indicating the key type, then the base64-encoding of the public key bytes).
 -   The first DID document in the microledger, called the root DID document, contains a self-signature which forms part of the DID itself. This ties the DID to its root DID document, and prevents alterations to the root DID document.
     -   The root DID document has its "versionId" field set to 0,
     -   The root DID document's "prevDIDDocumentSelfSignature" field is omitted to indicate that there is no previous DID document.
-    -   The self-signature on the root DID document includes all occurrences of the DID throughout the DID document.  This translates to having multiple "self-signature slots" as described [in the `selfsign` crate readme](github.com/LedgerDomain/selfsign).
+    -   The self-signature on the root DID document includes all occurrences of the DID throughout the DID document.  This translates to having multiple "self-signature slots" as described [in the `selfsign` crate readme](https://github.com/LedgerDomain/selfsign).
     -   The root DID document's "selfSignatureVerifier" field must correspond to one of the public keys listed in the "capabilityInvocation" field of the root DID document itself.  This field defines which keys are authorized to update this DID's DID document, and in the case of the root DID document, it establishes an initial self-consistency for that authority.
 -   Each DID document following the root DID document must obey strict constraints in order to provide the guarantees of the microledger.  In particular:
     -   The "prevDIDDocumentSelfSignature" field of a DID document must be equal to the "selfSignature" field of the DID document immediately preceding it in the microledger.
@@ -242,7 +242,7 @@ TODO: Add a non-cryptocurrency-based DID method to the table.
 ## References
 
 -   [DID spec](https://www.w3.org/TR/did-core/)
--   [`selfsign` crate, which provides self-signing capabilities](github.com/LedgerDomain/selfsign)
+-   [`selfsign` crate, which provides self-signing capabilities](https://github.com/LedgerDomain/selfsign)
 
 ## Final Thoughts and To-dos
 
