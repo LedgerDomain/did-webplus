@@ -1,5 +1,5 @@
 /// See https://www.w3.org/TR/did-core/#did-document-metadata
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocumentMetadata {
     /// This is the "validFrom" timestamp of the first DID document for the DID (i.e. the timestamp of
     /// this DID's initial creation).

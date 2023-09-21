@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::Error;
 
 // "kty" of "OKP" is used for curves including "ed25519".
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyParamsOKP {
     pub crv: String,
     pub x: String,

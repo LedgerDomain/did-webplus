@@ -1,7 +1,7 @@
 use crate::{Error, PublicKeyParamsEC, PublicKeyParamsOKP};
 
 // Note that this will use the "kty" field in serde to determine the variant of the enum.
-#[derive(Clone, Debug, serde::Deserialize, derive_more::From, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, derive_more::From, PartialEq, serde::Serialize)]
 #[serde(tag = "kty")]
 pub enum PublicKeyParams {
     EC(PublicKeyParamsEC),

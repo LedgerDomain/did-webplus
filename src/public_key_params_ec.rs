@@ -2,7 +2,7 @@ use crate::Error;
 
 // "kty" of "EC" is used for curves including "secp256k1", "P-256" (which is sometimes also called "secp256r1"),
 // "P-384", and "P-521".
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyParamsEC {
     pub crv: String,
     pub x: String,

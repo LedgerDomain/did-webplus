@@ -1,11 +1,14 @@
 use selfsign::{SelfSignable, SignatureAlgorithm};
 
-use crate::{DIDDocumentCreateParams, DIDDocumentTrait, DIDWebplus, Error, PublicKeyMaterial};
+use crate::{DIDDocumentCreateParams, DIDWebplus, Error, PublicKeyMaterial};
 
 /// DID document specific for did:webplus.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct RootDIDDocument {
-    // Should have the form "did:webplus:host.com:<SAID>", where SAID is derived from this root DID document.
+    // Should have the form "did:webplus:host.com:<self-signature>", where the self-signature is over this
+    // root DID document.  The verifier (i.e. public key) is present in and committed to by this self-signed
+    // document.
+    // TODO: Rename this field to 'did', and use serde rename for the JSON serialization.
     pub id: DIDWebplus,
     // This is the self-signature of the document.  It should match the self-signature that forms part of
     // the did:webplus DID (see "id" field).
@@ -64,41 +67,11 @@ impl RootDIDDocument {
         root_did_document.self_sign(signer)?;
         // Verify just for good measure.
         root_did_document
-            .verify_root()
+            .verify_nonrecursive()
             .expect("programmer error: DID document should be valid by construction");
         Ok(root_did_document)
     }
-}
-
-impl DIDDocumentTrait for RootDIDDocument {
-    fn id(&self) -> &DIDWebplus {
-        &self.id
-    }
-    fn self_signature(&self) -> &selfsign::KERISignature<'static> {
-        self.self_signature_o.as_ref().unwrap()
-    }
-    fn prev_did_document_self_signature_o(&self) -> Option<&selfsign::KERISignature<'static>> {
-        None
-    }
-    fn valid_from(&self) -> &chrono::DateTime<chrono::Utc> {
-        &self.valid_from
-    }
-    fn version_id(&self) -> u32 {
-        self.version_id
-    }
-    fn public_key_material(&self) -> &PublicKeyMaterial {
-        &self.public_key_material
-    }
-    fn verify_nonrecursive(
-        &self,
-        expected_prev_did_document_bo: Option<Box<&dyn DIDDocumentTrait>>,
-    ) -> Result<&selfsign::KERISignature<'static>, Error> {
-        if expected_prev_did_document_bo.is_some() {
-            return Err(Error::Malformed(
-                "Root DID document must not have a previous DID document",
-            ));
-        }
-
+    pub fn verify_nonrecursive(&self) -> Result<&selfsign::KERISignature<'static>, Error> {
         // Note that if this check succeeds, then in particular, all the expected self-signature slots
         // are equal, all the self-signature verifier slots are equal.
         self.verify_self_signatures()?;
@@ -116,9 +89,6 @@ impl DIDDocumentTrait for RootDIDDocument {
         self.public_key_material.verify(&self.id)?;
 
         Ok(self.self_signature_o.as_ref().unwrap())
-    }
-    fn to_json_pretty(&self) -> String {
-        serde_json::to_string_pretty(self).expect("pass")
     }
 }
 

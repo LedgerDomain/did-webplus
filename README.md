@@ -244,8 +244,6 @@ TODO: Add a non-cryptocurrency-based DID method to the table.
 -   [DID spec](https://www.w3.org/TR/did-core/)
 -   [`selfsign` crate, which provides self-signing capabilities](https://github.com/LedgerDomain/selfsign)
 
-## Final Thoughts and To-dos
-
--   Prototype a did:webplus resolver (via `ssi` crate) and incorporate that into this demo.
+## Final Thoughts
 
 I'm looking for feedback on this work-in-progress.  Please email me at victor.dods@ledgerdomain.com with comments/questions.

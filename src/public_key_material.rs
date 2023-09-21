@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{DIDWebplus, DIDWebplusKeyIdFragment, Error, PublicKeySet, VerificationMethod};
 
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyMaterial {
     #[serde(rename = "verificationMethod")]
     pub verification_method_v: Vec<VerificationMethod>,

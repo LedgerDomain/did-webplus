@@ -1,10 +1,11 @@
 use crate::{DIDURIComponents, DIDWebplusWithFragment, Error, Fragment};
 
 #[derive(
-    Clone, Debug, serde_with::DeserializeFromStr, Eq, PartialEq, serde_with::SerializeDisplay,
+    Clone, Debug, serde_with::DeserializeFromStr, Eq, PartialEq, Hash, serde_with::SerializeDisplay,
 )]
 pub struct DIDWebplus {
     pub host: String,
+    // TODO: Add pre-self-signature path components
     pub self_signature: selfsign::KERISignature<'static>,
 }
 

@@ -1,11 +1,12 @@
 use selfsign::SignatureAlgorithm;
 
-use crate::{DIDDocumentTrait, DIDDocumentUpdateParams, DIDWebplus, Error, PublicKeyMaterial};
+use crate::{DIDDocument, DIDDocumentUpdateParams, DIDWebplus, Error, PublicKeyMaterial};
 
 /// Non-root DID document specific for did:webplus.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct NonRootDIDDocument {
-    // Should have the form "did:webplus:host.com:<SAID>", where SAID is derived from the root DID document.
+    // This is the DID.  This should be identical to the id field of the previous DID document.
+    // TODO: Rename this field to 'did', and use serde rename for the JSON serialization.
     pub id: DIDWebplus,
     // This is the self-signature of the document.  Because this is a non-root DID document, it will not
     // match the self-signature that forms part of the did:webplus DID (see "id" field).
@@ -33,18 +34,18 @@ pub struct NonRootDIDDocument {
 
 impl NonRootDIDDocument {
     pub fn update_from_previous(
-        prev_did_document_b: Box<&dyn DIDDocumentTrait>,
+        prev_did_document: DIDDocument,
         did_document_update_params: DIDDocumentUpdateParams,
         signer: &dyn selfsign::Signer,
     ) -> Result<Self, Error> {
-        prev_did_document_b.verify_self_signatures().map_err(|_| {
+        prev_did_document.verify_self_signatures().map_err(|_| {
             Error::InvalidDIDWebplusUpdateOperation(
                 "Previous DID document self-signature not valid",
             )
         })?;
         // TODO: Put this into a function
         let keri_verifier = signer.verifier().to_keri_verifier().into_owned();
-        if !prev_did_document_b
+        if !prev_did_document
             .public_key_material()
             .capability_invocation_key_id_fragment_v
             .iter()
@@ -56,13 +57,13 @@ impl NonRootDIDDocument {
         }
 
         // Form the new DID document
-        let did = prev_did_document_b.id().clone();
+        let did = prev_did_document.id().clone();
         let mut new_non_root_did_document = NonRootDIDDocument {
             id: did.clone(),
             self_signature_o: None,
             self_signature_verifier_o: None,
-            prev_did_document_self_signature: prev_did_document_b.self_signature().clone(),
-            version_id: prev_did_document_b.version_id() + 1,
+            prev_did_document_self_signature: prev_did_document.self_signature().clone(),
+            version_id: prev_did_document.version_id() + 1,
             valid_from: did_document_update_params.valid_from,
             public_key_material: PublicKeyMaterial::new(
                 did,
@@ -74,46 +75,21 @@ impl NonRootDIDDocument {
         new_non_root_did_document.self_sign(signer)?;
         // Verify it against the previous DID document.
         new_non_root_did_document
-            .verify_non_root_nonrecursive(prev_did_document_b)
+            .verify_nonrecursive(prev_did_document)
             .expect("programmer error: DID document should be valid by construction");
         Ok(new_non_root_did_document)
     }
-}
-
-impl DIDDocumentTrait for NonRootDIDDocument {
-    fn id(&self) -> &DIDWebplus {
-        &self.id
-    }
-    fn self_signature(&self) -> &selfsign::KERISignature<'static> {
-        self.self_signature_o.as_ref().unwrap()
-    }
-    fn prev_did_document_self_signature_o(&self) -> Option<&selfsign::KERISignature<'static>> {
-        Some(&self.prev_did_document_self_signature)
-    }
-    fn valid_from(&self) -> &chrono::DateTime<chrono::Utc> {
-        &self.valid_from
-    }
-    fn version_id(&self) -> u32 {
-        self.version_id
-    }
-    fn public_key_material(&self) -> &crate::PublicKeyMaterial {
-        &self.public_key_material
-    }
-    fn verify_nonrecursive(
+    pub fn verify_nonrecursive(
         &self,
-        expected_prev_did_document_bo: Option<Box<&dyn DIDDocumentTrait>>,
+        expected_prev_did_document: DIDDocument,
     ) -> Result<&selfsign::KERISignature<'static>, Error> {
-        if expected_prev_did_document_bo.is_none() {
-            return Err(Error::Malformed(
-                "Non-root DID document must have a previous DID document",
-            ));
-        }
-        let expected_prev_did_document_b = expected_prev_did_document_bo.unwrap();
         let expected_prev_did_document_self_signature =
-            expected_prev_did_document_b.verify_self_signatures()?;
+            expected_prev_did_document.verify_self_signatures()?;
 
         // Check that id (i.e. the DID) matches the previous DID document's id (i.e. DID).
-        if self.id != *expected_prev_did_document_b.id() {
+        // Note that this also implies that the host, embedded in the id, matches the host of the previous
+        // DID document's id.
+        if self.id != *expected_prev_did_document.id() {
             return Err(Error::Malformed(
                 "Non-root DID document's id must match the previous DID document's id",
             ));
@@ -131,13 +107,13 @@ impl DIDDocumentTrait for NonRootDIDDocument {
         // TODO Check that self.valid_from is greater than 1970-01-01T00:00:00Z
 
         // Check monotonicity of version_time.
-        if self.valid_from <= *expected_prev_did_document_b.valid_from() {
+        if self.valid_from <= expected_prev_did_document.valid_from() {
             return Err(Error::Malformed(
                 "Non-initial DID document must have version_time > prev_did_document.version_time",
             ));
         }
         // Check strict succession of version_id.
-        if self.version_id != expected_prev_did_document_b.version_id() + 1 {
+        if self.version_id != expected_prev_did_document.version_id() + 1 {
             return Err(Error::Malformed(
                 "Non-root DID document must have version_id exactly equal to 1 plus the previous DID document's version_id",
             ));
@@ -151,9 +127,6 @@ impl DIDDocumentTrait for NonRootDIDDocument {
         assert!(self.self_signature_verifier_o.is_some());
 
         Ok(self.self_signature_o.as_ref().unwrap())
-    }
-    fn to_json_pretty(&self) -> String {
-        serde_json::to_string_pretty(self).expect("pass")
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::{DIDWebplus, DIDWebplusWithKeyIdFragment, Error, PublicKeyJWK, PublicKeyParams};
 
 // TODO: Refactor to use jsonWebKey2020 specifically, absorb "type" field into serde tag.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct VerificationMethod {
     pub id: DIDWebplusWithKeyIdFragment,
     pub r#type: String,

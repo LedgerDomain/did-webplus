@@ -1,6 +1,6 @@
 use crate::{DIDWebplus, DIDWebplusWithKeyIdFragment, Error, PublicKeyParams};
 
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyJWK {
     // TODO: kid field is optional; consider taking this out to simplify things.
     #[serde(rename = "kid")]
