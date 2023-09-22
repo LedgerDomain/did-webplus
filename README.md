@@ -6,6 +6,12 @@ Along with an overview and examples, this repository includes a Rust crate for p
 
 If you want to see concrete examples, skip to the Examples section.
 
+To run the tests, which include printouts demonstrating various features and data structures, run
+
+    cargo test --all-features -- --nocapture
+
+The `--all-features` is necessary for now.
+
 ## Overview
 
 The `did:web` DID method is simple and easy enough to implement using web2 technologies. However, compared to others that incorporate more sophisticated cryptographic primitives and data structures (hashes, self-addressing identifiers, ledgers, formal DID document transactions, etc.), `did:web` often falls short. One of the biggest challenges in delivering `did:web` within a highly regulated industry such as the pharma supply chain is its lack of built-in "historicity." Many real-world `did:web` implementations assume that W3C Verifiable Presentations are ephemeral, needing to be verified at time of receipt (e.g. to access a particular resource) but not requiring retroactive verifiability in the event of a later audit. Within the Drug Supply Chain Security Act (DSCSA) and similar contexts, where a VP's historical validity may need to be checked for years after its creation, permanence rather than ephemerality is the general rule.
