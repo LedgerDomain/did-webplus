@@ -14,9 +14,8 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "from",
     "into",
 ] }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "46dcc1b7d1cdd48ea0cc5e9b468dc6f92f024f47", features = [
-    "serde",
-] }
+selfhash = { version = "0.1", features = ["serde", "blake3"] }
+selfsign = { version = "0.2", features = ["serde"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0.106"
 serde_with = { version = "3.3.0", optional = true, default-features = false, features = [
@@ -38,3 +37,7 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
     "ed25519",
     "secp256k1",
 ] }
+
+[patch.crates-io]
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "730453ca2f13ad99fa712800a9f44fef9a9354ee" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "8773dabc82369d8f2ffe55e5635970b151722abb" }

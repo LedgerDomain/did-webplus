@@ -10,8 +10,8 @@ pub enum Error {
     InvalidDIDWebplusCreateOperation(&'static str),
     #[error("Invalid did:webplus update operation: {0}")]
     InvalidDIDWebplusUpdateOperation(&'static str),
-    #[error("Invalid self-signature: {0}")]
-    InvalidSelfSignature(&'static str),
+    #[error("Invalid self-signature or self-hash: {0}")]
+    InvalidSelfSignatureOrSelfHash(&'static str),
     #[error("Malformed: {0}")]
     Malformed(&'static str),
     #[error("Malformed {0} method: {1}")]

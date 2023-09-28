@@ -100,29 +100,25 @@ impl PublicKeyMaterial {
         }
         Ok(())
     }
-    pub fn root_did_document_self_signature_oi<'a, 'b: 'a>(
+    pub fn root_did_document_self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfsign::Signature>> + 'a> {
-        let mut iter_chain: Box<
-            dyn std::iter::Iterator<Item = Option<&dyn selfsign::Signature>> + 'a,
-        > = Box::new(std::iter::empty());
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> {
+        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> =
+            Box::new(std::iter::empty());
         for verification_method in &self.verification_method_v {
             iter_chain = Box::new(
                 iter_chain.chain(
                     verification_method
-                        .root_did_document_self_signature_oi()
+                        .root_did_document_self_hash_oi()
                         .into_iter(),
                 ),
             );
         }
         iter_chain
     }
-    pub fn set_root_did_document_self_signature_slots_to(
-        &mut self,
-        signature: &dyn selfsign::Signature,
-    ) {
+    pub fn set_root_did_document_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
         for verification_method in &mut self.verification_method_v {
-            verification_method.set_root_did_document_self_signature_slots_to(signature);
+            verification_method.set_root_did_document_self_hash_slots_to(hash);
         }
     }
     // pub fn self_signature_verifier_oi<'a, 'b: 'a>(

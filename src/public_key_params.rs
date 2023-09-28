@@ -14,6 +14,9 @@ impl From<&dyn selfsign::Verifier> for PublicKeyParams {
             selfsign::KeyType::Ed25519 => PublicKeyParamsOKP::try_from(verifier)
                 .expect("programmer error")
                 .into(),
+            selfsign::KeyType::Secp256k1 => PublicKeyParamsEC::try_from(verifier)
+                .expect("programmer error")
+                .into(),
         }
     }
 }
