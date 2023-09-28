@@ -3,7 +3,7 @@ use crate::{DIDURIComponents, Error};
 #[derive(Debug, serde_with::DeserializeFromStr, serde_with::SerializeDisplay)]
 pub struct DIDWebplusWithQuery {
     pub host: String,
-    pub self_signature: selfsign::KERISignature<'static>,
+    pub self_hash: selfhash::KERIHash<'static>,
     pub query: String,
 }
 
@@ -12,7 +12,7 @@ impl std::fmt::Display for DIDWebplusWithQuery {
         write!(
             f,
             "did:webplus:{}:{}?{}",
-            self.host, self.self_signature, self.query
+            self.host, self.self_hash, self.query
         )
     }
 }
@@ -25,14 +25,14 @@ impl std::str::FromStr for DIDWebplusWithQuery {
             return Err(Error::Malformed("DID method is not 'webplus'"));
         }
         let host = did_uri_components.host.to_string();
-        let self_signature = selfsign::KERISignature::from_str(did_uri_components.path)?;
+        let self_hash = selfhash::KERIHash::from_str(did_uri_components.path)?;
         if did_uri_components.query_o.is_none() {
             return Err(Error::Malformed("DID query is missing"));
         }
         let query = did_uri_components.query_o.unwrap().to_string();
         Ok(Self {
             host,
-            self_signature,
+            self_hash,
             query,
         })
     }

@@ -5,7 +5,7 @@ use crate::{DIDURIComponents, DIDWebplusFragment, Error, Fragment};
 )]
 pub struct DIDWebplusWithQueryAndFragment<F: Fragment> {
     pub host: String,
-    pub self_signature: selfsign::KERISignature<'static>,
+    pub self_hash: selfhash::KERIHash<'static>,
     pub query: String,
     pub fragment: DIDWebplusFragment<F>,
 }
@@ -16,7 +16,7 @@ impl<F: Fragment> std::fmt::Display for DIDWebplusWithQueryAndFragment<F> {
         write!(
             f,
             "did:webplus:{}:{}?{}{}",
-            self.host, self.self_signature, self.query, self.fragment
+            self.host, self.self_hash, self.query, self.fragment
         )
     }
 }
@@ -29,7 +29,7 @@ impl<F: Fragment> std::str::FromStr for DIDWebplusWithQueryAndFragment<F> {
             return Err(Error::Malformed("DID method is not 'webplus'"));
         }
         let host = did_uri_components.host.to_string();
-        let self_signature = selfsign::KERISignature::from_str(did_uri_components.path)?;
+        let self_hash = selfhash::KERIHash::from_str(did_uri_components.path)?;
         if did_uri_components.query_o.is_none() {
             return Err(Error::Malformed("DID query is missing"));
         }
@@ -40,7 +40,7 @@ impl<F: Fragment> std::str::FromStr for DIDWebplusWithQueryAndFragment<F> {
         let fragment = DIDWebplusFragment::from_str(did_uri_components.fragment_o.unwrap())?;
         Ok(Self {
             host,
-            self_signature,
+            self_hash,
             query,
             fragment,
         })

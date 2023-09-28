@@ -33,6 +33,11 @@ impl TryFrom<&dyn selfsign::Verifier> for PublicKeyParamsOKP {
                     x: public_key_base64.to_string(),
                 })
             }
+            _ => {
+                return Err(Error::Unrecognized(
+                    "public key type not supported for PublicKeyParamsOKP",
+                ))
+            }
         }
     }
 }

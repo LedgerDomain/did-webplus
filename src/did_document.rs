@@ -6,12 +6,12 @@ use crate::{DIDWebplus, Error, NonRootDIDDocument, PublicKeyMaterial, RootDIDDoc
 /// simply allows the value to either be owned or borrowed, which assists in minimizing unnecessary
 /// allocations.
 #[derive(Clone, Debug, Eq, derive_more::From, PartialEq)]
-pub enum DIDDocument<'a> {
-    Root(Cow<'a, RootDIDDocument>),
-    NonRoot(Cow<'a, NonRootDIDDocument>),
+pub enum DIDDocument<'d> {
+    Root(Cow<'d, RootDIDDocument>),
+    NonRoot(Cow<'d, NonRootDIDDocument>),
 }
 
-impl<'a> DIDDocument<'a> {
+impl<'d> DIDDocument<'d> {
     pub fn into_owned(self) -> DIDDocument<'static> {
         match self {
             Self::Root(root_did_document) => {
@@ -31,28 +31,28 @@ impl<'a> DIDDocument<'a> {
         matches!(self, Self::NonRoot(_))
     }
     /// Returns Some(_) if this is a root DID document, otherwise None.
-    pub fn as_root_did_document(&self) -> Option<Cow<'a, RootDIDDocument>> {
+    pub fn as_root_did_document(&self) -> Option<Cow<'d, RootDIDDocument>> {
         match self {
             Self::Root(root_did_document) => Some(root_did_document.clone()),
             Self::NonRoot(_) => None,
         }
     }
     /// Returns Some(_) if this is a non-root DID document, otherwise None.
-    pub fn as_non_root_did_document(&self) -> Option<Cow<'a, NonRootDIDDocument>> {
+    pub fn as_non_root_did_document(&self) -> Option<Cow<'d, NonRootDIDDocument>> {
         match self {
             Self::Root(_) => None,
             Self::NonRoot(non_root_did_document) => Some(non_root_did_document.clone()),
         }
     }
     /// Returns Some(_) if this is a root DID document, otherwise None.
-    pub fn into_root_did_document(self) -> Option<Cow<'a, RootDIDDocument>> {
+    pub fn into_root_did_document(self) -> Option<Cow<'d, RootDIDDocument>> {
         match self {
             Self::Root(root_did_document) => Some(root_did_document),
             Self::NonRoot(_) => None,
         }
     }
     /// Returns Some(_) if this is a non-root DID document, otherwise None.
-    pub fn into_non_root_did_document(self) -> Option<Cow<'a, NonRootDIDDocument>> {
+    pub fn into_non_root_did_document(self) -> Option<Cow<'d, NonRootDIDDocument>> {
         match self {
             Self::Root(_) => None,
             Self::NonRoot(non_root_did_document) => Some(non_root_did_document),
@@ -65,6 +65,15 @@ impl<'a> DIDDocument<'a> {
             Self::NonRoot(non_root_did_document) => &non_root_did_document.id,
         }
     }
+    // NOTE: This assumes this DIDDocument is self-hashed.
+    pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
+        match self {
+            Self::Root(root_did_document) => root_did_document.self_hash_o.as_ref().unwrap(),
+            Self::NonRoot(non_root_did_document) => {
+                non_root_did_document.self_hash_o.as_ref().unwrap()
+            }
+        }
+    }
     // NOTE: This assumes this DIDDocument is self-signed.
     pub fn self_signature(&self) -> &selfsign::KERISignature<'static> {
         match self {
@@ -74,11 +83,11 @@ impl<'a> DIDDocument<'a> {
             }
         }
     }
-    pub fn prev_did_document_self_signature_o(&self) -> Option<&selfsign::KERISignature<'static>> {
+    pub fn prev_did_document_self_hash_o(&self) -> Option<&selfhash::KERIHash<'static>> {
         match self {
             Self::Root(_) => None,
             Self::NonRoot(non_root_did_document) => {
-                Some(&non_root_did_document.prev_did_document_self_signature)
+                Some(&non_root_did_document.prev_did_document_self_hash)
             }
         }
     }
@@ -100,18 +109,38 @@ impl<'a> DIDDocument<'a> {
             Self::NonRoot(non_root_did_document) => &non_root_did_document.public_key_material,
         }
     }
-    pub fn verify_self_signatures<'s, 'b: 's>(
-        &'b self,
-    ) -> Result<&'s dyn selfsign::Signature, Error> {
-        use selfsign::SelfSignable;
+    pub fn verify_nonrecursive(
+        &self,
+        expected_prev_did_document_o: Option<DIDDocument>,
+    ) -> Result<&selfhash::KERIHash<'static>, Error> {
         match self {
-            // Self::Root(root_did_document) => root_did_document.verify_self_signatures::<'s, 'b>(),
-            Self::Root(root_did_document) => root_did_document
-                .verify_self_signatures()
-                .map_err(|e| Error::InvalidSelfSignature(e)),
-            Self::NonRoot(non_root_did_document) => non_root_did_document
-                .verify_self_signatures()
-                .map_err(|e| Error::InvalidSelfSignature(e)),
+            Self::Root(root_did_document) => {
+                if expected_prev_did_document_o.is_some() {
+                    return Err(Error::Malformed(
+                        "Root DID document cannot have a previous DID document.",
+                    ));
+                }
+                root_did_document.verify_nonrecursive()
+            }
+            Self::NonRoot(non_root_did_document) => {
+                if expected_prev_did_document_o.is_none() {
+                    return Err(Error::Malformed(
+                        "Non-root DID document must have a previous DID document.",
+                    ));
+                }
+                non_root_did_document.verify_nonrecursive(expected_prev_did_document_o.unwrap())
+            }
+        }
+    }
+    pub fn verify_self_signatures_and_hashes<'a, 'b: 'a>(
+        &'b self,
+    ) -> Result<(&'a dyn selfsign::Signature, &'a dyn selfhash::Hash), &'static str> {
+        use selfsign::SelfSignAndHashable;
+        match self {
+            Self::Root(root_did_document) => root_did_document.verify_self_signatures_and_hashes(),
+            Self::NonRoot(non_root_did_document) => {
+                non_root_did_document.verify_self_signatures_and_hashes()
+            }
         }
     }
     // TEMP HACK

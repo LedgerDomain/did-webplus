@@ -290,11 +290,13 @@ impl Microledger {
     pub fn update_as_controller(
         &mut self,
         did_document_update_params: DIDDocumentUpdateParams,
+        hasher_b: Box<dyn selfhash::Hasher>,
         signer: &dyn selfsign::Signer,
     ) -> Result<(), Error> {
         let non_root_did_document = NonRootDIDDocument::update_from_previous(
             self.latest_did_document(),
             did_document_update_params,
+            hasher_b,
             signer,
         )?;
         self.update_from_non_root_did_document(non_root_did_document)

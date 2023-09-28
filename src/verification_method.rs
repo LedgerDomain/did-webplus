@@ -46,7 +46,7 @@ impl VerificationMethod {
                 "VerificationMethod id host does not match controller host",
             ));
         }
-        if self.id.self_signature != self.controller.self_signature {
+        if self.id.self_hash != self.controller.self_hash {
             return Err(Error::Malformed(
                 "VerificationMethod id self-signature component does not match controller self-signature component",
             ));
@@ -67,35 +67,29 @@ impl VerificationMethod {
 
         Ok(())
     }
-    pub fn root_did_document_self_signature_oi<'a, 'b: 'a>(
+    pub fn root_did_document_self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfsign::Signature>> + 'a> {
-        let mut iter_chain: Box<
-            dyn std::iter::Iterator<Item = Option<&dyn selfsign::Signature>> + 'a,
-        > = Box::new(
-            std::iter::once(Some(&self.id.self_signature as &dyn selfsign::Signature)).chain(
-                std::iter::once(Some(
-                    &self.controller.self_signature as &dyn selfsign::Signature,
-                )),
-            ),
-        );
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> {
+        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> =
+            Box::new(
+                std::iter::once(Some(&self.id.self_hash as &dyn selfhash::Hash)).chain(
+                    std::iter::once(Some(&self.controller.self_hash as &dyn selfhash::Hash)),
+                ),
+            );
         // iter_chain = Box::new(iter_chain);
         if let Some(kid) = self.public_key_jwk.kid_o.as_ref() {
-            iter_chain = Box::new(iter_chain.chain(std::iter::once(Some(
-                &kid.self_signature as &dyn selfsign::Signature,
-            ))));
+            iter_chain = Box::new(
+                iter_chain.chain(std::iter::once(Some(&kid.self_hash as &dyn selfhash::Hash))),
+            );
         }
         iter_chain
     }
-    pub fn set_root_did_document_self_signature_slots_to(
-        &mut self,
-        signature: &dyn selfsign::Signature,
-    ) {
-        let keri_signature = signature.to_keri_signature().into_owned();
-        self.id.self_signature = keri_signature.clone();
-        self.controller.self_signature = keri_signature.clone();
+    pub fn set_root_did_document_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
+        let keri_hash = hash.to_keri_hash().into_owned();
+        self.id.self_hash = keri_hash.clone();
+        self.controller.self_hash = keri_hash.clone();
         if let Some(kid) = self.public_key_jwk.kid_o.as_mut() {
-            kid.self_signature = keri_signature;
+            kid.self_hash = keri_hash;
         }
     }
 }

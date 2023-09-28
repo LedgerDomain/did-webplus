@@ -7,6 +7,8 @@ use did_webplus::{
     DIDDocument, DIDDocumentCreateParams, DIDDocumentMetadata, DIDDocumentUpdateParams, DIDWebplus,
     Error, Microledger, NonRootDIDDocument, PublicKeySet, RootDIDDocument,
 };
+use selfhash::HashFunction;
+use selfsign::SelfSignAndHashable;
 
 #[test]
 #[serial_test::serial]
@@ -32,11 +34,13 @@ fn test_root_did_document_self_sign() {
                 capability_delegation_v: vec![&ed25519_verifying_key_0],
             },
         },
+        &selfhash::Blake3,
         &ed25519_signing_key_1,
     )
     .expect("pass");
-    use selfsign::SelfSignable;
-    root_did_document.verify_self_signatures().expect("pass");
+    root_did_document
+        .verify_self_signatures_and_hashes()
+        .expect("pass");
 
     println!(
         "root did_document:\n{}",
@@ -68,6 +72,7 @@ fn test_did_document_verification() {
                 capability_delegation_v: vec![&ed25519_verifying_key_0],
             },
         },
+        &selfhash::Blake3,
         &ed25519_signing_key_1,
     )
     .expect("pass");
@@ -75,8 +80,9 @@ fn test_did_document_verification() {
         "did_document_0:\n{}",
         serde_json::to_string_pretty(&did_document_0).unwrap()
     );
-    use selfsign::SelfSignable;
-    did_document_0.verify_self_signatures().expect("pass");
+    did_document_0
+        .verify_self_signatures_and_hashes()
+        .expect("pass");
     did_document_0.verify_nonrecursive().expect("pass");
 
     // Now create a second DID document, which is a non-root DID document.  Create another key to be rotated in.
@@ -94,6 +100,7 @@ fn test_did_document_verification() {
                 capability_delegation_v: vec![&ed25519_verifying_key_2],
             },
         },
+        selfhash::Blake3.new_hasher(),
         &ed25519_signing_key_1,
     )
     .expect("pass");
@@ -101,7 +108,9 @@ fn test_did_document_verification() {
         "did_document_1:\n{}",
         serde_json::to_string_pretty(&did_document_1).unwrap()
     );
-    did_document_1.verify_self_signatures().expect("pass");
+    did_document_1
+        .verify_self_signatures_and_hashes()
+        .expect("pass");
     did_document_1
         .verify_nonrecursive(DIDDocument::from(&did_document_0))
         .expect("pass");
@@ -125,6 +134,7 @@ fn test_did_document_verification() {
                 capability_delegation_v: vec![&ed25519_verifying_key_2],
             },
         },
+        selfhash::Blake3.new_hasher(),
         &ed25519_signing_key_attacker,
     )
     .expect_err("pass");
@@ -165,11 +175,13 @@ fn test_signature_generation() {
                     capability_delegation_v: vec![&ed25519_verifying_key],
                 },
             },
+            &selfhash::Blake3,
             &ed25519_signing_key,
         )
         .expect("pass");
-        use selfsign::SelfSignable;
-        did_document_0.verify_self_signatures().expect("pass");
+        did_document_0
+            .verify_self_signatures_and_hashes()
+            .expect("pass");
         let did = did_document_0.id.clone();
         println!(
             "root did_document:\n{}",
@@ -187,7 +199,7 @@ fn test_signature_generation() {
             .with_query(format!(
                 "versionId={}&hl={}",
                 did_document_0.version_id,
-                did_document_0.self_signature_o.as_ref().unwrap()
+                did_document_0.self_hash_o.as_ref().unwrap()
             ));
         ed25519_priv_jwk.key_id = Some(did_webplus_with_query_and_key_id_fragment.to_string());
         // Sign stuff.
@@ -237,6 +249,7 @@ fn test_microledger() {
                         capability_delegation_v: vec![&ed25519_verifying_key_0],
                     },
                 },
+                &selfhash::Blake3,
                 &ed25519_signing_key_0,
             )
             .expect("pass"),
@@ -280,6 +293,7 @@ fn test_microledger() {
                         capability_delegation_v: vec![&ed25519_verifying_key_0],
                     },
                 },
+                selfhash::Blake3.new_hasher(),
                 &ed25519_signing_key_0,
             )
             .expect("pass");
@@ -704,6 +718,7 @@ impl MockWallet {
                         .collect(),
                 },
             },
+            &selfhash::Blake3,
             did_document_signer,
         )?;
         // Register the DID with the VDR.  The VDR mostly only has authority over if creation of a DID
@@ -767,6 +782,7 @@ impl MockWallet {
                         .collect(),
                 },
             },
+            selfhash::Blake3.new_hasher(),
             self.capability_invocation_signer(),
         )?;
         self.mock_vdr_la
