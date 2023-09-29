@@ -18,238 +18,115 @@ The `did:web` DID method is simple and easy enough to implement using web2 techn
 
 The `did:webplus` DID method described and prototyped in this git repository is an effort to create a balanced, fit-for-purpose extension of `did:web` that provides stronger guarantees with a moderate implementation lift. (Note that there is no formal promise that `did:webplus` is actually directly compatible with `did:web`, just that `did:web` was the initial inspiration.)
 
+## Data Model
+
 Briefly, the idea is that each DID has an associated microledger of DID documents, with each DID document referencing the self-signature of the previous DID document.  The microledger is intended to be immutable, append-only, and allow updates only from authorized parties.  It provides a totally-ordered sequence of DID documents whose validity durations are non-overlapping. This is accomplished by the use of successive validFrom dates, as outlined in more detail below.
 -   General structure and constraints on all DID documents
     -   Each DID document has an "id" field which defines the DID itself.
-    -   Each DID document is self-signed, having fields "selfSignature" and "selfSignatureVerifier" which define the signature and the public key that verifies the self-signature.  The process for verifying a self-signature is explained [in the `selfsign` crate readme](https://github.com/LedgerDomain/selfsign).
+    -   Each DID document is self-signed-and-hashed, producing fields "selfSignature", "selfSignatureVerifier", and "selfHash".  The self-signing-and-hashing procedure is:
+        -   Set all self-hash slots to the appropriate placeholder.
+        -   Self-sign (this is explained [in the `selfsign` crate readme](https://github.com/LedgerDomain/selfsign)).This populates all self-signature and self-signature verifier slots.
+        -   Self-hash (this is explained [in the `selfhash` crate readme](https://github.com/LedgerDomain/selfhash)).
     -   Each DID document has a "versionId" field, which starts at 0 upon DID creation and increases by 1 with each update.
     -   Each DID document has a "validFrom" field, defining the timestamp at which the DID document becomes current.
     -   The fragments defining the key IDs for each public key in the DID document are derived from the public keys themselves, using conventions found in KERI (a prefix indicating the key type, then the base64-encoding of the public key bytes).
--   The first DID document in the microledger, called the root DID document, contains a self-signature which forms part of the DID itself. This ties the DID to its root DID document, and prevents alterations to the root DID document.
+-   The first DID document in the microledger, called the root DID document, contains a self-hash which forms part of the DID itself. This binds the DID to the content of its root DID document, and prevents alterations to the root DID document.
     -   The root DID document has its "versionId" field set to 0,
-    -   The root DID document's "prevDIDDocumentSelfSignature" field is omitted to indicate that there is no previous DID document.
+    -   The root DID document's "prevDIDDocumentSelfHash" field is omitted to indicate that there is no previous DID document.
     -   The self-signature on the root DID document includes all occurrences of the DID throughout the DID document.  This translates to having multiple "self-signature slots" as described [in the `selfsign` crate readme](https://github.com/LedgerDomain/selfsign).
     -   The root DID document's "selfSignatureVerifier" field must correspond to one of the public keys listed in the "capabilityInvocation" field of the root DID document itself.  This field defines which keys are authorized to update this DID's DID document, and in the case of the root DID document, it establishes an initial self-consistency for that authority.
 -   Each DID document following the root DID document must obey strict constraints in order to provide the guarantees of the microledger.  In particular:
-    -   The "prevDIDDocumentSelfSignature" field of a DID document must be equal to the "selfSignature" field of the DID document immediately preceding it in the microledger.
+    -   The "prevDIDDocumentSelfHash" field of a DID document must be equal to the "selfHash" field of the DID document immediately preceding it in the microledger.
     -   The "validFrom" field of a DID document must be later than that of the DID document immediately preceding it in the microledger.
     -   The "versionId" field of a DID document must be equal to 1 plus that of the DID document immediately preceding it in the microledger.
-    -   The DID document must be self-signed, though this self-signature only involves the "selfSignature" field, and not the portions of the DID (once the DID has been determined from the self-signature on the root DID document, it doesn't ever change).
+    -   The DID document must be self-signed-and-hashed, though this self-signature and self-hash only involves the "selfSignature", "selfSignatureVerifier", and "selfHash" fields, and not the portions of the DID -- once the DID has been determined from the self-hash on the root DID document, it doesn't ever change.
     -   The "selfSignatureVerifier" field must correspond to one of the public keys listed in the previous DID document's "capabilityInvocation", since the previous DID document is what defines authorization to update the DID's DID document.
--   Signatures produced by the DID controller (e.g. in JWS or when signing Verifiable Credentials) must include the following query params in the DID fragment which specifies the signing key.  The inclusion of these values makes commitments about the content of the microledger in data that is external to the `did:webplus` host, and therefore prevents certain modes of altering/forging DID document data.  See https://www.w3.org/TR/did-core/#did-parameters for a definition of the query params.
-    -   `versionId`: specifies the `versionId` value of the most recent DID document.
-    -   `versionTime`: specifies the `validFrom` timestamp of the most recent DID document (though the DID spec makes it unclear if this can be any time within the validity duration of the DID document).
-    -   `hl`: specifies the "selfSignature" field value of the most recent DID document.  This provides verifiable content integrity.
 
-As outlined above, the validity duration applies to each DID document, and extends from the "validFrom" timestamp in the DID document until that DID document has been supplanted by the following DID document. If a DID document is the most recent, then its validity duration is extended through "now," and does not have a specified "validUntil" (expiration) timestamp. The validity duration is meant to assign to each timestamp a unique DID document from the sequence of DID documents for a DID, for the purposes of unambiguous historical DID document resolution.  The [DID document metadata](https://www.w3.org/TR/did-core/#did-document-metadata) returned as part of DID resolution helps in reasoning about this.
+As outlined above, the validity duration applies to each DID document, and extends from the "validFrom" timestamp in the DID document until that DID document has been supplanted by the following DID document. If a DID document is the most recent, then its validity duration is extended through "now" and does not have a specified "validUntil" (expiration) timestamp. The validity duration is meant to assign to each timestamp a unique DID document from the sequence of DID documents for a DID, for the purposes of unambiguous historical DID document resolution.  The [DID document metadata](https://www.w3.org/TR/did-core/#did-document-metadata) returned as part of DID resolution helps in reasoning about this.
 
-## Example 1 -- Microledger
+## Verifiable Data Registry (VDR)
 
-Root DID document:
-```
-{
-    "id": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-    "selfSignature": "0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-    "selfSignatureVerifier": "DvFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY",
-    "validFrom": "2023-09-16T10:21:01.786453967Z",
-    "versionId": 0,
-    "verificationMethod": [
-        {
-            "id": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DvFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY",
-            "type": "JsonWebKey2020",
-            "controller": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-            "publicKeyJwk": {
-                "kid": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DvFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY",
-                "kty": "OKP",
-                "crv": "ed25519",
-                "x": "vFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY"
-            }
-        },
-        {
-            "id": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs",
-            "type": "JsonWebKey2020",
-            "controller": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-            "publicKeyJwk": {
-                "kid": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs",
-                "kty": "OKP",
-                "crv": "ed25519",
-                "x": "UjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs"
-            }
-        }
-    ],
-    "authentication": [
-        "#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs"
-    ],
-    "assertionMethod": [
-        "#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs"
-    ],
-    "keyAgreement": [
-        "#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs"
-    ],
-    "capabilityInvocation": [
-        "#DvFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY"
-    ],
-    "capabilityDelegation": [
-        "#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs"
-    ]
-}
-```
+A Verifiable Data Registry in the context of `did:webplus` is a web host which hosts DID documents on behalf of DID controllers.  A DID controller determine the content of each DID document, producing a self-signature over each DID document to prove valid authorship, whereas the VDR verifies DID creation and DID updates and serves DID documents to clients performing DID resolution.  Thus a DID controller is the author of a DID, but the VDR is the origin of the DID's documents.
 
-Next DID document:
-```
-{
-    "id": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-    "selfSignature": "0BuaqoFcnaDd8inWxgpAo_Csf8XtrkiYtIuLFM909ltsuqknT4keMSUb-6rjz_OlRYFMfG5FBqLknTOUTb5LaYCA",
-    "selfSignatureVerifier": "DvFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY",
-    "prevDIDDocumentSelfSignature": "0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-    "validFrom": "2023-09-16T10:21:01.812269695Z",
-    "versionId": 1,
-    "verificationMethod": [
-        {
-            "id": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs",
-            "type": "JsonWebKey2020",
-            "controller": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-            "publicKeyJwk": {
-                "kid": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs",
-                "kty": "OKP",
-                "crv": "ed25519",
-                "x": "UjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs"
-            }
-        },
-        {
-            "id": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DB2unMZjQsuLWQJ74QvXoi7UfRaRU4gNUrvlhLLZBoZ8",
-            "type": "JsonWebKey2020",
-            "controller": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-            "publicKeyJwk": {
-                "kid": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DB2unMZjQsuLWQJ74QvXoi7UfRaRU4gNUrvlhLLZBoZ8",
-                "kty": "OKP",
-                "crv": "ed25519",
-                "x": "B2unMZjQsuLWQJ74QvXoi7UfRaRU4gNUrvlhLLZBoZ8"
-            }
-        },
-        {
-            "id": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DvFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY",
-            "type": "JsonWebKey2020",
-            "controller": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw",
-            "publicKeyJwk": {
-                "kid": "did:webplus:example.com:0BYk_3ULiEHZWiNSbsfPlfVFRUmkVnUsMWNmYYr_ZH6E6iiXV3DV02eWIGOr8GvLSKKvSNzOEC_rLrVuDrbt7IDw#DvFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY",
-                "kty": "OKP",
-                "crv": "ed25519",
-                "x": "vFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY"
-            }
-        }
-    ],
-    "authentication": [
-        "#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs",
-        "#DB2unMZjQsuLWQJ74QvXoi7UfRaRU4gNUrvlhLLZBoZ8"
-    ],
-    "assertionMethod": [
-        "#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs"
-    ],
-    "keyAgreement": [
-        "#DUjVX2eKAYGn0ytKNjB4acslBDZC05IGVcbsfkLU1GFs"
-    ],
-    "capabilityInvocation": [
-        "#DvFxiJCFQO0mih6KURzVxlNlvtcav19a40u_dBp_Z-HY"
-    ],
-    "capabilityDelegation": [
-        "#DB2unMZjQsuLWQJ74QvXoi7UfRaRU4gNUrvlhLLZBoZ8"
-    ]
-}
-```
+## Long-Term Non-Repudiability via Witnessing Schemes
 
-## Example 2 -- Signature committing to a particular DID document
+Among the central goals of `did:webplus` is long-term non-repudiability, meaning that DID microledgers should be immutable and un-forkable, and should be resolvable for an indefinite amount of time.  Put differently, altering an existing DID document should be detectable and preventable, deleting a DID document should not be practically possible, and discontinuation of a Verifiable Data Registry (VDR) hosting a DID should not result in loss of the associated DID microledger.
 
-Root DID document:
-```
-{
-    "id": "did:webplus:example.com:0B2LYBZ06Bn0dq7ALo3kG5ie20sQKvv7yzmbA8KtKExC4PRiZ2io-hPxxOy-mQ2qb4yuGdAK0eKvipqcBlZSArDg",
-    "selfSignature": "0B2LYBZ06Bn0dq7ALo3kG5ie20sQKvv7yzmbA8KtKExC4PRiZ2io-hPxxOy-mQ2qb4yuGdAK0eKvipqcBlZSArDg",
-    "selfSignatureVerifier": "DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4",
-    "validFrom": "2023-09-16T11:15:48.139470452Z",
-    "versionId": 0,
-    "verificationMethod": [
-        {
-            "id": "did:webplus:example.com:0B2LYBZ06Bn0dq7ALo3kG5ie20sQKvv7yzmbA8KtKExC4PRiZ2io-hPxxOy-mQ2qb4yuGdAK0eKvipqcBlZSArDg#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4",
-            "type": "JsonWebKey2020",
-            "controller": "did:webplus:example.com:0B2LYBZ06Bn0dq7ALo3kG5ie20sQKvv7yzmbA8KtKExC4PRiZ2io-hPxxOy-mQ2qb4yuGdAK0eKvipqcBlZSArDg",
-            "publicKeyJwk": {
-                "kid": "did:webplus:example.com:0B2LYBZ06Bn0dq7ALo3kG5ie20sQKvv7yzmbA8KtKExC4PRiZ2io-hPxxOy-mQ2qb4yuGdAK0eKvipqcBlZSArDg#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4",
-                "kty": "OKP",
-                "crv": "ed25519",
-                "x": "tDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4"
-            }
-        }
-    ],
-    "authentication": [
-        "#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4"
-    ],
-    "assertionMethod": [
-        "#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4"
-    ],
-    "keyAgreement": [
-        "#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4"
-    ],
-    "capabilityInvocation": [
-        "#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4"
-    ],
-    "capabilityDelegation": [
-        "#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4"
-    ]
-}
-```
+By itself, a `did:webplus` VDR could delete DID documents, thereby violating the requirement for long-term non-repudiability and availability.  If the VDR colludes with a DID controller, a DID microledger could be altered by forking it at a certain point in its history.  This violates non-repudiability, immutability, and un-forkability of DID microledgers.  Thus a `did:webplus` VDR alone is not sufficient to guarantee the desired properties.
 
-JWS (signature using `#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4` over message `"HIPPOS are much better than OSTRICHES"`):
-```
-eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmV4YW1wbGUuY29tOjBCMkxZQlowNkJuMGRxN0FMbzNrRzVpZTIwc1FLdnY3eXptYkE4S3RLRXhDNFBSaVoyaW8taFB4eE95LW1RMnFiNHl1R2RBSzBlS3ZpcHFjQmxaU0FyRGc_dmVyc2lvbklkPTAmaGw9MEIyTFlCWjA2Qm4wZHE3QUxvM2tHNWllMjBzUUt2djd5em1iQThLdEtFeEM0UFJpWjJpby1oUHh4T3ktbVEycWI0eXVHZEFLMGVLdmlwcWNCbFpTQXJEZyNEdER5RldCN1BENUxiS0tjQVlpbV9iV3ZUZldrbExTR2NSdzl1b20wUHBXNCIsImNyaXQiOlsiYjY0Il0sImI2NCI6ZmFsc2V9..bWzUku77WvcUo0wP22kPBEAJmCOK4R5Vj45mMv_8p83PMav704QE-Et34VWQlaJeqi5KBFoGlJDcVtdt7M24CA
-```
+To this end, a couple of "witnessing" schemes are presented.
 
-The header of the above JWS is as follows.  Note that the key ID specified by the header commits to the versionId and hl ("selfSignature" field value) of the DID document, so that the DID's microledger is anchored in two places: (1) the root DID document (by virtue of the self-signature embedded in the DID itself) and (2) the JWS below (which is witnessed by some party and therefore is a commitment represented outside of the VDR for the DID).
-```
-{
-    "alg": "EdDSA",
-    "kid": "did:webplus:example.com:0B2LYBZ06Bn0dq7ALo3kG5ie20sQKvv7yzmbA8KtKExC4PRiZ2io-hPxxOy-mQ2qb4yuGdAK0eKvipqcBlZSArDg?versionId=0&hl=0B2LYBZ06Bn0dq7ALo3kG5ie20sQKvv7yzmbA8KtKExC4PRiZ2io-hPxxOy-mQ2qb4yuGdAK0eKvipqcBlZSArDg#DtDyFWB7PD5LbKKcAYim_bWvTfWklLSGcRw9uom0PpW4",
-    "crit": [
-        "b64"
-    ],
-    "b64": false
-}
-```
+### Verifiable Data Gateway (VDG)
+
+A Verifiable Data Gateway is meant to be a realtime replica of potentially many VDRs.  A VDG retrieves, verifies, and stores all DID microledgers within some scope of interest.  This scope could be, for example, all VDRs operating within a certain industry subject to strict long-term audit regulations.  A VDG can also service DID resolution requests on behalf of users that choose to trust it.  A VDG serves several purposes:
+-   A VDG is a long-term backup of all DID microledgers within the scope of interest, thereby meeting the need for long-term non-repudiability and resolvability.  A VDG is meant to be a highly available and robust service, and therefore be a bulwhark against VDR service outages.
+-   A VDG acts as an external witness to DID creation and updates, verifying each operation, and can identify when an attempt is made to fork a DID.  In this case, some governance mechanism (which is out of the scope of this document) should be invoked to respond to the illegal DID operation.
+-   A VDG tracks each DID microledger within the scope of interest and verifies updates to each DID microledger incrementally.  A user who chooses to trust a VDG can then achieve constant-time DID resolution by use of that VDG.  Furthermore, because the VDG handles verification of DID microledgers on behalf of the user, the user can employ a "light client" whose DID resolution process is basically identical to that of `did:web`, making for a form of backward compatibility with `did:web`.  The notable difference is the importance of the DID query parameters which must be used in signatures.
+
+It is highly recommended that `did:webplus` be used with a VDG, so as to provide the strong guarantees outlined above.
+
+Several different possible implementations have been proposed for a VDG, including:
+-   A database-backed web service.
+-   A git-based snapshot system.
+-   An IPFS-backed service.  Note however that this would require using plain hashes for DID documents, instead of using self-hashes, as is currently done in `did:webplus`.
+
+Related discussion:
+-   https://github.com/LedgerDomain/did-webplus/issues/8
+
+### Limited Witnessing via Signatures
+
+Signatures produced by the DID controller (e.g. in JWS or when signing Verifiable Credentials) must include the following query params in the DID fragment which specifies the signing key.  The inclusion of the required query params acts as a limited witness to the DID document, i.e. it makes a commitment about the content of the current DID document in a place that is external to the `did:webplus` VDR.  In a limited way, this partially mitigates certain modes of altering/forging DID document data.  See https://www.w3.org/TR/did-core/#did-parameters for a definition of some of the query params.
+-   `selfHash`: required - specifies the `selfHash` field value of the most current DID document as of signing.  This provides verifiable content integrity.
+-   `versionId`: required - specifies the `versionId` field value of the current DID document as of signing.
+-   `versionTime`: optional - specifies the timestamp at which this signature was generated.  The signing key must be present in the current DID document as of signing.  This query param is useful when the signed content does not itself contain the signature timestamp.  See https://www.w3.org/TR/xmlschema11-2/#dateTime regarding the format -- note in particular that it requires millisecond precision.
+
+This form of witnessing binds the DID microledger at the time of signing in places external to both the VDR and the VDG, and therefore plays an important role in strengthening the `did:webplus` method.
+
+## Locally Verified Cache for DID Resolvers
+
+An agent using a DID resolver (e.g. a client that needs to verify signatures, credentials, presentations, etc) can retrieve, verify, and store their own replicas of relevant DID microledgers.  In this way they have their own private VDG, which acts as a "private" witness, and therefore can detect forked DIDs.  Furthermore, it has a local copy of DID microledgers against which it can do historical DID resolution fully offline.
+
+Determining if a given DID document is the latest DID document, however, still requires querying the DID's VDR, and therefore can't be done offline.  This is needed if, for example, the DID controller needs to authenticate in realtime.
+
+## Examples
+
+-   [Creating and Updating a DID](doc/example-creating-and-updating-a-did.md)
+-   [Signature Generation With Witness](doc/example-signature-generation-with-witness.md)
 
 ## Strengths/Weaknesses
 
--   **Strength:** The root DID document of a given DID can't be altered (i.e. it's computationally infeasible to alter), due to the use of a self-signature to form a portion of the DID itself.
--   **Weakness:** It is possible for a non-root DID document to branch the DID document, but it requires the VDR sysadmin and the DID controller to collude -- the DID controller to produce the forked DID document, the VDR to agree to replace the existing DID document with the forked one.  This is obviously easier if they're the same person.  However, if the DID controller has produced any signatures that have been witnessed by others, then this could be detected (see below).
--   **Strength:** In principle it is possible to detect a forked DID microledger (i.e. where the VDR sysadmin and the DID controller collude to alter or otherwise provide a fraudulent DID document) simply by witnessing two verified signatures from the same DID where the signature `kid` includes the same `versionId` query param value but different `hl` query param values.
--   **Weakness:** It is possible for the VDR sysadmin to delete any number of DID documents, thereby weakening non-repudiability.
-
-Keeping a full mirror of the contents of a VDR would be an effective way to address the described weaknesses, but would require a "backup DID document resolution" step in the implementation of the DID method.  This is discussed a bit [here](https://github.com/LedgerDomain/did-webplus/issues/2#issuecomment-1709266483).  Ultimately, having a kind of mirroring-and-verifying gateway, which could pull potentially many `did:webplus` VDRs' content, would be a positive feature and would add robustness to the DID method.
+-   **Strength:** The root DID document of a given DID can't be altered (i.e. it's computationally infeasible to alter), due to the use of the self-hash which forms a portion of the DID itself.  This commits the DID to the content of its root DID document.
+-   **Weakness:** If a VDG is not used, it is possible for a DID to be forked (i.e. have two parallel "histories") which would violate the non-repudiation requirement.  However, this requires the VDR sysadmin and the DID controller to collude -- the DID controller to produce the forked DID document, the VDR to agree to replace the existing DID document with the forked one.  This is obviously easier if they're the same entity (e.g. the DID controller hosting their own VDR).  However, if the DID controller has produced any signatures that have been witnessed by others, then this could be detected (see below).
+-   **Strength:** If one of the witnessing schemes is used (especially a VDG), then a forked DID microledger will be detected.  Governance actions can be taken against the offending DID and/or VDR.
+-   **Weakness:** If a VDG is not used, it is possible for the VDR sysadmin to delete any number of DID documents, have a service outage, or even go offline permanently, thereby weakening non-repudiability.
+-   **Strength:** Using a locally verified cache allows for historical DID resolution to happen offline, and therefore frequently used DIDs can resolve with very low latency.
 
 ## Comparison of classes of DID method.
 
 `did:web` is a weak DID method.  `did:ethr` has been chosen to generally represent a "strong" DID method, though there are others that don't necessarily involve cryptocurrency.  `did:webplus` is meant to be a fit-for-purpose balance between strength and web2-oriented practicality, suited to meet the needs of regulated communities.
 
-TODO: Add a non-cryptocurrency-based DID method to the table.
+TODO: Add a non-cryptocurrency-based DID method to the table, e.g. `did:indy` or `did:sov`.
 
-|                                            | did:web | did:webplus | did:ethr |
-|--------------------------------------------|---------|-------------|----------|
-| DID doc resolution is "always" available   | ❌      | ❌*        | ✔️       |
-| VDR can't delete any existing DID doc      | ❌      | ❌         | ✔️       |
-| VDR can't alter any existing DID doc       | ❌      | ✔️         | ✔️       |
-| VDR won't allow collusion to branch a DID  | ❌      | ❌         | ✔️       |
-| Has unambiguous update authorization rules | ❌      | ✔️         | ✔️       |
-| Formal signature required to update        | ❌      | ✔️         | ✔️       |
-| Historical DID doc resolution              | ❌      | ✔️         | ✔️       |
-| Free of cryptocurrency                     | ✔️      | ✔️         | ❌       |
-| Practical to self-host VDR                 | ✔️      | ✔️         | ❌       |
-
-`*` If a mirror of a `did:webplus` VDR were kept, then it could serve to greatly increase service availability.
+| Feature                                    | did:web | did:webplus without VDG | did:webplus with VDG | did:ethr |
+|--------------------------------------------|---------|-------------------------|----------------------|----------|
+| DID doc resolution is always available     | ❌      | ❌                      | ✔️                    | ✔️        |
+| DID doc can't be deleted                   | ❌      | ❌                      | ✔️                    | ✔️        |
+| Root DID doc can't be altered              | ❌      | ✔️                       | ✔️                    | ✔️        |
+| Non-root DID doc can't be altered          | ❌      | ❌                      | ✔️                    | ✔️        |
+| Has unambiguous update authorization rules | ❌      | ✔️                       | ✔️                    | ✔️        |
+| Formal signature required to update        | ❌      | ✔️                       | ✔️                    | ✔️        |
+| Guaranteed historical DID doc resolution   | ❌      | ❌                      | ✔️                    | ✔️        |
+| Free of cryptocurrency                     | ✔️       | ✔️                       | ✔️                    | ❌       |
+| Practical to self-host VDR                 | ✔️       | ✔️                       | ✔️                    | ❌       |
+| Uses broadly adopted software technologies | ✔️       | ✔️                       | ✔️                    | ❌       |
+| Fully decentralized                        | ✔️       | ✔️                       | ❌                   | ✔️        |
 
 ## References
 
 -   [DID spec](https://www.w3.org/TR/did-core/)
+-   [`selfhash` crate, which provides self-hashing capabilities](https://github.com/LedgerDomain/selfhash)
 -   [`selfsign` crate, which provides self-signing capabilities](https://github.com/LedgerDomain/selfsign)
 
 ## Final Thoughts
 
-I'm looking for feedback on this work-in-progress.  Please email me at victor.dods@ledgerdomain.com with comments/questions.
+I'm looking for feedback on this work-in-progress.  Please post in the issues section of this Github repository.

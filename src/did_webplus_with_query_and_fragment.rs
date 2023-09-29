@@ -1,4 +1,7 @@
-use crate::{DIDURIComponents, DIDWebplusFragment, Error, Fragment};
+use crate::{
+    DIDURIComponents, DIDWebplusFragment, DIDWebplusWithFragment, DIDWebplusWithQuery, Error,
+    Fragment,
+};
 
 #[derive(
     Clone, Debug, serde_with::DeserializeFromStr, Eq, PartialEq, serde_with::SerializeDisplay,
@@ -8,6 +11,23 @@ pub struct DIDWebplusWithQueryAndFragment<F: Fragment> {
     pub self_hash: selfhash::KERIHash<'static>,
     pub query: String,
     pub fragment: DIDWebplusFragment<F>,
+}
+
+impl<F: Fragment> DIDWebplusWithQueryAndFragment<F> {
+    pub fn without_query(&self) -> DIDWebplusWithFragment<F> {
+        DIDWebplusWithFragment {
+            host: self.host.clone(),
+            self_hash: self.self_hash.clone(),
+            fragment: self.fragment.clone(),
+        }
+    }
+    pub fn without_fragment(&self) -> DIDWebplusWithQuery {
+        DIDWebplusWithQuery {
+            host: self.host.clone(),
+            self_hash: self.self_hash.clone(),
+            query: self.query.clone(),
+        }
+    }
 }
 
 impl<F: Fragment> std::fmt::Display for DIDWebplusWithQueryAndFragment<F> {
