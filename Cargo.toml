@@ -1,6 +1,7 @@
 [package]
 name = "did-webplus"
 version = "0.2.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
 
 [features]
@@ -38,4 +39,4 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
 
 [patch.crates-io]
 selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "730453ca2f13ad99fa712800a9f44fef9a9354ee" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "8773dabc82369d8f2ffe55e5635970b151722abb" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "bac1ef516397d81fd04b54eab8d60b5fe4852e0c" }
