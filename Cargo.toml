@@ -15,10 +15,9 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "from",
     "into",
 ] }
-selfhash = { version = "0.1", features = ["serde", "blake3"] }
-selfsign = { version = "0.2", features = ["serde"] }
+selfhash = { version = "0.1.1", features = ["serde", "blake3"] }
+selfsign = { version = "0.2.1", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json_canonicalizer = "0.2.0"
 serde_json = "1.0.106"
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
@@ -28,7 +27,7 @@ thiserror = { version = "1.0.47", default-features = false }
 [dev-dependencies]
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
 rand = "0.8"
-selfsign = { version = "0.2", features = ["ed25519-dalek"] }
+selfsign = { version = "0.2.1", features = ["ed25519-dalek"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [
@@ -39,5 +38,5 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
 ] }
 
 [patch.crates-io]
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "730453ca2f13ad99fa712800a9f44fef9a9354ee" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "bac1ef516397d81fd04b54eab8d60b5fe4852e0c" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "c7660e93a27dfcbcaf3652631badffa232c73e8a" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "2b1a894ad0af8349b1d20a3681ea39c34442d859" }

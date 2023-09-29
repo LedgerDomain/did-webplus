@@ -103,15 +103,8 @@ impl RootDIDDocument {
 }
 
 impl selfhash::SelfHashable for RootDIDDocument {
-    fn write_digest_data(&self, mut hasher: &mut dyn selfhash::Hasher) {
-        // NOTE: This is a generic JSON Canonicalization Scheme (JCS) serialization based implementation.
-        let mut c = self.clone();
-        c.set_self_hash_slots_to(hasher.hash_function().placeholder_hash());
-        // Use JCS to produce canonical output.  The `&mut hasher` ridiculousness is because
-        // serde_json_canonicalizer::to_writer uses a generic impl of std::io::Write and therefore
-        // implicitly requires the `Sized` trait.  Therefore passing in a reference to the reference
-        // achieves the desired effect.
-        serde_json_canonicalizer::to_writer(&c, &mut hasher).unwrap();
+    fn write_digest_data(&self, hasher: &mut dyn selfhash::Hasher) {
+        selfhash::write_digest_data_using_jcs(self, hasher);
     }
     fn self_hash_oi<'a, 'b: 'a>(
         &'b self,
@@ -140,21 +133,9 @@ impl selfsign::SelfSignable for RootDIDDocument {
         &self,
         signature_algorithm: &dyn selfsign::SignatureAlgorithm,
         verifier: &dyn selfsign::Verifier,
-        mut hasher: &mut dyn selfhash::Hasher,
+        hasher: &mut dyn selfhash::Hasher,
     ) {
-        assert!(verifier.key_type() == signature_algorithm.key_type());
-        assert!(signature_algorithm
-            .message_digest_hash_function()
-            .equals(hasher.hash_function()));
-        // NOTE: This is a generic JSON Canonicalization Scheme (JCS) serialization based implementation.
-        let mut c = self.clone();
-        c.set_self_signature_slots_to(&signature_algorithm.placeholder_keri_signature());
-        c.set_self_signature_verifier_slots_to(verifier);
-        // Use JCS to produce canonical output.  The `&mut hasher` ridiculousness is because
-        // serde_json_canonicalizer::to_writer uses a generic impl of std::io::Write and therefore
-        // implicitly requires the `Sized` trait.  Therefore passing in a reference to the reference
-        // achieves the desired effect.
-        serde_json_canonicalizer::to_writer(&c, &mut hasher).unwrap();
+        selfsign::write_digest_data_using_jcs(self, signature_algorithm, verifier, hasher);
     }
     fn self_signature_oi<'a, 'b: 'a>(
         &'b self,
