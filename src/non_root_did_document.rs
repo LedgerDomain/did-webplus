@@ -23,7 +23,7 @@ pub struct NonRootDIDDocument {
     pub self_signature_verifier_o: Option<selfsign::KERIVerifier<'static>>,
     /// This should be the self-signature field of the previous DID document.  This relationship is what forms
     /// the microledger.
-    #[serde(rename = "prevDIDDocumentSelfSignature")]
+    #[serde(rename = "prevDIDDocumentSelfHash")]
     pub prev_did_document_self_hash: selfhash::KERIHash<'static>,
     /// This defines the timestamp at which this DID document becomes valid.
     #[serde(rename = "validFrom")]
