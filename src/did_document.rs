@@ -91,7 +91,7 @@ impl<'d> DIDDocument<'d> {
             }
         }
     }
-    pub fn valid_from(&self) -> chrono::DateTime<chrono::Utc> {
+    pub fn valid_from(&self) -> time::OffsetDateTime {
         match self {
             Self::Root(root_did_document) => root_did_document.valid_from,
             Self::NonRoot(non_root_did_document) => non_root_did_document.valid_from,

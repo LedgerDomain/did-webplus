@@ -24,7 +24,7 @@ fn test_root_did_document_self_sign() {
     let root_did_document = RootDIDDocument::create(
         DIDDocumentCreateParams {
             did_webplus_host: "example.com".into(),
-            valid_from: chrono::Utc::now(),
+            valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![&ed25519_verifying_key_0],
                 assertion_method_v: vec![&ed25519_verifying_key_0],
@@ -62,7 +62,7 @@ fn test_did_document_verification() {
     let did_document_0 = RootDIDDocument::create(
         DIDDocumentCreateParams {
             did_webplus_host: "example.com".into(),
-            valid_from: chrono::Utc::now(),
+            valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![&ed25519_verifying_key_0],
                 assertion_method_v: vec![&ed25519_verifying_key_0],
@@ -91,7 +91,7 @@ fn test_did_document_verification() {
     let did_document_1 = NonRootDIDDocument::update_from_previous(
         DIDDocument::from(&did_document_0),
         DIDDocumentUpdateParams {
-            valid_from: chrono::Utc::now(),
+            valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![&ed25519_verifying_key_0, &ed25519_verifying_key_2],
                 assertion_method_v: vec![&ed25519_verifying_key_0],
@@ -121,7 +121,7 @@ fn test_did_document_verification() {
     NonRootDIDDocument::update_from_previous(
         DIDDocument::from(&did_document_1),
         DIDDocumentUpdateParams {
-            valid_from: chrono::Utc::now(),
+            valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![
                     &ed25519_verifying_key_0,
@@ -165,7 +165,7 @@ fn test_signature_generation() {
         let did_document_0 = RootDIDDocument::create(
             DIDDocumentCreateParams {
                 did_webplus_host: "example.com".into(),
-                valid_from: chrono::Utc::now(),
+                valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {
                     authentication_v: vec![&ed25519_verifying_key],
                     assertion_method_v: vec![&ed25519_verifying_key],
@@ -239,7 +239,7 @@ fn test_microledger() {
             RootDIDDocument::create(
                 DIDDocumentCreateParams {
                     did_webplus_host: "example.com".into(),
-                    valid_from: chrono::Utc::now(),
+                    valid_from: time::OffsetDateTime::now_utc(),
                     public_key_set: PublicKeySet {
                         authentication_v: vec![&ed25519_verifying_key_0],
                         assertion_method_v: vec![&ed25519_verifying_key_0],
@@ -284,7 +284,7 @@ fn test_microledger() {
         microledger
             .update_as_controller(
                 DIDDocumentUpdateParams {
-                    valid_from: chrono::Utc::now(),
+                    valid_from: time::OffsetDateTime::now_utc(),
                     public_key_set: PublicKeySet {
                         authentication_v: vec![&ed25519_verifying_key_0, &ed25519_verifying_key_1],
                         assertion_method_v: vec![&ed25519_verifying_key_0],
@@ -473,7 +473,7 @@ pub struct MicroledgerCache {
     pub microledger: Microledger,
     /// The timestamp of the most recent caching action (i.e. checking against the host VDR), needed
     /// to judge the freshness of the cached microledger.
-    pub current_as_of: chrono::DateTime<chrono::Utc>,
+    pub current_as_of: time::OffsetDateTime,
 }
 
 impl MicroledgerCache {
@@ -488,7 +488,7 @@ impl MicroledgerCache {
         );
         // Retrieve all DID documents from the VDR.
         let did_document_v = mock_vdr.select_did_documents(agent_name.as_str(), did, None, None)?;
-        let current_as_of = chrono::Utc::now();
+        let current_as_of = time::OffsetDateTime::now_utc();
         let microledger = Microledger::new_from_did_documents(did_document_v)?;
         Ok(Self {
             agent_name,
@@ -513,7 +513,7 @@ impl MicroledgerCache {
             None,
         )?;
         // Update the cache's timestamp.
-        self.current_as_of = chrono::Utc::now();
+        self.current_as_of = time::OffsetDateTime::now_utc();
         let new_did_document_count = new_did_document_v.len() as u32;
         if new_did_document_count > 0 {
             // There are DID documents that are more recent than what we have cached, so
@@ -689,7 +689,7 @@ impl MockWallet {
         let root_did_document = RootDIDDocument::create(
             DIDDocumentCreateParams {
                 did_webplus_host: did_webplus_host.into(),
-                valid_from: chrono::Utc::now(),
+                valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {
                     authentication_v: current_public_key_set
                         .authentication_v
@@ -753,7 +753,7 @@ impl MockWallet {
         let non_root_did_document = NonRootDIDDocument::update_from_previous(
             self.microledger.latest_did_document(),
             DIDDocumentUpdateParams {
-                valid_from: chrono::Utc::now(),
+                valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {
                     authentication_v: new_public_key_set
                         .authentication_v

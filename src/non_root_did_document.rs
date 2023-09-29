@@ -27,7 +27,8 @@ pub struct NonRootDIDDocument {
     pub prev_did_document_self_hash: selfhash::KERIHash<'static>,
     /// This defines the timestamp at which this DID document becomes valid.
     #[serde(rename = "validFrom")]
-    pub valid_from: chrono::DateTime<chrono::Utc>,
+    #[serde(with = "time::serde::rfc3339")]
+    pub valid_from: time::OffsetDateTime,
     // TODO: Could have a planned expiration date for short-lived DID document durations.
     /// This should be exactly 1 greater than the previous DID document's version_id.
     #[serde(rename = "versionId")]
