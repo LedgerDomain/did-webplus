@@ -7,7 +7,7 @@ edition = "2021"
 ed25519-dalek = ["selfsign/ed25519-dalek"]
 
 [dependencies]
-chrono = { version = "0.4", default-features = false, features = ["serde"] }
+time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
     "display",
@@ -24,7 +24,6 @@ serde_with = { version = "3.3.0", optional = true, default-features = false, fea
 thiserror = { version = "1.0.47", default-features = false }
 
 [dev-dependencies]
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
 rand = "0.8"
 serde_json = { version = "1", default-features = false }

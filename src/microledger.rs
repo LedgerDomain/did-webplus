@@ -20,7 +20,7 @@ pub struct Microledger {
     /// A map from the DID document's self-signature to its version_id field value.
     self_signature_version_id_m: HashMap<selfsign::KERISignature<'static>, u32>,
     /// An ordered map from the DID document's valid_from field value to its version_id field value.
-    valid_from_version_id_m: BTreeMap<chrono::DateTime<chrono::Utc>, u32>,
+    valid_from_version_id_m: BTreeMap<time::OffsetDateTime, u32>,
 }
 
 impl Microledger {
@@ -227,7 +227,7 @@ impl Microledger {
     // TODO: Return did doc metadata
     pub fn did_document_for_time(
         &self,
-        time: chrono::DateTime<chrono::Utc>,
+        time: time::OffsetDateTime,
     ) -> Result<DIDDocument, Error> {
         let version_id = self
             .valid_from_version_id_m
