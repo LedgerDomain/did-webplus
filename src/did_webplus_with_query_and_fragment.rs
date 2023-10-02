@@ -57,7 +57,8 @@ impl<F: Fragment> std::str::FromStr for DIDWebplusWithQueryAndFragment<F> {
         if did_uri_components.fragment_o.is_none() {
             return Err(Error::Malformed("DID fragment is missing"));
         }
-        let fragment = DIDWebplusFragment::from_str(did_uri_components.fragment_o.unwrap())?;
+        let fragment =
+            DIDWebplusFragment::from_str_without_hash(did_uri_components.fragment_o.unwrap())?;
         Ok(Self {
             host,
             self_hash,

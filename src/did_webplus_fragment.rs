@@ -17,6 +17,19 @@ impl<F: Clone + std::fmt::Debug + std::fmt::Display + std::str::FromStr> Fragmen
 )]
 pub struct DIDWebplusFragment<F>(F);
 
+impl<F: Fragment> DIDWebplusFragment<F> {
+    pub fn from_str_without_hash(s: &str) -> Result<Self, Error> {
+        if s.starts_with('#') {
+            return Err(Error::Malformed(
+                "DIDWebplusFragment::from_str_without_hash expected string to not start with '#'",
+            ));
+        }
+        Ok(Self(F::from_str(s).map_err(|_| {
+            Error::Malformed("Malformed DIDWebplusFragment")
+        })?))
+    }
+}
+
 impl<F: Fragment> std::fmt::Display for DIDWebplusFragment<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "#{}", self.0)

@@ -1,0 +1,43 @@
+[package]
+name = "did-webplus-mock"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[features]
+ed25519-dalek = ["did-webplus/ed25519-dalek", "dep:ed25519-dalek"]
+
+[dependencies]
+base64 = { version = "0.21.4" }
+derive_more = { version = "0.99.17", default-features = false, features = [
+    "deref",
+    "display",
+    "from",
+    "into",
+] }
+did-webplus = { path = ".." }
+ed25519-dalek = { version = "2.0.0", optional = true, features = ["rand_core"] }
+rand = "0.8"
+selfhash = "0.1.2"
+selfsign = "0.2.2"
+serde = { version = "1.0", optional = true, default-features = false, features = [
+    "derive",
+] }
+serde_json = { version = "1", default-features = false }
+serde_with = { version = "3.3.0", default-features = false, features = [
+    "macros",
+] }
+thiserror = { version = "1.0.47", default-features = false }
+time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
+
+[dev-dependencies]
+serde_json = { version = "1", default-features = false }
+serial_test = { version = "2", default-features = false }
+# This is probably temporary.
+ssi-jwk = { version = "0.1.1", default-features = false, features = [
+    "ed25519",
+] }
+# This is probably temporary.
+ssi-jws = { version = "0.1.0", default-features = false, features = [
+    "ed25519",
+] }

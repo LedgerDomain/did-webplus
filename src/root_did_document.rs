@@ -1,6 +1,4 @@
-use selfsign::SelfSignAndHashable;
-
-use crate::{DIDDocumentCreateParams, DIDWebplus, Error, PublicKeyMaterial};
+use crate::{DIDWebplus, PublicKeyMaterial};
 
 /// DID document specific for did:webplus.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
@@ -35,71 +33,6 @@ pub struct RootDIDDocument {
     /// self-hash portion of the DID.
     #[serde(flatten)]
     pub public_key_material: PublicKeyMaterial,
-}
-
-impl RootDIDDocument {
-    pub fn create<'a>(
-        did_document_create_params: DIDDocumentCreateParams<'a>,
-        hash_function: &dyn selfhash::HashFunction,
-        signer: &dyn selfsign::Signer,
-    ) -> Result<Self, Error> {
-        // Ensure that the signer's verifier is a member of did_document_create_params.capability_invocation_verifier_v.
-        let keri_verifier = signer.verifier().to_keri_verifier().into_owned();
-        if !did_document_create_params
-            .public_key_set
-            .capability_invocation_v
-            .iter()
-            .map(|v| v.to_keri_verifier())
-            .any(|k| k == keri_verifier)
-        {
-            return Err(Error::Malformed(
-                "signer's verifier must be a member of capability_invocation_verifier_v",
-            ));
-        }
-        let did = DIDWebplus {
-            host: did_document_create_params.did_webplus_host.to_string(),
-            self_hash: hash_function.placeholder_hash().to_keri_hash().to_owned(),
-        };
-        let mut root_did_document = Self {
-            id: did.clone(),
-            self_hash_o: None,
-            self_signature_o: None,
-            self_signature_verifier_o: None,
-            version_id: 0,
-            valid_from: did_document_create_params.valid_from,
-            public_key_material: PublicKeyMaterial::new(
-                did,
-                did_document_create_params.public_key_set,
-            )?,
-        };
-        let hasher_b = hash_function.new_hasher();
-        root_did_document.self_sign_and_hash(signer, hasher_b)?;
-        // Verify just for good measure.
-        root_did_document
-            .verify_nonrecursive()
-            .expect("programmer error: DID document should be valid by construction");
-        Ok(root_did_document)
-    }
-    pub fn verify_nonrecursive(&self) -> Result<&selfhash::KERIHash<'static>, Error> {
-        // Note that if this check succeeds, then in particular, all the expected self-signature slots
-        // are equal, all the self-signature verifier slots are equal.
-        self.verify_self_signatures_and_hashes()?;
-        assert!(self.self_hash_o.is_some());
-        assert!(self.self_signature_o.is_some());
-        assert!(self.self_signature_verifier_o.is_some());
-
-        // TODO Check that self.valid_from is greater than 1970-01-01T00:00:00Z
-        // Check initial version_id.
-        if self.version_id != 0 {
-            return Err(Error::Malformed(
-                "Root DID document must have version_id == 0",
-            ));
-        }
-        // Check key material
-        self.public_key_material.verify(&self.id)?;
-
-        Ok(self.self_hash_o.as_ref().unwrap())
-    }
 }
 
 impl selfhash::SelfHashable for RootDIDDocument {

@@ -9,6 +9,7 @@ mod did_webplus_with_fragment;
 mod did_webplus_with_query;
 mod did_webplus_with_query_and_fragment;
 mod error;
+mod key_purpose;
 mod microledger;
 mod non_root_did_document;
 mod public_key_jwk;
@@ -32,7 +33,8 @@ pub use crate::{
     did_webplus_with_query::DIDWebplusWithQuery,
     did_webplus_with_query_and_fragment::DIDWebplusWithQueryAndFragment,
     error::Error,
-    microledger::Microledger,
+    key_purpose::KeyPurpose,
+    microledger::{MicroledgerMutViewTrait, MicroledgerViewTrait},
     non_root_did_document::NonRootDIDDocument,
     public_key_jwk::PublicKeyJWK,
     public_key_material::PublicKeyMaterial,
