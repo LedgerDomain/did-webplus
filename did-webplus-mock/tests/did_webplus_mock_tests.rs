@@ -104,7 +104,7 @@ fn test_example_creating_and_updating_a_did() {
                 capability_delegation_v: vec![&verifying_key_0],
             },
         };
-        let non_root_did_document = DIDDocument::update_from_previous(
+        let new_did_document = DIDDocument::update_from_previous(
             microledger.view().latest_did_document(),
             did_document_update_params,
             selfhash::Blake3.new_hasher(),
@@ -113,7 +113,7 @@ fn test_example_creating_and_updating_a_did() {
         .expect("pass");
         microledger
             .mut_view()
-            .update(non_root_did_document)
+            .update(new_did_document)
             .expect("pass");
         let did = microledger.view().did().clone();
         use selfsign::Verifier;
@@ -166,7 +166,7 @@ fn test_example_creating_and_updating_a_did() {
                 capability_delegation_v: vec![&verifying_key_0],
             },
         };
-        let non_root_did_document = DIDDocument::update_from_previous(
+        let new_did_document = DIDDocument::update_from_previous(
             microledger.view().latest_did_document(),
             did_document_update_params,
             selfhash::Blake3.new_hasher(),
@@ -175,7 +175,7 @@ fn test_example_creating_and_updating_a_did() {
         .expect("pass");
         microledger
             .mut_view()
-            .update(non_root_did_document)
+            .update(new_did_document)
             .expect("pass");
         let did = microledger.view().did().clone();
         use selfsign::Verifier;

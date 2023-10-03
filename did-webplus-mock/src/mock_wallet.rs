@@ -127,7 +127,7 @@ impl MockWallet {
         let (new_signer_m, new_public_key_set) = Self::generate_new_keys();
 
         use selfhash::HashFunction;
-        let non_root_did_document = DIDDocument::update_from_previous(
+        let new_did_document = DIDDocument::update_from_previous(
             self.microledger.view().latest_did_document(),
             DIDDocumentUpdateParams {
                 valid_from: time::OffsetDateTime::now_utc(),
@@ -166,10 +166,10 @@ impl MockWallet {
         self.mock_vdr_la
             .write()
             .unwrap()
-            .update_did(self.user_agent.as_str(), non_root_did_document.clone())?;
+            .update_did(self.user_agent.as_str(), new_did_document.clone())?;
         // If the VDR update succeeded, then update the local Microledger.
         use did_webplus::MicroledgerMutView;
-        self.microledger.mut_view().update(non_root_did_document)?;
+        self.microledger.mut_view().update(new_did_document)?;
         // Now update the local signer and public key set.
         self.signer_m = new_signer_m;
         self.current_public_key_set = new_public_key_set;

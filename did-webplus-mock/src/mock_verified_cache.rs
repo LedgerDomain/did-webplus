@@ -247,12 +247,11 @@ impl<'v> MockVerifiedCacheMicroledgerMutView<'v> {
 }
 
 impl<'v> did_webplus::MicroledgerMutView<'v> for MockVerifiedCacheMicroledgerMutView<'v> {
-    fn update(&mut self, non_root_did_document: DIDDocument) -> Result<(), Error> {
+    fn update(&mut self, new_did_document: DIDDocument) -> Result<(), Error> {
         // Verify that it is a valid update first.
-        // non_root_did_document.verify_nonrecursive(self.latest_did_document())?;
-        non_root_did_document.verify_non_root_nonrecursive(self.latest_did_document())?;
+        new_did_document.verify_non_root_nonrecursive(self.latest_did_document())?;
         assert!(!self.mock_verified_cache.self_hash_primary_key_m.contains_key(
-            non_root_did_document.self_hash_o.as_ref().expect("programmer error")
+            new_did_document.self_hash_o.as_ref().expect("programmer error")
         ), "programmer error: it should not be practically possible (i.e. it should not be computationally feasible) for a valid update to have the same self-hash as an existing DID document -- this almost certainly means there's a bug somewhere.");
 
         // Now append it and update all relevant indexes.
@@ -262,7 +261,7 @@ impl<'v> did_webplus::MicroledgerMutView<'v> for MockVerifiedCacheMicroledgerMut
             DIDDocumentPrimaryKey::from(self.mock_verified_cache.did_document_v.len() as u32);
         self.mock_verified_cache
             .did_document_v
-            .push(non_root_did_document);
+            .push(new_did_document);
         let did_document = self
             .mock_verified_cache
             .did_document(did_document_primary_key);
@@ -487,9 +486,8 @@ impl MockVerifiedCache {
         for new_did_document in new_did_document_i {
             // All further updates should be non-root DID documents.  This Microledger should already have a root.
             assert!(!new_did_document.is_root_did_document());
-            let non_root_did_document = new_did_document.clone();
             use did_webplus::MicroledgerMutView;
-            microledger_mut_view.update(non_root_did_document)?;
+            microledger_mut_view.update(new_did_document)?;
         }
         // Update the microledger_current_as_of timestamp.
         microledger_mut_view.set_microledger_current_as_of(microledger_current_as_of);

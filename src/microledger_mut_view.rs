@@ -6,5 +6,5 @@ use crate::{DIDDocument, Error};
 pub trait MicroledgerMutView<'v> {
     /// This verifies that the given non-root DID document is a valid update, and then will append it to
     /// the microledger.
-    fn update(&mut self, non_root_did_document: DIDDocument) -> Result<(), Error>;
+    fn update(&mut self, new_did_document: DIDDocument) -> Result<(), Error>;
 }

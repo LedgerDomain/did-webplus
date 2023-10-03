@@ -47,23 +47,23 @@ impl MockVDR {
     pub fn update_did(
         &mut self,
         user_agent: &str,
-        non_root_did_document: DIDDocument,
+        new_did_document: DIDDocument,
     ) -> Result<(), Error> {
         println!(
             "VDR (host: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
-            self.host, user_agent, non_root_did_document.did
+            self.host, user_agent, new_did_document.did
         );
         self.simulate_latency_if_necessary();
 
-        if non_root_did_document.did.host() != self.host.as_str() {
+        if new_did_document.did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         let microledger = self
             .microledger_m
-            .get_mut(&non_root_did_document.did)
+            .get_mut(&new_did_document.did)
             .ok_or_else(|| Error::NotFound("DID not found"))?;
         use did_webplus::MicroledgerMutView;
-        microledger.mut_view().update(non_root_did_document)?;
+        microledger.mut_view().update(new_did_document)?;
         Ok(())
     }
     fn microledger<'s>(&'s self, did: &DID) -> Result<&'s Microledger, Error> {
