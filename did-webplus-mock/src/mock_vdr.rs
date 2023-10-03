@@ -25,13 +25,13 @@ impl MockVDR {
     ) -> Result<DID, Error> {
         println!(
             "VDR (host: {:?}) servicing CREATE request from {:?} for\n    DID: {}",
-            self.host, user_agent, root_did_document.id
+            self.host, user_agent, root_did_document.did
         );
         if let Some(simulated_latency) = self.simulated_latency_o.as_ref() {
             std::thread::sleep(*simulated_latency);
         }
 
-        if root_did_document.id.host != self.host {
+        if root_did_document.did.host != self.host {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         // This construction will fail if the root_did_document isn't valid.
@@ -51,18 +51,18 @@ impl MockVDR {
     ) -> Result<(), Error> {
         println!(
             "VDR (host: {:?}) servicing UPDATE request from {:?} for\n    DID: {}",
-            self.host, user_agent, non_root_did_document.id
+            self.host, user_agent, non_root_did_document.did
         );
         if let Some(simulated_latency) = self.simulated_latency_o.as_ref() {
             std::thread::sleep(*simulated_latency);
         }
 
-        if non_root_did_document.id.host != self.host {
+        if non_root_did_document.did.host != self.host {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         let microledger = self
             .microledger_m
-            .get_mut(&non_root_did_document.id)
+            .get_mut(&non_root_did_document.did)
             .ok_or_else(|| Error::NotFound("DID not found"))?;
         use did_webplus::MicroledgerMutViewTrait;
         microledger.mut_view().update(non_root_did_document)?;

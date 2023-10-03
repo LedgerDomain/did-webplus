@@ -152,7 +152,7 @@ impl<'v> did_webplus::MicroledgerViewTrait<'v> for MicroledgerView<'v> {
         let did_document = self
             .mock_verified_cache
             .did_document(did_document_primary_key);
-        if did_document.id() != self.did() {
+        if did_document.did() != self.did() {
             return Err(Error::NotFound("DID document not found in cache"));
         }
         Ok(did_document)
@@ -370,14 +370,14 @@ impl MockVerifiedCache {
         root_did_document: DIDDocument,
         microledger_current_as_of: time::OffsetDateTime,
     ) -> Result<MicroledgerMutView, Error> {
-        if self.did_primary_key_m.contains_key(&root_did_document.id) {
+        if self.did_primary_key_m.contains_key(&root_did_document.did) {
             return Err(Error::AlreadyExists("DID already exists in cache"));
         }
         // Verify the DID document.
         root_did_document.verify_root_nonrecursive()?;
         // Insert into DID table.
         let did_primary_key = DIDPrimaryKey::from(self.did_v.len() as u32);
-        self.did_v.push(root_did_document.id.clone());
+        self.did_v.push(root_did_document.did.clone());
         // TODO: Factor this out into an "insert_did_document" method.
         // Insert into DID document table.
         let did_document_primary_key =
@@ -386,7 +386,7 @@ impl MockVerifiedCache {
         let (did, self_hash, version_id, valid_from) = {
             let did_document = self.did_document(did_document_primary_key);
             (
-                did_document.id().clone(),
+                did_document.did().clone(),
                 did_document.self_hash().clone(),
                 did_document.version_id(),
                 did_document.valid_from(),

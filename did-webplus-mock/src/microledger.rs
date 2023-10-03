@@ -144,7 +144,7 @@ impl Microledger {
 
 impl<'m> MicroledgerViewTrait<'m> for &'m Microledger {
     fn did(&self) -> &'m did_webplus::DID {
-        &self.root_did_document.id
+        &self.root_did_document.did
     }
     fn root_did_document(&self) -> &'m did_webplus::DIDDocument {
         (&self.root_did_document).into()

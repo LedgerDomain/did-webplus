@@ -178,7 +178,7 @@ fn test_signature_generation_with_witness() {
         did_document_0
             .verify_self_signatures_and_hashes()
             .expect("pass");
-        let did = did_document_0.id.clone();
+        let did = did_document_0.did.clone();
         println!(
             "Root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n",
             serde_json::to_string_pretty(&did_document_0).unwrap()
