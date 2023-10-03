@@ -1,14 +1,8 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    ops::Deref,
-    sync::{Arc, RwLock},
-};
+use std::collections::{BTreeMap, HashMap};
 
-use did_webplus::{
-    DIDDocument, DIDDocumentMetadata, Error, MicroledgerMutViewTrait, MicroledgerViewTrait, DID,
-};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, DID};
 
-use crate::MockVDR;
+use crate::MockVDS;
 
 /// Semantic subtype denoting that a u32 is the primary key for the DID table.
 #[derive(
@@ -58,13 +52,13 @@ struct DIDDocumentPrimaryKey(u32);
 )]
 struct SelfHashPrimaryKey(u32);
 
-pub struct MicroledgerView<'a> {
+struct MockVerifiedCacheMicroledgerView<'a> {
     mock_verified_cache: &'a MockVerifiedCache,
     /// Cached DID primary key, since it's used in basically every method.
     did_primary_key: DIDPrimaryKey,
 }
 
-impl<'v> MicroledgerView<'v> {
+impl<'v> MockVerifiedCacheMicroledgerView<'v> {
     fn new_with_did_primary_key(
         mock_verified_cache: &'v MockVerifiedCache,
         did_primary_key: DIDPrimaryKey,
@@ -79,7 +73,7 @@ impl<'v> MicroledgerView<'v> {
     }
 }
 
-impl<'v> did_webplus::MicroledgerViewTrait<'v> for MicroledgerView<'v> {
+impl<'v> did_webplus::MicroledgerView<'v> for MockVerifiedCacheMicroledgerView<'v> {
     fn did(&self) -> &'v DID {
         self.mock_verified_cache.did(self.did_primary_key)
     }
@@ -103,25 +97,40 @@ impl<'v> did_webplus::MicroledgerViewTrait<'v> for MicroledgerView<'v> {
         self.mock_verified_cache
             .did_document(latest_did_document_primary_key)
     }
+    /// This is a pure select operation on the DID document data store, returning the number of selected
+    /// DID documents and an iterator of those DID documents.  The range is inclusive on both
+    /// ends.  If version_id_begin_o is None, then it is treated as 0.  If version_id_end_o is None,
+    /// then it is treated as u32::MAX.
     fn select_did_documents<'s>(
         &'s self,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
-    ) -> Box<dyn std::iter::Iterator<Item = &'v DIDDocument> + 'v> {
+    ) -> (
+        u32,
+        Box<dyn std::iter::Iterator<Item = &'v DIDDocument> + 'v>,
+    ) {
         let version_id_begin = version_id_begin_o.unwrap_or(0);
         let version_id_end = version_id_end_o.unwrap_or(u32::MAX);
-        Box::new(
+        let did_document_count = self
+            .mock_verified_cache
+            .did_version_id_m
+            .range(
+                (self.did_primary_key, version_id_begin)..=(self.did_primary_key, version_id_end),
+            )
+            .count() as u32;
+        let did_document_ib = Box::new(
             self.mock_verified_cache
                 .did_version_id_m
                 .range(
                     (self.did_primary_key, version_id_begin)
-                        ..(self.did_primary_key, version_id_end),
+                        ..=(self.did_primary_key, version_id_end),
                 )
                 .map(|(_, &did_document_primary_key)| {
                     self.mock_verified_cache
                         .did_document(did_document_primary_key)
                 }),
-        )
+        );
+        (did_document_count, did_document_ib)
     }
     fn did_document_for_version_id(&self, version_id: u32) -> Result<&'v DIDDocument, Error> {
         let did_document_primary_key = *self
@@ -180,14 +189,14 @@ impl<'v> did_webplus::MicroledgerViewTrait<'v> for MicroledgerView<'v> {
 }
 
 /// This is a mutable view object for a particular DID's Microledger within a MockVerifiedCache.
-struct MicroledgerMutView<'v> {
+struct MockVerifiedCacheMicroledgerMutView<'v> {
     mock_verified_cache: &'v mut MockVerifiedCache,
     /// Cached DID primary key, since it's used in basically every method.
     did_primary_key: DIDPrimaryKey,
 }
 
-impl<'v> MicroledgerMutView<'v> {
-    pub fn new_with_did_primary_key(
+impl<'v> MockVerifiedCacheMicroledgerMutView<'v> {
+    fn new_with_did_primary_key(
         mock_verified_cache: &'v mut MockVerifiedCache,
         did_primary_key: DIDPrimaryKey,
     ) -> Self {
@@ -237,7 +246,7 @@ impl<'v> MicroledgerMutView<'v> {
     }
 }
 
-impl<'v> MicroledgerMutViewTrait<'v> for MicroledgerMutView<'v> {
+impl<'v> did_webplus::MicroledgerMutView<'v> for MockVerifiedCacheMicroledgerMutView<'v> {
     fn update(&mut self, non_root_did_document: DIDDocument) -> Result<(), Error> {
         // Verify that it is a valid update first.
         // non_root_did_document.verify_nonrecursive(self.latest_did_document())?;
@@ -290,13 +299,18 @@ impl<'v> MicroledgerMutViewTrait<'v> for MicroledgerMutView<'v> {
 
 /// This is the data model for a local, verified cache.  It verifies and stores DID microledgers for
 /// multiple DIDs locally.  It is intended to be used by a DID resolver or a VDG.
+///
+/// This mock implementation uses a hand-coded relational database model in order to demonstrate and
+/// simulate the exact data access patterns that would be used in a relational-database-backed
+/// implementation.
+// TODO: Maybe this would be better as MockVerifiedDIDDocumentStore or something, since it
 #[derive(Default)]
 pub struct MockVerifiedCache {
     /// Analogous to the User-Agent HTTP header, used to identify the agent making requests to the VDR,
-    /// in this case, for more clarity in logging.
+    /// for more clarity in logging.
     pub user_agent: String,
 
-    // Tables
+    // Tables -- hand-rolled "database" tables.
     /// Table of DIDs.  The indexes of these elements define the primary key for this table.
     did_v: Vec<DID>,
     /// Table of DID documents.  The indexes of these elements define the primary key for this table.
@@ -305,7 +319,7 @@ pub struct MockVerifiedCache {
     /// key for this table.
     self_hash_v: Vec<selfhash::KERIHash<'static>>,
 
-    // Indexes
+    // Indexes -- hand-rolled "database" indexes.
     /// This is the index mapping DID to DID primary key.
     did_primary_key_m: HashMap<DID, DIDPrimaryKey>,
     /// This is the index mapping self-hash to self-hash primary key.
@@ -341,9 +355,12 @@ impl MockVerifiedCache {
         &self.did_document_v[*did_document_primary_key as usize]
     }
     /// Get a view of the Microledger for the given DID.
-    fn microledger_view<'s>(&'s self, did: &DID) -> Option<MicroledgerView<'s>> {
+    pub fn microledger_view<'s>(
+        &'s self,
+        did: &DID,
+    ) -> Option<impl did_webplus::MicroledgerView<'s>> {
         if let Some(&did_primary_key) = self.did_primary_key_m.get(did) {
-            Some(MicroledgerView::new_with_did_primary_key(
+            Some(MockVerifiedCacheMicroledgerView::new_with_did_primary_key(
                 self,
                 did_primary_key,
             ))
@@ -353,12 +370,17 @@ impl MockVerifiedCache {
     }
     /// Get a mutable view of the Microledger for the given DID.
     #[allow(dead_code)]
-    fn microledger_mut_view<'s>(&'s mut self, did: &DID) -> Option<MicroledgerMutView<'s>> {
+    pub fn microledger_mut_view<'s>(
+        &'s mut self,
+        did: &DID,
+    ) -> Option<impl did_webplus::MicroledgerMutView<'s>> {
         if let Some(&did_primary_key) = self.did_primary_key_m.get(did) {
-            Some(MicroledgerMutView::new_with_did_primary_key(
-                self,
-                did_primary_key,
-            ))
+            Some(
+                MockVerifiedCacheMicroledgerMutView::new_with_did_primary_key(
+                    self,
+                    did_primary_key,
+                ),
+            )
         } else {
             None
         }
@@ -369,7 +391,7 @@ impl MockVerifiedCache {
         &mut self,
         root_did_document: DIDDocument,
         microledger_current_as_of: time::OffsetDateTime,
-    ) -> Result<MicroledgerMutView, Error> {
+    ) -> Result<MockVerifiedCacheMicroledgerMutView, Error> {
         if self.did_primary_key_m.contains_key(&root_did_document.did) {
             return Err(Error::AlreadyExists("DID already exists in cache"));
         }
@@ -414,15 +436,12 @@ impl MockVerifiedCache {
         self.did_microledger_current_as_of_m
             .insert(did_primary_key, microledger_current_as_of);
 
-        Ok(MicroledgerMutView::new_with_did_primary_key(
-            self,
-            did_primary_key,
-        ))
+        Ok(MockVerifiedCacheMicroledgerMutView::new_with_did_primary_key(self, did_primary_key))
     }
     /// Pulls the latest DID document(s) for the given DID from the VDR and updates the cache.  Returns
     /// the number of previously-uncached DID documents that were returned in the operation.  In
     /// particular, if the returned value is 0, then the local cache was already up to date.
-    pub fn update_cache(&mut self, did: &DID, mock_vdr: &MockVDR) -> Result<u32, Error> {
+    pub fn update_cache(&mut self, did: &DID, mock_vds: &mut dyn MockVDS) -> Result<u32, Error> {
         println!("MockVerifiedCache::update_cache;\n    DID: {}", did);
         // Determine which version ID to start at.  If we have any DID documents for this DID, then
         // start at the next version ID after the latest.  Otherwise, start at 0 (root DID document).
@@ -430,7 +449,10 @@ impl MockVerifiedCache {
             self.did_primary_key_m.get(did)
         {
             let microledger_mut_view =
-                MicroledgerMutView::new_with_did_primary_key(self, did_primary_key);
+                MockVerifiedCacheMicroledgerMutView::new_with_did_primary_key(
+                    self,
+                    did_primary_key,
+                );
             let version_id_begin = microledger_mut_view.latest_did_document().version_id().checked_add(1).expect("overflow in version_id -- this is so unlikely that it's probably a programmer error");
             (version_id_begin, Some(did_primary_key))
         } else {
@@ -440,35 +462,33 @@ impl MockVerifiedCache {
         // Retrieve the next through the latest DID documents from the VDR.  Use a timestamp from
         // directly before the request to the VDR to define microledger_current_as_of.
         let microledger_current_as_of = time::OffsetDateTime::now_utc();
-        let new_did_document_ib = mock_vdr.select_did_documents(
+        let new_did_document_v = mock_vds.fetch_did_documents(
             self.user_agent.as_str(),
             did,
             Some(version_id_begin),
             None,
         )?;
-        let mut new_did_document_count = 0u32;
-        let mut new_did_document_i = new_did_document_ib.peekable();
-        let new_did_document_count_is_positive = new_did_document_i.peek().is_some();
+        let new_did_document_count = new_did_document_v.len() as u32;
+        let mut new_did_document_i = new_did_document_v.into_iter();
         let mut microledger_mut_view = if version_id_begin == 0 {
             // If we didn't have this DID in the cache before, then we need to add it to the cache.
             assert!(
-                new_did_document_count_is_positive,
+                new_did_document_count > 0,
                 "VDR should have returned error if there were no DID documents for this DID"
             );
             let root_did_document = new_did_document_i.next().unwrap().clone();
-            new_did_document_count += 1;
             self.initialize_microledger(root_did_document, microledger_current_as_of)?
         } else {
             // If we have this DID in the cache, then return the MicroledgerMutView for it.
             let did_primary_key = did_primary_key_o.expect("programmer error");
-            MicroledgerMutView::new_with_did_primary_key(self, did_primary_key)
+            MockVerifiedCacheMicroledgerMutView::new_with_did_primary_key(self, did_primary_key)
         };
         // Add the rest of the DID documents via update.
-        for did_document in new_did_document_i {
+        for new_did_document in new_did_document_i {
             // All further updates should be non-root DID documents.  This Microledger should already have a root.
-            assert!(!did_document.is_root_did_document());
-            let non_root_did_document = did_document.clone();
-            new_did_document_count += 1;
+            assert!(!new_did_document.is_root_did_document());
+            let non_root_did_document = new_did_document.clone();
+            use did_webplus::MicroledgerMutView;
             microledger_mut_view.update(non_root_did_document)?;
         }
         // Update the microledger_current_as_of timestamp.
@@ -481,15 +501,17 @@ impl MockVerifiedCache {
     // In particular, it would only indicate next_version_id_o and next_update_o, because the current-ness
     // of the DID document is not being queried, and this limited metadata structure will not change in
     // further updates once the resolved DID doc is followed by at least one update.
+    // TODO: This probably doesn't belong in MockVerifiedCache, but rather in a DID resolver.
     pub fn resolve<'s>(
         &'s mut self,
         did: &DID,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
-        mock_vdr_lam: &HashMap<String, Arc<RwLock<MockVDR>>>,
+        mock_vds: &mut dyn MockVDS,
     ) -> Result<(&'s DIDDocument, DIDDocumentMetadata), Error> {
         println!("MockVerifiedCache::resolve;\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}", did, version_id_o, self_hash_o);
 
+        // TODO: resolve locally if possible
         // if let Ok((did_document, did_document_metadata)) =
         //     self.microledger.resolve(version_id_o, self_hash_o)
         // {
@@ -512,28 +534,12 @@ impl MockVerifiedCache {
         //     }
         // }
 
-        // Retrieve the mock connection to the VDR for this DID.
-        let mock_vdr_g = mock_vdr_lam
-            .get(did.host.as_str())
-            .expect("pass")
-            .read()
-            .unwrap();
         // Ensure the cache is up-to-date.
-        self.update_cache(did, mock_vdr_g.deref())?;
+        self.update_cache(did, mock_vds)?;
         // Resolve the DID document from the cache.
-        let microledger_view = self.microledger_view(did).expect("programmer error");
-        microledger_view.resolve(version_id_o, self_hash_o)
-        // self.microledger_mut_view(did)
-        //     .expect("programmer error")
-        //     .resolve(version_id_o, self_hash_o)
+        use did_webplus::MicroledgerView;
+        self.microledger_view(did)
+            .expect("programmer error")
+            .resolve(version_id_o, self_hash_o)
     }
-    // /// Use this to store DID documents in this cache.  It will verify each DID document against existing
-    // /// material before storing it.  If a DID document doesn't verify, it will not be stored, and this
-    // /// method will return with error.
-    // pub fn verify_and_cache_did_documents(
-    //     &mut self,
-    //     did_document_v: &[DIDDocument<'static>],
-    // ) -> Result<(), Error> {
-    //     unimplemented!("blah");
-    // }
 }

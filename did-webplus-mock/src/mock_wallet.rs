@@ -4,8 +4,8 @@ use std::{
 };
 
 use did_webplus::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, Error, KeyPurpose,
-    MicroledgerViewTrait, PublicKeySet, DID,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDWithQueryAndKeyIdFragment,
+    Error, KeyPurpose, MicroledgerView, PublicKeySet, DID,
 };
 
 use crate::{Microledger, MockVDR};
@@ -97,7 +97,7 @@ impl MockWallet {
         mock_vdr_la
             .write()
             .unwrap()
-            .create(user_agent.as_str(), root_did_document.clone())?;
+            .create_did(user_agent.as_str(), root_did_document.clone())?;
         // Create the Microledger.  This is the local copy of the DID document history, and in a way
         // is authoritative, so long as the updates are valid and can get to the VDR.
         let microledger = Microledger::create(root_did_document)?;
@@ -113,7 +113,7 @@ impl MockWallet {
         self.microledger.view().did()
     }
     /// Get a read-only view of this wallet's Microledger.
-    pub fn microledger_view(&self) -> impl MicroledgerViewTrait<'_> {
+    pub fn microledger_view(&self) -> impl MicroledgerView<'_> {
         self.microledger.view()
     }
     // For now, just do a full rotation of all keys.
@@ -159,45 +159,48 @@ impl MockWallet {
                 },
             },
             selfhash::Blake3.new_hasher(),
-            self.signer_for_key_purpose(KeyPurpose::CapabilityInvocation),
+            self.signer_and_key_id_for_key_purpose(KeyPurpose::CapabilityInvocation)
+                .0,
         )?;
         self.mock_vdr_la
             .write()
             .unwrap()
-            .update(self.user_agent.as_str(), non_root_did_document.clone())?;
+            .update_did(self.user_agent.as_str(), non_root_did_document.clone())?;
         // If the VDR update succeeded, then update the local Microledger.
-        use did_webplus::MicroledgerMutViewTrait;
+        use did_webplus::MicroledgerMutView;
         self.microledger.mut_view().update(non_root_did_document)?;
         // Now update the local signer and public key set.
         self.signer_m = new_signer_m;
         self.current_public_key_set = new_public_key_set;
         Ok(())
     }
-    // This assumes that there's exactly one key per KeyPurpose, and returns that.
-    pub fn signer_for_key_purpose(&self, key_purpose: KeyPurpose) -> &dyn selfsign::Signer {
+    /// Returns the signer (i.e. private key) and key id for the given key purpose.  The signer is
+    /// the private key corresponding to a public key in the latest DID document.  The key id
+    /// is the DID with query params for "versionId" and "selfHash" set to those of the latest
+    /// DID document.  This causes signatures to be a limited form of witnessing.  This method
+    /// assumes that there's exactly one key per KeyPurpose, and returns that one.
+    pub fn signer_and_key_id_for_key_purpose(
+        &self,
+        key_purpose: KeyPurpose,
+    ) -> (&dyn selfsign::Signer, DIDWithQueryAndKeyIdFragment) {
         let public_key_v = self
             .current_public_key_set
             .public_keys_for_purpose(key_purpose);
         assert_eq!(public_key_v.len(), 1);
         let public_key = public_key_v.first().unwrap();
-        self.signer_m
+        let signer = self
+            .signer_m
             .get(public_key)
             .expect("programmer error")
-            .as_ref()
+            .as_ref();
+        let did = self.microledger.view().did();
+        let version_id = self.microledger.view().latest_did_document().version_id();
+        let self_hash = self.microledger.view().latest_did_document().self_hash();
+        let key_id = did
+            .with_query(format!("versionId={}&selfHash={}", version_id, self_hash))
+            .with_fragment(public_key.to_owned());
+        (signer, key_id)
     }
-    // // This assumes that there's exactly one capability_invocation key, and returns that.
-    // fn capability_invocation_signer(&self) -> &dyn selfsign::Signer {
-    //     assert_eq!(self.current_public_key_set.capability_invocation_v.len(), 1);
-    //     self.signer_m
-    //         .get(
-    //             self.current_public_key_set
-    //                 .capability_invocation_v
-    //                 .first()
-    //                 .unwrap(),
-    //         )
-    //         .expect("programmer error")
-    //         .as_ref()
-    // }
     fn generate_new_keys() -> (
         HashMap<selfsign::KERIVerifier<'static>, Box<dyn selfsign::Signer>>,
         PublicKeySet<selfsign::KERIVerifier<'static>>,

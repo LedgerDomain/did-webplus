@@ -10,7 +10,8 @@ mod did_with_query;
 mod did_with_query_and_fragment;
 mod error;
 mod key_purpose;
-mod microledger;
+mod microledger_mut_view;
+mod microledger_view;
 mod public_key_jwk;
 mod public_key_material;
 mod public_key_params;
@@ -38,7 +39,8 @@ pub use crate::{
     did_with_query_and_fragment::DIDWithQueryAndFragment,
     error::Error,
     key_purpose::KeyPurpose,
-    microledger::{MicroledgerMutViewTrait, MicroledgerViewTrait},
+    microledger_mut_view::MicroledgerMutView,
+    microledger_view::MicroledgerView,
     public_key_jwk::PublicKeyJWK,
     public_key_material::PublicKeyMaterial,
     public_key_params::PublicKeyParams,

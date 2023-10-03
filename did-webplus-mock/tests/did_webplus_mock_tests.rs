@@ -1,13 +1,16 @@
 use std::{
     collections::HashMap,
+    ops::DerefMut,
     sync::{Arc, RwLock},
 };
 
 use did_webplus::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, KeyPurpose,
-    MicroledgerMutViewTrait, MicroledgerViewTrait, PublicKeySet,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, KeyPurpose, MicroledgerMutView,
+    MicroledgerView, PublicKeySet,
 };
-use did_webplus_mock::{Microledger, MockResolver, MockVDR, MockVerifiedCache, MockWallet, JWS};
+use did_webplus_mock::{
+    Microledger, MockResolver, MockVDG, MockVDR, MockVerifiedCache, MockWallet, JWS,
+};
 use selfhash::HashFunction;
 
 fn priv_jwk_from_ed25519_signing_key(
@@ -225,6 +228,11 @@ fn test_did_operations() {
         mock_vdr_lam.insert("example.com".to_string(), mock_vdr_la.clone());
         mock_vdr_lam
     };
+    let mock_vdg_la = Arc::new(RwLock::new(MockVDG::new(
+        "mock.vdg.org".into(),
+        mock_vdr_lam.clone(),
+        None,
+    )));
     let mut mock_verified_cache = MockVerifiedCache::empty("MockVerifiedCache".to_string());
     println!("----------------------------------------------------");
     println!("-- Wallet creation ---------------------------------");
@@ -233,47 +241,20 @@ fn test_did_operations() {
         MockWallet::new_with_vdr("Alice's Wallet".to_string(), mock_vdr_la.clone()).expect("pass");
 
     let mut mock_resolver =
-        MockResolver::new("Bob's MockResolver".to_string(), mock_vdr_lam.clone());
+        MockResolver::new("Bob's MockResolver".to_string(), mock_vdg_la.clone());
 
     // Sign and verify a JWS.
     {
         let message = "This Alice is the best Alice.";
-        // let jws = mock_wallet
-        //     .sign_jws(
-        //         mock_wallet
-        //             .current_public_key_set
-        //             .authentication_v
-        //             .first()
-        //             .expect("pass")
-        //             .clone(),
-        //         message.as_bytes(),
-        //     )
-        //     .expect("pass");
-        // println!("jws: {}", jws);
-        let signer = mock_wallet.signer_for_key_purpose(KeyPurpose::Authentication);
-        let public_key = signer.verifier().to_keri_verifier().into_owned();
-        // TODO: Better way to determine the kid field.
-        use did_webplus::MicroledgerViewTrait;
-        let kid = mock_wallet
-            .did()
-            .with_query(format!(
-                "versionId={}&selfHash={}",
-                mock_wallet
-                    .microledger_view()
-                    .latest_did_document()
-                    .version_id(),
-                mock_wallet
-                    .microledger_view()
-                    .latest_did_document()
-                    .self_hash()
-            ))
-            .with_fragment(public_key.clone());
+        let (signer, kid) =
+            mock_wallet.signer_and_key_id_for_key_purpose(KeyPurpose::Authentication);
         let jws_string = JWS::signed(kid, message.as_bytes(), signer)
             .expect("pass")
             .encoded_to_string();
+        let jws_signing_time = time::OffsetDateTime::now_utc();
         println!("jws_string: {}", jws_string);
 
-        // TODO: verify_jws (need a DID resolver).
+        // Verify the JWS.
         let decoded_jws = JWS::decoded_from_str(jws_string.as_str()).expect("pass");
         println!("decoded_jws: {:?}", decoded_jws);
         let did_document_validity_time_range = decoded_jws
@@ -283,13 +264,44 @@ fn test_did_operations() {
             "did_document_validity_time_range: {:?}",
             did_document_validity_time_range
         );
+        // TODO: Figure out how to do this concisely
+        match did_document_validity_time_range.start {
+            std::ops::Bound::Excluded(start) => {
+                assert!(start < jws_signing_time);
+            }
+            std::ops::Bound::Included(start) => {
+                assert!(start <= jws_signing_time);
+            }
+            std::ops::Bound::Unbounded => {
+                // No constraint
+            }
+        }
+        match did_document_validity_time_range.end {
+            std::ops::Bound::Excluded(end) => {
+                assert!(jws_signing_time < end);
+            }
+            std::ops::Bound::Included(end) => {
+                assert!(jws_signing_time <= end);
+            }
+            std::ops::Bound::Unbounded => {
+                // No constraint
+            }
+        }
     }
 
     // Do some resolutions.
     println!("-- Let's do some DID resolutions ---------------------------------");
     {
         let (did_document, did_document_metadata) = mock_verified_cache
-            .resolve(mock_wallet.did(), None, None, &mock_vdr_lam)
+            .resolve(
+                mock_wallet.did(),
+                None,
+                None,
+                mock_vdr_lam[mock_wallet.did().host.as_str()]
+                    .write()
+                    .unwrap()
+                    .deref_mut(),
+            )
             .expect("pass");
         // This clone is necessary here to release the mutable borrow of mock_verified_cache.
         let did_document = did_document.clone();
@@ -306,7 +318,15 @@ fn test_did_operations() {
         if false {
             {
                 let (did_document_query, did_document_metadata_query) = mock_verified_cache
-                    .resolve(mock_wallet.did(), Some(0), None, &mock_vdr_lam)
+                    .resolve(
+                        mock_wallet.did(),
+                        Some(0),
+                        None,
+                        mock_vdr_lam[mock_wallet.did().host.as_str()]
+                            .write()
+                            .unwrap()
+                            .deref_mut(),
+                    )
                     .expect("pass");
                 assert_eq!(*did_document_query, did_document);
                 assert_eq!(did_document_metadata_query, did_document_metadata);
@@ -317,7 +337,10 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         None,
                         Some(did_document.self_hash()),
-                        &mock_vdr_lam,
+                        mock_vdr_lam[mock_wallet.did().host.as_str()]
+                            .write()
+                            .unwrap()
+                            .deref_mut(),
                     )
                     .expect("pass");
                 assert_eq!(*did_document_query, did_document);
@@ -327,7 +350,10 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve(mock_wallet.did(), Some(0), Some(did_document.self_hash()), &mock_vdr_lam)
+                .resolve(mock_wallet.did(), Some(0), Some(did_document.self_hash()), mock_vdr_lam[mock_wallet.did().host.as_str()]
+                .write()
+                .unwrap()
+                .deref_mut())
                 .expect("pass");
                 assert_eq!(*did_document_query, did_document);
                 assert_eq!(did_document_metadata_query, did_document_metadata);
@@ -345,7 +371,15 @@ fn test_did_operations() {
     {
         println!("-- First, we'll resolve the root DID document -----------------");
         let (did_document, did_document_metadata) = mock_verified_cache
-            .resolve(mock_wallet.did(), Some(0), None, &mock_vdr_lam)
+            .resolve(
+                mock_wallet.did(),
+                Some(0),
+                None,
+                mock_vdr_lam[mock_wallet.did().host.as_str()]
+                    .write()
+                    .unwrap()
+                    .deref_mut(),
+            )
             .expect("pass");
         println!("ROOT did_document: {}", did_document.to_json_pretty());
         println!(
@@ -355,7 +389,15 @@ fn test_did_operations() {
 
         println!("-- Now, we'll resolve the latest DID document -----------------");
         let (did_document, did_document_metadata) = mock_verified_cache
-            .resolve(mock_wallet.did(), None, None, &mock_vdr_lam)
+            .resolve(
+                mock_wallet.did(),
+                None,
+                None,
+                mock_vdr_lam[mock_wallet.did().host.as_str()]
+                    .write()
+                    .unwrap()
+                    .deref_mut(),
+            )
             .expect("pass");
         println!("LATEST did_document: {}", did_document.to_json_pretty());
         println!(
@@ -365,7 +407,15 @@ fn test_did_operations() {
 
         println!("-- Finally, we'll resolve the latest DID document again -------");
         let (did_document, did_document_metadata) = mock_verified_cache
-            .resolve(mock_wallet.did(), None, None, &mock_vdr_lam)
+            .resolve(
+                mock_wallet.did(),
+                None,
+                None,
+                mock_vdr_lam[mock_wallet.did().host.as_str()]
+                    .write()
+                    .unwrap()
+                    .deref_mut(),
+            )
             .expect("pass");
         // This clone is necessary here to release the mutable borrow of mock_verified_cache.
         let did_document = did_document.clone();
@@ -383,7 +433,10 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         Some(did_document.version_id()),
                         None,
-                        &mock_vdr_lam,
+                        mock_vdr_lam[mock_wallet.did().host.as_str()]
+                            .write()
+                            .unwrap()
+                            .deref_mut(),
                     )
                     .expect("pass");
                 assert_eq!(*did_document_query, did_document);
@@ -395,7 +448,10 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         None,
                         Some(did_document.self_hash()),
-                        &mock_vdr_lam,
+                        mock_vdr_lam[mock_wallet.did().host.as_str()]
+                            .write()
+                            .unwrap()
+                            .deref_mut(),
                     )
                     .expect("pass");
                 assert_eq!(*did_document_query, did_document);
@@ -405,7 +461,10 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve(mock_wallet.did(), Some(did_document.version_id()), Some(did_document.self_hash()), &mock_vdr_lam)
+                .resolve(mock_wallet.did(), Some(did_document.version_id()), Some(did_document.self_hash()), mock_vdr_lam[mock_wallet.did().host.as_str()]
+                .write()
+                .unwrap()
+                .deref_mut())
                 .expect("pass");
                 assert_eq!(*did_document_query, did_document);
                 assert_eq!(did_document_metadata_query, did_document_metadata);

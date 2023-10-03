@@ -8,7 +8,7 @@ use crate::{DIDDocument, DIDDocumentMetadata, Error, DID};
 /// copy of that data.  Whereas if the microledger is backed by an in-memory data structure, then
 /// the lifetime parameter would be the lifetime of that in-memory structure.
 // TODO: Need an async version for a sqlx-backed implementation.
-pub trait MicroledgerViewTrait<'v> {
+pub trait MicroledgerView<'v> {
     /// This is the DID that controls this microledger and that all DID documents in this microledger share.
     fn did(&self) -> &'v DID;
     // /// The microledger height is the number of DID documents in the microledger.
@@ -17,15 +17,18 @@ pub trait MicroledgerViewTrait<'v> {
     fn root_did_document(&self) -> &'v DIDDocument;
     /// Returns the latest DID document in the microledger.
     fn latest_did_document(&self) -> &'v DIDDocument;
-    /// Select a range of DID documents based on version_id.  Optionally specify a begin (inclusive)
-    /// and end (exclusive) version_id value for the range.  If version_id_begin_o is None, then the
-    /// range begins with the first DID document in the microledger.  If version_id_end_o is None, then
-    /// the range ends with the last DID document in the microledger.
+    /// Select a range of DID documents based on version_id.  Optionally specify a begin and end (range
+    /// is inclusive on both ends) version_id value for the range.  If version_id_begin_o is None, then
+    /// it is treated as 0.  If version_id_end_o is None, then it is treated as u32::MAX.  What's
+    /// returned is the number of selected DID documents and an iterator over them.
     fn select_did_documents<'s>(
         &'s self,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
-    ) -> Box<dyn std::iter::Iterator<Item = &'v DIDDocument> + 'v>;
+    ) -> (
+        u32,
+        Box<dyn std::iter::Iterator<Item = &'v DIDDocument> + 'v>,
+    );
     /// Returns the node at the given version_id.
     fn did_document_for_version_id(&self, version_id: u32) -> Result<&'v DIDDocument, Error>;
     /// Returns the node whose DID document has the given self-hash.
@@ -136,13 +139,4 @@ pub trait MicroledgerViewTrait<'v> {
 
     //     // Ok(())
     // }
-}
-
-/// Trait defining the DID microledger data model.  The trait is defined generally enough so that
-/// it could be implemented for a Microledger held entirely in memory, or one stored in a database.
-// TODO: Need an async version for a sqlx-backed implementation.
-pub trait MicroledgerMutViewTrait<'v> {
-    /// This verifies that the given non-root DID document is a valid update, and then will append it to
-    /// the microledger.
-    fn update(&mut self, non_root_did_document: DIDDocument) -> Result<(), Error>;
 }

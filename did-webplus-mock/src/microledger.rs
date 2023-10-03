@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use did_webplus::{DIDDocument, Error, MicroledgerMutViewTrait, MicroledgerViewTrait};
+use did_webplus::{DIDDocument, Error, MicroledgerMutView, MicroledgerView};
 
 /// Purely in-memory data model of a single DID's microledger of DID documents.  Has indexes for
 /// the self-hash and valid_from fields of each DID document, which are used in the query
@@ -133,16 +133,16 @@ impl Microledger {
         Microledger::new(root_did_document, non_root_did_document_v)
     }
     /// Return an immutable view into the Microledger.
-    pub fn view(&self) -> impl MicroledgerViewTrait<'_> {
+    pub fn view(&self) -> impl MicroledgerView<'_> {
         self
     }
     /// Return a mutable view into the Microledger.
-    pub fn mut_view(&mut self) -> impl MicroledgerMutViewTrait<'_> {
+    pub fn mut_view(&mut self) -> impl MicroledgerMutView<'_> {
         self
     }
 }
 
-impl<'m> MicroledgerViewTrait<'m> for &'m Microledger {
+impl<'m> MicroledgerView<'m> for &'m Microledger {
     fn did(&self) -> &'m did_webplus::DID {
         &self.root_did_document.did
     }
@@ -160,17 +160,22 @@ impl<'m> MicroledgerViewTrait<'m> for &'m Microledger {
         &'s self,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
-    ) -> Box<dyn std::iter::Iterator<Item = &'m did_webplus::DIDDocument> + 'm> {
+    ) -> (
+        u32,
+        Box<dyn std::iter::Iterator<Item = &'m did_webplus::DIDDocument> + 'm>,
+    ) {
         let version_id_begin = version_id_begin_o.unwrap_or(0) as usize;
         let version_id_end = version_id_end_o
             .map(|version_id_end| version_id_end as usize)
-            .unwrap_or(self.latest_did_document().version_id() as usize + 1);
-        if version_id_begin >= version_id_end {
+            .unwrap_or(self.latest_did_document().version_id() as usize);
+        if version_id_begin > version_id_end {
             // No DID documents requested.
-            return Box::new(std::iter::empty());
+            return (0, Box::new(std::iter::empty()));
         }
-        let mut did_document_v = Vec::with_capacity(version_id_end - version_id_begin);
+        let mut did_document_count = (version_id_end as u32) - (version_id_begin as u32) + 1;
+        let mut did_document_v = Vec::with_capacity(version_id_end - version_id_begin + 1);
         if version_id_begin == 0 {
+            did_document_count += 1;
             did_document_v.push(&self.root_did_document);
         }
         let non_root_did_document_index_begin = version_id_begin.saturating_sub(1);
@@ -179,9 +184,10 @@ impl<'m> MicroledgerViewTrait<'m> for &'m Microledger {
             self.non_root_did_document_v
                 .iter()
                 .skip(non_root_did_document_index_begin)
-                .take(non_root_did_document_index_end - non_root_did_document_index_begin),
+                .take(non_root_did_document_index_end - non_root_did_document_index_begin + 1),
         );
-        Box::new(did_document_v.into_iter())
+        let did_document_ib = Box::new(did_document_v.into_iter());
+        (did_document_count, did_document_ib)
     }
     fn did_document_for_version_id(
         &self,
@@ -225,7 +231,7 @@ impl<'m> MicroledgerViewTrait<'m> for &'m Microledger {
     }
 }
 
-impl<'m> MicroledgerMutViewTrait<'m> for &'m mut Microledger {
+impl<'m> MicroledgerMutView<'m> for &'m mut Microledger {
     fn update(
         &mut self,
         non_root_did_document: did_webplus::DIDDocument,
