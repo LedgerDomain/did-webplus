@@ -1,5 +1,6 @@
 use did_webplus::{DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, PublicKeySet};
 use selfhash::HashFunction;
+use selfsign::SelfSignAndHashable;
 
 #[test]
 #[serial_test::serial]
@@ -8,7 +9,7 @@ fn test_root_did_document_self_sign() {
     let ed25519_signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let ed25519_verifying_key_0 = ed25519_signing_key_0.verifying_key();
     let ed25519_verifying_key_1 = ed25519_signing_key_1.verifying_key();
-    // To create a RootDIDDocument from the controller side, we only supply:
+    // To create a root DIDDocument from the controller side, we only supply:
     // - The did:webplus value with a placeholder self-signature
     // - The valid_from timestamp at which the DID document becomes valid.
     // - The public keys for each key purpose
@@ -20,7 +21,7 @@ fn test_root_did_document_self_sign() {
                 authentication_v: vec![&ed25519_verifying_key_0],
                 assertion_method_v: vec![&ed25519_verifying_key_0],
                 key_agreement_v: vec![&ed25519_verifying_key_0],
-                // Note that this is the one being used to self-sign the RootDIDDocument.
+                // Note that this is the one being used to self-sign the root DIDDocument.
                 capability_invocation_v: vec![&ed25519_verifying_key_1],
                 capability_delegation_v: vec![&ed25519_verifying_key_0],
             },
@@ -46,7 +47,7 @@ fn test_did_document_verification() {
     let ed25519_signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let ed25519_verifying_key_0 = ed25519_signing_key_0.verifying_key();
     let ed25519_verifying_key_1 = ed25519_signing_key_1.verifying_key();
-    // To create a RootDIDDocument from the controller side, we only supply:
+    // To create a root DIDDocument from the controller side, we only supply:
     // - The did:webplus value with a placeholder self-signature
     // - The valid_from timestamp at which the DID document becomes valid.
     // - The public keys for each key purpose
@@ -58,7 +59,7 @@ fn test_did_document_verification() {
                 authentication_v: vec![&ed25519_verifying_key_0],
                 assertion_method_v: vec![&ed25519_verifying_key_0],
                 key_agreement_v: vec![&ed25519_verifying_key_0],
-                // Note that this is the one being used to self-sign the RootDIDDocument.
+                // Note that this is the one being used to self-sign the root DIDDocument.
                 capability_invocation_v: vec![&ed25519_verifying_key_1],
                 capability_delegation_v: vec![&ed25519_verifying_key_0],
             },
@@ -165,7 +166,7 @@ fn test_signature_generation_with_witness() {
                     authentication_v: vec![&verifying_key_0],
                     assertion_method_v: vec![&verifying_key_0],
                     key_agreement_v: vec![&verifying_key_0],
-                    // Note that this is the one being used to self-sign the RootDIDDocument.
+                    // Note that this is the one being used to self-sign the root DIDDocument.
                     capability_invocation_v: vec![&verifying_key_0],
                     capability_delegation_v: vec![&verifying_key_0],
                 },

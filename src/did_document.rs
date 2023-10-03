@@ -1,8 +1,7 @@
 use selfsign::SelfSignAndHashable;
 
 use crate::{
-    DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDWebplus, Error, NonRootDIDDocument,
-    PublicKeyMaterial, RootDIDDocument,
+    DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDWebplus, Error, PublicKeyMaterial,
 };
 
 /// The generic data model for did:webplus DID documents.  There are additional constraints on the
@@ -16,7 +15,6 @@ use crate::{
 /// methods do not produce canonical JSON.  JCS (JSON Canonicalization Scheme) is used for canonicalization,
 /// and the serialize_canonically_to_vec and serialize_canonically_to_writer methods use the
 /// serde_json_canonicalizer crate to do the serialization to this end.
-// TODO: Consider getting rid of RootDIDDocument and NonRootDIDDocument given how similar they are.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocument {
     /// This is the DID.  This should be identical to the id field of the previous DID document.
@@ -31,7 +29,7 @@ pub struct DIDDocument {
     /// DID (see "id" field).
     #[serde(rename = "selfSignature")]
     pub self_signature_o: Option<selfsign::KERISignature<'static>>,
-    /// This is the self-signature verifier of the document.  For a valid NonRootDIDDocument (which in
+    /// This is the self-signature verifier of the document.  For a valid non-root DIDDocument (which in
     /// particular must be self-signed), this value should specify a key in in the capability_invocation_v
     /// field of the previous DID document's KeyMaterial.  Note that there is a translation step between
     /// KERIVerifier and VerificationMethod.
@@ -78,7 +76,7 @@ impl DIDDocument {
             host: did_document_create_params.did_webplus_host.to_string(),
             self_hash: hash_function.placeholder_hash().to_keri_hash().to_owned(),
         };
-        let root_did_document = Self {
+        let mut root_did_document = Self {
             id: did.clone(),
             self_hash_o: None,
             self_signature_o: None,
@@ -92,10 +90,8 @@ impl DIDDocument {
             )?,
         };
         let hasher_b = hash_function.new_hasher();
-        // TEMP HACK -- get rid of RootDIDDocument
-        let mut root_did_document = RootDIDDocument::try_from(root_did_document).unwrap();
+        // Self-sign-and-hash the new DID document.
         root_did_document.self_sign_and_hash(signer, hasher_b)?;
-        let root_did_document = DIDDocument::from(root_did_document);
         // Verify just for good measure.
         root_did_document
             .verify_root_nonrecursive()
@@ -130,7 +126,7 @@ impl DIDDocument {
 
         // Form the new DID document
         let did = prev_did_document.id().clone();
-        let new_non_root_did_document = Self {
+        let mut new_non_root_did_document = Self {
             id: did.clone(),
             self_hash_o: None,
             self_signature_o: None,
@@ -143,12 +139,8 @@ impl DIDDocument {
                 did_document_update_params.public_key_set,
             )?,
         };
-        // Self-sign.
-        // TEMP HACK - get rid of NonRootDIDDocument
-        let mut new_non_root_did_document =
-            NonRootDIDDocument::try_from(new_non_root_did_document).unwrap();
+        // Self-sign-and-hash the new DID document.
         new_non_root_did_document.self_sign_and_hash(signer, hasher_b)?;
-        let new_non_root_did_document = DIDDocument::from(new_non_root_did_document);
         // Verify it against the previous DID document.
         new_non_root_did_document
             .verify_non_root_nonrecursive(prev_did_document)
@@ -310,109 +302,90 @@ impl DIDDocument {
 
         Ok(self.self_hash_o.as_ref().unwrap())
     }
-    pub fn verify_self_signatures_and_hashes<'a, 'b: 'a>(
-        &'b self,
-    ) -> Result<(&'a dyn selfsign::Signature, &'a dyn selfhash::Hash), Error> {
-        // TODO: Impl SelfSignable etc for DIDDocument
-        if self.is_root_did_document() {
-            // TEMP HACK -- get rid of RootDIDDocument
-            let root_did_document = RootDIDDocument::try_from(self.clone())?;
-            root_did_document
-                .verify_self_signatures_and_hashes()
-                .map_err(|_| {
-                    Error::InvalidSelfSignatureOrSelfHash(
-                        "Root DID document has invalid self-signature",
-                    )
-                })?;
-        } else {
-            // TEMP HACK -- get rid of NonRootDIDDocument
-            let non_root_did_document = NonRootDIDDocument::try_from(self.clone())?;
-            non_root_did_document
-                .verify_self_signatures_and_hashes()
-                .map_err(|_| {
-                    Error::InvalidSelfSignatureOrSelfHash(
-                        "Non-root DID document has invalid self-signature",
-                    )
-                })?;
-        }
-        Ok((
-            self.self_signature_o.as_ref().unwrap(),
-            self.self_hash_o.as_ref().unwrap(),
-        ))
-    }
     // TEMP HACK
     pub fn to_json_pretty(&self) -> String {
         serde_json::to_string_pretty(self).expect("pass")
     }
 }
 
-impl TryFrom<DIDDocument> for RootDIDDocument {
-    type Error = Error;
-    fn try_from(did_document: DIDDocument) -> Result<Self, Self::Error> {
-        if !did_document.is_root_did_document() {
-            return Err(Error::Malformed(
-                "Expected a root DID document, but this is a non-root DID document.",
-            ));
-        }
-        Ok(Self {
-            id: did_document.id,
-            self_hash_o: did_document.self_hash_o,
-            self_signature_o: did_document.self_signature_o,
-            self_signature_verifier_o: did_document.self_signature_verifier_o,
-            valid_from: did_document.valid_from,
-            version_id: did_document.version_id,
-            public_key_material: did_document.public_key_material,
-        })
+impl selfhash::SelfHashable for DIDDocument {
+    fn write_digest_data(&self, hasher: &mut dyn selfhash::Hasher) {
+        selfhash::write_digest_data_using_jcs(self, hasher);
     }
-}
-
-impl TryFrom<DIDDocument> for NonRootDIDDocument {
-    type Error = Error;
-    fn try_from(did_document: DIDDocument) -> Result<Self, Self::Error> {
-        if did_document.is_root_did_document() {
-            return Err(Error::Malformed(
-                "Expected a non-root DID document, but this is a root DID document.",
-            ));
+    fn self_hash_oi<'a, 'b: 'a>(
+        &'b self,
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> {
+        // Depending on if this is a root DID document or a non-root DID document, there are different
+        // self-hash slots to return.
+        if self.is_root_did_document() {
+            Box::new(
+                std::iter::once(Some(&self.id.self_hash as &dyn selfhash::Hash))
+                    .chain(std::iter::once(
+                        self.self_hash_o
+                            .as_ref()
+                            .map(|self_hash| self_hash as &dyn selfhash::Hash),
+                    ))
+                    .chain(self.public_key_material.root_did_document_self_hash_oi()),
+            )
+        } else {
+            Box::new(std::iter::once(
+                self.self_hash_o
+                    .as_ref()
+                    .map(|self_hash| self_hash as &dyn selfhash::Hash),
+            ))
         }
-        Ok(Self {
-            id: did_document.id,
-            self_hash_o: did_document.self_hash_o,
-            self_signature_o: did_document.self_signature_o,
-            self_signature_verifier_o: did_document.self_signature_verifier_o,
-            prev_did_document_self_hash: did_document.prev_did_document_self_hash_o.unwrap(),
-            valid_from: did_document.valid_from,
-            version_id: did_document.version_id,
-            public_key_material: did_document.public_key_material,
-        })
     }
-}
-
-impl From<RootDIDDocument> for DIDDocument {
-    fn from(root_did_document: RootDIDDocument) -> Self {
-        Self {
-            id: root_did_document.id,
-            self_hash_o: root_did_document.self_hash_o,
-            self_signature_o: root_did_document.self_signature_o,
-            self_signature_verifier_o: root_did_document.self_signature_verifier_o,
-            prev_did_document_self_hash_o: None,
-            valid_from: root_did_document.valid_from,
-            version_id: root_did_document.version_id,
-            public_key_material: root_did_document.public_key_material,
+    fn set_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
+        let keri_hash = hash.to_keri_hash().into_owned();
+        // Depending on if this is a root DID document or a non-root DID document, there are different
+        // self-hash slots to assign to.
+        if self.is_root_did_document() {
+            self.id.self_hash = keri_hash.clone();
+            self.self_hash_o = Some(keri_hash.clone());
+            self.public_key_material
+                .set_root_did_document_self_hash_slots_to(&keri_hash);
+        } else {
+            self.self_hash_o = Some(keri_hash);
         }
     }
 }
 
-impl From<NonRootDIDDocument> for DIDDocument {
-    fn from(non_root_did_document: NonRootDIDDocument) -> Self {
-        Self {
-            id: non_root_did_document.id,
-            self_hash_o: non_root_did_document.self_hash_o,
-            self_signature_o: non_root_did_document.self_signature_o,
-            self_signature_verifier_o: non_root_did_document.self_signature_verifier_o,
-            prev_did_document_self_hash_o: Some(non_root_did_document.prev_did_document_self_hash),
-            valid_from: non_root_did_document.valid_from,
-            version_id: non_root_did_document.version_id,
-            public_key_material: non_root_did_document.public_key_material,
-        }
+impl selfsign::SelfSignable for DIDDocument {
+    fn write_digest_data(
+        &self,
+        signature_algorithm: &dyn selfsign::SignatureAlgorithm,
+        verifier: &dyn selfsign::Verifier,
+        hasher: &mut dyn selfhash::Hasher,
+    ) {
+        selfsign::write_digest_data_using_jcs(self, signature_algorithm, verifier, hasher);
+    }
+    fn self_signature_oi<'a, 'b: 'a>(
+        &'b self,
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfsign::Signature>> + 'a> {
+        // Root and non-root DID documents both have the same self-signature slots.
+        Box::new(std::iter::once(
+            self.self_signature_o
+                .as_ref()
+                .map(|s| -> &dyn selfsign::Signature { s }),
+        ))
+    }
+    fn set_self_signature_slots_to(&mut self, signature: &dyn selfsign::Signature) {
+        // Root and non-root DID documents both have the same self-signature slots.
+        let keri_signature = signature.to_keri_signature().into_owned();
+        self.self_signature_o = Some(keri_signature);
+    }
+    fn self_signature_verifier_oi<'a, 'b: 'a>(
+        &'b self,
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfsign::Verifier>> + 'a> {
+        // Root and non-root DID documents both have the same self-signature verifier slots.
+        Box::new(std::iter::once(
+            self.self_signature_verifier_o
+                .as_ref()
+                .map(|v| -> &dyn selfsign::Verifier { v }),
+        ))
+    }
+    fn set_self_signature_verifier_slots_to(&mut self, verifier: &dyn selfsign::Verifier) {
+        // Root and non-root DID documents both have the same self-signature verifier slots.
+        self.self_signature_verifier_o = Some(verifier.to_keri_verifier().into_owned());
     }
 }

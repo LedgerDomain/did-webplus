@@ -49,7 +49,7 @@ fn test_example_creating_and_updating_a_did() {
                         authentication_v: vec![&verifying_key_0],
                         assertion_method_v: vec![&verifying_key_0],
                         key_agreement_v: vec![&verifying_key_0],
-                        // Note that this is the one being used to self-sign the RootDIDDocument.
+                        // Note that this is the one being used to self-sign the root DIDDocument.
                         capability_invocation_v: vec![&verifying_key_0],
                         capability_delegation_v: vec![&verifying_key_0],
                     },

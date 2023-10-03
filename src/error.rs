@@ -20,6 +20,8 @@ pub enum Error {
     NotFound(&'static str),
     #[error("Generic error: {0}")]
     Generic(&'static str),
+    #[error("Serialization error: {0}")]
+    Serialization(&'static str),
     #[error("Unrecognized: {0}")]
     Unrecognized(&'static str),
     #[error("Unsupported: {0}")]
