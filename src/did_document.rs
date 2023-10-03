@@ -8,6 +8,14 @@ use crate::{
 /// The generic data model for did:webplus DID documents.  There are additional constraints on the
 /// data (it must be a root DID document or a non-root DID document), and there are conversion
 /// functions to convert between this data model and the more constrained data models.
+///
+/// To deserialize from a string `s: &str` to DIDDocument, use `serde_json::from_str::<DIDDocument>(s)`.
+///
+/// Note that if you want to serialize this DID document, you MUST use serialize_canonically_to_vec
+/// or serialize_canonically_to_writer.  This is because the serde_json::to_vec and serde_json::to_writer
+/// methods do not produce canonical JSON.  JCS (JSON Canonicalization Scheme) is used for canonicalization,
+/// and the serialize_canonically_to_vec and serialize_canonically_to_writer methods use the
+/// serde_json_canonicalizer crate to do the serialization to this end.
 // TODO: Consider getting rid of RootDIDDocument and NonRootDIDDocument given how similar they are.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocument {
@@ -150,6 +158,21 @@ impl DIDDocument {
 
     pub fn is_root_did_document(&self) -> bool {
         self.prev_did_document_self_hash_o.is_none()
+    }
+    /// This method is what you should use if you want to canonically serialize this DID document (to a Vec<u8>).
+    /// See also serialize_canonically_to_writer.
+    pub fn serialize_canonically_to_vec(&self) -> Result<Vec<u8>, Error> {
+        serde_json_canonicalizer::to_vec(self)
+            .map_err(|_| Error::Serialization("Failed to serialize DID document to canonical JSON"))
+    }
+    /// This method is what you should use if you want to canonically serialize this DID document (into
+    /// a std::io::Writer).  See also serialize_canonically_to_vec.
+    pub fn serialize_canonically_to_writer<W: std::io::Write>(
+        &self,
+        write: &mut W,
+    ) -> Result<(), Error> {
+        serde_json_canonicalizer::to_writer(self, write)
+            .map_err(|_| Error::Serialization("Failed to serialize DID document to canonical JSON"))
     }
 
     // TEMP METHODS
