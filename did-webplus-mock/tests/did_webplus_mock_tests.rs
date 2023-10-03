@@ -9,7 +9,8 @@ use did_webplus::{
     MicroledgerView, PublicKeySet,
 };
 use did_webplus_mock::{
-    Microledger, MockResolver, MockVDG, MockVDR, MockVerifiedCache, MockWallet, JWS,
+    Microledger, MockResolverFull, MockResolverLite, MockVDG, MockVDR, MockVerifiedCache,
+    MockWallet, JWS,
 };
 use selfhash::HashFunction;
 
@@ -240,8 +241,19 @@ fn test_did_operations() {
     let mut mock_wallet =
         MockWallet::new_with_vdr("Alice's Wallet".to_string(), mock_vdr_la.clone()).expect("pass");
 
-    let mut mock_resolver =
-        MockResolver::new("Bob's MockResolver".to_string(), mock_vdg_la.clone());
+    // This MockResolver keeps its own local MockVerifiedCache, and talks to the VDRs directly.
+    let mut mock_resolver_full = MockResolverFull::new(
+        "Bob's MockResolver".to_string(),
+        // Some(mock_vdg_la.clone()),
+        None,
+        mock_vdr_lam.clone(),
+    );
+
+    // This MockResolverLite doesn't keep a local MockVerifiedCache, and instead uses a VDG to do its resolution.
+    let mut mock_resolver_lite = MockResolverLite::new(
+        "Charlie's MockResolverLite".to_string(),
+        mock_vdg_la.clone(),
+    );
 
     // Sign and verify a JWS.
     {
@@ -258,7 +270,10 @@ fn test_did_operations() {
         let decoded_jws = JWS::decoded_from_str(jws_string.as_str()).expect("pass");
         println!("decoded_jws: {:?}", decoded_jws);
         let did_document_validity_time_range = decoded_jws
-            .verify(did_webplus::KeyPurpose::Authentication, &mut mock_resolver)
+            .verify(
+                did_webplus::KeyPurpose::Authentication,
+                &mut mock_resolver_full,
+            )
             .expect("pass");
         println!(
             "did_document_validity_time_range: {:?}",
@@ -287,6 +302,18 @@ fn test_did_operations() {
                 // No constraint
             }
         }
+
+        // Also resolve using mock_resolver_lite.
+        let did_document_validity_time_range_2 = decoded_jws
+            .verify(
+                did_webplus::KeyPurpose::Authentication,
+                &mut mock_resolver_lite,
+            )
+            .expect("pass");
+        assert_eq!(
+            did_document_validity_time_range_2,
+            did_document_validity_time_range
+        );
     }
 
     // Do some resolutions.

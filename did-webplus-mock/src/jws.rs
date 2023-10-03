@@ -28,7 +28,7 @@ impl<'j> JWS<'j> {
     pub fn verify(
         &self,
         verification_key_purpose: KeyPurpose,
-        mock_resolver: &mut MockResolver,
+        mock_resolver: &mut dyn MockResolver,
     ) -> Result<std::ops::Range<std::ops::Bound<time::OffsetDateTime>>, Error> {
         let did = self.header.kid.without_fragment().without_query();
         let key_id = &self.header.kid.fragment;
