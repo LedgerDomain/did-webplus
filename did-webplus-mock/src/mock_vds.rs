@@ -3,6 +3,15 @@ use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentM
 /// VDS = Verifiable Data Source (this is defined to be the common property that VDR and VDG both have).
 /// This represents a service that is capable of servicing DID resolution requests.  The two kinds of
 /// VDS are VDR and VDG.
+// NOTE: This trait represents the client side of this interaction.  Example implementations:
+// - MockVDR (in-memory data, intra-process API calls)
+// - MockVDG (in-memory data, intra-process API calls)
+// - HTTPVDR (database-backed, HTTP API calls)
+// - HTTPVDG (database-backed, HTTP API calls)
+// TODO: Rename to MockVDSClient
+// TODO: Is this actually the same as MockResolver?  And if so, should MockResolver have the
+// fetch_did_documents method?
+// TODO: If this is to be adopted as a trait in the did-webplus crate, then it should be VDSClient.
 // TODO: These should use &self instead of &mut self
 pub trait MockVDS {
     /// Fetch a contiguous sequence of DID documents for the given DID.  Note that the version_id
@@ -22,6 +31,7 @@ pub trait MockVDS {
     /// to do retrieval and verification of the DID documents on its behalf.  A VDG should be pre-fetching
     /// DID documents from VDRs, so that it can resolve DIDs for these "light" clients in constant time.
     // TODO: Potentially the return type could be Result<Vec<Cow<'s, DIDDocument>>, Error>.
+    // TODO: Potentially rename to get_did_document
     fn resolve(
         &mut self,
         requester_user_agent: &str,

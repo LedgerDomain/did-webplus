@@ -10,6 +10,8 @@ pub struct JWSHeader {
     pub kid: DIDWithQueryAndKeyIdFragment,
 }
 
+/// Light and minimal JWS implementation for mock purposes.  Not intended to be complete or secure.
+/// Correctness and interoperability with other impls of JWS has not been tested.
 #[derive(Clone, Debug, serde_with::DeserializeFromStr, serde_with::SerializeDisplay)]
 pub struct JWS<'j> {
     pub header: JWSHeader,

@@ -10,6 +10,7 @@ use crate::{
 /// the database queries are returning copies of the data, and there isn't a persistent in-memory
 /// copy of that data.  Whereas if the microledger is backed by an in-memory data structure, then
 /// the lifetime parameter would be the lifetime of that in-memory structure.
+// TODO: Should &'v DIDDocument be Cow<'v, DIDDocument>?
 // TODO: Need an async version for a sqlx-backed implementation.
 pub trait MicroledgerView<'v> {
     /// This is the DID that controls this microledger and that all DID documents in this microledger share.
@@ -99,13 +100,6 @@ pub trait MicroledgerView<'v> {
             idempotent_o,
             currency_o,
         }
-        // DIDDocumentMetadata::new(
-        //     self.root_did_document().valid_from,
-        //     next_did_document_o.as_ref().map(|x| x.valid_from().clone()),
-        //     next_did_document_o.as_ref().map(|x| x.version_id()),
-        //     latest_did_document.valid_from().clone(),
-        //     latest_did_document.version_id(),
-        // )
     }
     /// Resolve the DID document and associated DID document metadata with optional query params.  If no
     /// query params are given, then the latest will be returned.  If multiple query params are given,
