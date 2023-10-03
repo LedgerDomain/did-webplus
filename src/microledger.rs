@@ -1,4 +1,4 @@
-use crate::{DIDDocument, DIDDocumentMetadata, DIDWebplus, Error};
+use crate::{DIDDocument, DIDDocumentMetadata, Error, DID};
 
 /// Trait defining the DID microledger data model.  The trait is defined generally enough so that
 /// it could be implemented for a Microledger held entirely in memory, or one stored in a database.
@@ -10,7 +10,7 @@ use crate::{DIDDocument, DIDDocumentMetadata, DIDWebplus, Error};
 // TODO: Need an async version for a sqlx-backed implementation.
 pub trait MicroledgerViewTrait<'v> {
     /// This is the DID that controls this microledger and that all DID documents in this microledger share.
-    fn did(&self) -> &'v DIDWebplus;
+    fn did(&self) -> &'v DID;
     // /// The microledger height is the number of DID documents in the microledger.
     // fn microledger_height(&self) -> u32;
     /// Returns the root (first) DID document of the microledger.

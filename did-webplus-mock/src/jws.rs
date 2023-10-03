@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 
-use did_webplus::{DIDWebplusWithQueryAndKeyIdFragment, Error, KeyPurpose};
+use did_webplus::{DIDWithQueryAndKeyIdFragment, Error, KeyPurpose};
 
 use crate::MockResolver;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct JWSHeader {
     pub alg: String,
-    pub kid: DIDWebplusWithQueryAndKeyIdFragment,
+    pub kid: DIDWithQueryAndKeyIdFragment,
 }
 
 #[derive(Clone, Debug, serde_with::DeserializeFromStr, serde_with::SerializeDisplay)]
@@ -112,7 +112,7 @@ impl<'j> JWS<'j> {
     }
     /// Produce a JWS with the given bytes as a payload (payload_byte_v will be base64-encoded)
     pub fn signed(
-        kid: DIDWebplusWithQueryAndKeyIdFragment,
+        kid: DIDWithQueryAndKeyIdFragment,
         payload_byte_v: &'j [u8],
         signer: &dyn selfsign::Signer,
     ) -> Result<Self, Error> {

@@ -1,4 +1,4 @@
-use did_webplus::{DIDDocument, DIDWebplus, Error};
+use did_webplus::{DIDDocument, Error, DID};
 
 use crate::Microledger;
 
@@ -6,7 +6,7 @@ use crate::Microledger;
 #[derive(Debug)]
 pub struct MockVDR {
     pub host: String,
-    microledger_m: std::collections::HashMap<DIDWebplus, Microledger>,
+    microledger_m: std::collections::HashMap<DID, Microledger>,
     simulated_latency_o: Option<std::time::Duration>,
 }
 
@@ -22,7 +22,7 @@ impl MockVDR {
         &mut self,
         user_agent: &str,
         root_did_document: DIDDocument,
-    ) -> Result<DIDWebplus, Error> {
+    ) -> Result<DID, Error> {
         println!(
             "VDR (host: {:?}) servicing CREATE request from {:?} for\n    DID: {}",
             self.host, user_agent, root_did_document.id
@@ -71,7 +71,7 @@ impl MockVDR {
     pub fn select_did_documents<'s>(
         &'s self,
         user_agent: &str,
-        did: &DIDWebplus,
+        did: &DID,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = &'s DIDDocument> + 's>, Error> {
@@ -95,7 +95,7 @@ impl MockVDR {
     // // the number of times you need to hit the VDR.
     // pub fn resolve<'a>(
     //     &self,
-    //     did: &DIDWebplus,
+    //     did: &DID,
     //     version_id_o: Option<u32>,
     //     self_signature_o: Option<&selfsign::KERISignature<'a>>,
     // ) -> Result<(DIDDocument, DIDDocumentMetadata), Error> {
@@ -108,7 +108,7 @@ impl MockVDR {
     //         microledger.resolve(version_id_o, self_signature_o)?;
     //     Ok((did_document, did_document_metadata))
     // }
-    fn microledger<'s>(&'s self, did: &DIDWebplus) -> Result<&'s Microledger, Error> {
+    fn microledger<'s>(&'s self, did: &DID) -> Result<&'s Microledger, Error> {
         self.microledger_m
             .get(did)
             .ok_or_else(|| Error::NotFound("DID not found"))

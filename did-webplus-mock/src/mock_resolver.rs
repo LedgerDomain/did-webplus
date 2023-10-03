@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use did_webplus::{DIDDocument, DIDDocumentMetadata, DIDWebplus, Error};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, DID};
 
 use crate::{MockVDR, MockVerifiedCache};
 
@@ -28,11 +28,11 @@ impl MockResolver {
     }
     pub fn resolve<'s>(
         &'s mut self,
-        did_webplus: &DIDWebplus,
+        did: &DID,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
     ) -> Result<(&'s DIDDocument, DIDDocumentMetadata), Error> {
         self.mock_verified_cache
-            .resolve(did_webplus, version_id_o, self_hash_o, &self.mock_vdr_lam)
+            .resolve(did, version_id_o, self_hash_o, &self.mock_vdr_lam)
     }
 }

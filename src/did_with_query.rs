@@ -1,21 +1,24 @@
-use crate::{DIDURIComponents, DIDWebplusWithQueryAndFragment, Error, Fragment};
+use crate::{DIDURIComponents, DIDWithQueryAndFragment, Error, Fragment};
+
+#[deprecated = "Use DIDWithQuery instead"]
+pub type DIDWebplusWithQuery = DIDWithQuery;
 
 #[derive(Debug, serde_with::DeserializeFromStr, serde_with::SerializeDisplay)]
-pub struct DIDWebplusWithQuery {
+pub struct DIDWithQuery {
     pub host: String,
     pub self_hash: selfhash::KERIHash<'static>,
     pub query: String,
 }
 
-impl DIDWebplusWithQuery {
-    pub fn without_query(&self) -> crate::DIDWebplus {
-        crate::DIDWebplus {
+impl DIDWithQuery {
+    pub fn without_query(&self) -> crate::DID {
+        crate::DID {
             host: self.host.clone(),
             self_hash: self.self_hash.clone(),
         }
     }
-    pub fn with_fragment<F: Fragment>(&self, fragment: F) -> DIDWebplusWithQueryAndFragment<F> {
-        DIDWebplusWithQueryAndFragment {
+    pub fn with_fragment<F: Fragment>(&self, fragment: F) -> DIDWithQueryAndFragment<F> {
+        DIDWithQueryAndFragment {
             host: self.host.clone(),
             self_hash: self.self_hash.clone(),
             query: self.query.clone(),
@@ -24,7 +27,7 @@ impl DIDWebplusWithQuery {
     }
 }
 
-impl std::fmt::Display for DIDWebplusWithQuery {
+impl std::fmt::Display for DIDWithQuery {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -34,7 +37,7 @@ impl std::fmt::Display for DIDWebplusWithQuery {
     }
 }
 
-impl std::str::FromStr for DIDWebplusWithQuery {
+impl std::str::FromStr for DIDWithQuery {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let did_uri_components = DIDURIComponents::try_from(s)?;

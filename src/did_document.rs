@@ -1,8 +1,6 @@
 use selfsign::SelfSignAndHashable;
 
-use crate::{
-    DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDWebplus, Error, PublicKeyMaterial,
-};
+use crate::{DIDDocumentCreateParams, DIDDocumentUpdateParams, Error, PublicKeyMaterial, DID};
 
 /// The generic data model for did:webplus DID documents.  There are additional constraints on the
 /// data (it must be a root DID document or a non-root DID document), and there are conversion
@@ -19,7 +17,7 @@ use crate::{
 pub struct DIDDocument {
     /// This is the DID.  This should be identical to the id field of the previous DID document.
     // TODO: Rename this field to 'did', and use serde rename for the JSON serialization.
-    pub id: DIDWebplus,
+    pub id: DID,
     /// This is the self-hash of the document.  The self-hash functions as the globally unique identifier
     /// for the DID document.
     #[serde(rename = "selfHash")]
@@ -72,8 +70,8 @@ impl DIDDocument {
                 "signer's verifier must be a member of capability_invocation_verifier_v",
             ));
         }
-        let did = DIDWebplus {
-            host: did_document_create_params.did_webplus_host.to_string(),
+        let did = DID {
+            host: did_document_create_params.vdr_host.to_string(),
             self_hash: hash_function.placeholder_hash().to_keri_hash().to_owned(),
         };
         let mut root_did_document = Self {
@@ -107,7 +105,7 @@ impl DIDDocument {
         prev_did_document
             .verify_self_signatures_and_hashes()
             .map_err(|_| {
-                Error::InvalidDIDWebplusUpdateOperation(
+                Error::InvalidDIDUpdateOperation(
                     "Previous DID document self-signatures/self-hashes not valid",
                 )
             })?;
@@ -119,7 +117,7 @@ impl DIDDocument {
             .iter()
             .all(|key_id_fragment| **key_id_fragment == keri_verifier)
         {
-            return Err(Error::InvalidDIDWebplusUpdateOperation(
+            return Err(Error::InvalidDIDUpdateOperation(
                 "Unauthorized update operation; Signer's pub key not present in previous DID document's capability_invocation_v",
             ));
         }
@@ -169,7 +167,7 @@ impl DIDDocument {
 
     // TEMP METHODS
     // TODO: Rename to did
-    pub fn id(&self) -> &DIDWebplus {
+    pub fn id(&self) -> &DID {
         &self.id
     }
     // NOTE: This assumes this DIDDocument is self-hashed.

@@ -15,7 +15,7 @@ fn test_root_did_document_self_sign() {
     // - The public keys for each key purpose
     let root_did_document = DIDDocument::create_root(
         DIDDocumentCreateParams {
-            did_webplus_host: "example.com".into(),
+            vdr_host: "example.com".into(),
             valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![&ed25519_verifying_key_0],
@@ -53,7 +53,7 @@ fn test_did_document_verification() {
     // - The public keys for each key purpose
     let did_document_0 = DIDDocument::create_root(
         DIDDocumentCreateParams {
-            did_webplus_host: "example.com".into(),
+            vdr_host: "example.com".into(),
             valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![&ed25519_verifying_key_0],
@@ -160,7 +160,7 @@ fn test_signature_generation_with_witness() {
 
         let did_document_0 = DIDDocument::create_root(
             DIDDocumentCreateParams {
-                did_webplus_host: "example.com".into(),
+                vdr_host: "example.com".into(),
                 valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {
                     authentication_v: vec![&verifying_key_0],
@@ -188,7 +188,7 @@ fn test_signature_generation_with_witness() {
         // Add query params for versionId and selfHash, so that the signature produced with this key commits
         // the DID document with the given versionId to have the given selfHash.  This manifests a limited
         // form of witnessing.
-        let did_webplus_with_query_and_key_id_fragment = did
+        let did_with_query_and_key_id_fragment = did
             .with_query(format!(
                 "versionId={}&selfHash={}",
                 did_document_0.version_id,
@@ -196,7 +196,7 @@ fn test_signature_generation_with_witness() {
             ))
             .with_fragment(verifying_key_0.to_keri_verifier().into_owned());
         // Set the key_id field of the JWK, so that it appears in the header of JWS signatures.
-        priv_jwk_0.key_id = Some(did_webplus_with_query_and_key_id_fragment.to_string());
+        priv_jwk_0.key_id = Some(did_with_query_and_key_id_fragment.to_string());
         println!("We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
 
         // Sign stuff.

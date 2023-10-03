@@ -1,18 +1,18 @@
-use crate::{DIDWebplus, DIDWebplusWithKeyIdFragment, Error, PublicKeyParams};
+use crate::{DIDWithKeyIdFragment, Error, PublicKeyParams, DID};
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyJWK {
     // TODO: kid field is optional; consider taking this out to simplify things.
     #[serde(rename = "kid")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kid_o: Option<DIDWebplusWithKeyIdFragment>,
+    pub kid_o: Option<DIDWithKeyIdFragment>,
     // Note that this will use the "kty" field in serde to determine the variant of the enum.
     #[serde(flatten)]
     pub public_key_params: PublicKeyParams,
 }
 
 impl PublicKeyJWK {
-    pub fn try_from_did_and_verifier(did: &DIDWebplus, verifier: &dyn selfsign::Verifier) -> Self {
+    pub fn try_from_did_and_verifier(did: &DID, verifier: &dyn selfsign::Verifier) -> Self {
         let keri_verifier = verifier.to_keri_verifier().into_owned();
         let public_key_params = PublicKeyParams::from(verifier);
         assert!(

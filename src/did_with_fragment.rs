@@ -1,26 +1,26 @@
-use crate::{
-    DIDURIComponents, DIDWebplus, DIDWebplusFragment, DIDWebplusWithQueryAndFragment, Error,
-    Fragment,
-};
+use crate::{DIDFragment, DIDURIComponents, DIDWithQueryAndFragment, Error, Fragment, DID};
+
+#[deprecated = "Use DIDWithFragment instead"]
+pub type DIDWebplusWithFragment<F> = DIDWithFragment<F>;
 
 #[derive(
     Clone, Debug, serde_with::DeserializeFromStr, Eq, PartialEq, serde_with::SerializeDisplay,
 )]
-pub struct DIDWebplusWithFragment<F: Fragment> {
+pub struct DIDWithFragment<F: Fragment> {
     pub host: String,
     pub self_hash: selfhash::KERIHash<'static>,
-    pub fragment: DIDWebplusFragment<F>,
+    pub fragment: DIDFragment<F>,
 }
 
-impl<F: Fragment> DIDWebplusWithFragment<F> {
-    pub fn without_fragment(&self) -> DIDWebplus {
-        DIDWebplus {
+impl<F: Fragment> DIDWithFragment<F> {
+    pub fn without_fragment(&self) -> DID {
+        DID {
             host: self.host.clone(),
             self_hash: self.self_hash.clone(),
         }
     }
-    pub fn with_query(&self, query: String) -> DIDWebplusWithQueryAndFragment<F> {
-        DIDWebplusWithQueryAndFragment {
+    pub fn with_query(&self, query: String) -> DIDWithQueryAndFragment<F> {
+        DIDWithQueryAndFragment {
             host: self.host.clone(),
             self_hash: self.self_hash.clone(),
             query,
@@ -29,7 +29,7 @@ impl<F: Fragment> DIDWebplusWithFragment<F> {
     }
 }
 
-impl<F: Fragment> std::fmt::Display for DIDWebplusWithFragment<F> {
+impl<F: Fragment> std::fmt::Display for DIDWithFragment<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Note that the fragment includes the leading '#' when it is displayed.
         write!(
@@ -40,7 +40,7 @@ impl<F: Fragment> std::fmt::Display for DIDWebplusWithFragment<F> {
     }
 }
 
-impl<F: Fragment> std::str::FromStr for DIDWebplusWithFragment<F> {
+impl<F: Fragment> std::str::FromStr for DIDWithFragment<F> {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let did_uri_components = DIDURIComponents::try_from(s)?;
@@ -52,8 +52,7 @@ impl<F: Fragment> std::str::FromStr for DIDWebplusWithFragment<F> {
         if did_uri_components.fragment_o.is_none() {
             return Err(Error::Malformed("DID fragment is missing"));
         }
-        let fragment =
-            DIDWebplusFragment::from_str_without_hash(did_uri_components.fragment_o.unwrap())?;
+        let fragment = DIDFragment::from_str_without_hash(did_uri_components.fragment_o.unwrap())?;
         Ok(Self {
             host,
             self_hash,

@@ -4,8 +4,8 @@ use std::{
 };
 
 use did_webplus::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDWebplus, Error, KeyPurpose,
-    MicroledgerViewTrait, PublicKeySet,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, Error, KeyPurpose,
+    MicroledgerViewTrait, PublicKeySet, DID,
 };
 
 use crate::{Microledger, MockVDR};
@@ -56,10 +56,10 @@ impl MockWallet {
             .unwrap()
             .as_ref();
 
-        let did_webplus_host = mock_vdr_la.read().unwrap().host.clone();
+        let vdr_host = mock_vdr_la.read().unwrap().host.clone();
         let root_did_document = DIDDocument::create_root(
             DIDDocumentCreateParams {
-                did_webplus_host: did_webplus_host.into(),
+                vdr_host: vdr_host.into(),
                 valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {
                     authentication_v: current_public_key_set
@@ -109,7 +109,7 @@ impl MockWallet {
             mock_vdr_la,
         })
     }
-    pub fn did(&self) -> &DIDWebplus {
+    pub fn did(&self) -> &DID {
         self.microledger.view().did()
     }
     /// Get a read-only view of this wallet's Microledger.

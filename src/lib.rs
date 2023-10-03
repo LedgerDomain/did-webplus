@@ -1,13 +1,13 @@
+mod did;
 mod did_document;
 mod did_document_create_params;
 mod did_document_metadata;
 mod did_document_update_params;
+mod did_fragment;
 mod did_uri_components;
-mod did_webplus;
-mod did_webplus_fragment;
-mod did_webplus_with_fragment;
-mod did_webplus_with_query;
-mod did_webplus_with_query_and_fragment;
+mod did_with_fragment;
+mod did_with_query;
+mod did_with_query_and_fragment;
 mod error;
 mod key_purpose;
 mod microledger;
@@ -19,17 +19,23 @@ mod public_key_params_okp;
 mod public_key_set;
 mod verification_method;
 
+#[allow(deprecated)]
 pub use crate::{
+    did::DIDWebplus, did_fragment::DIDWebplusFragment, did_with_fragment::DIDWebplusWithFragment,
+    did_with_query::DIDWebplusWithQuery,
+    did_with_query_and_fragment::DIDWebplusWithQueryAndFragment,
+};
+pub use crate::{
+    did::DID,
     did_document::DIDDocument,
     did_document_create_params::DIDDocumentCreateParams,
     did_document_metadata::DIDDocumentMetadata,
     did_document_update_params::DIDDocumentUpdateParams,
+    did_fragment::{DIDFragment, Fragment},
     did_uri_components::DIDURIComponents,
-    did_webplus::DIDWebplus,
-    did_webplus_fragment::{DIDWebplusFragment, Fragment},
-    did_webplus_with_fragment::DIDWebplusWithFragment,
-    did_webplus_with_query::DIDWebplusWithQuery,
-    did_webplus_with_query_and_fragment::DIDWebplusWithQueryAndFragment,
+    did_with_fragment::DIDWithFragment,
+    did_with_query::DIDWithQuery,
+    did_with_query_and_fragment::DIDWithQueryAndFragment,
     error::Error,
     key_purpose::KeyPurpose,
     microledger::{MicroledgerMutViewTrait, MicroledgerViewTrait},
@@ -42,7 +48,17 @@ pub use crate::{
     verification_method::VerificationMethod,
 };
 
-pub type DIDWebplusKeyIdFragment = DIDWebplusFragment<selfsign::KERIVerifier<'static>>;
-pub type DIDWebplusWithKeyIdFragment = DIDWebplusWithFragment<selfsign::KERIVerifier<'static>>;
+#[allow(deprecated)]
+#[deprecated = "Use DIDKeyIdFragment instead"]
+pub type DIDWebplusKeyIdFragment = DIDFragment<selfsign::KERIVerifier<'static>>;
+#[allow(deprecated)]
+#[deprecated = "Use DIDWithKeyIdFragment instead"]
+pub type DIDWebplusWithKeyIdFragment = DIDWithFragment<selfsign::KERIVerifier<'static>>;
+#[allow(deprecated)]
+#[deprecated = "Use DIDWithQueryAndKeyIdFragment instead"]
 pub type DIDWebplusWithQueryAndKeyIdFragment =
-    DIDWebplusWithQueryAndFragment<selfsign::KERIVerifier<'static>>;
+    DIDWithQueryAndFragment<selfsign::KERIVerifier<'static>>;
+
+pub type DIDKeyIdFragment = DIDFragment<selfsign::KERIVerifier<'static>>;
+pub type DIDWithKeyIdFragment = DIDWithFragment<selfsign::KERIVerifier<'static>>;
+pub type DIDWithQueryAndKeyIdFragment = DIDWithQueryAndFragment<selfsign::KERIVerifier<'static>>;
