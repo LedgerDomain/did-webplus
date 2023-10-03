@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, DID};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 use crate::{MockResolver, MockVDG, MockVDR, MockVerifiedCache};
 
@@ -46,6 +46,7 @@ impl MockResolver for MockResolverFull {
         did: &DID,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
+        requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         let (did_document, did_document_metadata) =
             if let Some(mock_vdg_la) = self.mock_vdg_lao.as_mut() {
@@ -54,6 +55,7 @@ impl MockResolver for MockResolverFull {
                     did,
                     version_id_o,
                     self_hash_o,
+                    requested_did_document_metadata,
                     mock_vdg_g.deref_mut(),
                 )?
             } else {
@@ -67,6 +69,7 @@ impl MockResolver for MockResolverFull {
                     did,
                     version_id_o,
                     self_hash_o,
+                    requested_did_document_metadata,
                     mock_vdr_g.deref_mut(),
                 )?
             };

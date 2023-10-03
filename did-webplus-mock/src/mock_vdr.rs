@@ -1,4 +1,4 @@
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, DID};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 use crate::{Microledger, MockVDS};
 
@@ -106,6 +106,7 @@ impl MockVDS for MockVDR {
         did: &DID,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
+        requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(DIDDocument, DIDDocumentMetadata), Error> {
         println!(
             "VDR({:?})::resolve\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
@@ -115,8 +116,11 @@ impl MockVDS for MockVDR {
 
         let microledger = self.microledger(did)?;
         use did_webplus::MicroledgerView;
-        let (did_document, did_document_metadata) =
-            microledger.view().resolve(version_id_o, self_hash_o)?;
+        let (did_document, did_document_metadata) = microledger.view().resolve(
+            version_id_o,
+            self_hash_o,
+            requested_did_document_metadata,
+        )?;
         Ok((did_document.clone(), did_document_metadata))
     }
 }

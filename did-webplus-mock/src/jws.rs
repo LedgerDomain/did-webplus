@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use did_webplus::{DIDWithQueryAndKeyIdFragment, Error, KeyPurpose};
+use did_webplus::{DIDWithQueryAndKeyIdFragment, Error, KeyPurpose, RequestedDIDDocumentMetadata};
 
 use crate::MockResolver;
 
@@ -77,8 +77,13 @@ impl<'j> JWS<'j> {
             ));
         }
 
-        let (did_document, did_document_metadata) =
-            mock_resolver.resolve(&did, version_id_o, self_hash_o.as_ref())?;
+        // TODO: Minimal RequestedDIDDocumentMetadata
+        let (did_document, did_document_metadata) = mock_resolver.resolve(
+            &did,
+            version_id_o,
+            self_hash_o.as_ref(),
+            RequestedDIDDocumentMetadata::all(),
+        )?;
 
         println!("key_id: {}", key_id);
         println!("did_document:\n{}", did_document.to_json_pretty());
@@ -99,7 +104,11 @@ impl<'j> JWS<'j> {
 
         // Form the validity time range of the DID document.
         let valid_from = std::ops::Bound::Included(did_document.valid_from());
-        let valid_until = if let Some(next_update) = did_document_metadata.next_update_o() {
+        let valid_until = if let Some(next_update) = did_document_metadata
+            .idempotent_o
+            .expect("programmer error")
+            .next_update_o
+        {
             std::ops::Bound::Excluded(next_update)
         } else {
             std::ops::Bound::Unbounded

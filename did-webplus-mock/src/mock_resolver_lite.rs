@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, DID};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 use crate::{MockResolver, MockVDG};
 
@@ -35,11 +35,17 @@ impl MockResolver for MockResolverLite {
         did: &DID,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
+        requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         let mut mock_vdg_g = self.mock_vdg_la.write().unwrap();
         use crate::MockVDS;
-        let (did_document, did_document_metadata) =
-            mock_vdg_g.resolve(self.user_agent.as_str(), did, version_id_o, self_hash_o)?;
+        let (did_document, did_document_metadata) = mock_vdg_g.resolve(
+            self.user_agent.as_str(),
+            did,
+            version_id_o,
+            self_hash_o,
+            requested_did_document_metadata,
+        )?;
         Ok((Cow::Owned(did_document), did_document_metadata))
     }
 }

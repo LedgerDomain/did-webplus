@@ -30,7 +30,10 @@ pub use crate::{
     did::DID,
     did_document::DIDDocument,
     did_document_create_params::DIDDocumentCreateParams,
-    did_document_metadata::DIDDocumentMetadata,
+    did_document_metadata::{
+        DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
+        DIDDocumentMetadataIdempotent, RequestedDIDDocumentMetadata,
+    },
     did_document_update_params::DIDDocumentUpdateParams,
     did_fragment::{DIDFragment, Fragment},
     did_uri_components::DIDURIComponents,

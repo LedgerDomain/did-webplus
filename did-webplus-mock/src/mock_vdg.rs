@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{MockVDR, MockVDS, MockVerifiedCache};
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, DID};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 /// Mock (i.e. ephemeral, intra-process) implementation of Verifiable Data Gateway.  Handles retrieval,
 /// caching, and verification of did:webplus microledgers.
@@ -114,12 +114,15 @@ impl MockVDS for MockVDG {
         did: &DID,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
+        requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(DIDDocument, DIDDocumentMetadata), Error> {
         println!(
             "MockVDG({:?})::resolve;\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
             self.user_agent, requester_user_agent, did, version_id_o, self_hash_o
         );
         self.simulate_latency_if_necessary();
+
+        // TODO: Use the requested_did_document_metadata properly
 
         // TODO: Resolve totally locally if possible.
         // TODO: Need to handle the different kinds of DID document metadata.
@@ -161,7 +164,7 @@ impl MockVDS for MockVDG {
             .mock_verified_cache
             .microledger_view(did)
             .expect("programmer error")
-            .resolve(version_id_o, self_hash_o)?;
+            .resolve(version_id_o, self_hash_o, requested_did_document_metadata)?;
         Ok((did_document.clone(), did_document_metadata))
     }
 }

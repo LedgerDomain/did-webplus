@@ -6,7 +6,7 @@ use std::{
 
 use did_webplus::{
     DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, KeyPurpose, MicroledgerMutView,
-    MicroledgerView, PublicKeySet,
+    MicroledgerView, PublicKeySet, RequestedDIDDocumentMetadata,
 };
 use did_webplus_mock::{
     Microledger, MockResolverFull, MockResolverLite, MockVDG, MockVDR, MockVerifiedCache,
@@ -69,7 +69,7 @@ fn test_example_creating_and_updating_a_did() {
         use selfsign::Verifier;
         let latest_did_document = microledger.view().latest_did_document();
         println!("Creating a DID produces the root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is a public key that is also found in the `capabilityInvocation` field.  This is the initial proof of control over the DID.\n", latest_did_document.to_json_pretty());
-        println!("The associated DID document metadata (at the time of DID creation) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document)).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID creation) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
         // Add query params to bind this JWK to the latest DID doc.
         // Add (key ID) fragment to identify which key it is.
         let did_with_query_and_key_id_fragment = did
@@ -119,8 +119,8 @@ fn test_example_creating_and_updating_a_did() {
         use selfsign::Verifier;
         let latest_did_document = microledger.view().latest_did_document();
         println!("Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is present in the previous (root) DID document's `capabilityInvocation` field.  This proves that the DID document was updated by an authorized entity.\n", latest_did_document.to_json_pretty());
-        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document)).expect("pass"));
-        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document())).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
         let did_with_query_and_key_id_fragment = did
             .with_query(format!(
                 "versionId={}&selfHash={}",
@@ -181,9 +181,9 @@ fn test_example_creating_and_updating_a_did() {
         use selfsign::Verifier;
         let latest_did_document = microledger.view().latest_did_document();
         println!("Updated DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is present in the previous (root) DID document's `capabilityInvocation` field.  This proves that the DID document was updated by an authorized entity.\n", latest_did_document.to_json_pretty());
-        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document)).expect("pass"));
-        println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"))).expect("pass"));
-        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document())).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"), RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
         let did_with_query_and_key_id_fragment = did
             .with_query(format!(
                 "versionId={}&selfHash={}",
@@ -325,6 +325,7 @@ fn test_did_operations() {
                 mock_wallet.did(),
                 None,
                 None,
+                RequestedDIDDocumentMetadata::all(),
                 mock_vdr_lam[mock_wallet.did().host()]
                     .write()
                     .unwrap()
@@ -350,6 +351,7 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         Some(0),
                         None,
+                        RequestedDIDDocumentMetadata::all(),
                         mock_vdr_lam[mock_wallet.did().host()]
                             .write()
                             .unwrap()
@@ -365,6 +367,7 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         None,
                         Some(did_document.self_hash()),
+                        RequestedDIDDocumentMetadata::all(),
                         mock_vdr_lam[mock_wallet.did().host()]
                             .write()
                             .unwrap()
@@ -378,7 +381,7 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve(mock_wallet.did(), Some(0), Some(did_document.self_hash()), mock_vdr_lam[mock_wallet.did().host()]
+                .resolve(mock_wallet.did(), Some(0), Some(did_document.self_hash()), RequestedDIDDocumentMetadata::all(), mock_vdr_lam[mock_wallet.did().host()]
                 .write()
                 .unwrap()
                 .deref_mut())
@@ -403,6 +406,7 @@ fn test_did_operations() {
                 mock_wallet.did(),
                 Some(0),
                 None,
+                RequestedDIDDocumentMetadata::all(),
                 mock_vdr_lam[mock_wallet.did().host()]
                     .write()
                     .unwrap()
@@ -421,6 +425,7 @@ fn test_did_operations() {
                 mock_wallet.did(),
                 None,
                 None,
+                RequestedDIDDocumentMetadata::all(),
                 mock_vdr_lam[mock_wallet.did().host()]
                     .write()
                     .unwrap()
@@ -439,6 +444,7 @@ fn test_did_operations() {
                 mock_wallet.did(),
                 None,
                 None,
+                RequestedDIDDocumentMetadata::all(),
                 mock_vdr_lam[mock_wallet.did().host()]
                     .write()
                     .unwrap()
@@ -461,6 +467,7 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         Some(did_document.version_id()),
                         None,
+                        RequestedDIDDocumentMetadata::all(),
                         mock_vdr_lam[mock_wallet.did().host()]
                             .write()
                             .unwrap()
@@ -476,6 +483,7 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         None,
                         Some(did_document.self_hash()),
+                        RequestedDIDDocumentMetadata::all(),
                         mock_vdr_lam[mock_wallet.did().host()]
                             .write()
                             .unwrap()
@@ -489,7 +497,7 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve(mock_wallet.did(), Some(did_document.version_id()), Some(did_document.self_hash()), mock_vdr_lam[mock_wallet.did().host()]
+                .resolve(mock_wallet.did(), Some(did_document.version_id()), Some(did_document.self_hash()), RequestedDIDDocumentMetadata::all(), mock_vdr_lam[mock_wallet.did().host()]
                 .write()
                 .unwrap()
                 .deref_mut())

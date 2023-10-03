@@ -1,3 +1,30 @@
+/// Data structure which allows precise control over what metadata is derived when resolving a DID.
+/// The most expensive one will usually be `currency`, given that it has to contact the DID's VDR
+/// to determine if the DID document is the latest one.
+#[derive(Clone, Copy, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
+pub struct RequestedDIDDocumentMetadata {
+    pub constant: bool,
+    pub idempotent: bool,
+    pub currency: bool,
+}
+
+impl RequestedDIDDocumentMetadata {
+    pub fn none() -> Self {
+        Self {
+            constant: false,
+            idempotent: false,
+            currency: false,
+        }
+    }
+    pub fn all() -> Self {
+        Self {
+            constant: true,
+            idempotent: true,
+            currency: true,
+        }
+    }
+}
+
 /// The DID document metadata has three portions:
 /// - data that is constant (once the DID is created, this metadata never changes).
 /// - data that is idempotent (it starts unset but once it's set it never changes).
@@ -6,48 +33,11 @@
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocumentMetadata {
     #[serde(flatten)]
-    pub constant: DIDDocumentMetadataConstant,
+    pub constant_o: Option<DIDDocumentMetadataConstant>,
     #[serde(flatten)]
-    pub idempotent: DIDDocumentMetadataIdempotent,
+    pub idempotent_o: Option<DIDDocumentMetadataIdempotent>,
     #[serde(flatten)]
-    pub currency: DIDDocumentMetadataCurrency,
-}
-
-impl DIDDocumentMetadata {
-    pub fn new(
-        created: time::OffsetDateTime,
-        next_update_o: Option<time::OffsetDateTime>,
-        next_version_id_o: Option<u32>,
-        most_recent_update: time::OffsetDateTime,
-        most_recent_version_id: u32,
-    ) -> Self {
-        Self {
-            constant: DIDDocumentMetadataConstant { created },
-            idempotent: DIDDocumentMetadataIdempotent {
-                next_update_o,
-                next_version_id_o,
-            },
-            currency: DIDDocumentMetadataCurrency {
-                most_recent_update,
-                most_recent_version_id,
-            },
-        }
-    }
-    pub fn created(&self) -> time::OffsetDateTime {
-        self.constant.created
-    }
-    pub fn next_update_o(&self) -> Option<time::OffsetDateTime> {
-        self.idempotent.next_update_o
-    }
-    pub fn next_version_id_o(&self) -> Option<u32> {
-        self.idempotent.next_version_id_o
-    }
-    pub fn most_recent_update(&self) -> time::OffsetDateTime {
-        self.currency.most_recent_update
-    }
-    pub fn most_recent_version_id(&self) -> u32 {
-        self.currency.most_recent_version_id
-    }
+    pub currency_o: Option<DIDDocumentMetadataCurrency>,
 }
 
 /// Immutable part of DID document metadata; meaning that these values are set upon DID creation

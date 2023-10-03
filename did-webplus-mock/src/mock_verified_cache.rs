@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, DID};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 use crate::MockVDS;
 
@@ -505,9 +505,12 @@ impl MockVerifiedCache {
         did: &DID,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
+        requested_did_document_metadata: RequestedDIDDocumentMetadata,
         mock_vds: &mut dyn MockVDS,
     ) -> Result<(&'s DIDDocument, DIDDocumentMetadata), Error> {
         println!("MockVerifiedCache::resolve;\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}", did, version_id_o, self_hash_o);
+
+        // TODO: Actually implement use of the requested_did_document_metadata parameter.
 
         // TODO: resolve locally if possible
         // if let Ok((did_document, did_document_metadata)) =
@@ -538,6 +541,6 @@ impl MockVerifiedCache {
         use did_webplus::MicroledgerView;
         self.microledger_view(did)
             .expect("programmer error")
-            .resolve(version_id_o, self_hash_o)
+            .resolve(version_id_o, self_hash_o, requested_did_document_metadata)
     }
 }

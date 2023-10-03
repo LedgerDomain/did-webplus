@@ -1,4 +1,7 @@
-use crate::{DIDDocument, DIDDocumentMetadata, Error, DID};
+use crate::{
+    DIDDocument, DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
+    DIDDocumentMetadataIdempotent, Error, RequestedDIDDocumentMetadata, DID,
+};
 
 /// Trait defining the DID microledger data model.  The trait is defined generally enough so that
 /// it could be implemented for a Microledger held entirely in memory, or one stored in a database.
@@ -43,33 +46,81 @@ pub trait MicroledgerView<'v> {
     ) -> Result<&'v DIDDocument, Error>;
     /// Returns the DIDDocumentMetadata for the given DIDDocument.  Note that this depends on the
     /// whole state of the DID's Microledger -- in particular, on the first and last DID documents,
-    /// as well as the "next" DID document from the specified one.
-    fn did_document_metadata_for(&self, did_document: &DIDDocument) -> DIDDocumentMetadata {
-        let latest_did_document = self.latest_did_document();
-        let did_document_is_latest = did_document.self_hash() == latest_did_document.self_hash();
-        let next_did_document_o = if did_document_is_latest {
-            None
+    /// as well as the "next" DID document from the specified one.  Note that the correctness of
+    /// the metadata depends on this Microledger being up-to-date enough to service the requested
+    /// metadata.
+    ///
+    /// For example, if requested_did_document_metadata.currency is true, then the Microledger must be
+    /// completely up-to-date relative to the DID's VDR.  Whereas, if requested_did_document_metadata.idempotent
+    /// is true, and requested_did_document_metadata.currency is false, then the Microledger only needs
+    /// to be up-to-date through the next DID document relative to the one being resolved.
+    fn did_document_metadata_for(
+        &self,
+        did_document: &DIDDocument,
+        requested_did_document_metadata: RequestedDIDDocumentMetadata,
+    ) -> DIDDocumentMetadata {
+        let constant_o = if requested_did_document_metadata.constant {
+            Some(DIDDocumentMetadataConstant {
+                created: self.root_did_document().valid_from(),
+            })
         } else {
-            Some(
-                self.did_document_for_version_id(did_document.version_id() + 1)
-                    .unwrap(),
-            )
+            None
         };
-        DIDDocumentMetadata::new(
-            self.root_did_document().valid_from,
-            next_did_document_o.as_ref().map(|x| x.valid_from().clone()),
-            next_did_document_o.as_ref().map(|x| x.version_id()),
-            latest_did_document.valid_from().clone(),
-            latest_did_document.version_id(),
-        )
+        let idempotent_o = if requested_did_document_metadata.idempotent {
+            let next_did_document_o = if let Ok(next_did_document) =
+                self.did_document_for_version_id(did_document.version_id + 1)
+            {
+                Some(next_did_document)
+            } else {
+                None
+            };
+            let next_update_o =
+                next_did_document_o.map(|next_did_document| next_did_document.valid_from());
+            let next_version_id_o =
+                next_did_document_o.map(|next_did_document| next_did_document.version_id());
+            Some(DIDDocumentMetadataIdempotent {
+                next_update_o,
+                next_version_id_o,
+            })
+        } else {
+            None
+        };
+        let currency_o = if requested_did_document_metadata.currency {
+            Some(DIDDocumentMetadataCurrency {
+                most_recent_update: self.latest_did_document().valid_from(),
+                most_recent_version_id: self.latest_did_document().version_id(),
+            })
+        } else {
+            None
+        };
+
+        DIDDocumentMetadata {
+            constant_o,
+            idempotent_o,
+            currency_o,
+        }
+        // DIDDocumentMetadata::new(
+        //     self.root_did_document().valid_from,
+        //     next_did_document_o.as_ref().map(|x| x.valid_from().clone()),
+        //     next_did_document_o.as_ref().map(|x| x.version_id()),
+        //     latest_did_document.valid_from().clone(),
+        //     latest_did_document.version_id(),
+        // )
     }
     /// Resolve the DID document and associated DID document metadata with optional query params.  If no
     /// query params are given, then the latest will be returned.  If multiple query params are given,
-    /// then they will all be checked for consistency.
+    /// then they will all be checked for consistency.  Note that the correctness of the metadata depends
+    /// on this Microledger being up-to-date enough to service the requested metadata.
+    ///
+    /// For example, if requested_did_document_metadata.currency is true, then the Microledger must be
+    /// completely up-to-date relative to the DID's VDR.  Whereas, if requested_did_document_metadata.idempotent
+    /// is true, and requested_did_document_metadata.currency is false, then the Microledger only needs
+    /// to be up-to-date through the next DID document relative to the one being resolved.
     fn resolve(
         &self,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
+        requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(&'v DIDDocument, DIDDocumentMetadata), Error> {
         let did_document = match (version_id_o, self_hash_o) {
             (Some(version_id), None) => self.did_document_for_version_id(version_id)?,
@@ -83,60 +134,8 @@ pub trait MicroledgerView<'v> {
                 did_document
             }
         };
-        let did_document_metadata = self.did_document_metadata_for(&did_document);
+        let did_document_metadata =
+            self.did_document_metadata_for(&did_document, requested_did_document_metadata);
         Ok((did_document, did_document_metadata))
     }
-    // /// Perform a full traversal and verification of the entire Microledger.  This is linear in the
-    // /// number of nodes in the Microledger, and it isn't intended to be called except in debugging and
-    // /// testing.
-    // fn verify_full(&self) -> Result<(), Error> {
-    //     unimplemented!("blah");
-    //     // // TODO: implement a "verification cache" which stores the results of the verification so that
-    //     // // repeated calls to this function are not redundant.
-
-    //     // // let microledger_height = 1 + self.non_root_did_document_v.len();
-    //     // // if self.self_hash_version_id_m.len() != microledger_height {
-    //     // //     return Err(Error::Malformed(
-    //     // //         "said_version_id_m length does not match microledger height",
-    //     // //     ));
-    //     // // }
-    //     // // if self.valid_from_version_id_m.len() != microledger_height {
-    //     // //     return Err(Error::Malformed(
-    //     // //         "valid_from_version_id_m length does not match microledger height",
-    //     // //     ));
-    //     // // }
-    //     // // for version_id in self.self_hash_version_id_m.values() {
-    //     // //     if *version_id as usize >= microledger_height {
-    //     // //         return Err(Error::Malformed(
-    //     // //             "said_version_id_m contains version_id that is >= microledger height",
-    //     // //         ));
-    //     // //     }
-    //     // // }
-    //     // // for version_id in self.valid_from_version_id_m.values() {
-    //     // //     if *version_id as usize >= microledger_height {
-    //     // //         return Err(Error::Malformed(
-    //     // //             "valid_from_version_id_m contains version_id that is >= microledger height",
-    //     // //         ));
-    //     // //     }
-    //     // // }
-
-    //     // // TODO: More verification regarding the said_version_id_m and valid_from_version_id_m maps.
-
-    //     // // Verify the root node.
-    //     // self.root_did_document().verify_nonrecursive()?;
-    //     // let version_id_begin = 1u32;
-    //     // let version_id_end = self.latest_did_document().version_id() + 1;
-    //     // // Verify each non-root node.
-    //     // let mut prev_did_document = DIDDocument::from(self.root_did_document());
-    //     // for version_id in version_id_begin..version_id_end {
-    //     //     let non_root_did_document = self
-    //     //         .did_document_for_version_id(version_id)?
-    //     //         .as_non_root_did_document()
-    //     //         .expect("programmer error");
-    //     //     non_root_did_document.verify_nonrecursive(prev_did_document)?;
-    //     //     prev_did_document = DIDDocument::from(non_root_did_document);
-    //     // }
-
-    //     // Ok(())
-    // }
 }
