@@ -31,7 +31,7 @@ impl MockVDR {
         );
         self.simulate_latency_if_necessary();
 
-        if root_did_document.did.host != self.host {
+        if root_did_document.did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         // This construction will fail if the root_did_document isn't valid.
@@ -55,7 +55,7 @@ impl MockVDR {
         );
         self.simulate_latency_if_necessary();
 
-        if non_root_did_document.did.host != self.host {
+        if non_root_did_document.did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         let microledger = self

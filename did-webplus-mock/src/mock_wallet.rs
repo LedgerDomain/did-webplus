@@ -59,7 +59,8 @@ impl MockWallet {
         let vdr_host = mock_vdr_la.read().unwrap().host.clone();
         let root_did_document = DIDDocument::create_root(
             DIDDocumentCreateParams {
-                vdr_host: vdr_host.into(),
+                did_host: vdr_host.into(),
+                did_path_o: Some("user".into()),
                 valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {
                     authentication_v: current_public_key_set

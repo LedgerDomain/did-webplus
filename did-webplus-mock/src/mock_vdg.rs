@@ -87,7 +87,7 @@ impl MockVDS for MockVDG {
         {
             let mut mock_vdr_g = self
                 .mock_vdr_lam
-                .get(did.host.as_str())
+                .get(did.host())
                 .expect("programmer error: all mock VDRs should have been supplied correctly")
                 .write()
                 .unwrap();
@@ -148,7 +148,7 @@ impl MockVDS for MockVDG {
         // Retrieve the mock connection to the VDR for this DID.
         let mut mock_vdr_g = self
             .mock_vdr_lam
-            .get(did.host.as_str())
+            .get(did.host())
             .expect("pass")
             .write()
             .unwrap();

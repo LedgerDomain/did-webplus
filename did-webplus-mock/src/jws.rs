@@ -31,8 +31,8 @@ impl<'j> JWS<'j> {
         mock_resolver: &mut dyn MockResolver,
     ) -> Result<std::ops::Range<std::ops::Bound<time::OffsetDateTime>>, Error> {
         let did = self.header.kid.without_fragment().without_query();
-        let key_id = &self.header.kid.fragment;
-        let query_parts = self.header.kid.query.split('&');
+        let key_id = &self.header.kid.fragment();
+        let query_parts = self.header.kid.query().split('&');
         let mut version_id_o = None;
         let mut self_hash_o = None;
         for query_part in query_parts {

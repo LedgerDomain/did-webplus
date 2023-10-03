@@ -1,6 +1,80 @@
+use std::str::FromStr;
+
 use did_webplus::{DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, PublicKeySet};
 use selfhash::HashFunction;
 use selfsign::SelfSignAndHashable;
+
+#[test]
+#[serial_test::serial]
+fn test_roundtrip_did_basic() {
+    let str_v = [
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ",
+    ];
+    for s in str_v {
+        let did = did_webplus::DID::from_str(s).expect("pass");
+        println!("string form of DID: {}", s);
+        println!("parsed DID: {:?}", did);
+        let s2 = did.to_string();
+        println!("re-stringed form of DID: {}", s);
+        assert_eq!(s, &s2);
+    }
+}
+
+#[test]
+#[serial_test::serial]
+fn test_roundtrip_did_with_query() {
+    let str_v = [
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
+    ];
+    for s in str_v {
+        let did = did_webplus::DIDWithQuery::from_str(s).expect("pass");
+        println!("string form of DID: {}", s);
+        println!("parsed DID: {:?}", did);
+        let s2 = did.to_string();
+        println!("re-stringed form of DID: {}", s);
+        assert_eq!(s, &s2);
+    }
+}
+
+#[test]
+#[serial_test::serial]
+fn test_roundtrip_did_with_query_and_key_id_fragment() {
+    let str_v = [
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+    ];
+    for s in str_v {
+        let did = did_webplus::DIDWithQueryAndKeyIdFragment::from_str(s).expect("pass");
+        println!("string form of DID: {}", s);
+        println!("parsed DID: {:?}", did);
+        let s2 = did.to_string();
+        println!("re-stringed form of DID: {}", s);
+        assert_eq!(s, &s2);
+    }
+}
+
+#[test]
+#[serial_test::serial]
+fn test_roundtrip_did_with_key_id_fragment() {
+    let str_v = [
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+    ];
+    for s in str_v {
+        let did = did_webplus::DIDWithKeyIdFragment::from_str(s).expect("pass");
+        println!("string form of DID: {}", s);
+        println!("parsed DID: {:?}", did);
+        let s2 = did.to_string();
+        println!("re-stringed form of DID: {}", s);
+        assert_eq!(s, &s2);
+    }
+}
 
 #[test]
 #[serial_test::serial]
@@ -15,7 +89,8 @@ fn test_root_did_document_self_sign() {
     // - The public keys for each key purpose
     let root_did_document = DIDDocument::create_root(
         DIDDocumentCreateParams {
-            vdr_host: "example.com".into(),
+            did_host: "example.com".into(),
+            did_path_o: None,
             valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![&ed25519_verifying_key_0],
@@ -53,7 +128,8 @@ fn test_did_document_verification() {
     // - The public keys for each key purpose
     let did_document_0 = DIDDocument::create_root(
         DIDDocumentCreateParams {
-            vdr_host: "example.com".into(),
+            did_host: "example.com".into(),
+            did_path_o: Some("thing:stuff".into()),
             valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![&ed25519_verifying_key_0],
@@ -160,7 +236,8 @@ fn test_signature_generation_with_witness() {
 
         let did_document_0 = DIDDocument::create_root(
             DIDDocumentCreateParams {
-                vdr_host: "example.com".into(),
+                did_host: "example.com".into(),
+                did_path_o: None,
                 valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {
                     authentication_v: vec![&verifying_key_0],

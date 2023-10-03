@@ -72,10 +72,14 @@ impl DIDDocument {
                 "signer's verifier must be a member of capability_invocation_verifier_v",
             ));
         }
-        let did = DID {
-            host: did_document_create_params.vdr_host.to_string(),
-            self_hash: hash_function.placeholder_hash().to_keri_hash().to_owned(),
-        };
+        let did = DID::new(
+            did_document_create_params.did_host.into_owned(),
+            did_document_create_params
+                .did_path_o
+                .map(|x| x.into_owned()),
+            hash_function.placeholder_hash().to_keri_hash().to_owned(),
+        )
+        .expect("pass");
         let mut root_did_document = Self {
             did: did.clone(),
             self_hash_o: None,

@@ -59,7 +59,7 @@ impl MockResolver for MockResolverFull {
             } else {
                 let mut mock_vdr_g = self
                     .mock_vdr_lam
-                    .get_mut(did.host.as_str())
+                    .get_mut(did.host())
                     .expect("programmer error: all mock VDRs should have been supplied correctly")
                     .write()
                     .unwrap();

@@ -47,7 +47,8 @@ fn test_example_creating_and_updating_a_did() {
         let microledger = Microledger::create(
             DIDDocument::create_root(
                 DIDDocumentCreateParams {
-                    vdr_host: "example.com".into(),
+                    did_host: "example.com".into(),
+                    did_path_o: Some("hey".into()),
                     valid_from: time::OffsetDateTime::now_utc(),
                     public_key_set: PublicKeySet {
                         authentication_v: vec![&verifying_key_0],
@@ -324,7 +325,7 @@ fn test_did_operations() {
                 mock_wallet.did(),
                 None,
                 None,
-                mock_vdr_lam[mock_wallet.did().host.as_str()]
+                mock_vdr_lam[mock_wallet.did().host()]
                     .write()
                     .unwrap()
                     .deref_mut(),
@@ -349,7 +350,7 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         Some(0),
                         None,
-                        mock_vdr_lam[mock_wallet.did().host.as_str()]
+                        mock_vdr_lam[mock_wallet.did().host()]
                             .write()
                             .unwrap()
                             .deref_mut(),
@@ -364,7 +365,7 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         None,
                         Some(did_document.self_hash()),
-                        mock_vdr_lam[mock_wallet.did().host.as_str()]
+                        mock_vdr_lam[mock_wallet.did().host()]
                             .write()
                             .unwrap()
                             .deref_mut(),
@@ -377,7 +378,7 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve(mock_wallet.did(), Some(0), Some(did_document.self_hash()), mock_vdr_lam[mock_wallet.did().host.as_str()]
+                .resolve(mock_wallet.did(), Some(0), Some(did_document.self_hash()), mock_vdr_lam[mock_wallet.did().host()]
                 .write()
                 .unwrap()
                 .deref_mut())
@@ -402,7 +403,7 @@ fn test_did_operations() {
                 mock_wallet.did(),
                 Some(0),
                 None,
-                mock_vdr_lam[mock_wallet.did().host.as_str()]
+                mock_vdr_lam[mock_wallet.did().host()]
                     .write()
                     .unwrap()
                     .deref_mut(),
@@ -420,7 +421,7 @@ fn test_did_operations() {
                 mock_wallet.did(),
                 None,
                 None,
-                mock_vdr_lam[mock_wallet.did().host.as_str()]
+                mock_vdr_lam[mock_wallet.did().host()]
                     .write()
                     .unwrap()
                     .deref_mut(),
@@ -438,7 +439,7 @@ fn test_did_operations() {
                 mock_wallet.did(),
                 None,
                 None,
-                mock_vdr_lam[mock_wallet.did().host.as_str()]
+                mock_vdr_lam[mock_wallet.did().host()]
                     .write()
                     .unwrap()
                     .deref_mut(),
@@ -460,7 +461,7 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         Some(did_document.version_id()),
                         None,
-                        mock_vdr_lam[mock_wallet.did().host.as_str()]
+                        mock_vdr_lam[mock_wallet.did().host()]
                             .write()
                             .unwrap()
                             .deref_mut(),
@@ -475,7 +476,7 @@ fn test_did_operations() {
                         mock_wallet.did(),
                         None,
                         Some(did_document.self_hash()),
-                        mock_vdr_lam[mock_wallet.did().host.as_str()]
+                        mock_vdr_lam[mock_wallet.did().host()]
                             .write()
                             .unwrap()
                             .deref_mut(),
@@ -488,7 +489,7 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve(mock_wallet.did(), Some(did_document.version_id()), Some(did_document.self_hash()), mock_vdr_lam[mock_wallet.did().host.as_str()]
+                .resolve(mock_wallet.did(), Some(did_document.version_id()), Some(did_document.self_hash()), mock_vdr_lam[mock_wallet.did().host()]
                 .write()
                 .unwrap()
                 .deref_mut())
