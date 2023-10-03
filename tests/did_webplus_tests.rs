@@ -128,8 +128,9 @@ fn test_did_document_verification() {
     // - The public keys for each key purpose
     let did_document_0 = DIDDocument::create_root(
         DIDDocumentCreateParams {
-            did_host: "example.com".into(),
-            did_path_o: Some("thing:stuff".into()),
+            did_host: "localhost".into(),
+            // did_path_o: Some("user".into()),
+            did_path_o: None,
             valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
                 authentication_v: vec![&ed25519_verifying_key_0],
@@ -147,6 +148,16 @@ fn test_did_document_verification() {
     println!(
         "did_document_0:\n{}",
         serde_json::to_string_pretty(&did_document_0).unwrap()
+    );
+    println!(
+        "did_document_0 in JCS format:\n{}",
+        std::str::from_utf8(
+            did_document_0
+                .serialize_canonically_to_vec()
+                .expect("pass")
+                .as_slice()
+        )
+        .expect("pass")
     );
     did_document_0
         .verify_self_signatures_and_hashes()
@@ -175,6 +186,16 @@ fn test_did_document_verification() {
     println!(
         "did_document_1:\n{}",
         serde_json::to_string_pretty(&did_document_1).unwrap()
+    );
+    println!(
+        "did_document_1 in JCS format:\n{}",
+        std::str::from_utf8(
+            did_document_1
+                .serialize_canonically_to_vec()
+                .expect("pass")
+                .as_slice()
+        )
+        .expect("pass")
     );
     did_document_1
         .verify_self_signatures_and_hashes()
