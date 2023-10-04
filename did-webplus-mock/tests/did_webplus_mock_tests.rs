@@ -8,7 +8,7 @@ use did_webplus::{
     MicroledgerView, PublicKeySet, RequestedDIDDocumentMetadata,
 };
 use did_webplus_mock::{
-    Microledger, MockResolverFull, MockResolverLite, MockVDG, MockVDR, MockVDRClient,
+    Microledger, MockResolverFull, MockResolverThin, MockVDG, MockVDR, MockVDRClient,
     MockVerifiedCache, MockWallet, JWS,
 };
 use selfhash::HashFunction;
@@ -247,17 +247,17 @@ fn test_did_operations() {
         .create_did("example.com".to_string(), "user".to_string())
         .expect("pass");
 
-    // This MockResolver keeps its own local MockVerifiedCache, and talks to the VDRs directly.
+    // This Resolver keeps its own local MockVerifiedCache, and talks to the VDRs directly.
     let mut mock_resolver_full = MockResolverFull::new(
-        "Bob's MockResolver".to_string(),
+        "Bob's Resolver".to_string(),
         // Some(mock_vdg_la.clone()),
         None,
         mock_vdr_lam.clone(),
     );
 
-    // This MockResolverLite doesn't keep a local MockVerifiedCache, and instead uses a VDG to do its resolution.
-    let mut mock_resolver_lite = MockResolverLite::new(
-        "Charlie's MockResolverLite".to_string(),
+    // This MockResolverThin doesn't keep a local MockVerifiedCache, and instead uses a VDG to do its resolution.
+    let mut mock_resolver_thin = MockResolverThin::new(
+        "Charlie's MockResolverThin".to_string(),
         mock_vdg_la.clone(),
     );
 
@@ -311,11 +311,11 @@ fn test_did_operations() {
             }
         }
 
-        // Also resolve using mock_resolver_lite.
+        // Also resolve using mock_resolver_thin.
         let did_document_validity_time_range_2 = decoded_jws
             .verify(
                 did_webplus::KeyPurpose::Authentication,
-                &mut mock_resolver_lite,
+                &mut mock_resolver_thin,
             )
             .expect("pass");
         assert_eq!(

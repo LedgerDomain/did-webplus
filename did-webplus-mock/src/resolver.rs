@@ -4,9 +4,9 @@ use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentM
 
 /// Trait defining the DID Resolver data model.  The two mock implementations of this are
 /// MockResolverFull (keeps a local MockVerifiedCache of all DIDs it has resolved) and
-/// MockResolverLite (does not keep a local MockVerifiedCache, and instead outsources the
+/// MockResolverThin (does not keep a local MockVerifiedCache, and instead outsources the
 /// retrieval and verification of DID microledgers to a MockVDG).
-pub trait MockResolver {
+pub trait Resolver {
     /// Fetch a contiguous sequence of DID documents for the given DID.  Note that the version_id
     /// range is inclusive on both ends; if version_id_begin_o is None, then it is treated as 0,
     /// and if version_id_end_o is None, then it is treated as u32::MAX.  This is what a "full" client

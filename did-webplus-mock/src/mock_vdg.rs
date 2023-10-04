@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{MockResolverInternal, MockVDR, MockVDS, MockVerifiedCache};
+use crate::{MockResolverInternal, MockVDR, MockVerifiedCache, VDS};
 use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 /// Mock (i.e. ephemeral, intra-process) implementation of Verifiable Data Gateway.  Handles retrieval,
@@ -45,7 +45,7 @@ impl MockVDG {
     }
 }
 
-impl MockVDS for MockVDG {
+impl VDS for MockVDG {
     fn get_did_documents<'s>(
         &'s mut self,
         requester_user_agent: &str,
@@ -64,7 +64,7 @@ impl MockVDS for MockVDG {
         let mut mock_vdr_g = mock_vdr_la.write().unwrap();
         let mut mock_resolver_internal = MockResolverInternal {
             user_agent: self.user_agent.as_str(),
-            mock_vds: mock_vdr_g.deref_mut(),
+            vds: mock_vdr_g.deref_mut(),
         };
         self.mock_verified_cache.get_did_documents(
             self.user_agent.as_str(),
@@ -96,7 +96,7 @@ impl MockVDS for MockVDG {
         let mut mock_vdr_g = mock_vdr_la.write().unwrap();
         let mut mock_resolver_internal = MockResolverInternal {
             user_agent: self.user_agent.as_str(),
-            mock_vds: mock_vdr_g.deref_mut(),
+            vds: mock_vdr_g.deref_mut(),
         };
         self.mock_verified_cache.resolve_did_document(
             did,

@@ -4,10 +4,10 @@ use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentM
 
 /// VDS = Verifiable Data Source (this is defined to be the common property that VDR and VDG both have).
 /// This represents a service that is capable of servicing DID resolution requests.  The two kinds of
-/// VDS are VDR and VDG.  Note that MockResolver represents the client side of this interaction.
+/// VDS are VDR and VDG.  Note that Resolver represents the client side of this interaction.
 // TODO: If this is to be adopted as a trait in the did-webplus crate, then it should be VDS.
 // TODO: These should use &self instead of &mut self
-pub trait MockVDS {
+pub trait VDS {
     /// Fetch a contiguous sequence of DID documents for the given DID.  Note that the version_id
     /// range is inclusive on both ends; if version_id_begin_o is None, then it is treated as 0,
     /// and if version_id_end_o is None, then it is treated as u32::MAX.  This is what a "full" client

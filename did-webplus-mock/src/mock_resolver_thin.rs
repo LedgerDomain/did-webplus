@@ -5,31 +5,32 @@ use std::{
 
 use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
-use crate::{MockResolver, MockVDG, MockVDS};
+use crate::{MockVDG, Resolver, VDS};
 
-// This is a "light" resolver which doesn't keep a MockVerifiedCache, and instead outsources
+// This is a "thin" resolver which doesn't keep a MockVerifiedCache, and instead outsources
 // the retrieval and verification of DID microledgers to a MockVDG.  In its mock implementation,
-// this seems to do almost nothing, just forwards the call to MockVDG.  However, the real "light"
+// this seems to do almost nothing, just forwards the call to MockVDG.  However, the real "thin"
 // resolver would be a thin wrapper around making the appropriate HTTP request to the VDG (which
 // might include authentication or an API key).
-pub struct MockResolverLite {
+pub struct MockResolverThin {
     /// Analogous to the User-Agent HTTP header, used to identify the agent making requests to the VDR,
     /// for more clarity in logging.
     pub user_agent: String,
     /// Mock connection to the trusted VDG.  Just use one for now.  Potentially there could be backups.
+    // TODO: This should be Option<Arc<dyn Resolver>>.
     mock_vdg_la: Arc<RwLock<MockVDG>>,
 }
 
-impl MockResolverLite {
-    pub fn new(user_agent: String, mock_vds_la: Arc<RwLock<MockVDG>>) -> Self {
+impl MockResolverThin {
+    pub fn new(user_agent: String, mock_vdg_la: Arc<RwLock<MockVDG>>) -> Self {
         Self {
             user_agent,
-            mock_vdg_la: mock_vds_la,
+            mock_vdg_la,
         }
     }
 }
 
-impl MockResolver for MockResolverLite {
+impl Resolver for MockResolverThin {
     fn get_did_documents<'s>(
         &'s mut self,
         did: &DID,

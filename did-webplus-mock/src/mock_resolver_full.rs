@@ -8,7 +8,7 @@ use std::{
 use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 use crate::{
-    mock_resolver_internal::MockResolverInternal, MockResolver, MockVDG, MockVDR, MockVerifiedCache,
+    mock_resolver_internal::MockResolverInternal, MockVDG, MockVDR, MockVerifiedCache, Resolver,
 };
 
 /// This is a "full" resolver which keeps a MockVerifiedCache of all DIDs it has resolved.
@@ -20,6 +20,7 @@ pub struct MockResolverFull {
     mock_verified_cache: MockVerifiedCache,
     /// Optional mock connection to VDG.  Just use one for now.  Potentially there could be backups.
     /// If this isn't present, then fall through to use of the VDRs.
+    // TODO: This should be Option<Arc<dyn Resolver>>.
     mock_vdg_lao: Option<Arc<RwLock<MockVDG>>>,
     /// Mock connections to the VDRs.
     mock_vdr_lam: HashMap<String, Arc<RwLock<MockVDR>>>,
@@ -42,7 +43,7 @@ impl MockResolverFull {
     }
 }
 
-impl MockResolver for MockResolverFull {
+impl Resolver for MockResolverFull {
     fn get_did_documents<'s>(
         &'s mut self,
         did: &DID,
@@ -58,7 +59,7 @@ impl MockResolver for MockResolverFull {
                 version_id_end_o,
                 &mut MockResolverInternal {
                     user_agent: self.user_agent.as_str(),
-                    mock_vds: mock_vdg_g.deref_mut(),
+                    vds: mock_vdg_g.deref_mut(),
                 },
             )
         } else {
@@ -75,7 +76,7 @@ impl MockResolver for MockResolverFull {
                 version_id_end_o,
                 &mut MockResolverInternal {
                     user_agent: self.user_agent.as_str(),
-                    mock_vds: mock_vdr_g.deref_mut(),
+                    vds: mock_vdr_g.deref_mut(),
                 },
             )
         }
@@ -96,7 +97,7 @@ impl MockResolver for MockResolverFull {
                 requested_did_document_metadata,
                 &mut MockResolverInternal {
                     user_agent: self.user_agent.as_str(),
-                    mock_vds: mock_vdg_g.deref_mut(),
+                    vds: mock_vdg_g.deref_mut(),
                 },
             )
         } else {
@@ -113,7 +114,7 @@ impl MockResolver for MockResolverFull {
                 requested_did_document_metadata,
                 &mut MockResolverInternal {
                     user_agent: self.user_agent.as_str(),
-                    mock_vds: mock_vdr_g.deref_mut(),
+                    vds: mock_vdr_g.deref_mut(),
                 },
             )
         }

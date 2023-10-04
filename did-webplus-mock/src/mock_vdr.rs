@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
-use crate::{Microledger, MockVDS};
+use crate::{Microledger, VDS};
 
 // Mock VDR -- Purely in-memory, intra-process VDR.  Hosts DID microledgers on behalf of DID controllers.
 #[derive(Debug)]
@@ -80,7 +80,7 @@ impl MockVDR {
     }
 }
 
-impl MockVDS for MockVDR {
+impl VDS for MockVDR {
     fn get_did_documents<'s>(
         &'s mut self,
         requester_user_agent: &str,

@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use did_webplus::{DIDWithQueryAndKeyIdFragment, Error, KeyPurpose, RequestedDIDDocumentMetadata};
 
-use crate::MockResolver;
+use crate::Resolver;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct JWSHeader {
@@ -30,7 +30,7 @@ impl<'j> JWS<'j> {
     pub fn verify(
         &self,
         verification_key_purpose: KeyPurpose,
-        mock_resolver: &mut dyn MockResolver,
+        resolver: &mut dyn Resolver,
     ) -> Result<std::ops::Range<std::ops::Bound<time::OffsetDateTime>>, Error> {
         let did = self.header.kid.without_fragment().without_query();
         let key_id = &self.header.kid.fragment();
@@ -80,7 +80,7 @@ impl<'j> JWS<'j> {
         }
 
         // TODO: Minimal RequestedDIDDocumentMetadata
-        let (did_document, did_document_metadata) = mock_resolver.resolve_did_document(
+        let (did_document, did_document_metadata) = resolver.resolve_did_document(
             &did,
             version_id_o,
             self_hash_o.as_ref(),

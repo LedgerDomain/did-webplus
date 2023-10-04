@@ -5,7 +5,7 @@ use std::{
 
 use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
-use crate::MockResolver;
+use crate::Resolver;
 
 /// Semantic subtype denoting that a u32 is the primary key for the DID table.
 #[derive(
@@ -305,7 +305,6 @@ impl<'v> did_webplus::MicroledgerMutView<'v> for MockVerifiedCacheMicroledgerMut
 /// This mock implementation uses a hand-coded relational database model in order to demonstrate and
 /// simulate the exact data access patterns that would be used in a relational-database-backed
 /// implementation.
-// TODO: Maybe this would be better as MockVerifiedDIDDocumentStore or something, since it
 // TODO: Maybe make a trait for this, so that it can be implemented for a real database-backed
 // implementation in addition to this mock.
 #[derive(Default)]
@@ -452,7 +451,7 @@ impl MockVerifiedCache {
         &mut self,
         did: &DID,
         through_version_id_o: Option<u32>,
-        mock_resolver: &mut dyn MockResolver,
+        resolver: &mut dyn Resolver,
     ) -> Result<u32, Error> {
         println!(
             "MockVerifiedCache::ensure_cached_did_documents;\n    DID: {}",
@@ -480,7 +479,7 @@ impl MockVerifiedCache {
         let microledger_current_as_of = time::OffsetDateTime::now_utc();
         let mut new_did_document_count = 0u32;
         let mut new_did_document_ib =
-            mock_resolver.get_did_documents(did, Some(version_id_begin), through_version_id_o)?;
+            resolver.get_did_documents(did, Some(version_id_begin), through_version_id_o)?;
         let mut microledger_mut_view = if version_id_begin == 0 {
             // If we didn't have this DID in the cache before, then we need to add it to the cache.
             new_did_document_count += 1;
@@ -515,11 +514,11 @@ impl MockVerifiedCache {
         did: &DID,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
-        mock_resolver: &mut dyn MockResolver,
+        resolver: &mut dyn Resolver,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
         println!("MockVerifiedCache({:?})::fetch_did_documents;\n    requester_user_agent: {}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}", self.user_agent, requester_user_agent, did, version_id_begin_o, version_id_end_o);
 
-        self.ensure_cached_did_documents(did, version_id_end_o, mock_resolver)?;
+        self.ensure_cached_did_documents(did, version_id_end_o, resolver)?;
 
         // Now we can simply return the requested DID documents from the cache.
         {
@@ -545,7 +544,7 @@ impl MockVerifiedCache {
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
-        mock_resolver: &mut dyn MockResolver,
+        resolver: &mut dyn Resolver,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!("MockVerifiedCache::resolve;\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}", did, version_id_o, self_hash_o);
 
@@ -580,7 +579,7 @@ impl MockVerifiedCache {
                 // Need to fetch the latest.
                 None
             };
-            self.ensure_cached_did_documents(did, version_id_end_o, mock_resolver)?;
+            self.ensure_cached_did_documents(did, version_id_end_o, resolver)?;
         }
         // Resolve the DID document from the cache.
         use did_webplus::MicroledgerView;
