@@ -2,14 +2,14 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "test did-webplus",
+			"label": "check all",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
-				"test",
+				"check",
+				"--workspace",
 				"--all-features",
-				"--",
-				"--nocapture",
+				"--tests"
 			],
 			"group": {
 				"kind": "build",
@@ -23,10 +23,139 @@
 				{
 					"base": "$rustc",
 					"fileLocation": [
-						"relative",
+						"relative"
 					]
 				}
 			]
 		},
+		{
+			"label": "test all",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--workspace",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "check did-webplus",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus",
+				"--all-features",
+				"--tests"
+			],
+			"group": {
+				"kind": "build"
+			},
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "test did-webplus",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--package",
+				"did-webplus",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "check did-webplus-mock",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-mock",
+				"--all-features",
+				"--tests"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "test did-webplus-mock",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--package",
+				"did-webplus-mock",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		}
 	]
 }
