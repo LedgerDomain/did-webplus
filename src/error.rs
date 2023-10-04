@@ -7,9 +7,9 @@ pub enum Error {
     #[error("Invalid DID microledger: {0}")]
     InvalidDIDMicroledger(&'static str),
     #[error("Invalid did:webplus create operation: {0}")]
-    InvalidDIDWebplusCreateOperation(&'static str),
+    InvalidDIDCreateOperation(&'static str),
     #[error("Invalid did:webplus update operation: {0}")]
-    InvalidDIDWebplusUpdateOperation(&'static str),
+    InvalidDIDUpdateOperation(&'static str),
     #[error("Invalid self-signature or self-hash: {0}")]
     InvalidSelfSignatureOrSelfHash(&'static str),
     #[error("Malformed: {0}")]
@@ -20,6 +20,8 @@ pub enum Error {
     NotFound(&'static str),
     #[error("Generic error: {0}")]
     Generic(&'static str),
+    #[error("Serialization error: {0}")]
+    Serialization(&'static str),
     #[error("Unrecognized: {0}")]
     Unrecognized(&'static str),
     #[error("Unsupported: {0}")]

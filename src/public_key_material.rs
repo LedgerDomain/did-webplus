@@ -1,26 +1,26 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{DIDWebplus, DIDWebplusKeyIdFragment, Error, PublicKeySet, VerificationMethod};
+use crate::{DIDKeyIdFragment, Error, KeyPurpose, PublicKeySet, VerificationMethod, DID};
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyMaterial {
     #[serde(rename = "verificationMethod")]
     pub verification_method_v: Vec<VerificationMethod>,
     #[serde(rename = "authentication")]
-    pub authentication_key_id_fragment_v: Vec<DIDWebplusKeyIdFragment>,
+    pub authentication_key_id_fragment_v: Vec<DIDKeyIdFragment>,
     #[serde(rename = "assertionMethod")]
-    pub assertion_method_key_id_fragment_v: Vec<DIDWebplusKeyIdFragment>,
+    pub assertion_method_key_id_fragment_v: Vec<DIDKeyIdFragment>,
     #[serde(rename = "keyAgreement")]
-    pub key_agreement_key_id_fragment_v: Vec<DIDWebplusKeyIdFragment>,
+    pub key_agreement_key_id_fragment_v: Vec<DIDKeyIdFragment>,
     #[serde(rename = "capabilityInvocation")]
-    pub capability_invocation_key_id_fragment_v: Vec<DIDWebplusKeyIdFragment>,
+    pub capability_invocation_key_id_fragment_v: Vec<DIDKeyIdFragment>,
     #[serde(rename = "capabilityDelegation")]
-    pub capability_delegation_key_id_fragment_v: Vec<DIDWebplusKeyIdFragment>,
+    pub capability_delegation_key_id_fragment_v: Vec<DIDKeyIdFragment>,
 }
 
 impl PublicKeyMaterial {
     pub fn new<'a>(
-        did: DIDWebplus,
+        did: DID,
         public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
     ) -> Result<Self, Error> {
         let mut verification_method_m: HashMap<selfsign::KERIVerifier<'a>, VerificationMethod> =
@@ -67,7 +67,16 @@ impl PublicKeyMaterial {
             capability_delegation_key_id_fragment_v,
         })
     }
-    pub fn verify(&self, expected_controller: &DIDWebplus) -> Result<(), Error> {
+    pub fn key_id_fragments_for_purpose(&self, key_purpose: KeyPurpose) -> &[DIDKeyIdFragment] {
+        match key_purpose {
+            KeyPurpose::Authentication => &self.authentication_key_id_fragment_v,
+            KeyPurpose::AssertionMethod => &self.assertion_method_key_id_fragment_v,
+            KeyPurpose::KeyAgreement => &self.key_agreement_key_id_fragment_v,
+            KeyPurpose::CapabilityInvocation => &self.capability_invocation_key_id_fragment_v,
+            KeyPurpose::CapabilityDelegation => &self.capability_delegation_key_id_fragment_v,
+        }
+    }
+    pub fn verify(&self, expected_controller: &DID) -> Result<(), Error> {
         for verification_method in &self.verification_method_v {
             verification_method.verify(expected_controller)?;
         }
@@ -75,7 +84,7 @@ impl PublicKeyMaterial {
             .verification_method_v
             .iter()
             .map(|verification_method| &verification_method.id.fragment)
-            .collect::<HashSet<&DIDWebplusKeyIdFragment>>();
+            .collect::<HashSet<&DIDKeyIdFragment>>();
         for (key_purpose_name, key_purpose_key_id_fragment_v) in [
             ("authentication", &self.authentication_key_id_fragment_v),
             ("assertion", &self.assertion_method_key_id_fragment_v),
@@ -121,16 +130,4 @@ impl PublicKeyMaterial {
             verification_method.set_root_did_document_self_hash_slots_to(hash);
         }
     }
-    // pub fn self_signature_verifier_oi<'a, 'b: 'a>(
-    //     &'b self,
-    // ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfsign::Verifier>> + 'a> {
-    //     Box::new(std::iter::once(
-    //         self.self_signature_verifier_o
-    //             .as_ref()
-    //             .map(|v| -> &dyn selfsign::Verifier { v }),
-    //     ))
-    // }
-    // pub fn set_self_signature_verifier_slots_to(&mut self, verifier: &dyn selfsign::Verifier) {
-    //     self.self_signature_verifier_o = Some(verifier.to_keri_verifier().into_owned());
-    // }
 }

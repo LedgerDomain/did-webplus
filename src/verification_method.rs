@@ -1,11 +1,11 @@
-use crate::{DIDWebplus, DIDWebplusWithKeyIdFragment, Error, PublicKeyJWK, PublicKeyParams};
+use crate::{DIDWithKeyIdFragment, Error, PublicKeyJWK, PublicKeyParams, DID};
 
 // TODO: Refactor to use jsonWebKey2020 specifically, absorb "type" field into serde tag.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct VerificationMethod {
-    pub id: DIDWebplusWithKeyIdFragment,
+    pub id: DIDWithKeyIdFragment,
     pub r#type: String,
-    pub controller: DIDWebplus,
+    pub controller: DID,
     /// We only support jsonWebKey2020 here.
     #[serde(rename = "publicKeyJwk")]
     pub public_key_jwk: PublicKeyJWK,
@@ -15,21 +15,21 @@ impl VerificationMethod {
     /// Convenience method for making a well-formed JsonWebKey2020 entry for a DID document.  Note
     /// that the fragment and the key_id of the PublicKeyJWK will both be set to the KERIVerifier
     /// value of the verifier.
-    pub fn json_web_key_2020(controller: DIDWebplus, verifier: &dyn selfsign::Verifier) -> Self {
+    pub fn json_web_key_2020(controller: DID, verifier: &dyn selfsign::Verifier) -> Self {
         let key_id = verifier.to_keri_verifier().into_owned();
-        let did_webplus_with_key_id_fragment = controller.with_fragment(key_id);
+        let did_with_key_id_fragment = controller.with_fragment(key_id);
         let public_key_jwk = PublicKeyJWK {
-            kid_o: Some(did_webplus_with_key_id_fragment.clone().into()),
+            kid_o: Some(did_with_key_id_fragment.clone().into()),
             public_key_params: PublicKeyParams::from(verifier),
         };
         Self {
-            id: did_webplus_with_key_id_fragment,
+            id: did_with_key_id_fragment,
             r#type: "JsonWebKey2020".into(),
             controller,
             public_key_jwk,
         }
     }
-    pub fn verify(&self, expected_controller: &DIDWebplus) -> Result<(), crate::Error> {
+    pub fn verify(&self, expected_controller: &DID) -> Result<(), crate::Error> {
         if self.controller != *expected_controller {
             return Err(Error::Malformed(
                 "VerificationMethod controller does not match expected DID",
