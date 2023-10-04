@@ -5,29 +5,32 @@ authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
 
 [features]
+async-traits = ["dep:async-trait"]
 ed25519-dalek = ["selfsign/ed25519-dalek"]
 
 [dependencies]
-time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
+async-trait = { version = "0.1.73", optional = true }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
     "display",
     "from",
     "into",
 ] }
-selfhash = { version = "0.1.1", features = ["serde", "blake3"] }
-selfsign = { version = "0.2.1", features = ["serde", "jcs"] }
+selfhash = { version = "0.1.3", features = ["serde", "blake3"] }
+selfsign = { version = "0.2.3", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json_canonicalizer = "0.2.0"
 serde_json = "1.0.106"
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
 thiserror = { version = "1.0.47", default-features = false }
+time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 
 [dev-dependencies]
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
 rand = "0.8"
-selfsign = { version = "0.2.1", features = ["ed25519-dalek"] }
+selfsign = { version = "0.2.2", features = ["ed25519-dalek"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [
@@ -38,5 +41,9 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
 ] }
 
 [patch.crates-io]
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "c7660e93a27dfcbcaf3652631badffa232c73e8a" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "2b1a894ad0af8349b1d20a3681ea39c34442d859" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "c6478f2ae708f70012a10278c4624ef0cc5bf68f" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "a111c7ce801bbee2583d30ca170f2ad7db26ccea" }
+
+[workspace]
+resolver = "2"
+members = ["did-webplus-mock"]
