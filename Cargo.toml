@@ -5,10 +5,11 @@ authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
 
 [features]
+async-traits = ["dep:async-trait"]
 ed25519-dalek = ["selfsign/ed25519-dalek"]
 
 [dependencies]
-time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
+async-trait = { version = "0.1.73", optional = true }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
     "display",
@@ -24,6 +25,7 @@ serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
 thiserror = { version = "1.0.47", default-features = false }
+time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 
 [dev-dependencies]
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }

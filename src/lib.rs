@@ -11,7 +11,11 @@ mod did_with_query_and_fragment;
 mod error;
 mod key_purpose;
 mod microledger_mut_view;
+#[cfg(feature = "async-traits")]
+mod microledger_mut_view_async;
 mod microledger_view;
+#[cfg(feature = "async-traits")]
+mod microledger_view_async;
 mod public_key_jwk;
 mod public_key_material;
 mod public_key_params;
@@ -51,6 +55,11 @@ pub use crate::{
     public_key_params_okp::PublicKeyParamsOKP,
     public_key_set::PublicKeySet,
     verification_method::VerificationMethod,
+};
+#[cfg(feature = "async-traits")]
+pub use crate::{
+    microledger_mut_view_async::MicroledgerMutViewAsync,
+    microledger_view_async::MicroledgerViewAsync,
 };
 
 #[allow(deprecated)]

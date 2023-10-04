@@ -5,7 +5,7 @@ use std::{
 
 use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
-use crate::{MockResolver, MockVDG};
+use crate::{MockResolver, MockVDG, MockVDS};
 
 // This is a "light" resolver which doesn't keep a MockVerifiedCache, and instead outsources
 // the retrieval and verification of DID microledgers to a MockVDG.  In its mock implementation,
@@ -21,16 +21,36 @@ pub struct MockResolverLite {
 }
 
 impl MockResolverLite {
-    pub fn new(user_agent: String, mock_vdg_la: Arc<RwLock<MockVDG>>) -> Self {
+    pub fn new(user_agent: String, mock_vds_la: Arc<RwLock<MockVDG>>) -> Self {
         Self {
             user_agent,
-            mock_vdg_la,
+            mock_vdg_la: mock_vds_la,
         }
     }
 }
 
 impl MockResolver for MockResolverLite {
-    fn resolve<'s>(
+    fn get_did_documents<'s>(
+        &'s mut self,
+        did: &DID,
+        version_id_begin_o: Option<u32>,
+        version_id_end_o: Option<u32>,
+    ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
+        let mut mock_vdg_g = self.mock_vdg_la.write().unwrap();
+        // We have to collect this into a Vec in order to free up the lock on mock_vdg_g.
+        let did_document_iv = mock_vdg_g
+            .get_did_documents(
+                self.user_agent.as_str(),
+                did,
+                version_id_begin_o,
+                version_id_end_o,
+            )?
+            // .into_iter()
+            .map(|did_document_c| Cow::Owned(did_document_c.into_owned()))
+            .collect::<Vec<_>>();
+        Ok(Box::new(did_document_iv.into_iter()))
+    }
+    fn resolve_did_document<'s>(
         &'s mut self,
         did: &DID,
         version_id_o: Option<u32>,
@@ -38,14 +58,16 @@ impl MockResolver for MockResolverLite {
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         let mut mock_vdg_g = self.mock_vdg_la.write().unwrap();
-        use crate::MockVDS;
-        let (did_document, did_document_metadata) = mock_vdg_g.resolve(
+        let (did_document_c, did_document_metadata) = mock_vdg_g.resolve_did_document(
             self.user_agent.as_str(),
             did,
             version_id_o,
             self_hash_o,
             requested_did_document_metadata,
         )?;
-        Ok((Cow::Owned(did_document), did_document_metadata))
+        Ok((
+            Cow::Owned(did_document_c.into_owned()),
+            did_document_metadata,
+        ))
     }
 }

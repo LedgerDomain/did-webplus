@@ -12,7 +12,6 @@ pub struct Microledger {
     /// is the root DID document.  Each successive DID document is a non-root DID document that
     /// updates the previous DID document.
     did_document_v: Vec<DIDDocument>,
-
     /// A map from the DID document's self-hash to its version_id field value.
     self_hash_version_id_m: HashMap<selfhash::KERIHash<'static>, u32>,
     /// An ordered map from the DID document's valid_from field value to its version_id field value.
@@ -42,10 +41,6 @@ impl Microledger {
             self_hash_version_id_m,
             valid_from_version_id_m,
         };
-        // // Pedantic temporary check.
-        // retval
-        //     .verify_full()
-        //     .expect("programmer error: this should be valid by construction");
         Ok(retval)
     }
     /// Creates a Microledger from a given root DIDDocument and a (possibly empty) sequence of non-root
@@ -90,47 +85,8 @@ impl Microledger {
             self_hash_version_id_m,
             valid_from_version_id_m,
         };
-        // // Sanity check -- should be valid by the checks above.  Eventually remove this check.
-        // retval
-        //     .verify_full()
-        //     .expect("programmer error: this should be valid by construction");
         Ok(retval)
     }
-    // // TODO: Maybe use an iterator for the argument.
-    // pub fn new_from_did_documents(did_document_v: Vec<DIDDocument>) -> Result<Self, Error> {
-    //     if did_document_v.is_empty() {
-    //         return Err(Error::Malformed("DID document list is empty"));
-    //     }
-    //     let mut did_document_i = did_document_v.into_iter();
-    //     let root_did_document = did_document_i.next().unwrap();
-    //     if !root_did_document.is_root_did_document() {
-    //         return Err(Error::Malformed("expected root DID document as the first DID document, but got non-root DID document"));
-    //     }
-    //     let non_root_did_document_v = did_document_i.collect();
-    //     // let did_document_count = did_document_v.len();
-    //     // assert!(did_document_count > 0);
-    //     // let mut did_document_i = did_document_v.into_iter();
-    //     // let root_did_document = did_document_i
-    //     //     .next()
-    //     //     .unwrap()
-    //     //     .into_root_did_document()
-    //     //     .unwrap()
-    //     //     .into_owned();
-    //     // let mut non_root_did_document_v = Vec::with_capacity(did_document_count - 1);
-    //     // for did_document in did_document_i {
-    //     //     if !did_document.is_non_root_did_document() {
-    //     //         return Err(Error::Malformed(
-    //     //             "Expected non-root DID document as non-first DID document",
-    //     //         ));
-    //     //     }
-    //     //     let non_root_did_document = did_document
-    //     //         .into_non_root_did_document()
-    //     //         .unwrap()
-    //     //         .into_owned();
-    //     //     non_root_did_document_v.push(non_root_did_document);
-    //     // }
-    //     Microledger::new(root_did_document, non_root_did_document_v)
-    // }
     /// Return an immutable view into the Microledger.
     pub fn view(&self) -> impl MicroledgerView<'_> {
         self
@@ -230,10 +186,6 @@ impl<'m> MicroledgerMutView<'m> for &'m mut Microledger {
             .insert(self_hash.clone(), version_id);
         self.valid_from_version_id_m.insert(valid_from, version_id);
         self.did_document_v.push(new_did_document);
-
-        // // TEMP HACK: Sanity check.
-        // self.verify_full()
-        //     .expect("programmer error: this should have been guaranteed by Microledger::create");
 
         Ok(())
     }

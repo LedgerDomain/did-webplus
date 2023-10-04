@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 use crate::{Microledger, MockVDS};
@@ -79,13 +81,13 @@ impl MockVDR {
 }
 
 impl MockVDS for MockVDR {
-    fn fetch_did_documents(
-        &mut self,
+    fn get_did_documents<'s>(
+        &'s mut self,
         requester_user_agent: &str,
         did: &DID,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
-    ) -> Result<Vec<DIDDocument>, Error> {
+    ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
         println!(
             "VDR({:?})::fetch_did_documents\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}",
             self.host, requester_user_agent, did, version_id_begin_o, version_id_end_o
@@ -97,17 +99,18 @@ impl MockVDS for MockVDR {
         let (_, did_document_ib) = microledger
             .view()
             .select_did_documents(version_id_begin_o, version_id_end_o);
-        let did_document_v = did_document_ib.cloned().collect();
-        Ok(did_document_v)
+        let did_document_cib =
+            Box::new(did_document_ib.map(|did_document| Cow::Borrowed(did_document)));
+        Ok(did_document_cib)
     }
-    fn resolve(
-        &mut self,
+    fn resolve_did_document<'s>(
+        &'s mut self,
         requester_user_agent: &str,
         did: &DID,
         version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
-    ) -> Result<(DIDDocument, DIDDocumentMetadata), Error> {
+    ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!(
             "VDR({:?})::resolve\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
             self.host, requester_user_agent, did, version_id_o, self_hash_o
@@ -121,6 +124,6 @@ impl MockVDS for MockVDR {
             self_hash_o,
             requested_did_document_metadata,
         )?;
-        Ok((did_document.clone(), did_document_metadata))
+        Ok((Cow::Borrowed(did_document), did_document_metadata))
     }
 }

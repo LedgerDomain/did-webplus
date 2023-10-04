@@ -80,7 +80,7 @@ impl<'j> JWS<'j> {
         }
 
         // TODO: Minimal RequestedDIDDocumentMetadata
-        let (did_document, did_document_metadata) = mock_resolver.resolve(
+        let (did_document, did_document_metadata) = mock_resolver.resolve_did_document(
             &did,
             version_id_o,
             self_hash_o.as_ref(),
