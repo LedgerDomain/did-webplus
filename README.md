@@ -127,6 +127,10 @@ TODO: Add a non-cryptocurrency-based DID method to the table, e.g. `did:indy` or
 -   [`selfhash` crate, which provides self-hashing capabilities](https://github.com/LedgerDomain/selfhash)
 -   [`selfsign` crate, which provides self-signing capabilities](https://github.com/LedgerDomain/selfsign)
 
+## License
+
+[MIT](LICENSE)
+
 ## Final Thoughts
 
 I'm looking for feedback on this work-in-progress.  Please post in the issues section of this Github repository.
