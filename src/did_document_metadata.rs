@@ -80,4 +80,6 @@ pub struct DIDDocumentMetadataCurrency {
     /// This is the "versionId" value of the most recent DID document for this DID.
     #[serde(rename = "versionId")]
     pub most_recent_version_id: u32,
+    // TODO: Add "resolved at" timestamp, which is defined by the VDR's clock.
+    // Or call this "current as of" or something
 }

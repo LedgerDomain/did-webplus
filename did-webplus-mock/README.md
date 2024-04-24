@@ -1,8 +1,8 @@
 # did-webplus-mock
 
-The `did-webplus-mock` crate provides mock implementations* which demonstrate the actual functioning of the various aspects of the `did:webplus` DID method.  There are a number of traits defined in the code which define APIs for the different components.  Note that this crate is a work in progress, and these APIs should not be considered stable yet.  The traits/APIs found here may or may not become an official part of the `did-webplus` crate.  The idea there would be to make creating implementations of `did:webplus` components as straightforward as possible.
+The `did-webplus-mock` crate provides mock implementations[^1] which demonstrate the actual functioning of the various aspects of the `did:webplus` DID method.  There are a number of traits defined in the code which define APIs for the different components.  Note that this crate is a work in progress, and these APIs should not be considered stable yet.  The traits/APIs found here may or may not become an official part of the `did-webplus` crate.  The idea there would be to make creating implementations of `did:webplus` components as straightforward as possible.
 
-* The mock implementations meant to be a reference implementation -- completely functional, but they operate purely in-memory, and the client/server interaction simulated purely intra-process via function calls.  There is no persistent data store, and there is no HTTP client/server interaction.  They're suitable to be used in tests and to produce content for documentation (e.g. example DID microledgers, metadata, JWSes, etc).
+[^1]: The mock implementations are meant to be a reference implementation -- completely functional, but they operate purely in-memory, and the client/server interaction simulated purely intra-process via function calls.  There is no persistent data store, and there is no HTTP client/server interaction.  They're suitable to be used in tests and to produce content for documentation (e.g. example DID microledgers, metadata, JWSes, etc).
 
 ## Traits/APIs
 

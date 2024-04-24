@@ -287,6 +287,8 @@ fn test_did_operations() {
             "did_document_validity_time_range: {:?}",
             did_document_validity_time_range
         );
+        // use std::ops::RangeBounds;
+        // assert!(did_document_validity_time_range.contains(&jws_signing_time));
         // TODO: Figure out how to do this concisely
         match did_document_validity_time_range.start {
             std::ops::Bound::Excluded(start) => {

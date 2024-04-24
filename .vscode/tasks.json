@@ -11,10 +11,7 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
@@ -143,7 +140,10 @@
 				"--",
 				"--nocapture"
 			],
-			"group": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
