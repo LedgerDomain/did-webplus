@@ -1,0 +1,29 @@
+[package]
+name = "did-webplus-vdr"
+version = "0.1.0"
+authors = ["Ben Nichols <ben.nichols@ledgerdomain.com>", "Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.75"
+axum = "0.6.20"
+did-webplus = { path = "..", features = ["ed25519-dalek"] }
+dotenvy = "0.15.7"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.107"
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "time",
+] }
+time = { version = "0.3", features = ["macros", "serde", "serde-well-known"] }
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.4.13"
+tower-http = { version = "0.4.4", features = ["full"] }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+
+[dev-dependencies]
+did-webplus-mock = { path = "../did-webplus-mock" }
+reqwest = { version = "0.11.22", features = ["json"] }
+tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
