@@ -13,6 +13,18 @@ pub struct DID {
 }
 
 impl DID {
+    /// This is equivalent to DID::new, but it doesn't require the caller to convert the self_hash
+    /// string to a KERIHash itself.
+    pub fn new_with_self_hash_string(
+        host: String,
+        path_o: Option<String>,
+        self_hash_string: String,
+    ) -> Result<Self, Error> {
+        // TODO: Use KERIHash::try_from once it's implemented.
+        use std::str::FromStr;
+        let self_hash = selfhash::KERIHash::from_str(&self_hash_string)?;
+        Self::new(host, path_o, self_hash)
+    }
     pub fn new(
         host: String,
         path_o: Option<String>,

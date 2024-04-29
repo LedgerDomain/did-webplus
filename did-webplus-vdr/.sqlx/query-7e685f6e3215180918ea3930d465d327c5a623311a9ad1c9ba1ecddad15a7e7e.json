@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                        with inserted_record as (\n                            insert into did_document_records(did, version_id, valid_from, self_hash, did_document)\n                            values ($1, $2, $3, $4, to_jsonb($5::text))\n                            returning *\n                        )\n                        select did, version_id, valid_from, self_hash, did_document#>>'{}' as \"did_document!: String\"\n                        from inserted_record\n                    ",
+  "query": "\n                with inserted_record as (\n                    insert into did_document_records(did, version_id, valid_from, self_hash, did_document)\n                    values ($1, $2, $3, $4, to_jsonb($5::text))\n                    returning *\n                )\n                select did, version_id, valid_from, self_hash, did_document#>>'{}' as \"did_document!: String\"\n                from inserted_record\n            ",
   "describe": {
     "columns": [
       {
@@ -46,5 +46,5 @@
       null
     ]
   },
-  "hash": "30827e12fb9760db153a816f79a775e33a86f81372f745f52c8c7cc88ce8a5ac"
+  "hash": "7e685f6e3215180918ea3930d465d327c5a623311a9ad1c9ba1ecddad15a7e7e"
 }

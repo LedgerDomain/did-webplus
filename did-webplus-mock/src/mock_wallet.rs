@@ -27,9 +27,13 @@ impl MockWallet {
             vdr_client_a,
         }
     }
-    pub fn create_did(&mut self, did_host: String, did_path_o: String) -> Result<DID, Error> {
+    pub fn create_did(
+        &mut self,
+        did_host: String,
+        did_path_o: Option<String>,
+    ) -> Result<DID, Error> {
         let controlled_did =
-            ControlledDID::create(did_host, Some(did_path_o), self.vdr_client_a.as_ref())?;
+            ControlledDID::create(did_host, did_path_o, self.vdr_client_a.as_ref())?;
         let did = controlled_did.did().clone();
         assert!(
             !self.controlled_did_m.contains_key(&did),

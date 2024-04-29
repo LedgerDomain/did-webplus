@@ -25,10 +25,12 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let _ = dotenvy::var("SERVICE_DOMAIN").expect("SERVICE_DOMAIN must be set");
+    let _ = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
+        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
 
-    let database_url = dotenvy::var("DATABASE_URL").context("DATABASE_URL must be set")?;
-    let max_connections: u32 = dotenvy::var("DATABASE_MAX_CONNECTIONS")
+    let database_url = dotenvy::var("DID_WEBPLUS_VDR_DATABASE_URL")
+        .context("DID_WEBPLUS_VDR_DATABASE_URL must be set")?;
+    let max_connections: u32 = dotenvy::var("DID_WEBPLUS_VDR_DATABASE_MAX_CONNECTIONS")
         .unwrap_or("10".to_string())
         .parse()?;
     let pool = PgPoolOptions::new()
@@ -51,17 +53,13 @@ async fn main() -> anyhow::Result<()> {
         .into_inner();
 
     let app = Router::new()
-        .merge(services::microledger::get_routes(&pool))
+        .merge(services::did::get_routes(&pool))
         .layer(middleware_stack)
         .route("/health", routing::get(|| async { "OK" }));
 
-    tracing::error!("testing error level log");
-    tracing::warn!("testing warn level log");
-    tracing::info!("testing info level log");
-    tracing::debug!("testing debug level log");
-    tracing::trace!("testing trace level log");
-
-    let port: u16 = dotenvy::var("PORT").unwrap_or("80".to_string()).parse()?;
+    let port: u16 = dotenvy::var("DID_WEBPLUS_VDR_PORT")
+        .unwrap_or("80".to_string())
+        .parse()?;
     tracing::info!("starting did-webplus-vdr, listening on port {}", port);
 
     // This has to be 0.0.0.0 otherwise it won't work in a docker container.

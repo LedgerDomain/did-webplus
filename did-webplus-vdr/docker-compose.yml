@@ -56,11 +56,11 @@ services:
       dockerfile: did-webplus-vdr/Dockerfile
       target: runtime
     environment:
-      DATABASE_URL: postgres://postgres:postgres@database:5432/postgres?sslmode=disable
-      PORT: 80
+      DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@database:5432/postgres?sslmode=disable
+      DID_WEBPLUS_VDR_PORT: 80
+      DID_WEBPLUS_VDR_SERVICE_DOMAIN: example.com
       RUST_BACKTRACE: '1'
       RUST_LOG: 'hyper=warn,sqlx=info,debug'
-      SERVICE_DOMAIN: example.com
 
     entrypoint:
       - /bin/sh
