@@ -1,7 +1,10 @@
 [package]
 name = "did-webplus-vdr"
 version = "0.1.0"
-authors = ["Ben Nichols <ben.nichols@ledgerdomain.com>", "Victor Dods <victor.dods@ledgerdomain.com>"]
+authors = [
+    "Ben Nichols <ben.nichols@ledgerdomain.com>",
+    "Victor Dods <victor.dods@ledgerdomain.com>",
+]
 edition = "2021"
 
 [dependencies]

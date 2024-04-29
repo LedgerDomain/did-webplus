@@ -56,21 +56,21 @@ pub struct DIDDocumentRecordListRequest {
     pub end_version_id: Option<u32>,
 }
 
-async fn get_did_documents_without_path(
-    State(db): State<PgPool>,
-    query: Query<DIDDocumentRecordListRequest>,
-    Path(did_id): Path<String>,
-) -> Result<Json<Vec<DIDDocumentRecord>>, (StatusCode, String)> {
-    let did = did_from_components(None, did_id)?;
-    get_did_documents(db, query, &did).await
-}
-
 async fn get_did_documents_with_path(
     State(db): State<PgPool>,
     query: Query<DIDDocumentRecordListRequest>,
     Path((path, did_id)): Path<(String, String)>,
 ) -> Result<Json<Vec<DIDDocumentRecord>>, (StatusCode, String)> {
     let did = did_from_components(Some(path), did_id)?;
+    get_did_documents(db, query, &did).await
+}
+
+async fn get_did_documents_without_path(
+    State(db): State<PgPool>,
+    query: Query<DIDDocumentRecordListRequest>,
+    Path(did_id): Path<String>,
+) -> Result<Json<Vec<DIDDocumentRecord>>, (StatusCode, String)> {
+    let did = did_from_components(None, did_id)?;
     get_did_documents(db, query, &did).await
 }
 
@@ -163,7 +163,7 @@ async fn update_did_with_path(
     body: String,
 ) -> Result<Json<DIDDocumentRecord>, (StatusCode, String)> {
     let did = did_from_components(Some(path), did_id)?;
-    update_microledger(db, &did, body).await
+    update_did(db, &did, body).await
 }
 
 #[tracing::instrument(err(Debug), ret)]
@@ -173,10 +173,10 @@ async fn update_did_without_path(
     body: String,
 ) -> Result<Json<DIDDocumentRecord>, (StatusCode, String)> {
     let did = did_from_components(None, did_id)?;
-    update_microledger(db, &did, body).await
+    update_did(db, &did, body).await
 }
 
-async fn update_microledger(
+async fn update_did(
     db: PgPool,
     did: &DID,
     body: String,
@@ -226,20 +226,20 @@ async fn update_microledger(
 }
 
 #[tracing::instrument(err(Debug), ret)]
-async fn get_latest_did_document_without_path(
-    State(db): State<PgPool>,
-    Path(did_id): Path<String>,
-) -> Result<String, (StatusCode, String)> {
-    let did = did_from_components(None, did_id)?;
-    get_latest_did_document(db, &did).await
-}
-
-#[tracing::instrument(err(Debug), ret)]
 async fn get_latest_did_document_with_path(
     State(db): State<PgPool>,
     Path((path, did_id)): Path<(String, String)>,
 ) -> Result<String, (StatusCode, String)> {
     let did = did_from_components(Some(path), did_id)?;
+    get_latest_did_document(db, &did).await
+}
+
+#[tracing::instrument(err(Debug), ret)]
+async fn get_latest_did_document_without_path(
+    State(db): State<PgPool>,
+    Path(did_id): Path<String>,
+) -> Result<String, (StatusCode, String)> {
+    let did = did_from_components(None, did_id)?;
     get_latest_did_document(db, &did).await
 }
 
