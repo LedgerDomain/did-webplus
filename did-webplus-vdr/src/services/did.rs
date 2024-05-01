@@ -1,130 +1,111 @@
-use anyhow::Context;
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     routing::get,
-    Json, Router,
+    Router,
 };
-use did_webplus::{DIDDocument, DID};
-use serde::Deserialize;
+use did_webplus::{DIDWithQuery, DID};
 use sqlx::PgPool;
-use time::OffsetDateTime;
 
-use crate::models::did_document::DIDDocumentRecord;
-
-use super::internal_error;
+use crate::{models::did_document::DIDDocumentRecord, parse_did_document};
 
 pub fn get_routes(pool: &PgPool) -> Router {
     Router::new()
         .route(
-            "/:path/:did_id",
-            // Note: This "get all DID docs in version range" endpoint is not compatible with
-            // static-host VDRs, which can only serve a single DID doc at a time.
-            get(get_did_documents_with_path),
-        )
-        .route(
-            "/:did_id",
-            // Note: This "get all DID docs in version range" endpoint is not compatible with
-            // static-host VDRs, which can only serve a single DID doc at a time.
-            get(get_did_documents_without_path),
-        )
-        .route(
-            "/:path/:did_id/did.json",
-            // Note: These are the three endpoint methods that are compatible with static-host VDRs.
-            get(get_latest_did_document_with_path)
-                .post(create_did_with_path)
-                .put(update_did_with_path),
-        )
-        .route(
-            "/:did_id/did.json",
-            // Note: These are the three endpoint methods that are compatible with static-host VDRs.
-            get(get_latest_did_document_without_path)
-                .post(create_did_without_path)
-                .put(update_did_without_path),
+            // We have to do our own URL processing in each handler because of the non-standard
+            // form of the "query" (e.g. did.selfHash=<hash>.json) and the fact that we're using
+            // the same handler for multiple routes.
+            "/*path",
+            get(get_did_document).post(create_did).put(update_did),
         )
         .with_state(pool.clone())
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DIDDocumentRecordListRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(with = "time::serde::rfc3339::option", default)]
-    pub since: Option<OffsetDateTime>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub start_version_id: Option<u32>,
-    pub end_version_id: Option<u32>,
-}
-
-async fn get_did_documents_with_path(
+#[tracing::instrument(err(Debug), ret)]
+async fn get_did_document(
     State(db): State<PgPool>,
-    query: Query<DIDDocumentRecordListRequest>,
-    Path((path, did_id)): Path<(String, String)>,
-) -> Result<Json<Vec<DIDDocumentRecord>>, (StatusCode, String)> {
-    let did = did_from_components(Some(path), did_id)?;
-    get_did_documents(db, query, &did).await
-}
+    Path(path): Path<String>,
+) -> Result<String, (StatusCode, String)> {
+    assert!(!path.starts_with('/'));
 
-async fn get_did_documents_without_path(
-    State(db): State<PgPool>,
-    query: Query<DIDDocumentRecordListRequest>,
-    Path(did_id): Path<String>,
-) -> Result<Json<Vec<DIDDocumentRecord>>, (StatusCode, String)> {
-    let did = did_from_components(None, did_id)?;
-    get_did_documents(db, query, &did).await
-}
+    let host = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
+        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
 
-async fn get_did_documents(
-    db: PgPool,
-    query: Query<DIDDocumentRecordListRequest>,
-    did: &DID,
-) -> Result<Json<Vec<DIDDocumentRecord>>, (StatusCode, String)> {
-    let since = query
-        .since
-        .unwrap_or(OffsetDateTime::from_unix_timestamp(0).unwrap());
-    let start_version_id = query.start_version_id.unwrap_or(0);
-    let end_version_id = query.end_version_id.unwrap_or(u32::MAX);
-
-    let did_documents_records =
-        DIDDocumentRecord::fetch_did_documents(&db, since, start_version_id, end_version_id, did)
-            .await
-            .map_err(internal_error)?;
-
-    if did_documents_records.is_empty() {
-        return Err((StatusCode::NOT_FOUND, format!("DID not found: {}", did)));
+    // Case for retrieving the latest DID doc.
+    if path.ends_with("did.json") {
+        let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("malformed DID resolution URL: {}", err),
+            )
+        })?;
+        return get_latest_did_document(db, &did).await;
     }
-    Ok(Json(did_documents_records))
+
+    // Case for retrieving a specific DID doc.
+    if path.ends_with(".json") {
+        let did_with_query = DIDWithQuery::from_resolution_url(host.as_str(), path.as_str())
+            .map_err(|err| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("malformed DID resolution URL: {}", err),
+                )
+            })?;
+        let specific_did_document_record_o = DIDDocumentRecord::select_did_document(
+            &db,
+            &did_with_query.without_query(),
+            did_with_query
+                .query_self_hash()
+                .map_err(|err| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("malformed selfHash: {}", err),
+                    )
+                })?
+                .as_deref(),
+            did_with_query.query_version_id().map_err(|err| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    format!("malformed versionId: {}", err),
+                )
+            })?,
+        )
+        .await?;
+        if specific_did_document_record_o.is_none() {
+            return Err((StatusCode::NOT_FOUND, "".to_string()));
+        }
+        return Ok(specific_did_document_record_o.unwrap().did_document);
+    }
+
+    Err((StatusCode::BAD_REQUEST, "".to_string()))
 }
 
 #[tracing::instrument(err(Debug), ret)]
-async fn create_did_with_path(
-    State(db): State<PgPool>,
-    Path((path, did_id)): Path<(String, String)>,
-    body: String,
-) -> Result<Json<DIDDocumentRecord>, (StatusCode, String)> {
-    let did = did_from_components(Some(path), did_id)?;
-    create_did(db, &did, body).await
-}
-
-#[tracing::instrument(err(Debug), ret)]
-async fn create_did_without_path(
-    State(db): State<PgPool>,
-    Path(did_id): Path<String>,
-    body: String,
-) -> Result<Json<DIDDocumentRecord>, (StatusCode, String)> {
-    let did = did_from_components(None, did_id)?;
-    create_did(db, &did, body).await
-}
-
 async fn create_did(
-    db: PgPool,
-    did: &DID,
+    State(db): State<PgPool>,
+    Path(path): Path<String>,
     body: String,
-) -> Result<Json<DIDDocumentRecord>, (StatusCode, String)> {
-    if DIDDocumentRecord::did_exists(&db, did)
+) -> Result<(), (StatusCode, String)> {
+    assert!(!path.starts_with('/'));
+
+    let host = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
+        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
+
+    let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("malformed DID resolution URL: {}", err),
+        )
+    })?;
+
+    if DIDDocumentRecord::did_exists(&db, &did)
         .await
-        .context("checking if DID exists")
-        .map_err(internal_error)?
+        .map_err(|err| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("error checking if DID exists: {}", err),
+            )
+        })?
     {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -132,119 +113,85 @@ async fn create_did(
         ));
     }
 
-    let root_did_document = serde_json::from_str::<DIDDocument>(&body).map_err(|err| {
-        (
-            StatusCode::BAD_REQUEST,
-            format!("invalid DID document: {}", err),
-        )
-    })?;
-    if &root_did_document.did != did {
+    let root_did_document = parse_did_document(&body)?;
+    if root_did_document.did != did {
         return Err((
             StatusCode::BAD_REQUEST,
             format!(
-                "DID in document does not match the DID in the path: {} != {}",
+                "DID in document does not match the DID in the resolution URL: {} != {}",
                 root_did_document.did, did
             ),
         ));
     }
 
-    let did_document_record =
-        DIDDocumentRecord::append_did_document(&db, root_did_document, None, body)
-            .await
-            .map_err(internal_error)?;
+    DIDDocumentRecord::append_did_document(&db, &root_did_document, None, &body).await?;
 
-    Ok(Json(did_document_record))
+    Ok(())
 }
 
 #[tracing::instrument(err(Debug), ret)]
-async fn update_did_with_path(
-    State(db): State<PgPool>,
-    Path((path, did_id)): Path<(String, String)>,
-    body: String,
-) -> Result<Json<DIDDocumentRecord>, (StatusCode, String)> {
-    let did = did_from_components(Some(path), did_id)?;
-    update_did(db, &did, body).await
-}
-
-#[tracing::instrument(err(Debug), ret)]
-async fn update_did_without_path(
-    State(db): State<PgPool>,
-    Path(did_id): Path<String>,
-    body: String,
-) -> Result<Json<DIDDocumentRecord>, (StatusCode, String)> {
-    let did = did_from_components(None, did_id)?;
-    update_did(db, &did, body).await
-}
-
 async fn update_did(
-    db: PgPool,
-    did: &DID,
+    State(db): State<PgPool>,
+    Path(path): Path<String>,
     body: String,
-) -> Result<Json<DIDDocumentRecord>, (StatusCode, String)> {
-    let last_record = DIDDocumentRecord::fetch_latest(&db, did)
-        .await
-        .context("fetching last record")
-        .map_err(internal_error)?;
-    if last_record.is_none() {
+) -> Result<(), (StatusCode, String)> {
+    assert!(!path.starts_with('/'));
+
+    let host = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
+        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
+
+    let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("malformed DID resolution URL: {}", err),
+        )
+    })?;
+
+    let latest_did_document_record_o =
+        DIDDocumentRecord::select_latest(&db, &did)
+            .await
+            .map_err(|err| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("error fetching latest DID doc: {}", err),
+                )
+            })?;
+    if latest_did_document_record_o.is_none() {
         return Err((
             StatusCode::BAD_REQUEST,
             format!("DID does not exist: {}", did),
         ));
     }
+    let latest_did_document_record = latest_did_document_record_o.unwrap();
 
-    let new_did_document = serde_json::from_str::<DIDDocument>(&body).map_err(|err| {
-        (
-            StatusCode::BAD_REQUEST,
-            format!("invalid DID document: {}", err),
-        )
-    })?;
-    if &new_did_document.did != did {
+    let new_did_document = parse_did_document(&body)?;
+    if new_did_document.did != did {
         return Err((
             StatusCode::BAD_REQUEST,
             format!(
-                "DID in document does not match the DID in the path: {} != {}",
+                "DID in document does not match the DID in the resolution URL: {} != {}",
                 new_did_document.did, did
             ),
         ));
     }
 
     // TODO: Check if the previous did document is the root record if this will work. Otherwise add more logic.
-    let prev_document = serde_json::from_str::<DIDDocument>(&last_record.unwrap().did_document)
-        .map_err(|err| {
+    let prev_document =
+        parse_did_document(&latest_did_document_record.did_document).map_err(|_| {
             (
-                StatusCode::BAD_REQUEST,
-                format!("invalid did document: {}", err),
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "invalid DID document in storage".to_string(),
             )
         })?;
 
-    let did_document_record =
-        DIDDocumentRecord::append_did_document(&db, new_did_document, Some(&prev_document), body)
-            .await
-            .map_err(internal_error)?;
+    DIDDocumentRecord::append_did_document(&db, &new_did_document, Some(&prev_document), &body)
+        .await?;
 
-    Ok(Json(did_document_record))
-}
-
-#[tracing::instrument(err(Debug), ret)]
-async fn get_latest_did_document_with_path(
-    State(db): State<PgPool>,
-    Path((path, did_id)): Path<(String, String)>,
-) -> Result<String, (StatusCode, String)> {
-    let did = did_from_components(Some(path), did_id)?;
-    get_latest_did_document(db, &did).await
-}
-
-#[tracing::instrument(err(Debug), ret)]
-async fn get_latest_did_document_without_path(
-    State(db): State<PgPool>,
-    Path(did_id): Path<String>,
-) -> Result<String, (StatusCode, String)> {
-    let did = did_from_components(None, did_id)?;
-    get_latest_did_document(db, &did).await
+    Ok(())
 }
 
 async fn get_latest_did_document(db: PgPool, did: &DID) -> Result<String, (StatusCode, String)> {
-    let latest_record_o = match DIDDocumentRecord::fetch_latest(&db, did).await {
+    let latest_record_o = match DIDDocumentRecord::select_latest(&db, did).await {
         Ok(last_record) => last_record,
         Err(err) => {
             tracing::error!(
@@ -259,14 +206,4 @@ async fn get_latest_did_document(db: PgPool, did: &DID) -> Result<String, (Statu
         Some(latest_did_document_record) => Ok(latest_did_document_record.did_document),
         None => Err((StatusCode::NOT_FOUND, format!("DID not found: {}", did))),
     }
-}
-
-fn did_from_components(
-    path_o: Option<String>,
-    did_id: String,
-) -> Result<DID, (StatusCode, String)> {
-    let domain = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
-        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
-    Ok(DID::new_with_self_hash_string(domain, path_o, did_id)
-        .map_err(|err| (StatusCode::BAD_REQUEST, format!("malformed DID: {}", err)))?)
 }

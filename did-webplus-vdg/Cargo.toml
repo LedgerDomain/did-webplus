@@ -1,5 +1,5 @@
 [package]
-name = "did-webplus-vdr"
+name = "did-webplus-vdg"
 version = "0.1.0"
 authors = [
     "Ben Nichols <ben.nichols@ledgerdomain.com>",
@@ -12,7 +12,8 @@ anyhow = "1.0.75"
 axum = "0.6.20"
 did-webplus = { path = "..", features = ["ed25519-dalek"] }
 dotenvy = "0.15.7"
-selfhash = "0.1.3"
+lazy_static = "1.4.0"
+reqwest = "0.11.22"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.107"
 sqlx = { version = "0.7", features = [

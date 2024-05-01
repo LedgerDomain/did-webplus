@@ -1,10 +1,12 @@
-mod models;
-mod services;
+use reqwest::StatusCode;
+
+pub(crate) mod models;
+pub(crate) mod services;
 
 use std::net::SocketAddr;
 
 use anyhow::Context;
-use axum::{http::StatusCode, routing, Router};
+use axum::{routing, Router};
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
@@ -25,12 +27,12 @@ async fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let _ = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
-        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
+    let _ = dotenvy::var("DID_WEBPLUS_VDG_SERVICE_DOMAIN")
+        .expect("DID_WEBPLUS_VDG_SERVICE_DOMAIN must be set");
 
-    let database_url = dotenvy::var("DID_WEBPLUS_VDR_DATABASE_URL")
-        .context("DID_WEBPLUS_VDR_DATABASE_URL must be set")?;
-    let max_connections: u32 = dotenvy::var("DID_WEBPLUS_VDR_DATABASE_MAX_CONNECTIONS")
+    let database_url = dotenvy::var("DID_WEBPLUS_VDG_DATABASE_URL")
+        .context("DID_WEBPLUS_VDG_DATABASE_URL must be set")?;
+    let max_connections: u32 = dotenvy::var("DID_WEBPLUS_VDG_DATABASE_MAX_CONNECTIONS")
         .unwrap_or("10".to_string())
         .parse()?;
     let pool = PgPoolOptions::new()
@@ -53,14 +55,14 @@ async fn main() -> anyhow::Result<()> {
         .into_inner();
 
     let app = Router::new()
-        .merge(services::did::get_routes(&pool))
+        .merge(crate::services::did_resolve::get_routes(&pool))
         .layer(middleware_stack)
         .route("/health", routing::get(|| async { "OK" }));
 
-    let port: u16 = dotenvy::var("DID_WEBPLUS_VDR_PORT")
+    let port: u16 = dotenvy::var("DID_WEBPLUS_VDG_PORT")
         .unwrap_or("80".to_string())
         .parse()?;
-    tracing::info!("starting did-webplus-vdr, listening on port {}", port);
+    tracing::info!("starting did-webplus-vdg, listening on port {}", port);
 
     // This has to be 0.0.0.0 otherwise it won't work in a docker container.
     // 127.0.0.1 is only the loopback device, and isn't available outside the host.
@@ -70,6 +72,12 @@ async fn main() -> anyhow::Result<()> {
         .await
         .unwrap();
     Ok(())
+}
+
+lazy_static::lazy_static! {
+    /// Building a reqwest::Client is *incredibly* slow, so we use a global instance and then clone
+    /// it per use, as the documentation indicates.
+    pub static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
 }
 
 fn parse_did_document(

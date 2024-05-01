@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::{DIDURIComponents, DIDWithFragment, DIDWithQuery, Error, Fragment};
 
 #[deprecated = "Use DID instead"]
@@ -74,6 +76,51 @@ impl DID {
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
     pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
         &self.self_hash
+    }
+    /// Produce the URL that addresses the latest DID document for this DID.
+    pub fn resolution_url(&self) -> String {
+        // let mut url = format!("https://{}/", self.host);
+        let mut url = format!("http://{}/", self.host); // TEMP HACK
+        if let Some(path) = self.path_o.as_deref() {
+            url.push_str(&path.replace(':', "/"));
+            url.push('/');
+        }
+        url.push_str(self.self_hash.deref());
+        url.push_str("/did.json");
+        url
+    }
+    /// Parse (the equivalent of) a resolution URL to produce a DID.
+    pub fn from_resolution_url(host: &str, path: &str) -> Result<Self, Error> {
+        if path.starts_with('/') {
+            return Err(Error::Malformed(
+                "resolution URL path must not start with '/'",
+            ));
+        }
+        if !path.ends_with("/did.json") {
+            return Err(Error::Malformed(
+                "resolution URL path must end with 'did.json'",
+            ));
+        }
+        let path_and_self_hash_str = path.strip_suffix("/did.json").unwrap();
+        match path_and_self_hash_str.rsplit_once('/') {
+            Some((path, self_hash_str)) => {
+                // Replace all the '/' chars with ':' chars.
+                let path = path.replace('/', ":");
+                Self::new_with_self_hash_string(
+                    host.to_string(),
+                    Some(path),
+                    self_hash_str.to_string(),
+                )
+            }
+            None => {
+                let self_hash_str = path_and_self_hash_str;
+                return Self::new_with_self_hash_string(
+                    host.to_string(),
+                    None,
+                    self_hash_str.to_string(),
+                );
+            }
+        }
     }
 }
 

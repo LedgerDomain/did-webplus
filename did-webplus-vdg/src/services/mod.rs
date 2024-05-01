@@ -1,4 +1,4 @@
-pub mod did;
+pub mod did_resolve;
 
 // pub type Result<T, E = anyhow::Error> = ::std::result::Result<T, E>;
 
