@@ -19,11 +19,30 @@ async fn main() -> anyhow::Result<()> {
 
     // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
     // TODO: Make env var to control full/compact/pretty/json formatting of logs
-    tracing_subscriber::fmt()
+    let tracing_subscriber_fmt = tracing_subscriber::fmt()
         .with_target(false)
-        .pretty()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env());
+    // Set the format of the logs.
+    match dotenvy::var("DID_WEBPLUS_VDR_LOG_FORMAT") {
+        Ok(mut log_format) => {
+            log_format.make_ascii_lowercase();
+            match log_format.as_str() {
+                "compact" => tracing_subscriber_fmt.compact().init(),
+                "pretty" => tracing_subscriber_fmt.pretty().init(),
+                _ => {
+                    tracing::warn!(
+                        "DID_WEBPLUS_VDR_LOG_FORMAT {:?} unrecognized; expected 'compact' or 'pretty'.  defaulting to 'compact'",
+                        log_format
+                    );
+                    tracing_subscriber_fmt.compact().init()
+                }
+            }
+        }
+        Err(_) => {
+            tracing::warn!("DID_WEBPLUS_VDR_LOG_FORMAT env var not set; valid values are 'compact' or 'pretty'.  defaulting to 'compact'");
+            tracing_subscriber_fmt.compact().init()
+        }
+    }
 
     let _ = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
         .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");

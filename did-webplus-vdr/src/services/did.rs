@@ -21,7 +21,7 @@ pub fn get_routes(pool: &PgPool) -> Router {
         .with_state(pool.clone())
 }
 
-#[tracing::instrument(err(Debug), ret)]
+#[tracing::instrument(err(Debug))]
 async fn get_did_document(
     State(db): State<PgPool>,
     Path(path): Path<String>,
@@ -80,7 +80,7 @@ async fn get_did_document(
     Err((StatusCode::BAD_REQUEST, "".to_string()))
 }
 
-#[tracing::instrument(err(Debug), ret)]
+#[tracing::instrument(err(Debug))]
 async fn create_did(
     State(db): State<PgPool>,
     Path(path): Path<String>,
@@ -129,7 +129,7 @@ async fn create_did(
     Ok(())
 }
 
-#[tracing::instrument(err(Debug), ret)]
+#[tracing::instrument(err(Debug))]
 async fn update_did(
     State(db): State<PgPool>,
     Path(path): Path<String>,

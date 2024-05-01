@@ -27,7 +27,7 @@ struct ResolveDIDQueryParams {
     pub version_id_o: Option<u32>,
 }
 
-#[tracing::instrument(err(Debug), ret)]
+#[tracing::instrument(err(Debug))]
 async fn resolve_did(
     State(db): State<PgPool>,
     Path(did_string): Path<String>,
