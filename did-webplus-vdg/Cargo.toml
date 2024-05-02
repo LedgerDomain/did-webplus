@@ -29,6 +29,7 @@ tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 
 [dev-dependencies]
+ctor = "0.2.8"
 did-webplus-mock = { path = "../did-webplus-mock" }
 reqwest = { version = "0.11.22", features = ["json"] }
 tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }

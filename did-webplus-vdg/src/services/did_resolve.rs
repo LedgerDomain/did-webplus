@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::StatusCode,
     routing::get,
     Router,
@@ -9,7 +9,7 @@ use axum::{
 use did_webplus::{DIDWithQuery, DID};
 use sqlx::PgPool;
 
-use crate::{models::did_document::DIDDocumentRecord, parse_did_document};
+use crate::{models::did_document_record::DIDDocumentRecord, parse_did_document};
 
 pub fn get_routes(pool: &PgPool) -> Router {
     Router::new()
@@ -18,35 +18,33 @@ pub fn get_routes(pool: &PgPool) -> Router {
         .with_state(pool.clone())
 }
 
-#[derive(Debug, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ResolveDIDQueryParams {
-    #[serde(rename = "selfHash")]
-    pub self_hash_o: Option<String>,
-    #[serde(rename = "versionId")]
-    pub version_id_o: Option<u32>,
-}
-
-#[tracing::instrument(err(Debug))]
+#[tracing::instrument(err(Debug), skip(db))]
 async fn resolve_did(
     State(db): State<PgPool>,
-    Path(did_string): Path<String>,
-    Query(query_params): Query<ResolveDIDQueryParams>,
+    // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
+    Path(did_query): Path<String>,
 ) -> Result<String, (StatusCode, String)> {
-    // Note that did_query is automatically URL-decoded by axum.
-    tracing::trace!(
-        "did_string: {}, query_params: {:?}",
-        did_string,
-        query_params
-    );
+    tracing::trace!("starting DID resolution");
 
-    let did = did_webplus::DID::from_str(did_string.as_str())
-        .map_err(|err| (StatusCode::BAD_REQUEST, format!("malformed DID: {}", err)))?;
+    let mut query_self_hash_o = None;
+    let mut query_version_id_o = None;
+
+    let did = if let Ok(did) = DID::from_str(did_query.as_str()) {
+        tracing::trace!("got a plain DID to resolve, no query params: {}", did);
+        did
+    } else if let Ok(did_with_query) = DIDWithQuery::from_str(did_query.as_str()) {
+        tracing::trace!("got a DID with query params: {}", did_with_query);
+        query_self_hash_o = did_with_query.query_self_hash_o().map(|x| x.to_owned());
+        query_version_id_o = did_with_query.query_version_id_o();
+        did_with_query.without_query()
+    } else {
+        return Err((StatusCode::BAD_REQUEST, "malformed DID query".to_string()));
+    };
 
     // If either (or both) query param(s) are present, then it's possible it's already present in the
     // database and we can attempt to retrieve it.  Contrast with the no-query-params case, which requires
     // fetching the latest DID document from the VDR.
-    if query_params.self_hash_o.is_some() || query_params.version_id_o.is_some() {
+    if query_self_hash_o.is_some() || query_version_id_o.is_some() {
         tracing::trace!(
             "query param(s) present, attempting to retrieve DID document from database"
         );
@@ -58,10 +56,7 @@ async fn resolve_did(
         // versionId will be the primary filter (if present), and selfHash will be the secondary filter,
         // because versionId is more comprehensible for humans as having a particular location in the
         // DID microledger.
-        let did_document_record_o = match (
-            query_params.self_hash_o.as_deref(),
-            query_params.version_id_o,
-        ) {
+        let did_document_record_o = match (query_self_hash_o.as_deref(), query_version_id_o) {
             (Some(self_hash_str), None) => {
                 // If only a selfHash is present, then we simply use it to select the DID document.
                 DIDDocumentRecord::select_did_document(&db, &did, Some(self_hash_str), None).await?
@@ -73,6 +68,7 @@ async fn resolve_did(
                         .await?;
                 if let Some(self_hash_str) = self_hash_str_o {
                     if let Some(did_document_record) = did_document_record_o.as_ref() {
+                        tracing::trace!("both selfHash and versionId query params present, so now a consistency check will be performed");
                         if did_document_record.self_hash != self_hash_str {
                             // Note: If there is a real signature by the DID which contains the conflicting
                             // selfHash and versionId values, then that represents a fork in the DID document,
@@ -109,16 +105,7 @@ async fn resolve_did(
 
     // Check what the latest version we do have is.
     tracing::trace!("checking latest DID document version in database");
-    let latest_did_document_record_o =
-        DIDDocumentRecord::select_latest(&db, &did)
-            .await
-            .map_err(|err| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    // TODO: Should this not leak the error message to the client?
-                    format!("error in database operation: {}", err),
-                )
-            })?;
+    let latest_did_document_record_o = DIDDocumentRecord::select_latest(&db, &did).await?;
     if let Some(latest_did_document_record) = latest_did_document_record_o.as_ref() {
         tracing::trace!(
             "latest DID document version in database: {}",
@@ -141,25 +128,22 @@ async fn resolve_did(
     };
 
     // Because we don't have the requested DID doc, we should fetch it and its predecessors from the VDR.
-    let target_did_document_body = match (
-        query_params.self_hash_o.as_deref(),
-        query_params.version_id_o,
-    ) {
-        (Some(self_hash_str), _) => {
+    let target_did_document_body = match (query_self_hash_o.as_ref(), query_version_id_o) {
+        (Some(query_self_hash), _) => {
             // A DID doc with a specific selfHash value is being requested.  selfHash always overrides
             // versionId in terms of resolution.  Thus we have to fetch the selfHash-identified DID doc,
             // then all its predecessors.
-            let did_with_query = did.with_query(format!("selfHash={}", self_hash_str));
+            let did_with_query = did.with_query_self_hash(query_self_hash.clone());
             tracing::trace!(
                 "fetching DID document from VDR with selfHash value {}",
-                self_hash_str
+                query_self_hash
             );
             vdr_fetch_did_document_body(&did_with_query).await?
         }
         (None, Some(version_id)) => {
             // A DID doc with the specified versionId is being requested, but no selfHash is specified.
             // We can simply retrieve the precedessors sequentially up to the specified version.
-            let did_with_query = did.with_query(format!("versionId={}", version_id));
+            let did_with_query = did.with_query_version_id(version_id);
             tracing::trace!(
                 "fetching DID document from VDR with versionId {}",
                 version_id
@@ -186,7 +170,7 @@ async fn resolve_did(
             "fetching, validating, and storing predecessor DID document with versionId {}",
             version_id
         );
-        let did_with_query = did.with_query(format!("versionId={}", version_id));
+        let did_with_query = did.with_query_version_id(version_id);
         let predecessor_did_document_body = vdr_fetch_did_document_body(&did_with_query).await?;
         let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
         DIDDocumentRecord::append_did_document(
@@ -196,7 +180,6 @@ async fn resolve_did(
             predecessor_did_document_body.as_str(),
         )
         .await?;
-        // prev_did_document_body_o = Some(predecessor_did_document_body);
         prev_did_document_o = Some(predecessor_did_document);
     }
     // Finally, validate and store the target DID doc if necessary.
@@ -218,7 +201,7 @@ async fn resolve_did(
 
     // Now that we have fetched, validated, and stored the target DID doc and its predecessors,
     // we can check that the target DID doc matches the query param constraints and return it.
-    if let Some(self_hash_str) = query_params.self_hash_o.as_deref() {
+    if let Some(self_hash_str) = query_self_hash_o.as_deref() {
         use std::ops::Deref;
         if target_did_document.self_hash().deref() != self_hash_str {
             // Note: If there is a real signature by the DID which contains the conflicting selfHash and
@@ -238,7 +221,7 @@ async fn resolve_did(
             ));
         }
     }
-    if let Some(version_id) = query_params.version_id_o {
+    if let Some(version_id) = query_version_id_o {
         if target_did_document.version_id != version_id {
             unreachable!("programmer error: this should not be possible");
         }

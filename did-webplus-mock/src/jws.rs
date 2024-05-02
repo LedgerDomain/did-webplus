@@ -34,56 +34,22 @@ impl<'j> JWS<'j> {
     ) -> Result<std::ops::Range<std::ops::Bound<time::OffsetDateTime>>, Error> {
         let did = self.header.kid.without_fragment().without_query();
         let key_id = &self.header.kid.fragment();
-        let query_parts = self.header.kid.query().split('&');
-        let mut version_id_o = None;
-        let mut self_hash_o = None;
-        for query_part in query_parts {
-            let (key, value) = query_part.split_once('=').ok_or(Error::Invalid(
-                "JWS header 'kid' field query part is missing '='",
-            ))?;
-            match key {
-                "versionId" => {
-                    if version_id_o.is_some() {
-                        return Err(Error::Invalid(
-                            "JWS header 'kid' field query part 'versionId' is repeated",
-                        ));
-                    }
-                    version_id_o = Some(value.parse::<u32>().map_err(|_| {
-                        Error::Invalid("JWS header 'kid' field versionId is not a u32")
-                    })?);
-                }
-                "selfHash" => {
-                    if self_hash_o.is_some() {
-                        return Err(Error::Invalid(
-                            "JWS header 'kid' field query part 'selfHash' is repeated",
-                        ));
-                    }
-                    use std::str::FromStr;
-                    self_hash_o = Some(selfhash::KERIHash::from_str(value)?);
-                }
-                _ => {
-                    return Err(Error::Invalid(
-                        "JWS header 'kid' field query part is not 'versionId' or 'selfHash'",
-                    ))
-                }
-            }
-        }
-        if version_id_o.is_none() {
-            return Err(Error::Invalid(
-                "JWS header 'kid' field is missing 'versionId'",
-            ));
-        }
-        if self_hash_o.is_none() {
+        if self.header.kid.query_self_hash_o().is_none() {
             return Err(Error::Malformed(
                 "JWS header 'kid' field is missing 'selfHash'",
+            ));
+        }
+        if self.header.kid.query_version_id_o().is_none() {
+            return Err(Error::Invalid(
+                "JWS header 'kid' field is missing 'versionId'",
             ));
         }
 
         // TODO: Minimal RequestedDIDDocumentMetadata
         let (did_document, did_document_metadata) = resolver.resolve_did_document(
             &did,
-            version_id_o,
-            self_hash_o.as_ref(),
+            self.header.kid.query_self_hash_o(),
+            self.header.kid.query_version_id_o(),
             RequestedDIDDocumentMetadata::all(),
         )?;
 

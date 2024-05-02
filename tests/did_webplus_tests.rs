@@ -25,10 +25,21 @@ fn test_roundtrip_did_basic() {
 #[test]
 #[serial_test::serial]
 fn test_roundtrip_did_with_query() {
+    // Note that the String -> String roundtrip depends on the specific order of selfHash
+    // then versionId in the query params.
     let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
+
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
+
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
+
     ];
     for s in str_v {
         let did = did_webplus::DIDWithQuery::from_str(s).expect("pass");
@@ -43,10 +54,20 @@ fn test_roundtrip_did_with_query() {
 #[test]
 #[serial_test::serial]
 fn test_roundtrip_did_with_query_and_key_id_fragment() {
+    // Note that the String -> String roundtrip depends on the specific order of selfHash
+    // then versionId in the query params.
     let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
     ];
     for s in str_v {
         let did = did_webplus::DIDWithQueryAndKeyIdFragment::from_str(s).expect("pass");
@@ -287,11 +308,10 @@ fn test_signature_generation_with_witness() {
         // the DID document with the given versionId to have the given selfHash.  This manifests a limited
         // form of witnessing.
         let did_with_query_and_key_id_fragment = did
-            .with_query(format!(
-                "versionId={}&selfHash={}",
+            .with_queries(
+                did_document_0.self_hash_o.as_ref().unwrap().clone(),
                 did_document_0.version_id,
-                did_document_0.self_hash_o.as_ref().unwrap()
-            ))
+            )
             .with_fragment(verifying_key_0.to_keri_verifier().into_owned());
         // Set the key_id field of the JWK, so that it appears in the header of JWS signatures.
         priv_jwk_0.key_id = Some(did_with_query_and_key_id_fragment.to_string());

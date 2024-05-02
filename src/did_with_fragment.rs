@@ -7,6 +7,7 @@ pub type DIDWebplusWithFragment<F> = DIDWithFragment<F>;
     Clone, Debug, serde_with::DeserializeFromStr, Eq, PartialEq, serde_with::SerializeDisplay,
 )]
 pub struct DIDWithFragment<F: Fragment> {
+    // TODO: Maybe just use DID instead of repeating the fields host, path_o, self_hash?
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
     pub(crate) self_hash: selfhash::KERIHash<'static>,
@@ -26,6 +27,9 @@ impl<F: Fragment> DIDWithFragment<F> {
             if path.starts_with(':') || path.ends_with(':') {
                 return Err(Error::Malformed("DID path must not begin or end with ':'"));
             }
+            if path.contains('/') {
+                return Err(Error::Malformed("DID path must not contain '/'"));
+            }
         }
         // TODO: Further validation of path.
         Ok(Self {
@@ -42,12 +46,40 @@ impl<F: Fragment> DIDWithFragment<F> {
             self_hash: self.self_hash.clone(),
         }
     }
-    pub fn with_query(&self, query: String) -> DIDWithQueryAndFragment<F> {
+    pub fn with_query_self_hash(
+        &self,
+        query_self_hash: selfhash::KERIHash<'static>,
+    ) -> DIDWithQueryAndFragment<F> {
         DIDWithQueryAndFragment {
             host: self.host.clone(),
             path_o: self.path_o.clone(),
             self_hash: self.self_hash.clone(),
-            query,
+            query_self_hash_o: Some(query_self_hash),
+            query_version_id_o: None,
+            fragment: self.fragment.clone(),
+        }
+    }
+    pub fn with_query_version_id(&self, query_version_id: u32) -> DIDWithQueryAndFragment<F> {
+        DIDWithQueryAndFragment {
+            host: self.host.clone(),
+            path_o: self.path_o.clone(),
+            self_hash: self.self_hash.clone(),
+            query_self_hash_o: None,
+            query_version_id_o: Some(query_version_id),
+            fragment: self.fragment.clone(),
+        }
+    }
+    pub fn with_queries(
+        &self,
+        query_self_hash: selfhash::KERIHash<'static>,
+        query_version_id: u32,
+    ) -> DIDWithQueryAndFragment<F> {
+        DIDWithQueryAndFragment {
+            host: self.host.clone(),
+            path_o: self.path_o.clone(),
+            self_hash: self.self_hash.clone(),
+            query_self_hash_o: Some(query_self_hash),
+            query_version_id_o: Some(query_version_id),
             fragment: self.fragment.clone(),
         }
     }
@@ -95,6 +127,9 @@ impl<F: Fragment> std::str::FromStr for DIDWithFragment<F> {
         let did_uri_components = DIDURIComponents::try_from(s)?;
         if did_uri_components.method != "webplus" {
             return Err(Error::Malformed("DID method is not 'webplus'"));
+        }
+        if did_uri_components.query_o.is_some() {
+            return Err(Error::Malformed("DIDWithFragment must not have a query"));
         }
         let host = did_uri_components.host.to_string();
         let (path_o, self_hash_str) =

@@ -1,19 +1,19 @@
-use anyhow::Context;
 use axum::http::StatusCode;
 use did_webplus::{DIDDocument, DID};
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use time::OffsetDateTime;
 
 use crate::parse_did_document;
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
+// #[derive(Serialize, Deserialize)]
+#[derive(Debug)]
+// #[serde(rename_all = "camelCase")]
 pub struct DIDDocumentRecord {
     pub self_hash: String,
     pub did: String,
     pub version_id: i64,
-    #[serde(with = "time::serde::rfc3339")]
+    // #[serde(with = "time::serde::rfc3339")]
     pub valid_from: OffsetDateTime,
     pub did_document: String,
 }
@@ -129,22 +129,25 @@ impl DIDDocumentRecord {
     //     Ok(did_documents_records)
     // }
 
-    pub async fn did_exists(db: &PgPool, did: &DID) -> Result<bool, anyhow::Error> {
-        let did_string = did.to_string();
-        Ok(sqlx::query!(
-            r#"
-                select exists(select 1 from did_document_records where did = $1)
-            "#,
-            did_string
-        )
-        .fetch_one(db)
-        .await
-        .context("failed to check if microledger exists")?
-        .exists
-        .unwrap())
-    }
+    // pub async fn did_exists(db: &PgPool, did: &DID) -> Result<bool, anyhow::Error> {
+    //     let did_string = did.to_string();
+    //     Ok(sqlx::query!(
+    //         r#"
+    //             select exists(select 1 from did_document_records where did = $1)
+    //         "#,
+    //         did_string
+    //     )
+    //     .fetch_one(db)
+    //     .await
+    //     .context("failed to check if microledger exists")?
+    //     .exists
+    //     .unwrap())
+    // }
 
-    pub async fn select_latest(db: &PgPool, did: &DID) -> Result<Option<Self>, anyhow::Error> {
+    pub async fn select_latest(
+        db: &PgPool,
+        did: &DID,
+    ) -> Result<Option<Self>, (StatusCode, String)> {
         let did_string = did.to_string();
         let did_documents_record = sqlx::query_as!(
             DIDDocumentRecord,
@@ -158,7 +161,8 @@ impl DIDDocumentRecord {
             did_string,
         )
         .fetch_optional(db)
-        .await?;
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "error in database operation".to_string()))?;
         Ok(did_documents_record)
     }
 }

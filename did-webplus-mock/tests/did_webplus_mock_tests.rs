@@ -72,11 +72,10 @@ fn test_example_creating_and_updating_a_did() {
         // Add query params to bind this JWK to the latest DID doc.
         // Add (key ID) fragment to identify which key it is.
         let did_with_query_and_key_id_fragment = did
-            .with_query(format!(
-                "versionId={}&selfHash={}",
+            .with_queries(
+                latest_did_document.self_hash().clone(),
                 latest_did_document.version_id(),
-                latest_did_document.self_hash()
-            ))
+            )
             .with_fragment(verifying_key_0.to_keri_verifier().into_owned());
         priv_jwk_0.key_id = Some(did_with_query_and_key_id_fragment.to_string());
         println!("We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
@@ -121,11 +120,10 @@ fn test_example_creating_and_updating_a_did() {
         println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
         println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
         let did_with_query_and_key_id_fragment = did
-            .with_query(format!(
-                "versionId={}&selfHash={}",
+            .with_queries(
+                latest_did_document.self_hash().clone(),
                 latest_did_document.version_id(),
-                latest_did_document.self_hash()
-            ))
+            )
             .with_fragment(verifying_key_1.to_keri_verifier().into_owned());
         priv_jwk_1.key_id = Some(did_with_query_and_key_id_fragment.to_string());
         println!(
@@ -133,11 +131,10 @@ fn test_example_creating_and_updating_a_did() {
             serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
         );
         let did_with_query_and_key_id_fragment = did
-            .with_query(format!(
-                "versionId={}&selfHash={}",
+            .with_queries(
+                latest_did_document.self_hash().clone(),
                 latest_did_document.version_id(),
-                latest_did_document.self_hash()
-            ))
+            )
             .with_fragment(verifying_key_0.to_keri_verifier().into_owned());
         priv_jwk_0.key_id = Some(did_with_query_and_key_id_fragment.to_string());
         println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
@@ -184,11 +181,10 @@ fn test_example_creating_and_updating_a_did() {
         println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"), RequestedDIDDocumentMetadata::all())).expect("pass"));
         println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
         let did_with_query_and_key_id_fragment = did
-            .with_query(format!(
-                "versionId={}&selfHash={}",
+            .with_queries(
+                latest_did_document.self_hash().clone(),
                 latest_did_document.version_id(),
-                latest_did_document.self_hash()
-            ))
+            )
             .with_fragment(verifying_key_2.to_keri_verifier().into_owned());
         priv_jwk_2.key_id = Some(did_with_query_and_key_id_fragment.to_string());
         println!(
@@ -196,20 +192,18 @@ fn test_example_creating_and_updating_a_did() {
             serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
         );
         let did_with_query_and_key_id_fragment = did
-            .with_query(format!(
-                "versionId={}&selfHash={}",
+            .with_queries(
+                latest_did_document.self_hash().clone(),
                 latest_did_document.version_id(),
-                latest_did_document.self_hash()
-            ))
+            )
             .with_fragment(verifying_key_0.to_keri_verifier().into_owned());
         priv_jwk_0.key_id = Some(did_with_query_and_key_id_fragment.to_string());
         println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
         let did_with_query_and_key_id_fragment = did
-            .with_query(format!(
-                "versionId={}&selfHash={}",
+            .with_queries(
+                latest_did_document.self_hash().clone(),
                 latest_did_document.version_id(),
-                latest_did_document.self_hash()
-            ))
+            )
             .with_fragment(verifying_key_1.to_keri_verifier().into_owned());
         priv_jwk_1.key_id = Some(did_with_query_and_key_id_fragment.to_string());
         println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_1).expect("pass"));
