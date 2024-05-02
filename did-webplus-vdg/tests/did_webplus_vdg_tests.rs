@@ -1,9 +1,10 @@
 use std::{
     collections::HashMap,
+    ops::Deref,
     sync::{Arc, RwLock},
 };
 
-use did_webplus::DID;
+use did_webplus::DIDDocument;
 use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -24,7 +25,7 @@ fn overall_init() {
 
 const CACHE_DAYS: u64 = 365;
 
-fn test_cache_headers(headers: &reqwest::header::HeaderMap, did: &DID) {
+fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDocument) {
     assert!(headers.contains_key("Cache-Control"));
     assert!(headers.contains_key("Expires"));
     assert!(headers.contains_key("Last-Modified"));
@@ -38,7 +39,7 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did: &DID) {
     );
     assert_eq!(
         headers.get("ETag").unwrap().to_str().unwrap(),
-        &did.self_hash().to_string()
+        did_document.self_hash().deref()
     );
 }
 
@@ -167,14 +168,18 @@ async fn test_wallet_operations_impl(use_path: bool) {
     }
 
     // Simplest test of the VDG for now.
-    let response = reqwest::Client::new()
-        .get(&format!("http://localhost:8086/{}", alice_did))
-        .send()
-        .await
-        .expect("pass");
-    assert_eq!(response.status(), reqwest::StatusCode::OK);
-    test_cache_headers(response.headers(), &alice_did);
-
+    {
+        let response = reqwest::Client::new()
+            .get(&format!("http://localhost:8086/{}", alice_did))
+            .send()
+            .await
+            .expect("pass");
+        assert_eq!(response.status(), reqwest::StatusCode::OK);
+        let response_headers = response.headers().clone();
+        let alice_did_document =
+            serde_json::from_str(response.text().await.expect("pass").as_str()).expect("pass");
+        test_cache_headers(&response_headers, &alice_did_document);
+    }
     // Run it again to make sure the VDG has cached stuff.
     assert_eq!(
         reqwest::Client::new()
