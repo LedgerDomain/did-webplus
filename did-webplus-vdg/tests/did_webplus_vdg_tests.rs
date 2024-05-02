@@ -3,11 +3,32 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use did_webplus::DID;
 use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
+
+const CACHE_DAYS: u64 = 365;
+
+fn test_cache_headers(headers: &reqwest::header::HeaderMap, did: &DID) {
+    assert!(headers.contains_key("Cache-Control"));
+    assert!(headers.contains_key("Expires"));
+    assert!(headers.contains_key("Last-Modified"));
+    assert!(headers.contains_key("ETag"));
+
+    let cache_control = headers.get("Cache-Control").unwrap().to_str().unwrap();
+    let max_age = CACHE_DAYS * 24 * 60 * 60;
+    assert_eq!(
+        cache_control,
+        format!("public, max-age={}, immutable", max_age)
+    );
+    assert_eq!(
+        headers.get("ETag").unwrap().to_str().unwrap(),
+        &did.self_hash().to_string()
+    );
+}
 
 async fn test_wallet_operations_impl(use_path: bool) {
     // Setup of mock services
-    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
+    let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_host(
         "fancy.net".into(),
         None,
     )));
@@ -132,15 +153,14 @@ async fn test_wallet_operations_impl(use_path: bool) {
     }
 
     // Simplest test of the VDG for now.
-    assert_eq!(
-        reqwest::Client::new()
-            .get(&format!("http://localhost:8086/{}", alice_did))
-            .send()
-            .await
-            .expect("pass")
-            .status(),
-        reqwest::StatusCode::OK
-    );
+    let response = reqwest::Client::new()
+        .get(&format!("http://localhost:8086/{}", alice_did))
+        .send()
+        .await
+        .expect("pass");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    test_cache_headers(response.headers(), &alice_did);
+
     // Run it again to make sure the VDG has cached stuff.
     assert_eq!(
         reqwest::Client::new()

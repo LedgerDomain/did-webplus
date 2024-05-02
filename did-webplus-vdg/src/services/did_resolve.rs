@@ -2,14 +2,22 @@ use std::str::FromStr;
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{
+        header::{CACHE_CONTROL, ETAG, EXPIRES, LAST_MODIFIED},
+        HeaderMap, HeaderValue, StatusCode,
+    },
     routing::get,
     Router,
 };
 use did_webplus::{DIDWithQuery, DID};
 use sqlx::PgPool;
+use time::{format_description::well_known, OffsetDateTime};
 
 use crate::{models::did_document::DIDDocumentRecord, parse_did_document};
+
+// Perhaps make this configurable?
+const CACHE_DAYS: i64 = 365;
+type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
 
 pub fn get_routes(pool: &PgPool) -> Router {
     Router::new()
@@ -32,7 +40,7 @@ async fn resolve_did(
     State(db): State<PgPool>,
     Path(did_string): Path<String>,
     Query(query_params): Query<ResolveDIDQueryParams>,
-) -> Result<String, (StatusCode, String)> {
+) -> DidResult {
     // Note that did_query is automatically URL-decoded by axum.
     tracing::trace!(
         "did_string: {}, query_params: {:?}",
@@ -101,7 +109,13 @@ async fn resolve_did(
         if let Some(did_document_record) = did_document_record_o {
             // If we do have the requested DID document record,  return it.
             tracing::trace!("requested DID document already in database");
-            return Ok(did_document_record.did_document);
+            return Ok((
+                headers_for_did_document(
+                    did_document_record.self_hash,
+                    did_document_record.valid_from,
+                ),
+                did_document_record.did_document,
+            ));
         } else {
             tracing::trace!("requested DID document not in database");
         }
@@ -243,7 +257,38 @@ async fn resolve_did(
             unreachable!("programmer error: this should not be possible");
         }
     }
-    Ok(target_did_document_body)
+    Ok((
+        headers_for_did_document(
+            target_did_document.self_hash().to_string(),
+            target_did_document.valid_from(),
+        ),
+        target_did_document_body,
+    ))
+}
+
+fn headers_for_did_document(hash: String, last_modified: OffsetDateTime) -> HeaderMap {
+    let cache_control = format!("public, max-age={}, immutable", CACHE_DAYS * 24 * 60 * 60);
+    let expires = OffsetDateTime::now_utc() + time::Duration::days(CACHE_DAYS);
+    let expires_header = expires
+        .format(&well_known::Rfc2822)
+        .unwrap_or("".to_string());
+    let last_modified_header = last_modified
+        .format(&well_known::Rfc2822)
+        .unwrap_or("".to_string());
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        CACHE_CONTROL,
+        HeaderValue::from_str(&cache_control).unwrap(),
+    );
+    headers.insert(EXPIRES, HeaderValue::from_str(&expires_header).unwrap());
+    headers.insert(
+        LAST_MODIFIED,
+        HeaderValue::from_str(&last_modified_header).unwrap(),
+    );
+    headers.insert(ETAG, HeaderValue::from_str(&hash).unwrap());
+
+    headers
 }
 
 async fn http_get(url: &str) -> Result<String, (StatusCode, String)> {
