@@ -41,8 +41,8 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
 ] }
 
 [patch.crates-io]
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "c6478f2ae708f70012a10278c4624ef0cc5bf68f" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "a111c7ce801bbee2583d30ca170f2ad7db26ccea" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "65e3f0252e67809f10e86ca9d010f31a38a06647" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "88089b836a38e504bd9a528ce72912c12eacde7a" }
 
 [workspace]
 resolver = "2"

@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    ops::Deref,
     sync::{Arc, RwLock},
 };
 
@@ -119,9 +120,43 @@ async fn test_wallet_operations_impl(use_path: bool) {
                 reqwest::StatusCode::OK
             );
             // Resolve the DID
+            println!("alice_did_url: {}", alice_did_url);
+            let alice_did_url_self_hash = alice_did
+                .resolution_url_for_self_hash(alice_did_document.self_hash().deref())
+                .replace("fancy.net", "localhost:8085");
+            println!(
+                "alice_did_url with query self-hash: {}",
+                alice_did_url_self_hash
+            );
+            let alice_did_url_version_id = alice_did
+                .resolution_url_for_version_id(alice_did_document.version_id())
+                .replace("fancy.net", "localhost:8085");
+            println!(
+                "alice_did_url with query version_id: {}",
+                alice_did_url_version_id
+            );
             assert_eq!(
                 reqwest::Client::new()
                     .get(&alice_did_url)
+                    .send()
+                    .await
+                    .expect("pass")
+                    .status(),
+                reqwest::StatusCode::OK
+            );
+            // Do some query-specific GETs
+            assert_eq!(
+                reqwest::Client::new()
+                    .get(&alice_did_url_self_hash)
+                    .send()
+                    .await
+                    .expect("pass")
+                    .status(),
+                reqwest::StatusCode::OK
+            );
+            assert_eq!(
+                reqwest::Client::new()
+                    .get(&alice_did_url_version_id)
                     .send()
                     .await
                     .expect("pass")

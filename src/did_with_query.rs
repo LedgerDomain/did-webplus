@@ -107,33 +107,35 @@ impl DIDWithQuery {
     pub fn query(&self) -> &str {
         &self.query
     }
-    pub fn query_self_hash(&self) -> Result<Option<selfhash::KERIHash>, Error> {
+    pub fn query_self_hash(&self) -> Option<selfhash::KERIHash> {
         for query_param in self.query.split('&') {
             let (key, value) = query_param.split_once('=').expect(
                 "programmer error: this should succeed due to the checks in the constructor",
             );
             if key == "selfHash" {
-                return Ok(Some(selfhash::KERIHash::from_str(value).expect(
+                return Some(selfhash::KERIHash::from_str(value).expect(
                     "programmer error: this should succeed due to the checks in the constructor",
-                )));
+                ));
             }
         }
-        Ok(None)
+        None
     }
-    pub fn query_version_id(&self) -> Result<Option<u32>, Error> {
+    pub fn query_version_id(&self) -> Option<u32> {
         for query_param in self.query.split('&') {
             let (key, value) = query_param.split_once('=').expect(
                 "programmer error: this should succeed due to the checks in the constructor",
             );
             if key == "versionId" {
-                return Ok(Some(value.parse().expect(
+                return Some(value.parse().expect(
                     "programmer error: this should succeed due to the checks in the constructor",
-                )));
+                ));
             }
         }
-        Ok(None)
+        None
     }
-    /// Produce the URL that addresses the latest DID document for this DID.
+    /// Produce the URL that addresses the specified DID document for this DID.
+    /// Based on the URL scheme for did:webplus, this is only well-defined if there is at most
+    /// one query param (either selfHash or versionId).
     pub fn resolution_url(&self) -> String {
         // Form the base URL.
         // let mut url = format!("https://{}/", self.host);
@@ -146,23 +148,19 @@ impl DIDWithQuery {
         url.push_str("/did");
 
         // Append query param portion of filename.
-        let query_self_hash_o = self
-            .query_self_hash()
-            .expect("programmer error: this should succeed due to the checks in the constructor");
-        let query_version_id_o = self
-            .query_version_id()
-            .expect("programmer error: this should succeed due to the checks in the constructor");
+        let query_self_hash_o = self.query_self_hash();
+        let query_version_id_o = self.query_version_id();
         match (query_self_hash_o, query_version_id_o) {
             (Some(query_self_hash), _) => {
                 // We only use the selfHash to form the URL in this case.
                 // Note that %3D is the URL-encoding of '='
-                url.push_str(".selfHash%3D");
+                url.push_str("/selfHash/");
                 url.push_str(query_self_hash.deref());
             }
             (None, Some(query_version_id)) => {
                 // We use the versionId to form the URL in this case.
                 // Note that %3D is the URL-encoding of '='
-                url.push_str(".versionId%3D");
+                url.push_str("/versionId/");
                 url.push_str(&query_version_id.to_string());
             }
             (None, None) => {
@@ -174,60 +172,82 @@ impl DIDWithQuery {
         url
     }
     pub fn from_resolution_url(host: &str, path: &str) -> Result<Self, Error> {
-        let (path_and_self_hash_str, filename) = path.rsplit_once('/').ok_or_else(|| {
-            Error::Malformed("resolution URL path must end with '/did.key=value.json'")
-        })?;
-        if !filename.starts_with("did.") || !filename.ends_with(".json") {
+        if !path.ends_with(".json") {
             return Err(Error::Malformed(
-                "resolution URL path must end with '/did.key=value.json'",
+                "resolution URL path must end with '.json'",
             ));
         }
-        let (path_o, self_hash_str) = match path_and_self_hash_str.rsplit_once('/') {
-            Some((path, self_hash_str)) => {
-                // Replace all the '/' chars with ':' chars.
-                let path = path.replace('/', ":");
-                (Some(path), self_hash_str)
-            }
-            None => {
-                let self_hash_str = path_and_self_hash_str;
-                (None, self_hash_str)
-            }
-        };
-        let self_hash = selfhash::KERIHash::from_str(self_hash_str).map_err(|_| {
-            Error::Malformed("invalid self-hash component of resolution URL must be a valid hash")
-        })?;
-        let query = filename
-            .strip_prefix("did.")
-            .unwrap()
-            .strip_suffix(".json")
-            .unwrap();
-        let (key, value) = query.split_once('=').ok_or_else(|| {
-            Error::Malformed("resolution URL path must end with '/did.key=value.json'")
-        })?;
-        match key {
-            "selfHash" => {
-                selfhash::KERIHash::from_str(value).map_err(|_| {
-                    Error::Malformed("selfHash query specifier expected a hash value")
+        let (path, filename) = path
+            .rsplit_once('/')
+            .ok_or_else(|| Error::Malformed("resolution URL path must contain a '/' character"))?;
+        assert!(filename.ends_with(".json"));
+        if path.ends_with("/did/selfHash") {
+            let path = path.strip_suffix("/did/selfHash").unwrap();
+            let query_self_hash_str = filename.strip_suffix(".json").unwrap();
+            let query_self_hash =
+                selfhash::KERIHash::from_str(query_self_hash_str).map_err(|_| {
+                    Error::Malformed("invalid self-hash in filename component of resolution URL")
                 })?;
-                Ok(Self::new(
-                    host.to_string(),
-                    path_o,
-                    self_hash,
-                    query.to_string(),
-                )?)
+            match path.rsplit_once('/') {
+                Some((path, did_self_hash_str)) => {
+                    let did_self_hash =
+                        selfhash::KERIHash::from_str(did_self_hash_str).map_err(|_| {
+                            Error::Malformed("invalid self-hash component of resolution URL")
+                        })?;
+                    Ok(Self::new(
+                        host.to_string(),
+                        Some(path.to_string()),
+                        did_self_hash,
+                        format!("selfHash={}", query_self_hash),
+                    )?)
+                }
+                None => {
+                    let did_self_hash = selfhash::KERIHash::from_str(path).map_err(|_| {
+                        Error::Malformed("invalid self-hash component of resolution URL")
+                    })?;
+                    Ok(Self::new(
+                        host.to_string(),
+                        None,
+                        did_self_hash,
+                        format!("selfHash={}", query_self_hash),
+                    )?)
+                }
             }
-            "versionId" => {
-                value.parse::<u32>().map_err(|_| {
-                    Error::Malformed("versionId query specifier expected a u32 value")
-                })?;
-                Ok(Self::new(
-                    host.to_string(),
-                    path_o,
-                    self_hash,
-                    query.to_string(),
-                )?)
+        } else if path.ends_with("/did/versionId") {
+            let path = path.strip_suffix("/did/versionId").unwrap();
+            let query_version_id_str = filename.strip_suffix(".json").unwrap();
+            let query_version_id: u32 = query_version_id_str.parse().map_err(|_| {
+                Error::Malformed("invalid version ID in filename component of resolution URL")
+            })?;
+            match path.rsplit_once('/') {
+                Some((path, did_self_hash_str)) => {
+                    let did_self_hash =
+                        selfhash::KERIHash::from_str(did_self_hash_str).map_err(|_| {
+                            Error::Malformed("invalid self-hash component of resolution URL")
+                        })?;
+                    Ok(Self::new(
+                        host.to_string(),
+                        Some(path.to_string()),
+                        did_self_hash,
+                        format!("versionId={}", query_version_id),
+                    )?)
+                }
+                None => {
+                    let did_self_hash = selfhash::KERIHash::from_str(path).map_err(|_| {
+                        Error::Malformed("invalid self-hash component of resolution URL")
+                    })?;
+                    Ok(Self::new(
+                        host.to_string(),
+                        None,
+                        did_self_hash,
+                        format!("versionId={}", query_version_id),
+                    )?)
+                }
             }
-            _ => Err(Error::Malformed("Unrecognized query specifier")),
+        } else {
+            Err(Error::Malformed(
+                "resolution URL path must end with '/did/selfHash/<hash>.json' or '/did/versionId/<#>.json'",
+            ))
         }
     }
 }

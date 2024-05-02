@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -32,52 +34,68 @@ async fn get_did_document(
         .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
 
     // Case for retrieving the latest DID doc.
-    if path.ends_with("did.json") {
-        let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
-            (
-                StatusCode::BAD_REQUEST,
-                format!("malformed DID resolution URL: {}", err),
-            )
-        })?;
+    if let Ok(did) = DID::from_resolution_url(host.as_str(), path.as_str()) {
         return get_latest_did_document(db, &did).await;
     }
 
-    // Case for retrieving a specific DID doc.
-    if path.ends_with(".json") {
-        let did_with_query = DIDWithQuery::from_resolution_url(host.as_str(), path.as_str())
-            .map_err(|err| {
-                (
-                    StatusCode::BAD_REQUEST,
-                    format!("malformed DID resolution URL: {}", err),
-                )
-            })?;
-        let specific_did_document_record_o = DIDDocumentRecord::select_did_document(
-            &db,
-            &did_with_query.without_query(),
-            did_with_query
-                .query_self_hash()
-                .map_err(|err| {
-                    (
-                        StatusCode::BAD_REQUEST,
-                        format!("malformed selfHash: {}", err),
-                    )
-                })?
-                .as_deref(),
-            did_with_query.query_version_id().map_err(|err| {
-                (
-                    StatusCode::BAD_REQUEST,
-                    format!("malformed versionId: {}", err),
-                )
-            })?,
-        )
-        .await?;
-        if specific_did_document_record_o.is_none() {
-            return Err((StatusCode::NOT_FOUND, "".to_string()));
+    // Cases for retrieving a specific DID doc based on selfHash or versionId
+    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(host.as_str(), path.as_str()) {
+        let did = did_with_query.without_query();
+        if let Some(query_self_hash) = did_with_query.query_self_hash() {
+            return get_did_document_with_self_hash(db, &did, query_self_hash.deref()).await;
+        } else if let Some(query_version_id) = did_with_query.query_version_id() {
+            return get_did_document_with_version_id(db, &did, query_version_id).await;
+        } else {
+            return Err((StatusCode::BAD_REQUEST, "".to_string()));
         }
-        return Ok(specific_did_document_record_o.unwrap().did_document);
     }
 
+    // If none of the cases above matched, then the path is malformed.
     Err((StatusCode::BAD_REQUEST, "".to_string()))
+}
+
+async fn get_latest_did_document(db: PgPool, did: &DID) -> Result<String, (StatusCode, String)> {
+    let latest_record_o = match DIDDocumentRecord::select_latest(&db, did).await {
+        Ok(last_record) => last_record,
+        Err(err) => {
+            tracing::error!(
+                "Error while attempting to get latest DID document for {}: {}",
+                did,
+                err
+            );
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, "".to_string()));
+        }
+    };
+    match latest_record_o {
+        Some(latest_did_document_record) => Ok(latest_did_document_record.did_document),
+        None => Err((StatusCode::NOT_FOUND, format!("DID not found: {}", did))),
+    }
+}
+
+async fn get_did_document_with_self_hash(
+    db: PgPool,
+    did: &DID,
+    self_hash_str: &str,
+) -> Result<String, (StatusCode, String)> {
+    let did_document_record_o =
+        DIDDocumentRecord::select_did_document(&db, did, Some(self_hash_str), None).await?;
+    match did_document_record_o {
+        Some(did_document_record) => Ok(did_document_record.did_document),
+        None => Err((StatusCode::NOT_FOUND, "".to_string())),
+    }
+}
+
+async fn get_did_document_with_version_id(
+    db: PgPool,
+    did: &DID,
+    version_id: u32,
+) -> Result<String, (StatusCode, String)> {
+    let did_document_record_o =
+        DIDDocumentRecord::select_did_document(&db, did, None, Some(version_id)).await?;
+    match did_document_record_o {
+        Some(did_document_record) => Ok(did_document_record.did_document),
+        None => Err((StatusCode::NOT_FOUND, "".to_string())),
+    }
 }
 
 #[tracing::instrument(err(Debug))]
@@ -188,22 +206,4 @@ async fn update_did(
         .await?;
 
     Ok(())
-}
-
-async fn get_latest_did_document(db: PgPool, did: &DID) -> Result<String, (StatusCode, String)> {
-    let latest_record_o = match DIDDocumentRecord::select_latest(&db, did).await {
-        Ok(last_record) => last_record,
-        Err(err) => {
-            tracing::error!(
-                "Error while attempting to get latest DID document for {}: {}",
-                did,
-                err
-            );
-            return Err((StatusCode::INTERNAL_SERVER_ERROR, "".to_string()));
-        }
-    };
-    match latest_record_o {
-        Some(latest_did_document_record) => Ok(latest_did_document_record.did_document),
-        None => Err((StatusCode::NOT_FOUND, format!("DID not found: {}", did))),
-    }
 }

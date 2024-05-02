@@ -89,6 +89,29 @@ impl DID {
         url.push_str("/did.json");
         url
     }
+    pub fn resolution_url_for_self_hash(&self, self_hash_str: &str) -> String {
+        let mut url = format!("http://{}/", self.host);
+        if let Some(path) = self.path_o.as_deref() {
+            url.push_str(&path.replace(':', "/"));
+            url.push('/');
+        }
+        url.push_str(self.self_hash.deref());
+        url.push_str("/did/selfHash/");
+        url.push_str(self_hash_str);
+        url.push_str(".json");
+        url
+    }
+    pub fn resolution_url_for_version_id(&self, version_id: u32) -> String {
+        let mut url = format!("http://{}/", self.host);
+        if let Some(path) = self.path_o.as_deref() {
+            url.push_str(&path.replace(':', "/"));
+            url.push('/');
+        }
+        url.push_str(self.self_hash.deref());
+        url.push_str("/did/versionId/");
+        url.push_str(&format!("{}.json", version_id));
+        url
+    }
     /// Parse (the equivalent of) a resolution URL to produce a DID.
     pub fn from_resolution_url(host: &str, path: &str) -> Result<Self, Error> {
         if path.starts_with('/') {
