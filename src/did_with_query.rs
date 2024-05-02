@@ -7,10 +7,12 @@ pub type DIDWebplusWithQuery = DIDWithQuery;
 
 #[derive(Debug, serde_with::DeserializeFromStr, serde_with::SerializeDisplay)]
 pub struct DIDWithQuery {
+    // TODO: Maybe just use DID instead of repeating the fields host, path_o, self_hash?
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
     pub(crate) self_hash: selfhash::KERIHash<'static>,
-    pub(crate) query: String,
+    pub(crate) query_self_hash_o: Option<selfhash::KERIHash<'static>>,
+    pub(crate) query_version_id_o: Option<u32>,
 }
 
 impl DIDWithQuery {
@@ -18,7 +20,8 @@ impl DIDWithQuery {
         host: String,
         path_o: Option<String>,
         self_hash: selfhash::KERIHash<'static>,
-        query: String,
+        query_self_hash_o: Option<selfhash::KERIHash<'static>>,
+        query_version_id_o: Option<u32>,
     ) -> Result<Self, Error> {
         // TODO: Validation of host
         // Validate path.  It must not begin or end with ':'.  Its components must be ':'-delimited.
@@ -26,49 +29,24 @@ impl DIDWithQuery {
             if path.starts_with(':') || path.ends_with(':') {
                 return Err(Error::Malformed("DID path must not begin or end with ':'"));
             }
+            if path.contains('/') {
+                return Err(Error::Malformed("DID path must not contain '/'"));
+            }
         }
         // TODO: Further validation of path.
 
-        // Validate query params
-        let mut query_self_hash_o = None;
-        let mut query_version_id_o: Option<u32> = None;
-        for query_param in query.split('&') {
-            if let Some((key, value)) = query_param.split_once('=') {
-                match key {
-                    "selfHash" => {
-                        // If query_self_hash_o is already set, then this is a duplicate query param
-                        if query_self_hash_o.is_some() {
-                            return Err(Error::Malformed("Multiple selfHash query parameters"));
-                        }
-                        query_self_hash_o = Some(selfhash::KERIHash::from_str(value)?);
-                    }
-                    "versionId" => {
-                        // If query_version_id_o is already set, then this is a duplicate query param
-                        if query_version_id_o.is_some() {
-                            return Err(Error::Malformed("Multiple versionId query parameters"));
-                        }
-                        query_version_id_o = Some(
-                            value
-                                .parse()
-                                .map_err(|_| "versionId query parameter expected a u32 value")?,
-                        );
-                    }
-                    _ => {
-                        return Err(Error::Malformed("Unrecognized query parameter"));
-                    }
-                }
-            } else {
-                return Err(Error::Malformed(
-                    "Query parameter is missing a '='-delimited value",
-                ));
-            }
+        if query_self_hash_o.is_none() && query_version_id_o.is_none() {
+            return Err(Error::Malformed(
+                "DIDWithQuery must have at least one of query_self_hash_o or query_version_id_o",
+            ));
         }
 
         Ok(Self {
             host,
             path_o,
             self_hash,
-            query,
+            query_self_hash_o,
+            query_version_id_o,
         })
     }
     pub fn without_query(&self) -> crate::DID {
@@ -83,7 +61,8 @@ impl DIDWithQuery {
             host: self.host.clone(),
             path_o: self.path_o.clone(),
             self_hash: self.self_hash.clone(),
-            query: self.query.clone(),
+            query_self_hash_o: self.query_self_hash_o.clone(),
+            query_version_id_o: self.query_version_id_o,
             fragment: fragment.into(),
         }
     }
@@ -102,36 +81,29 @@ impl DIDWithQuery {
     pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
         &self.self_hash
     }
-    /// This is the query parameters portion of the DID URI, which typically includes the versionId
-    /// and selfHash field values from the DID document current at the time the key was used.
-    pub fn query(&self) -> &str {
-        &self.query
-    }
-    pub fn query_self_hash(&self) -> Option<selfhash::KERIHash> {
-        for query_param in self.query.split('&') {
-            let (key, value) = query_param.split_once('=').expect(
-                "programmer error: this should succeed due to the checks in the constructor",
-            );
-            if key == "selfHash" {
-                return Some(selfhash::KERIHash::from_str(value).expect(
-                    "programmer error: this should succeed due to the checks in the constructor",
-                ));
+    /// This is the string-formatted query parameters portion of the DID URI, in which the selfHash and
+    /// versionId parameters from the DID document current at the time the key was used are formatted in
+    /// canonical form.
+    pub fn query_params(&self) -> String {
+        match (self.query_self_hash_o.as_ref(), self.query_version_id_o) {
+            (Some(query_self_hash), Some(query_version_id)) => {
+                format!(
+                    "selfHash={}&versionId={}",
+                    query_self_hash, query_version_id
+                )
+            }
+            (Some(query_self_hash), None) => format!("selfHash={}", query_self_hash),
+            (None, Some(query_version_id)) => format!("versionId={}", query_version_id),
+            (None, None) => {
+                panic!("programmer error: this should not be possible due to the checks in the constructor")
             }
         }
-        None
     }
-    pub fn query_version_id(&self) -> Option<u32> {
-        for query_param in self.query.split('&') {
-            let (key, value) = query_param.split_once('=').expect(
-                "programmer error: this should succeed due to the checks in the constructor",
-            );
-            if key == "versionId" {
-                return Some(value.parse().expect(
-                    "programmer error: this should succeed due to the checks in the constructor",
-                ));
-            }
-        }
-        None
+    pub fn query_self_hash_o(&self) -> Option<&selfhash::KERIHash> {
+        self.query_self_hash_o.as_ref()
+    }
+    pub fn query_version_id_o(&self) -> Option<u32> {
+        self.query_version_id_o
     }
     /// Produce the URL that addresses the specified DID document for this DID.
     /// Based on the URL scheme for did:webplus, this is only well-defined if there is at most
@@ -148,8 +120,8 @@ impl DIDWithQuery {
         url.push_str("/did");
 
         // Append query param portion of filename.
-        let query_self_hash_o = self.query_self_hash();
-        let query_version_id_o = self.query_version_id();
+        let query_self_hash_o = self.query_self_hash_o();
+        let query_version_id_o = self.query_version_id_o();
         match (query_self_hash_o, query_version_id_o) {
             (Some(query_self_hash), _) => {
                 // We only use the selfHash to form the URL in this case.
@@ -198,7 +170,8 @@ impl DIDWithQuery {
                         host.to_string(),
                         Some(path.to_string()),
                         did_self_hash,
-                        format!("selfHash={}", query_self_hash),
+                        Some(query_self_hash),
+                        None,
                     )?)
                 }
                 None => {
@@ -209,7 +182,8 @@ impl DIDWithQuery {
                         host.to_string(),
                         None,
                         did_self_hash,
-                        format!("selfHash={}", query_self_hash),
+                        Some(query_self_hash),
+                        None,
                     )?)
                 }
             }
@@ -229,7 +203,8 @@ impl DIDWithQuery {
                         host.to_string(),
                         Some(path.to_string()),
                         did_self_hash,
-                        format!("versionId={}", query_version_id),
+                        None,
+                        Some(query_version_id),
                     )?)
                 }
                 None => {
@@ -240,7 +215,8 @@ impl DIDWithQuery {
                         host.to_string(),
                         None,
                         did_self_hash,
-                        format!("versionId={}", query_version_id),
+                        None,
+                        Some(query_version_id),
                     )?)
                 }
             }
@@ -249,6 +225,44 @@ impl DIDWithQuery {
                 "resolution URL path must end with '/did/selfHash/<hash>.json' or '/did/versionId/<#>.json'",
             ))
         }
+    }
+    pub fn parse_query_params(
+        query_params: &str,
+    ) -> Result<(Option<selfhash::KERIHash<'static>>, Option<u32>), Error> {
+        let mut query_self_hash_o = None;
+        let mut query_version_id_o: Option<u32> = None;
+        for query_param in query_params.split('&') {
+            if let Some((key, value)) = query_param.split_once('=') {
+                match key {
+                    "selfHash" => {
+                        // If query_self_hash_o is already set, then this is a duplicate query param
+                        if query_self_hash_o.is_some() {
+                            return Err(Error::Malformed("Multiple selfHash query parameters"));
+                        }
+                        query_self_hash_o = Some(selfhash::KERIHash::from_str(value)?);
+                    }
+                    "versionId" => {
+                        // If query_version_id_o is already set, then this is a duplicate query param
+                        if query_version_id_o.is_some() {
+                            return Err(Error::Malformed("Multiple versionId query parameters"));
+                        }
+                        query_version_id_o = Some(
+                            value
+                                .parse()
+                                .map_err(|_| "versionId query parameter expected a u32 value")?,
+                        );
+                    }
+                    _ => {
+                        return Err(Error::Malformed("Unrecognized query parameter; only selfHash and versionId are recognized"));
+                    }
+                }
+            } else {
+                return Err(Error::Malformed(
+                    "Query parameter is missing a '='-delimited value",
+                ));
+            }
+        }
+        Ok((query_self_hash_o, query_version_id_o))
     }
 }
 
@@ -262,7 +276,11 @@ impl std::fmt::Display for DIDWithQuery {
         write!(
             f,
             "did:webplus:{}:{}{}{}?{}",
-            self.host, path, delimiter, self.self_hash, self.query
+            self.host,
+            path,
+            delimiter,
+            self.self_hash,
+            self.query_params()
         )
     }
 }
@@ -274,6 +292,13 @@ impl std::str::FromStr for DIDWithQuery {
         if did_uri_components.method != "webplus" {
             return Err(Error::Malformed("DID method is not 'webplus'"));
         }
+        if did_uri_components.query_o.is_none() {
+            return Err(Error::Malformed("DID query is missing"));
+        }
+        if did_uri_components.fragment_o.is_some() {
+            return Err(Error::Malformed("DIDWithQuery must not have a fragment"));
+        }
+
         let host = did_uri_components.host.to_string();
         let (path_o, self_hash_str) =
             if let Some((path, self_hash_str)) = did_uri_components.path.rsplit_once(':') {
@@ -283,15 +308,16 @@ impl std::str::FromStr for DIDWithQuery {
             };
         let path_o = path_o.map(|s| s.into());
         let self_hash = selfhash::KERIHash::from_str(self_hash_str)?;
-        if did_uri_components.query_o.is_none() {
-            return Err(Error::Malformed("DID query is missing"));
-        }
-        let query = did_uri_components.query_o.unwrap().to_string();
-        Ok(Self {
+
+        let (query_self_hash_o, query_version_id_o) =
+            Self::parse_query_params(did_uri_components.query_o.unwrap())?;
+
+        Self::new(
             host,
             path_o,
             self_hash,
-            query,
-        })
+            query_self_hash_o,
+            query_version_id_o,
+        )
     }
 }

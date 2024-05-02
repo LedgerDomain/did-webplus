@@ -38,6 +38,9 @@ impl DID {
             if path.starts_with(':') || path.ends_with(':') {
                 return Err(Error::Malformed("DID path must not begin or end with ':'"));
             }
+            if path.contains('/') {
+                return Err(Error::Malformed("DID path must not contain '/'"));
+            }
         }
         // TODO: Further validation of path.
         Ok(Self {
@@ -46,12 +49,38 @@ impl DID {
             self_hash,
         })
     }
-    pub fn with_query(&self, query: String) -> DIDWithQuery {
+    pub fn with_query_self_hash(
+        &self,
+        query_self_hash: selfhash::KERIHash<'static>,
+    ) -> DIDWithQuery {
         DIDWithQuery {
             host: self.host.clone(),
             path_o: self.path_o.clone(),
             self_hash: self.self_hash.clone(),
-            query,
+            query_self_hash_o: Some(query_self_hash),
+            query_version_id_o: None,
+        }
+    }
+    pub fn with_query_version_id(&self, query_version_id: u32) -> DIDWithQuery {
+        DIDWithQuery {
+            host: self.host.clone(),
+            path_o: self.path_o.clone(),
+            self_hash: self.self_hash.clone(),
+            query_self_hash_o: None,
+            query_version_id_o: Some(query_version_id),
+        }
+    }
+    pub fn with_queries(
+        &self,
+        query_self_hash: selfhash::KERIHash<'static>,
+        query_version_id: u32,
+    ) -> DIDWithQuery {
+        DIDWithQuery {
+            host: self.host.clone(),
+            path_o: self.path_o.clone(),
+            self_hash: self.self_hash.clone(),
+            query_self_hash_o: Some(query_self_hash),
+            query_version_id_o: Some(query_version_id),
         }
     }
     pub fn with_fragment<F: Fragment>(&self, fragment: F) -> DIDWithFragment<F> {
@@ -112,6 +141,52 @@ impl DID {
         url.push_str(&format!("{}.json", version_id));
         url
     }
+    pub fn resolution_url_for_metadata_current(&self) -> String {
+        let mut url = format!("http://{}/", self.host);
+        if let Some(path) = self.path_o.as_deref() {
+            url.push_str(&path.replace(':', "/"));
+            url.push('/');
+        }
+        url.push_str(self.self_hash.deref());
+        url.push_str("/did/metadata.json");
+        url
+    }
+    pub fn resolution_url_for_metadata_constant(&self) -> String {
+        let mut url = format!("http://{}/", self.host);
+        if let Some(path) = self.path_o.as_deref() {
+            url.push_str(&path.replace(':', "/"));
+            url.push('/');
+        }
+        url.push_str(self.self_hash.deref());
+        url.push_str("/did/metadata/constant.json");
+        url
+    }
+    pub fn resolution_url_for_metadata_idempotent_for_self_hash(
+        &self,
+        self_hash_str: &str,
+    ) -> String {
+        let mut url = format!("http://{}/", self.host);
+        if let Some(path) = self.path_o.as_deref() {
+            url.push_str(&path.replace(':', "/"));
+            url.push('/');
+        }
+        url.push_str(self.self_hash.deref());
+        url.push_str("/did/metadata/selfHash/");
+        url.push_str(self_hash_str);
+        url.push_str(".json");
+        url
+    }
+    pub fn resolution_url_for_metadata_idempotent_for_version_id(&self, version_id: u32) -> String {
+        let mut url = format!("http://{}/", self.host);
+        if let Some(path) = self.path_o.as_deref() {
+            url.push_str(&path.replace(':', "/"));
+            url.push('/');
+        }
+        url.push_str(self.self_hash.deref());
+        url.push_str("/did/metadata/versionId/");
+        url.push_str(&format!("{}.json", version_id));
+        url
+    }
     /// Parse (the equivalent of) a resolution URL to produce a DID.
     pub fn from_resolution_url(host: &str, path: &str) -> Result<Self, Error> {
         if path.starts_with('/') {
@@ -168,6 +243,12 @@ impl std::str::FromStr for DID {
         let did_uri_components = DIDURIComponents::try_from(s)?;
         if did_uri_components.method != "webplus" {
             return Err(Error::Malformed("DID method is not 'webplus'"));
+        }
+        if did_uri_components.query_o.is_some() {
+            return Err(Error::Malformed("DID must not have a query"));
+        }
+        if did_uri_components.fragment_o.is_some() {
+            return Err(Error::Malformed("DID must not have a fragment"));
         }
         let host = did_uri_components.host.to_string();
         let (path_o, self_hash_str) =

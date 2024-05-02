@@ -84,8 +84,8 @@ impl Resolver for MockResolverFull {
     fn resolve_did_document<'s>(
         &'s mut self,
         did: &DID,
-        version_id_o: Option<u32>,
         self_hash_o: Option<&selfhash::KERIHash>,
+        version_id_o: Option<u32>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         if let Some(mock_vdg_la) = self.mock_vdg_lao.as_ref() {

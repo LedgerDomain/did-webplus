@@ -158,7 +158,7 @@ impl ControlledDID {
         let version_id = self.microledger.view().latest_did_document().version_id();
         let self_hash = self.microledger.view().latest_did_document().self_hash();
         let key_id = did
-            .with_query(format!("versionId={}&selfHash={}", version_id, self_hash))
+            .with_queries(self_hash.clone(), version_id)
             .with_fragment(public_key.to_owned());
         (signer, key_id)
     }

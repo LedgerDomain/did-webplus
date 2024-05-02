@@ -7,10 +7,12 @@ pub type DIDWebplusWithQueryAndFragment<F> = DIDWithQueryAndFragment<F>;
     Clone, Debug, serde_with::DeserializeFromStr, Eq, PartialEq, serde_with::SerializeDisplay,
 )]
 pub struct DIDWithQueryAndFragment<F: Fragment> {
+    // TODO: Maybe just use DIDWithQuery instead of repeating the fields host, path_o, self_hash, query_*?
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
     pub(crate) self_hash: selfhash::KERIHash<'static>,
-    pub(crate) query: String,
+    pub(crate) query_self_hash_o: Option<selfhash::KERIHash<'static>>,
+    pub(crate) query_version_id_o: Option<u32>,
     pub(crate) fragment: DIDFragment<F>,
 }
 
@@ -19,7 +21,8 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
         host: String,
         path_o: Option<String>,
         self_hash: selfhash::KERIHash<'static>,
-        query: String,
+        query_self_hash_o: Option<selfhash::KERIHash<'static>>,
+        query_version_id_o: Option<u32>,
         fragment: DIDFragment<F>,
     ) -> Result<Self, Error> {
         // TODO: Validation of host
@@ -28,14 +31,24 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
             if path.starts_with(':') || path.ends_with(':') {
                 return Err(Error::Malformed("DID path must not begin or end with ':'"));
             }
+            if path.contains('/') {
+                return Err(Error::Malformed("DID path must not contain '/'"));
+            }
         }
         // TODO: Further validation of path.
-        // TODO: Validation of query.
+
+        if query_self_hash_o.is_none() && query_version_id_o.is_none() {
+            return Err(Error::Malformed(
+                "DIDWithQuery must have at least one of query_self_hash_o or query_version_id_o",
+            ));
+        }
+
         Ok(Self {
             host,
             path_o,
             self_hash,
-            query,
+            query_self_hash_o,
+            query_version_id_o,
             fragment,
         })
     }
@@ -52,7 +65,8 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
             host: self.host.clone(),
             path_o: self.path_o.clone(),
             self_hash: self.self_hash.clone(),
-            query: self.query.clone(),
+            query_self_hash_o: self.query_self_hash_o.clone(),
+            query_version_id_o: self.query_version_id_o,
         }
     }
     /// Host of the VDR that acts as the authority/origin for this DID.
@@ -70,10 +84,29 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
     pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
         &self.self_hash
     }
-    /// This is the query parameters portion of the DID URI, which typically includes the versionId
-    /// and selfHash field values from the DID document current at the time the key was used.
-    pub fn query(&self) -> &str {
-        &self.query
+    /// This is the string-formatted query parameters portion of the DID URI, in which the selfHash and
+    /// versionId parameters from the DID document current at the time the key was used are formatted in
+    /// canonical form.
+    pub fn query_params(&self) -> String {
+        match (self.query_self_hash_o.as_ref(), self.query_version_id_o) {
+            (Some(query_self_hash), Some(query_version_id)) => {
+                format!(
+                    "selfHash={}&versionId={}",
+                    query_self_hash, query_version_id
+                )
+            }
+            (Some(query_self_hash), None) => format!("selfHash={}", query_self_hash),
+            (None, Some(query_version_id)) => format!("versionId={}", query_version_id),
+            (None, None) => {
+                panic!("programmer error: this should not be possible due to the checks in the constructor")
+            }
+        }
+    }
+    pub fn query_self_hash_o(&self) -> Option<&selfhash::KERIHash> {
+        self.query_self_hash_o.as_ref()
+    }
+    pub fn query_version_id_o(&self) -> Option<u32> {
+        self.query_version_id_o
     }
     /// This is the fragment portion of the DID URI, which is typically a key ID, but could refer to another
     /// resource within the DID document.
@@ -93,7 +126,12 @@ impl<F: Fragment> std::fmt::Display for DIDWithQueryAndFragment<F> {
         write!(
             f,
             "did:webplus:{}:{}{}{}?{}{}",
-            self.host, path, delimiter, self.self_hash, self.query, self.fragment
+            self.host,
+            path,
+            delimiter,
+            self.self_hash,
+            self.query_params(),
+            self.fragment
         )
     }
 }
@@ -105,6 +143,13 @@ impl<F: Fragment> std::str::FromStr for DIDWithQueryAndFragment<F> {
         if did_uri_components.method != "webplus" {
             return Err(Error::Malformed("DID method is not 'webplus'"));
         }
+        if did_uri_components.query_o.is_none() {
+            return Err(Error::Malformed("DID query is missing"));
+        }
+        if did_uri_components.fragment_o.is_none() {
+            return Err(Error::Malformed("DID fragment is missing"));
+        }
+
         let host = did_uri_components.host.to_string();
         let (path_o, self_hash_str) =
             if let Some((path, self_hash_str)) = did_uri_components.path.rsplit_once(':') {
@@ -114,19 +159,17 @@ impl<F: Fragment> std::str::FromStr for DIDWithQueryAndFragment<F> {
             };
         let path_o = path_o.map(|s| s.into());
         let self_hash = selfhash::KERIHash::from_str(self_hash_str)?;
-        if did_uri_components.query_o.is_none() {
-            return Err(Error::Malformed("DID query is missing"));
-        }
-        let query = did_uri_components.query_o.unwrap().to_string();
-        if did_uri_components.fragment_o.is_none() {
-            return Err(Error::Malformed("DID fragment is missing"));
-        }
+
+        let (query_self_hash_o, query_version_id_o) =
+            DIDWithQuery::parse_query_params(did_uri_components.query_o.unwrap())?;
+
         let fragment = DIDFragment::from_str_without_hash(did_uri_components.fragment_o.unwrap())?;
         Ok(Self {
             host,
             path_o,
             self_hash,
-            query,
+            query_self_hash_o,
+            query_version_id_o,
             fragment,
         })
     }
