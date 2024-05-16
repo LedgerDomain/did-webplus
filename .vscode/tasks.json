@@ -125,6 +125,57 @@
 			]
 		},
 		{
+			"label": "check did-webplus-cli",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-cli",
+				"--all-features"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "build did-webplus-cli",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"build",
+				"--package",
+				"did-webplus-cli",
+				"--all-features"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
 			"label": "check did-webplus-mock",
 			"type": "shell",
 			"command": "cargo",
@@ -186,10 +237,7 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"

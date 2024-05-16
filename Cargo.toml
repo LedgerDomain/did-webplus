@@ -46,4 +46,9 @@ selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "88089b836a
 
 [workspace]
 resolver = "2"
-members = ["did-webplus-mock", "did-webplus-vdg", "did-webplus-vdr"]
+members = [
+    "did-webplus-cli",
+    "did-webplus-mock",
+    "did-webplus-vdg",
+    "did-webplus-vdr",
+]
