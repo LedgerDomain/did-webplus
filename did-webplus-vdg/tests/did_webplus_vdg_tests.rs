@@ -196,7 +196,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
         reqwest::Client::new()
             .get(&format!(
                 "http://localhost:8086/{}",
-                url_encoded(&alice_did_version_id_query)
+                temp_hack_incomplete_url_encoded(&alice_did_version_id_query)
             ))
             .send()
             .await
@@ -218,7 +218,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
         reqwest::Client::new()
             .get(&format!(
                 "http://localhost:8086/{}",
-                url_encoded(&alice_did_self_hash_query)
+                temp_hack_incomplete_url_encoded(&alice_did_self_hash_query)
             ))
             .send()
             .await
@@ -237,7 +237,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
         reqwest::Client::new()
             .get(&format!(
                 "http://localhost:8086/{}",
-                url_encoded(&alice_did_self_hash_version_query)
+                temp_hack_incomplete_url_encoded(&alice_did_self_hash_version_query)
             ))
             .send()
             .await
@@ -257,7 +257,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
         reqwest::Client::new()
             .get(&format!(
                 "http://localhost:8086/{}",
-                url_encoded(&alice_did_self_hash_version_inconsistent_query)
+                temp_hack_incomplete_url_encoded(&alice_did_self_hash_version_inconsistent_query)
             ))
             .send()
             .await
@@ -272,7 +272,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
         reqwest::Client::new()
             .get(&format!(
                 "http://localhost:8086/{}",
-                url_encoded(&alice_did_bad_query)
+                temp_hack_incomplete_url_encoded(&alice_did_bad_query)
             ))
             .send()
             .await
@@ -289,7 +289,7 @@ async fn test_wallet_operations() {
 }
 
 /// INCOMPLETE, TEMP HACK
-fn url_encoded(s: &str) -> String {
+fn temp_hack_incomplete_url_encoded(s: &str) -> String {
     s.replace('?', "%3F")
         .replace('=', "%3D")
         .replace('&', "%26")
