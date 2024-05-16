@@ -101,6 +101,7 @@ impl<'j> JWS<'j> {
         Ok(JWS {
             header: JWSHeader { alg, kid },
             payload_byte_v: Cow::Borrowed(payload_byte_v),
+            // TODO: This is wrong, it should be a specific concatenation of the header and the payload.
             signature_byte_v: signer
                 .sign_message(payload_byte_v)?
                 .to_signature_bytes()
