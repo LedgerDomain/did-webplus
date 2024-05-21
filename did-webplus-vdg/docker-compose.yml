@@ -1,4 +1,4 @@
-version: "3.3"
+version: '3.3'
 
 # TODO: Make this only spin up the VDG.  The VDG+VDR compose should be for testing only.
 
@@ -8,7 +8,6 @@ volumes:
   vdr_postgres_data:
 
 services:
-
   ####################################
   # Auto-Restarter based on Docker Health Checks
   ####################################
@@ -31,15 +30,15 @@ services:
     ports:
       - '5443:5432'
     environment:
-      POSTGRES_DB: "postgres"
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: 'postgres'
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
       PGPORT: 5432
     # We want persistence for our database
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 1s
       timeout: 1s
       retries: 15
@@ -50,15 +49,15 @@ services:
     ports:
       - '5433:5432'
     environment:
-      POSTGRES_DB: "postgres"
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: 'postgres'
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
       PGPORT: 5432
     # We want persistence for our database
     volumes:
       - vdr_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 1s
       timeout: 1s
       retries: 15
@@ -86,10 +85,10 @@ services:
     entrypoint:
       - /bin/sh
     command:
-      - "-c"
-      - "/usr/local/bin/did-webplus-vdg"
+      - '-c'
+      - '/usr/local/bin/did-webplus-vdg'
     ports:
-      - "8086:80"
+      - '8086:80'
     depends_on:
       # Ensure our necessary services are up
       vdg_database:
@@ -98,11 +97,11 @@ services:
       - vdg_database
     # Ensure we autoheal incase we crash hard
     labels:
-      autoheal: "true"
+      autoheal: 'true'
     # Ensure our service is up and running and healthy (needed for autoheal)
     healthcheck:
       test: curl --fail -s http://witness.org:80/health || exit 1
-      start_period: 10s  # Wait 10 seconds for our app to startup before throwing health probes at it
+      start_period: 10s # Wait 10 seconds for our app to startup before throwing health probes at it
       interval: 5s
       timeout: 4s
       retries: 4
@@ -123,12 +122,11 @@ services:
       RUST_LOG: 'hyper=warn,sqlx=info,debug'
 
     entrypoint:
-      - /bin/sh
+      - /usr/local/bin/did-webplus-vdr
     command:
-      - "-c"
-      - "/usr/local/bin/did-webplus-vdr"
+      - /etc/did-webplus-vdr/config.yml
     ports:
-      - "8085:80"
+      - '8085:80'
     depends_on:
       # Ensure our necessary services are up
       vdr_database:
@@ -137,11 +135,11 @@ services:
       - vdr_database
     # Ensure we autoheal incase we crash hard
     labels:
-      autoheal: "true"
+      autoheal: 'true'
     # Ensure our service is up and running and healthy (needed for autoheal)
     healthcheck:
       test: curl --fail -s http://fancy.net:80/health || exit 1
-      start_period: 10s  # Wait 10 seconds for our app to startup before throwing health probes at it
+      start_period: 10s # Wait 10 seconds for our app to startup before throwing health probes at it
       interval: 5s
       timeout: 4s
       retries: 4

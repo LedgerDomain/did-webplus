@@ -14,9 +14,11 @@ use sqlx::PgPool;
 use tokio::task;
 
 use super::AppState;
-use crate::{config::Config, models::did_document_record::DIDDocumentRecord, parse_did_document};
+use crate::{
+    config::AppConfig, models::did_document_record::DIDDocumentRecord, parse_did_document,
+};
 
-pub fn get_routes(pool: &PgPool, config: &Config) -> Router {
+pub fn get_routes(pool: &PgPool, config: &AppConfig) -> Router {
     let state = AppState {
         db: pool.clone(),
         config: config.clone(),
@@ -42,7 +44,7 @@ async fn get_did_document_or_metadata(
 ) -> Result<String, (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = app_state.config.host;
+    let host = app_state.config.service_domain;
 
     // Case for retrieving the latest DID doc.
     if let Ok(did) = DID::from_resolution_url(host.as_str(), path.as_str()) {
@@ -243,7 +245,7 @@ async fn create_did(
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = app_state.config.host;
+    let host = app_state.config.service_domain;
 
     let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
         (
@@ -291,7 +293,7 @@ async fn update_did(
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = app_state.config.host.clone();
+    let host = app_state.config.service_domain.clone();
 
     let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
         (

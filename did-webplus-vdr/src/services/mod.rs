@@ -10,10 +10,10 @@ pub mod did;
 
 use sqlx::PgPool;
 
-use crate::config::Config;
+use crate::config::AppConfig;
 
 #[derive(Clone)]
 struct AppState {
     db: PgPool,
-    config: Config,
+    config: AppConfig,
 }
