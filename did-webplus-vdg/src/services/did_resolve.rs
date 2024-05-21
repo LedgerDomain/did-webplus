@@ -33,6 +33,13 @@ async fn resolve_did(
     // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
     Path(did_query): Path<String>,
 ) -> DidResult {
+    resolve_did_impl(&db, did_query).await
+}
+
+async fn resolve_did_impl(
+    db: &PgPool,
+    did_query: String,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::trace!("starting DID resolution");
 
     let mut query_self_hash_o = None;
@@ -68,12 +75,12 @@ async fn resolve_did(
         let did_document_record_o = match (query_self_hash_o.as_deref(), query_version_id_o) {
             (Some(self_hash_str), None) => {
                 // If only a selfHash is present, then we simply use it to select the DID document.
-                DIDDocumentRecord::select_did_document(&db, &did, Some(self_hash_str), None).await?
+                DIDDocumentRecord::select_did_document(db, &did, Some(self_hash_str), None).await?
             }
             (self_hash_str_o, Some(version_id)) => {
                 // If a versionId is present, then we can use it to select the DID document.
                 let did_document_record_o =
-                    DIDDocumentRecord::select_did_document(&db, &did, None, Some(version_id))
+                    DIDDocumentRecord::select_did_document(db, &did, None, Some(version_id))
                         .await?;
                 if let Some(self_hash_str) = self_hash_str_o {
                     if let Some(did_document_record) = did_document_record_o.as_ref() {
@@ -120,7 +127,7 @@ async fn resolve_did(
 
     // Check what the latest version we do have is.
     tracing::trace!("checking latest DID document version in database");
-    let latest_did_document_record_o = DIDDocumentRecord::select_latest(&db, &did).await?;
+    let latest_did_document_record_o = DIDDocumentRecord::select_latest(db, &did).await?;
     if let Some(latest_did_document_record) = latest_did_document_record_o.as_ref() {
         tracing::trace!(
             "latest DID document version in database: {}",
@@ -189,7 +196,7 @@ async fn resolve_did(
         let predecessor_did_document_body = vdr_fetch_did_document_body(&did_with_query).await?;
         let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
         DIDDocumentRecord::append_did_document(
-            &db,
+            db,
             &predecessor_did_document,
             prev_did_document_o.as_ref(),
             predecessor_did_document_body.as_str(),
@@ -206,7 +213,7 @@ async fn resolve_did(
     {
         tracing::trace!("validating and storing target DID document");
         DIDDocumentRecord::append_did_document(
-            &db,
+            db,
             &target_did_document,
             prev_did_document_o.as_ref(),
             target_did_document_body.as_str(),
@@ -318,29 +325,15 @@ async fn update_did(
     State(db): State<PgPool>,
     Path(did): Path<String>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
-    let did = match DID::from_str(did.as_str()) {
-        Ok(did) => did,
-        Err(_) => return Err((StatusCode::BAD_REQUEST, "malformed DID".to_string())),
-    };
-
-    // Spawn a new task to handle the rest of the update since the vdr shouldn't need to wait
+    // Spawn a new task to handle the update since the vdr shouldn't need to wait
     // for the response as the vdg queries back the vdr for the latest did document
-    let update_future = async move {
-        let result = async {
-            let did_document_body = vdr_fetch_latest_did_document_body(&did).await?;
-            let did_document = parse_did_document(&did_document_body)?;
-            DIDDocumentRecord::append_did_document(&db, &did_document, None, &did_document_body)
-                .await?;
-            Ok(())
+    task::spawn({
+        async move {
+            if let Err((_, err)) = resolve_did_impl(&db, did).await {
+                tracing::error!("error updating DID document: {}", err);
+            }
         }
-        .await;
-
-        if let Err((_, err)) = result {
-            tracing::error!("error updating DID document: {}", err);
-        }
-    };
-
-    task::spawn(update_future);
+    });
 
     Ok((StatusCode::OK, "DID document update initiated".to_string()))
 }
