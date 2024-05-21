@@ -6,12 +6,13 @@ use axum::{
         header::{CACHE_CONTROL, ETAG, EXPIRES, LAST_MODIFIED},
         HeaderMap, HeaderValue, StatusCode,
     },
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use did_webplus::{DIDWithQuery, DID};
 use sqlx::PgPool;
 use time::{format_description::well_known, OffsetDateTime};
+use tokio::task;
 
 use crate::{models::did_document_record::DIDDocumentRecord, parse_did_document};
 
@@ -22,7 +23,7 @@ type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
 pub fn get_routes(pool: &PgPool) -> Router {
     Router::new()
         .route("/:did_query", get(resolve_did))
-        // TODO: routes for VDRs notifying of updates
+        .route("/update/:did", post(update_did))
         .with_state(pool.clone())
 }
 
@@ -310,4 +311,36 @@ async fn vdr_fetch_did_document_body(
     did_with_query: &DIDWithQuery,
 ) -> Result<String, (StatusCode, String)> {
     http_get(did_with_query.resolution_url().as_str()).await
+}
+
+#[tracing::instrument(err(Debug), skip(db))]
+async fn update_did(
+    State(db): State<PgPool>,
+    Path(did): Path<String>,
+) -> Result<(StatusCode, String), (StatusCode, String)> {
+    let did = match DID::from_str(did.as_str()) {
+        Ok(did) => did,
+        Err(_) => return Err((StatusCode::BAD_REQUEST, "malformed DID".to_string())),
+    };
+
+    // Spawn a new task to handle the rest of the update since the vdr shouldn't need to wait
+    // for the response as the vdg queries back the vdr for the latest did document
+    let update_future = async move {
+        let result = async {
+            let did_document_body = vdr_fetch_latest_did_document_body(&did).await?;
+            let did_document = parse_did_document(&did_document_body)?;
+            DIDDocumentRecord::append_did_document(&db, &did_document, None, &did_document_body)
+                .await?;
+            Ok(())
+        }
+        .await;
+
+        if let Err((_, err)) = result {
+            tracing::error!("error updating DID document: {}", err);
+        }
+    };
+
+    task::spawn(update_future);
+
+    Ok((StatusCode::OK, "DID document update initiated".to_string()))
 }

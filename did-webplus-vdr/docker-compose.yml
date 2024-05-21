@@ -1,4 +1,4 @@
-version: "3.3"
+version: '3.3'
 
 # Save/persist our PostgreSQL database
 volumes:
@@ -19,7 +19,6 @@ services:
           condition: on-failure
           max_attempts: 10
 
-
   ####################################
   # Service #2: PostgreSQL Database
   ####################################
@@ -29,19 +28,18 @@ services:
     ports:
       - '5433:5432'
     environment:
-      POSTGRES_DB: "postgres"
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: 'postgres'
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
       PGPORT: 5432
     # We want persistence for our database
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 1s
       timeout: 1s
       retries: 15
-
 
   ####################################
   # App-Container
@@ -63,14 +61,12 @@ services:
       DID_WEBPLUS_VDR_SERVICE_DOMAIN: fancy.net
       RUST_BACKTRACE: '1'
       RUST_LOG: 'hyper=warn,sqlx=info,debug'
-
     entrypoint:
-      - /bin/sh
+      - /usr/local/bin/did-webplus-vdr
     command:
-      - "-c"
-      - "/usr/local/bin/did-webplus-vdr"
+      - /etc/did-webplus-vdr/config.yml
     ports:
-      - "8085:80"
+      - '8085:80'
     depends_on:
       # Ensure our necessary services are up
       database:
@@ -79,11 +75,11 @@ services:
       - database
     # Ensure we autoheal incase we crash hard
     labels:
-      autoheal: "true"
+      autoheal: 'true'
     # Ensure our service is up and running and healthy (needed for autoheal)
     healthcheck:
       test: curl --fail -s http://fancy.net:80/health || exit 1
-      start_period: 10s  # Wait 10 seconds for our app to startup before throwing health probes at it
+      start_period: 10s # Wait 10 seconds for our app to startup before throwing health probes at it
       interval: 5s
       timeout: 4s
       retries: 4

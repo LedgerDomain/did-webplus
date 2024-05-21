@@ -1,10 +1,13 @@
+mod config;
 mod models;
 mod services;
 
+use std::env;
 use std::net::SocketAddr;
 
 use anyhow::Context;
 use axum::{http::StatusCode, routing, Router};
+use config::Config;
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
@@ -45,8 +48,27 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let _ = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
-        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
+    // Read config from file if provided, otherwise use default config
+    let args: Vec<String> = env::args().collect();
+    let mut config = if args.len() > 1 {
+        tracing::info!("Reading config from file: {:?}", args[1]);
+        let config_path = &args[1];
+        Config::from_file(config_path)
+    } else {
+        tracing::info!("Using default config");
+        Config {
+            gateways: vec![],
+            host: String::new(),
+        }
+    };
+
+    if config.host.is_empty() {
+        let service_domain = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
+            .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set if not present in config file");
+        config.host = service_domain;
+    }
+
+    tracing::info!("Config: {:?}", config);
 
     let database_url = dotenvy::var("DID_WEBPLUS_VDR_DATABASE_URL")
         .context("DID_WEBPLUS_VDR_DATABASE_URL must be set")?;
@@ -73,7 +95,7 @@ async fn main() -> anyhow::Result<()> {
         .into_inner();
 
     let app = Router::new()
-        .merge(services::did::get_routes(&pool))
+        .merge(services::did::get_routes(&pool, &config))
         .layer(middleware_stack)
         .route("/health", routing::get(|| async { "OK" }));
 

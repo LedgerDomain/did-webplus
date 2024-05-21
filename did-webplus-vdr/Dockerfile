@@ -62,5 +62,11 @@ RUN apt-get update \
 # Then copy in our pre-built app
 COPY --from=builder /usr/local/bin/did-webplus-vdr /usr/local/bin/
 
+# Copy the config file
+COPY did-webplus-vdr/config.yml /etc/did-webplus-vdr/config.yml
+
 # Our standard entrypoint
 ENTRYPOINT ["/usr/local/bin/did-webplus-vdr"]
+
+# Ensure the binary looks for the config file in the correct location
+CMD ["/etc/did-webplus-vdr/config.yml"]
