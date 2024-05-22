@@ -1,10 +1,13 @@
+mod config;
 mod models;
 mod services;
 
+use std::env;
 use std::net::SocketAddr;
 
 use anyhow::Context;
 use axum::{http::StatusCode, routing, Router};
+use config::AppConfig;
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
@@ -14,8 +17,16 @@ use tracing::Level;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Ignore errors, since there may not be a .env file (e.g. in docker image)
-    let _ = dotenvy::dotenv();
+    let args: Vec<String> = env::args().collect();
+    let config_path = if args.len() > 1 {
+        tracing::info!("Reading config from file: {:?}", args[1]);
+        Some(&args[1])
+    } else {
+        tracing::info!("No config file found");
+        None
+    };
+
+    let config = AppConfig::new(config_path).context("Failed to load configuration")?;
 
     // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
     // TODO: Make env var to control full/compact/pretty/json formatting of logs
@@ -23,40 +34,17 @@ async fn main() -> anyhow::Result<()> {
         .with_target(true)
         .with_line_number(true)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env());
-    // Set the format of the logs.
-    match dotenvy::var("DID_WEBPLUS_VDR_LOG_FORMAT") {
-        Ok(mut log_format) => {
-            log_format.make_ascii_lowercase();
-            match log_format.as_str() {
-                "compact" => tracing_subscriber_fmt.compact().init(),
-                "pretty" => tracing_subscriber_fmt.pretty().init(),
-                _ => {
-                    tracing::warn!(
-                        "DID_WEBPLUS_VDR_LOG_FORMAT {:?} unrecognized; expected 'compact' or 'pretty'.  defaulting to 'compact'",
-                        log_format
-                    );
-                    tracing_subscriber_fmt.compact().init()
-                }
-            }
-        }
-        Err(_) => {
-            tracing::warn!("DID_WEBPLUS_VDR_LOG_FORMAT env var not set; valid values are 'compact' or 'pretty'.  defaulting to 'compact'");
-            tracing_subscriber_fmt.compact().init()
-        }
+    match config.log_format {
+        config::LogFormat::Compact => tracing_subscriber_fmt.compact().init(),
+        config::LogFormat::Pretty => tracing_subscriber_fmt.pretty().init(),
     }
 
-    let _ = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
-        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
+    tracing::info!("Config: {:?}", config);
 
-    let database_url = dotenvy::var("DID_WEBPLUS_VDR_DATABASE_URL")
-        .context("DID_WEBPLUS_VDR_DATABASE_URL must be set")?;
-    let max_connections: u32 = dotenvy::var("DID_WEBPLUS_VDR_DATABASE_MAX_CONNECTIONS")
-        .unwrap_or("10".to_string())
-        .parse()?;
     let pool = PgPoolOptions::new()
-        .max_connections(max_connections)
+        .max_connections(config.max_connections)
         .acquire_timeout(std::time::Duration::from_secs(3))
-        .connect(&database_url)
+        .connect(&config.database_url)
         .await
         .context("can't connect to database")?;
 
@@ -73,18 +61,18 @@ async fn main() -> anyhow::Result<()> {
         .into_inner();
 
     let app = Router::new()
-        .merge(services::did::get_routes(&pool))
+        .merge(services::did::get_routes(&pool, &config))
         .layer(middleware_stack)
         .route("/health", routing::get(|| async { "OK" }));
 
-    let port: u16 = dotenvy::var("DID_WEBPLUS_VDR_PORT")
-        .unwrap_or("80".to_string())
-        .parse()?;
-    tracing::info!("starting did-webplus-vdr, listening on port {}", port);
+    tracing::info!(
+        "starting did-webplus-vdr, listening on port {}",
+        config.port
+    );
 
     // This has to be 0.0.0.0 otherwise it won't work in a docker container.
     // 127.0.0.1 is only the loopback device, and isn't available outside the host.
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .await

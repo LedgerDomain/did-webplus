@@ -11,10 +11,19 @@ use did_webplus::{
     DIDDocumentMetadataIdempotent, DIDWithQuery, DID,
 };
 use sqlx::PgPool;
+use tokio::task;
 
-use crate::{models::did_document_record::DIDDocumentRecord, parse_did_document};
+use super::AppState;
+use crate::{
+    config::AppConfig, models::did_document_record::DIDDocumentRecord, parse_did_document,
+};
 
-pub fn get_routes(pool: &PgPool) -> Router {
+pub fn get_routes(pool: &PgPool, config: &AppConfig) -> Router {
+    let state = AppState {
+        db: pool.clone(),
+        config: config.clone(),
+    };
+
     Router::new()
         .route(
             // We have to do our own URL processing in each handler because of the non-standard
@@ -25,31 +34,31 @@ pub fn get_routes(pool: &PgPool) -> Router {
                 .post(create_did)
                 .put(update_did),
         )
-        .with_state(pool.clone())
+        .with_state(state)
 }
 
-#[tracing::instrument(err(Debug), skip(db))]
+#[tracing::instrument(err(Debug), skip(app_state))]
 async fn get_did_document_or_metadata(
-    State(db): State<PgPool>,
+    State(app_state): State<AppState>,
     Path(path): Path<String>,
 ) -> Result<String, (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
-        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
+    let host = app_state.config.service_domain;
 
     // Case for retrieving the latest DID doc.
     if let Ok(did) = DID::from_resolution_url(host.as_str(), path.as_str()) {
-        return get_latest_did_document(db, &did).await;
+        return get_latest_did_document(app_state.db, &did).await;
     }
 
     // Cases for retrieving a specific DID doc based on selfHash or versionId
     if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(host.as_str(), path.as_str()) {
         let did = did_with_query.without_query();
         if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
-            return get_did_document_with_self_hash(db, &did, query_self_hash.deref()).await;
+            return get_did_document_with_self_hash(app_state.db, &did, query_self_hash.deref())
+                .await;
         } else if let Some(query_version_id) = did_with_query.query_version_id_o() {
-            return get_did_document_with_version_id(db, &did, query_version_id).await;
+            return get_did_document_with_version_id(app_state.db, &did, query_version_id).await;
         } else {
             return Err((StatusCode::BAD_REQUEST, "".to_string()));
         }
@@ -60,11 +69,11 @@ async fn get_did_document_or_metadata(
         let path = path.strip_suffix("/did/metadata.json").unwrap();
         let did = DID::from_resolution_url(host.as_str(), path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-        let latest_did_document_record = DIDDocumentRecord::select_latest(&db, &did)
+        let latest_did_document_record = DIDDocumentRecord::select_latest(&app_state.db, &did)
             .await?
             .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
         let first_did_document_record =
-            DIDDocumentRecord::select_did_document(&db, &did, None, Some(0))
+            DIDDocumentRecord::select_did_document(&app_state.db, &did, None, Some(0))
                 .await?
                 .ok_or_else(|| {
                     (
@@ -86,20 +95,18 @@ async fn get_did_document_or_metadata(
                 most_recent_version_id: latest_did_document_record.version_id as u32,
             }),
         };
-        return Ok(
-            serde_json::to_string(&current_did_document_metadata).map_err(|_| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "failed to serialize current DID document metadata into JSON".to_string(),
-                )
-            })?,
-        );
+        return serde_json::to_string(&current_did_document_metadata).map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to serialize current DID document metadata into JSON".to_string(),
+            )
+        });
     } else if path.ends_with("/did/metadata/constant.json") {
         let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
         let did = DID::from_resolution_url(host.as_str(), path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
         let first_did_document_record =
-            DIDDocumentRecord::select_did_document(&db, &did, None, Some(0))
+            DIDDocumentRecord::select_did_document(&app_state.db, &did, None, Some(0))
                 .await?
                 .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
         let current_did_document_metadata = DIDDocumentMetadata {
@@ -109,14 +116,12 @@ async fn get_did_document_or_metadata(
             idempotent_o: None,
             currency_o: None,
         };
-        return Ok(
-            serde_json::to_string(&current_did_document_metadata).map_err(|_| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "failed to serialize current DID document metadata into JSON".to_string(),
-                )
-            })?,
-        );
+        return serde_json::to_string(&current_did_document_metadata).map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to serialize current DID document metadata into JSON".to_string(),
+            )
+        });
     } else if let Some((path, filename)) = path.rsplit_once('/') {
         if !filename.ends_with(".json") {
             return Err((StatusCode::NOT_FOUND, "".to_string()));
@@ -127,7 +132,7 @@ async fn get_did_document_or_metadata(
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
             let did_document_record = DIDDocumentRecord::select_did_document(
-                &db,
+                &app_state.db,
                 &did,
                 Some(filename_self_hash_str),
                 None,
@@ -143,23 +148,27 @@ async fn get_did_document_or_metadata(
             let filename_version_id: u32 = filename_version_id_str
                 .parse()
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let did_document_record =
-                DIDDocumentRecord::select_did_document(&db, &did, None, Some(filename_version_id))
-                    .await?
-                    .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
+            let did_document_record = DIDDocumentRecord::select_did_document(
+                &app_state.db,
+                &did,
+                None,
+                Some(filename_version_id),
+            )
+            .await?
+            .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
             (did, did_document_record)
         } else {
             return Err((StatusCode::NOT_FOUND, "".to_string()));
         };
         let next_did_document_record_o = DIDDocumentRecord::select_did_document(
-            &db,
+            &app_state.db,
             &did,
             None,
             Some(did_document_record.version_id as u32 + 1),
         )
         .await?;
         let first_did_document_record =
-        DIDDocumentRecord::select_did_document(&db, &did, None, Some(0))
+        DIDDocumentRecord::select_did_document(&app_state.db, &did, None, Some(0))
             .await?
             .ok_or_else(|| {
                 (
@@ -182,14 +191,12 @@ async fn get_did_document_or_metadata(
             }),
             currency_o: None,
         };
-        return Ok(
-            serde_json::to_string(&current_did_document_metadata).map_err(|_| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "failed to serialize current DID document metadata into JSON".to_string(),
-                )
-            })?,
-        );
+        return serde_json::to_string(&current_did_document_metadata).map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "failed to serialize current DID document metadata into JSON".to_string(),
+            )
+        });
     }
 
     // If none of the cases above matched, then the path is malformed.
@@ -230,16 +237,15 @@ async fn get_did_document_with_version_id(
     }
 }
 
-#[tracing::instrument(err(Debug), skip(db))]
+#[tracing::instrument(err(Debug), skip(app_state))]
 async fn create_did(
-    State(db): State<PgPool>,
+    State(app_state): State<AppState>,
     Path(path): Path<String>,
     body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
-        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
+    let host = app_state.config.service_domain;
 
     let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
         (
@@ -248,7 +254,7 @@ async fn create_did(
         )
     })?;
 
-    if DIDDocumentRecord::did_exists(&db, &did)
+    if DIDDocumentRecord::did_exists(&app_state.db, &did)
         .await
         .map_err(|err| {
             (
@@ -274,21 +280,20 @@ async fn create_did(
         ));
     }
 
-    DIDDocumentRecord::append_did_document(&db, &root_did_document, None, &body).await?;
+    DIDDocumentRecord::append_did_document(&app_state.db, &root_did_document, None, &body).await?;
 
     Ok(())
 }
 
-#[tracing::instrument(err(Debug), skip(db))]
+#[tracing::instrument(err(Debug), skip(app_state))]
 async fn update_did(
-    State(db): State<PgPool>,
+    State(app_state): State<AppState>,
     Path(path): Path<String>,
     body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = dotenvy::var("DID_WEBPLUS_VDR_SERVICE_DOMAIN")
-        .expect("DID_WEBPLUS_VDR_SERVICE_DOMAIN must be set");
+    let host = app_state.config.service_domain.clone();
 
     let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
         (
@@ -297,7 +302,8 @@ async fn update_did(
         )
     })?;
 
-    let latest_did_document_record_o = DIDDocumentRecord::select_latest(&db, &did).await?;
+    let latest_did_document_record_o =
+        DIDDocumentRecord::select_latest(&app_state.db, &did).await?;
     if latest_did_document_record_o.is_none() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -326,8 +332,35 @@ async fn update_did(
             )
         })?;
 
-    DIDDocumentRecord::append_did_document(&db, &new_did_document, Some(&prev_document), &body)
-        .await?;
+    DIDDocumentRecord::append_did_document(
+        &app_state.db,
+        &new_did_document,
+        Some(&prev_document),
+        &body,
+    )
+    .await?;
+
+    task::spawn(send_vdg_updates(
+        app_state.config.gateways.clone(),
+        did.clone(),
+    ));
 
     Ok(())
+}
+
+lazy_static::lazy_static! {
+    static ref VDG_CLIENT: reqwest::Client = reqwest::Client::new();
+}
+
+async fn send_vdg_updates(gateways: Vec<String>, did: DID) {
+    for vdg in gateways.into_iter() {
+        let url = format!("https://{}/update/{}", vdg, did);
+        // There is no reason to do these sequentially, so spawn a task for each one.
+        task::spawn(async move {
+            let response = VDG_CLIENT.post(&url).send().await;
+            if let Err(err) = response {
+                tracing::error!("error in sending update to VDG {}: {}", vdg, err);
+            }
+        });
+    }
 }

@@ -103,3 +103,6 @@ rebuild: remove-docker-image build
 # This will shell you into the running container
 shell:
 	docker exec -ti $(VDR_PROJECT_NAME)_$(VDR_CONTAINER_NAME)_1 bash
+
+dev:
+	make build run logs

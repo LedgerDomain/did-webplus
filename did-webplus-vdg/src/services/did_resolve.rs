@@ -6,12 +6,13 @@ use axum::{
         header::{CACHE_CONTROL, ETAG, EXPIRES, LAST_MODIFIED},
         HeaderMap, HeaderValue, StatusCode,
     },
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use did_webplus::{DIDWithQuery, DID};
 use sqlx::PgPool;
 use time::{format_description::well_known, OffsetDateTime};
+use tokio::task;
 
 use crate::{models::did_document_record::DIDDocumentRecord, parse_did_document};
 
@@ -22,7 +23,7 @@ type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
 pub fn get_routes(pool: &PgPool) -> Router {
     Router::new()
         .route("/:did_query", get(resolve_did))
-        // TODO: routes for VDRs notifying of updates
+        .route("/update/:did", post(update_did))
         .with_state(pool.clone())
 }
 
@@ -32,6 +33,13 @@ async fn resolve_did(
     // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
     Path(did_query): Path<String>,
 ) -> DidResult {
+    resolve_did_impl(&db, did_query).await
+}
+
+async fn resolve_did_impl(
+    db: &PgPool,
+    did_query: String,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::trace!("starting DID resolution");
 
     let mut query_self_hash_o = None;
@@ -67,12 +75,12 @@ async fn resolve_did(
         let did_document_record_o = match (query_self_hash_o.as_deref(), query_version_id_o) {
             (Some(self_hash_str), None) => {
                 // If only a selfHash is present, then we simply use it to select the DID document.
-                DIDDocumentRecord::select_did_document(&db, &did, Some(self_hash_str), None).await?
+                DIDDocumentRecord::select_did_document(db, &did, Some(self_hash_str), None).await?
             }
             (self_hash_str_o, Some(version_id)) => {
                 // If a versionId is present, then we can use it to select the DID document.
                 let did_document_record_o =
-                    DIDDocumentRecord::select_did_document(&db, &did, None, Some(version_id))
+                    DIDDocumentRecord::select_did_document(db, &did, None, Some(version_id))
                         .await?;
                 if let Some(self_hash_str) = self_hash_str_o {
                     if let Some(did_document_record) = did_document_record_o.as_ref() {
@@ -119,7 +127,7 @@ async fn resolve_did(
 
     // Check what the latest version we do have is.
     tracing::trace!("checking latest DID document version in database");
-    let latest_did_document_record_o = DIDDocumentRecord::select_latest(&db, &did).await?;
+    let latest_did_document_record_o = DIDDocumentRecord::select_latest(db, &did).await?;
     if let Some(latest_did_document_record) = latest_did_document_record_o.as_ref() {
         tracing::trace!(
             "latest DID document version in database: {}",
@@ -188,7 +196,7 @@ async fn resolve_did(
         let predecessor_did_document_body = vdr_fetch_did_document_body(&did_with_query).await?;
         let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
         DIDDocumentRecord::append_did_document(
-            &db,
+            db,
             &predecessor_did_document,
             prev_did_document_o.as_ref(),
             predecessor_did_document_body.as_str(),
@@ -205,7 +213,7 @@ async fn resolve_did(
     {
         tracing::trace!("validating and storing target DID document");
         DIDDocumentRecord::append_did_document(
-            &db,
+            db,
             &target_did_document,
             prev_did_document_o.as_ref(),
             target_did_document_body.as_str(),
@@ -312,4 +320,22 @@ async fn vdr_fetch_did_document_body(
 ) -> Result<String, (StatusCode, String)> {
     // Use of hardcoded "http" is a TEMP HACK
     http_get(did_with_query.resolution_url("http").as_str()).await
+}
+
+#[tracing::instrument(err(Debug), skip(db))]
+async fn update_did(
+    State(db): State<PgPool>,
+    Path(did): Path<String>,
+) -> Result<(StatusCode, String), (StatusCode, String)> {
+    // Spawn a new task to handle the update since the vdr shouldn't need to wait
+    // for the response as the vdg queries back the vdr for the latest did document
+    task::spawn({
+        async move {
+            if let Err((_, err)) = resolve_did_impl(&db, did).await {
+                tracing::error!("error updating DID document: {}", err);
+            }
+        }
+    });
+
+    Ok((StatusCode::OK, "DID document update initiated".to_string()))
 }
