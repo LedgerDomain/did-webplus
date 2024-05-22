@@ -2,6 +2,7 @@ use crate::{DIDCreate, DIDKeyExchange, DIDList, DIDResolve, DIDSign, DIDUpdate, 
 
 #[derive(clap::Subcommand)]
 pub enum DID {
+    #[command(subcommand)]
     Resolve(DIDResolve),
     #[command(subcommand)]
     List(DIDList),

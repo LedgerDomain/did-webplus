@@ -303,11 +303,13 @@ async fn http_get(url: &str) -> Result<String, (StatusCode, String)> {
 }
 
 async fn vdr_fetch_latest_did_document_body(did: &DID) -> Result<String, (StatusCode, String)> {
-    http_get(did.resolution_url().as_str()).await
+    // Use of hardcoded "http" is a TEMP HACK
+    http_get(did.resolution_url("http").as_str()).await
 }
 
 async fn vdr_fetch_did_document_body(
     did_with_query: &DIDWithQuery,
 ) -> Result<String, (StatusCode, String)> {
-    http_get(did_with_query.resolution_url().as_str()).await
+    // Use of hardcoded "http" is a TEMP HACK
+    http_get(did_with_query.resolution_url("http").as_str()).await
 }

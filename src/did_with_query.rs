@@ -108,10 +108,9 @@ impl DIDWithQuery {
     /// Produce the URL that addresses the specified DID document for this DID.
     /// Based on the URL scheme for did:webplus, this is only well-defined if there is at most
     /// one query param (either selfHash or versionId).
-    pub fn resolution_url(&self) -> String {
+    pub fn resolution_url(&self, scheme: &'static str) -> String {
         // Form the base URL.
-        // let mut url = format!("https://{}/", self.host);
-        let mut url = format!("http://{}/", self.host); // TEMP HACK
+        let mut url = format!("{}://{}/", scheme, self.host);
         if let Some(path) = self.path_o.as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');

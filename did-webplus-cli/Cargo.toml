@@ -1,9 +1,8 @@
 [package]
 name = "did-webplus-cli"
 version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
 # Override the executable name to be user-friendly
@@ -12,11 +11,22 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = { version = "1.0.83", features = ["backtrace"] }
-clap = { version = "4.5.4", features = ["derive"] }
+clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus = { path = ".." }
+did-webplus-doc-store = { path = "../did-webplus-doc-store" }
+did-webplus-doc-storage-sqlite = { path = "../did-webplus-doc-storage-sqlite" }
+did-webplus-resolver = { path = "../did-webplus-resolver" }
+# TODO: Maybe make this a feature
 ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
 lazy_static = "1.4.0"
+# NOTE: This is only used by ed25519-dalek
+rand = "0.8"
 reqwest = "0.11.22"
+# Enable all the hash function features to support them all.
+selfhash = { version = "0.1.4", features = ["blake3", "sha-256", "sha-512"] }
+# Enable all the cryptographic key type features to support them all.
+selfsign = { version = "0.2.4", features = ["ed25519-dalek", "k256"] }
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [
     "ed25519",
 ] }

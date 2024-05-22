@@ -9,28 +9,28 @@ async-traits = ["dep:async-trait"]
 ed25519-dalek = ["selfsign/ed25519-dalek"]
 
 [dependencies]
-async-trait = { version = "0.1.73", optional = true }
+async-trait = { version = "0.1.80", optional = true }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
     "display",
     "from",
     "into",
 ] }
-selfhash = { version = "0.1.3", features = ["serde", "blake3"] }
-selfsign = { version = "0.2.3", features = ["serde", "jcs"] }
+selfhash = { version = "0.1.4", features = ["serde", "blake3"] }
+selfsign = { version = "0.2.4", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json_canonicalizer = "0.2.0"
 serde_json = "1.0.106"
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
-thiserror = { version = "1.0.47", default-features = false }
+thiserror = { version = "1.0.60", default-features = false }
 time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 
 [dev-dependencies]
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
 rand = "0.8"
-selfsign = { version = "0.2.2", features = ["ed25519-dalek"] }
+selfsign = { version = "0.2.4", features = ["ed25519-dalek"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [
@@ -52,6 +52,7 @@ members = [
     "did-webplus-doc-storage-sqlite",
     "did-webplus-doc-store",
     "did-webplus-mock",
+    "did-webplus-resolver",
     "did-webplus-vdg",
     "did-webplus-vdr",
 ]

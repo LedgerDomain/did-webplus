@@ -1,5 +1,6 @@
 use crate::Error;
 
+#[derive(Debug)]
 pub struct DIDURIComponents<'a> {
     pub method: &'a str,
     pub host: &'a str,

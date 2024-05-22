@@ -107,9 +107,8 @@ impl DID {
         &self.self_hash
     }
     /// Produce the URL that addresses the latest DID document for this DID.
-    pub fn resolution_url(&self) -> String {
-        // let mut url = format!("https://{}/", self.host);
-        let mut url = format!("http://{}/", self.host); // TEMP HACK
+    pub fn resolution_url(&self, scheme: &'static str) -> String {
+        let mut url = format!("{}://{}/", scheme, self.host);
         if let Some(path) = self.path_o.as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -118,8 +117,13 @@ impl DID {
         url.push_str("/did.json");
         url
     }
-    pub fn resolution_url_for_self_hash(&self, self_hash_str: &str) -> String {
-        let mut url = format!("http://{}/", self.host);
+    /// Produce the URL that addresses the DID document for this DID that has the given self-hash.
+    pub fn resolution_url_for_self_hash(
+        &self,
+        self_hash_str: &str,
+        scheme: &'static str,
+    ) -> String {
+        let mut url = format!("{}://{}/", scheme, self.host);
         if let Some(path) = self.path_o.as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -130,8 +134,9 @@ impl DID {
         url.push_str(".json");
         url
     }
-    pub fn resolution_url_for_version_id(&self, version_id: u32) -> String {
-        let mut url = format!("http://{}/", self.host);
+    /// Produce the URL that addresses the DID document for this DID that has the given version ID.
+    pub fn resolution_url_for_version_id(&self, version_id: u32, scheme: &'static str) -> String {
+        let mut url = format!("{}://{}/", scheme, self.host);
         if let Some(path) = self.path_o.as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -141,8 +146,9 @@ impl DID {
         url.push_str(&format!("{}.json", version_id));
         url
     }
-    pub fn resolution_url_for_metadata_current(&self) -> String {
-        let mut url = format!("http://{}/", self.host);
+    /// Produce the URL that addresses the current DID document metadata for this DID.
+    pub fn resolution_url_for_metadata_current(&self, scheme: &'static str) -> String {
+        let mut url = format!("{}://{}/", scheme, self.host);
         if let Some(path) = self.path_o.as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -151,8 +157,10 @@ impl DID {
         url.push_str("/did/metadata.json");
         url
     }
-    pub fn resolution_url_for_metadata_constant(&self) -> String {
-        let mut url = format!("http://{}/", self.host);
+    /// Produce the URL that addresses the constant DID document metadata for this DID
+    /// (in particular, this includes DID creation timestamp).
+    pub fn resolution_url_for_metadata_constant(&self, scheme: &'static str) -> String {
+        let mut url = format!("{}://{}/", scheme, self.host);
         if let Some(path) = self.path_o.as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -161,11 +169,14 @@ impl DID {
         url.push_str("/did/metadata/constant.json");
         url
     }
+    /// Produce the URL that addresses the idempotent portion of the DID document metadata for
+    /// this DID that has the given self-hash.
     pub fn resolution_url_for_metadata_idempotent_for_self_hash(
         &self,
         self_hash_str: &str,
+        scheme: &'static str,
     ) -> String {
-        let mut url = format!("http://{}/", self.host);
+        let mut url = format!("{}://{}/", scheme, self.host);
         if let Some(path) = self.path_o.as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -176,8 +187,14 @@ impl DID {
         url.push_str(".json");
         url
     }
-    pub fn resolution_url_for_metadata_idempotent_for_version_id(&self, version_id: u32) -> String {
-        let mut url = format!("http://{}/", self.host);
+    /// Produce the URL that addresses the idempotent portion of the DID document metadata for this
+    /// DID that has the given version ID.
+    pub fn resolution_url_for_metadata_idempotent_for_version_id(
+        &self,
+        version_id: u32,
+        scheme: &'static str,
+    ) -> String {
+        let mut url = format!("{}://{}/", scheme, self.host);
         if let Some(path) = self.path_o.as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
