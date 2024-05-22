@@ -30,6 +30,8 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDo
     assert!(headers.contains_key("Expires"));
     assert!(headers.contains_key("Last-Modified"));
     assert!(headers.contains_key("ETag"));
+    // This is a custom header that the VDG adds, mostly for testing purposes.
+    assert!(headers.contains_key("X-Cache-Hit"));
 
     let cache_control = headers.get("Cache-Control").unwrap().to_str().unwrap();
     let max_age = CACHE_DAYS * 24 * 60 * 60;
@@ -169,41 +171,29 @@ async fn test_wallet_operations_impl(use_path: bool) {
 
     // Simplest test of the VDG for now.
     {
-        let response = reqwest::Client::new()
-            .get(&format!("http://localhost:8086/{}", alice_did))
-            .send()
-            .await
-            .expect("pass");
+        let response: reqwest::Response = get_did_response(&alice_did.to_string()).await;
         assert_eq!(response.status(), reqwest::StatusCode::OK);
         let response_headers = response.headers().clone();
         let alice_did_document =
             serde_json::from_str(response.text().await.expect("pass").as_str()).expect("pass");
         test_cache_headers(&response_headers, &alice_did_document);
+        assert!(response_headers["X-Cache-Hit"].to_str().unwrap() == "false");
     }
     // Run it again to make sure the VDG has cached stuff.
-    assert_eq!(
-        reqwest::Client::new()
-            .get(&format!("http://localhost:8086/{}", alice_did))
-            .send()
-            .await
-            .expect("pass")
-            .status(),
-        reqwest::StatusCode::OK
-    );
+    let response: reqwest::Response = get_did_response(&alice_did.to_string()).await;
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "false");
+
     // Ask for a particular version that the VDG is known to have to see if it hits the VDR.
     let alice_did_version_id_query = format!("{}?versionId=3", alice_did);
-    assert_eq!(
-        reqwest::Client::new()
-            .get(&format!(
-                "http://localhost:8086/{}",
-                temp_hack_incomplete_url_encoded(&alice_did_version_id_query)
-            ))
-            .send()
-            .await
-            .expect("pass")
-            .status(),
-        reqwest::StatusCode::OK
+    let response: reqwest::Response = get_did_response(&alice_did_version_id_query).await;
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    assert!(
+        response.headers()["X-Cache-Hit"].to_str().unwrap() == "true",
+        "response.headers: {:?}",
+        response.headers()
     );
+
     // Ask for a particular self-hash that the VDG is known to have to see if it hits the VDR.
     use did_webplus::MicroledgerView;
     let alice_did_document = alice_wallet
@@ -214,18 +204,10 @@ async fn test_wallet_operations_impl(use_path: bool) {
         .latest_did_document();
     let alice_did_self_hash_query =
         format!("{}?selfHash={}", alice_did, alice_did_document.self_hash());
-    assert_eq!(
-        reqwest::Client::new()
-            .get(&format!(
-                "http://localhost:8086/{}",
-                temp_hack_incomplete_url_encoded(&alice_did_self_hash_query)
-            ))
-            .send()
-            .await
-            .expect("pass")
-            .status(),
-        reqwest::StatusCode::OK
-    );
+    let response = get_did_response(&alice_did_self_hash_query).await;
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "true");
+
     // Ask for both self-hash and version_id which are consistent.
     let alice_did_self_hash_version_query = format!(
         "{}?selfHash={}&versionId={}",
@@ -233,18 +215,10 @@ async fn test_wallet_operations_impl(use_path: bool) {
         alice_did_document.self_hash(),
         alice_did_document.version_id
     );
-    assert_eq!(
-        reqwest::Client::new()
-            .get(&format!(
-                "http://localhost:8086/{}",
-                temp_hack_incomplete_url_encoded(&alice_did_self_hash_version_query)
-            ))
-            .send()
-            .await
-            .expect("pass")
-            .status(),
-        reqwest::StatusCode::OK
-    );
+    let response = get_did_response(&alice_did_self_hash_version_query).await;
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "true");
+
     // Ask for both self-hash and version_id which are inconsistent.
     assert!(alice_did_document.version_id != 0);
     let alice_did_self_hash_version_inconsistent_query = format!(
@@ -253,33 +227,25 @@ async fn test_wallet_operations_impl(use_path: bool) {
         alice_did_document.self_hash(),
         0
     );
-    assert_eq!(
-        reqwest::Client::new()
-            .get(&format!(
-                "http://localhost:8086/{}",
-                temp_hack_incomplete_url_encoded(&alice_did_self_hash_version_inconsistent_query)
-            ))
-            .send()
-            .await
-            .expect("pass")
-            .status(),
-        reqwest::StatusCode::UNPROCESSABLE_ENTITY
-    );
+    let response = get_did_response(&alice_did_self_hash_version_inconsistent_query).await;
+    assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
+
     // Ask for a particular version that the VDG is known to have, but with a bad selfHash
     // to see if it will return an error.
     let alice_did_bad_query = format!("{}?versionId=3&selfHash=XXXX", alice_did);
-    assert_eq!(
-        reqwest::Client::new()
-            .get(&format!(
-                "http://localhost:8086/{}",
-                temp_hack_incomplete_url_encoded(&alice_did_bad_query)
-            ))
-            .send()
-            .await
-            .expect("pass")
-            .status(),
-        reqwest::StatusCode::BAD_REQUEST
-    );
+    let response = get_did_response(&alice_did_bad_query).await;
+    assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+}
+
+async fn get_did_response(did_query: &str) -> reqwest::Response {
+    reqwest::Client::new()
+        .get(format!(
+            "http://localhost:8086/{}",
+            temp_hack_incomplete_url_encoded(did_query)
+        ))
+        .send()
+        .await
+        .expect("pass")
 }
 
 #[tokio::test]

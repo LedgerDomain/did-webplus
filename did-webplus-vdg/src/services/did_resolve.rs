@@ -117,6 +117,7 @@ async fn resolve_did_impl(
                 headers_for_did_document(
                     did_document_record.self_hash,
                     did_document_record.valid_from,
+                    true,
                 ),
                 did_document_record.did_document,
             ));
@@ -252,12 +253,17 @@ async fn resolve_did_impl(
         headers_for_did_document(
             target_did_document.self_hash().to_string(),
             target_did_document.valid_from(),
+            false,
         ),
         target_did_document_body,
     ))
 }
 
-fn headers_for_did_document(hash: String, last_modified: OffsetDateTime) -> HeaderMap {
+fn headers_for_did_document(
+    hash: String,
+    last_modified: OffsetDateTime,
+    cache_hit: bool,
+) -> HeaderMap {
     let cache_control = format!("public, max-age={}, immutable", CACHE_DAYS * 24 * 60 * 60);
     let expires = OffsetDateTime::now_utc() + time::Duration::days(CACHE_DAYS);
     let expires_header = expires
@@ -278,6 +284,10 @@ fn headers_for_did_document(hash: String, last_modified: OffsetDateTime) -> Head
         HeaderValue::from_str(&last_modified_header).unwrap(),
     );
     headers.insert(ETAG, HeaderValue::from_str(&hash).unwrap());
+    headers.insert(
+        "X-Cache-Hit",
+        HeaderValue::from_str(&cache_hit.to_string()).unwrap(),
+    );
 
     headers
 }
