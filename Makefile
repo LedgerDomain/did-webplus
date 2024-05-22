@@ -13,7 +13,15 @@ help:
 #########################################################
 
 # Generate files for SQLX_OFFLINE build for all relevant crates.
-sqlx-prepare: sqlx-prepare-vdg sqlx-prepare-vdr
+sqlx-prepare: sqlx-prepare-doc-store-postgres sqlx-prepare-doc-store-sqlite sqlx-prepare-vdg sqlx-prepare-vdr
+
+# Generate files for SQLX_OFFLINE build for did-webplus-doc-storage-postgres
+sqlx-prepare-doc-store-postgres:
+	cd did-webplus-doc-storage-postgres && cargo sqlx prepare
+
+# Generate files for SQLX_OFFLINE build for did-webplus-doc-storage-sqlite
+sqlx-prepare-doc-store-sqlite:
+	cd did-webplus-doc-storage-sqlite && cargo sqlx prepare
 
 # Generate files for SQLX_OFFLINE build for did-webplus-vdg
 sqlx-prepare-vdg:

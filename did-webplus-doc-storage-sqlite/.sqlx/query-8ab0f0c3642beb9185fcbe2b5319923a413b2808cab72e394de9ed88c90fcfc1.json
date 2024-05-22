@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                select did, version_id, valid_from, self_hash, did_document\n                from did_document_records\n                where did = $1 and version_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "did",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "version_id",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "valid_from",
+        "ordinal": 2,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "self_hash",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "did_document",
+        "ordinal": 4,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8ab0f0c3642beb9185fcbe2b5319923a413b2808cab72e394de9ed88c90fcfc1"
+}

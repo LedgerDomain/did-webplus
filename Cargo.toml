@@ -48,6 +48,8 @@ selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "88089b836a
 resolver = "2"
 members = [
     "did-webplus-cli",
+    "did-webplus-doc-storage-postgres",
+    "did-webplus-doc-storage-sqlite",
     "did-webplus-doc-store",
     "did-webplus-mock",
     "did-webplus-vdg",

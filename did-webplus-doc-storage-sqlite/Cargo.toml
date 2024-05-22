@@ -1,0 +1,15 @@
+[package]
+name = "did-webplus-doc-storage-sqlite"
+version = "0.1.0"
+authors = [
+    "Ben Nichols <ben.nichols@ledgerdomain.com>",
+    "Victor Dods <victor.dods@ledgerdomain.com>",
+]
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.80"
+did-webplus = { path = ".." }
+did-webplus-doc-store = { path = "../did-webplus-doc-store" }
+sqlx = { version = "0.7", features = ["sqlite", "time"] }
+time = "0.3"
