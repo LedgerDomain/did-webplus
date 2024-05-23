@@ -354,7 +354,13 @@ lazy_static::lazy_static! {
 
 async fn send_vdg_updates(gateways: Vec<String>, did: DID) {
     for vdg in gateways.into_iter() {
-        let url = format!("https://{}/update/{}", vdg, did);
+        // if vdg starts with http:// or https://, then use it as is, otherwise assume https://
+        let url = if vdg.starts_with("http://") || vdg.starts_with("https://") {
+            format!("{}/update/{}", vdg, did)
+        } else {
+            format!("https://{}/update/{}", vdg, did)
+        };
+        tracing::info!("sending update to VDG {}: {}", vdg, url);
         // There is no reason to do these sequentially, so spawn a task for each one.
         task::spawn(async move {
             let response = VDG_CLIENT.post(&url).send().await;

@@ -1,3 +1,3 @@
 gateways:
-  - 'witness.org'
+  - 'http://witness.org'
 service_domain: fancy.net
