@@ -217,11 +217,11 @@ async fn test_wallet_operations_impl(use_path: bool) {
     // sleep for a second to make sure the vdg gets updated
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    // // Ask for the new version to see if the VDG has been notified of the update.
+    // Ask for the new version to see if the VDG has been notified of the update.
     let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
     let response: reqwest::Response = get_did_response(&alice_did_version_id_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
-    assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "true");
+    assert_eq!(response.headers()["X-Cache-Hit"].to_str().unwrap(), "true");
 }
 
 async fn update_did(

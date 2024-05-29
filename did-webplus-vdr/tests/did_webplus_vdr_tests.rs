@@ -135,14 +135,14 @@ async fn test_wallet_operations_impl(use_path: bool) {
             // Resolve the DID
             println!("alice_did_url: {}", alice_did_url);
             let alice_did_url_self_hash = alice_did
-                .resolution_url_for_self_hash(alice_did_document.self_hash().deref())
+                .resolution_url_for_self_hash(alice_did_document.self_hash().deref(), "http")
                 .replace("fancy.net", "localhost:8085");
             println!(
                 "alice_did_url with query self-hash: {}",
                 alice_did_url_self_hash
             );
             let alice_did_url_version_id = alice_did
-                .resolution_url_for_version_id(alice_did_document.version_id())
+                .resolution_url_for_version_id(alice_did_document.version_id(), "http")
                 .replace("fancy.net", "localhost:8085");
             println!(
                 "alice_did_url with query version_id: {}",
