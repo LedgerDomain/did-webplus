@@ -8,10 +8,16 @@ use did_webplus::{
     MicroledgerView, PublicKeySet, RequestedDIDDocumentMetadata,
 };
 use did_webplus_mock::{
-    Microledger, MockResolverFull, MockResolverThin, MockVDG, MockVDR, MockVDRClient,
-    MockVerifiedCache, MockWallet, JWS,
+    JWSPayloadEncoding, JWSPayloadPresence, Microledger, MockResolverFull, MockResolverThin,
+    MockVDG, MockVDR, MockVDRClient, MockVerifiedCache, MockWallet, JWS,
 };
 use selfhash::HashFunction;
+
+/// This will run once at load time (i.e. presumably before main function is called).
+#[ctor::ctor]
+fn overall_init() {
+    env_logger::init();
+}
 
 fn priv_jwk_from_ed25519_signing_key(
     ed25519_signing_key: &ed25519_dalek::SigningKey,
@@ -262,62 +268,61 @@ fn test_did_operations() {
             .controlled_did(&alice_did)
             .expect("pass")
             .signer_and_key_id_for_key_purpose(KeyPurpose::Authentication);
-        let jws_string = JWS::signed(kid, message.as_bytes(), signer)
-            .expect("pass")
-            .encoded_to_string();
-        let jws_signing_time = time::OffsetDateTime::now_utc();
-        println!("jws_string: {}", jws_string);
+        let jws = JWS::signed(
+            kid,
+            &mut message.as_bytes(),
+            JWSPayloadPresence::Attached,
+            JWSPayloadEncoding::Base64URL,
+            signer,
+        )
+        .expect("pass");
 
-        // Verify the JWS.
-        let decoded_jws = JWS::decoded_from_str(jws_string.as_str()).expect("pass");
-        println!("decoded_jws: {:?}", decoded_jws);
-        let did_document_validity_time_range = decoded_jws
-            .verify(
-                did_webplus::KeyPurpose::Authentication,
-                &mut mock_resolver_full,
-            )
-            .expect("pass");
-        println!(
-            "did_document_validity_time_range: {:?}",
-            did_document_validity_time_range
-        );
-        // use std::ops::RangeBounds;
-        // assert!(did_document_validity_time_range.contains(&jws_signing_time));
-        // TODO: Figure out how to do this concisely
-        match did_document_validity_time_range.start {
-            std::ops::Bound::Excluded(start) => {
-                assert!(start < jws_signing_time);
-            }
-            std::ops::Bound::Included(start) => {
-                assert!(start <= jws_signing_time);
-            }
-            std::ops::Bound::Unbounded => {
-                // No constraint
-            }
-        }
-        match did_document_validity_time_range.end {
-            std::ops::Bound::Excluded(end) => {
-                assert!(jws_signing_time < end);
-            }
-            std::ops::Bound::Included(end) => {
-                assert!(jws_signing_time <= end);
-            }
-            std::ops::Bound::Unbounded => {
-                // No constraint
-            }
-        }
+        // Directly verify the JWS
+        jws.verify(signer.verifier().as_mut(), None).expect("pass");
+
+        let jws_signing_time = time::OffsetDateTime::now_utc();
+        println!("jws_string: {}", jws);
+
+        // Type-forget the JWS, so that it has to go through the whole code path from String.
+        let jws_string = jws.into_string();
+
+        let jws = JWS::try_from(jws_string).expect("pass");
+
+        // Verify the JWS using the full resolver.
+        let (did_document, did_document_metadata) = did_webplus_mock::resolve_did_and_verify_jws(
+            &jws,
+            &mut mock_resolver_full,
+            did_webplus::KeyPurpose::Authentication,
+            did_webplus::RequestedDIDDocumentMetadata::all(),
+            None,
+        )
+        .expect("pass");
 
         // Also resolve using mock_resolver_thin.
-        let did_document_validity_time_range_2 = decoded_jws
-            .verify(
-                did_webplus::KeyPurpose::Authentication,
+        let (did_document_2, did_document_metadata_2) =
+            did_webplus_mock::resolve_did_and_verify_jws(
+                &jws,
                 &mut mock_resolver_thin,
+                did_webplus::KeyPurpose::Authentication,
+                did_webplus::RequestedDIDDocumentMetadata::all(),
+                None,
             )
             .expect("pass");
-        assert_eq!(
-            did_document_validity_time_range_2,
-            did_document_validity_time_range
-        );
+
+        assert_eq!(did_document, did_document_2);
+        assert_eq!(did_document_metadata, did_document_metadata_2);
+        assert!(did_document_metadata.idempotent_o.is_some());
+        let did_document_metadata_idempotent = did_document_metadata.idempotent_o.as_ref().unwrap();
+
+        assert!(did_document.valid_from <= jws_signing_time);
+        match did_document_metadata_idempotent.next_update_o.as_ref() {
+            Some(&next_update) => {
+                assert!(jws_signing_time < next_update);
+            }
+            None => {
+                // Nothing to check, this DID document is the latest.
+            }
+        }
     }
 
     // Do some resolutions.

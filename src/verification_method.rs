@@ -58,6 +58,12 @@ impl VerificationMethod {
         }
 
         // Verify that the id's fragment is actually the KERIVerifier corresponding to the key material.
+        // Note that this constraint allows certain parallelization of checks during verification of signatures.
+        // In particular, in a JWS/JWT, the kid field is a URI whose fragment specifies the KERIVerifier
+        // for the pub key, and that can be used to verify the signature, and then the fact that that pub key
+        // is a valid verification method for the DID can be checked in parallel.
+        // NOTE: This constraint might be infeasible for some key types that have very large public keys
+        // (e.g. some post-quantum crypto schemes).  So this constraint may not stay around.
         let keri_verifier = selfsign::KERIVerifier::try_from(&self.public_key_jwk)?;
         if keri_verifier != *self.id.fragment {
             return Err(Error::Malformed(

@@ -16,7 +16,7 @@ mod vds;
 pub(crate) use crate::mock_resolver_internal::MockResolverInternal;
 pub use crate::{
     controlled_did::ControlledDID,
-    jws::{JWSHeader, JWS},
+    jws::{resolve_did_and_verify_jws, JWSHeader, JWSPayloadEncoding, JWSPayloadPresence, JWS},
     microledger::Microledger,
     mock_resolver_full::MockResolverFull,
     mock_resolver_thin::MockResolverThin,
