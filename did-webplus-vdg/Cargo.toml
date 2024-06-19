@@ -9,11 +9,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.83"
-axum = "0.6.20"
+axum = "0.7.5"
 did-webplus = { path = "..", features = ["ed25519-dalek"] }
 dotenvy = "0.15.7"
+http = "1"
+http-body = "1"
+hyper = "1"
 lazy_static = "1.4.0"
-reqwest = "0.11.22"
+reqwest = "0.12.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.107"
 sqlx = { version = "0.7", features = [
@@ -24,12 +27,12 @@ sqlx = { version = "0.7", features = [
 time = { version = "0.3", features = ["macros", "serde", "serde-well-known"] }
 tokio = { version = "1.0", features = ["full"] }
 tower = "0.4.13"
-tower-http = { version = "0.4.4", features = ["full"] }
+tower-http = { version = "0.5.2", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 
 [dev-dependencies]
 ctor = "0.2.8"
 did-webplus-mock = { path = "../did-webplus-mock" }
-reqwest = { version = "0.11.22", features = ["json"] }
+reqwest = { version = "0.12.5", features = ["json"] }
 tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }

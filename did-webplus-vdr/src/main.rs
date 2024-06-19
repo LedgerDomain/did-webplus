@@ -3,7 +3,6 @@ mod models;
 mod services;
 
 use std::env;
-use std::net::SocketAddr;
 
 use anyhow::Context;
 use axum::{http::StatusCode, routing, Router};
@@ -72,12 +71,12 @@ async fn main() -> anyhow::Result<()> {
 
     // This has to be 0.0.0.0 otherwise it won't work in a docker container.
     // 127.0.0.1 is only the loopback device, and isn't available outside the host.
-    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.port))
         .await
         .unwrap();
-    Ok(())
+    axum::serve(listener, app)
+        .await
+        .context("failed to start server")
 }
 
 fn parse_did_document(

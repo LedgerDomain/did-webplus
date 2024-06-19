@@ -9,11 +9,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.83"
-axum = "0.6.20"
+axum = "0.7.5"
 config = "0.14.0"
 did-webplus = { path = "..", features = ["ed25519-dalek"] }
+http = "1"
+http-body = "1"
+hyper = "1"
 lazy_static = "1.4.0"
-reqwest = { version = "0.12.4", features = ["json"] }
+reqwest = { version = "0.12.5", features = ["json"] }
 selfhash = "0.1.4"
 serde = { version = "1.0", features = ["derive"] }
 serde-inline-default = "0.2.0"
@@ -27,7 +30,7 @@ sqlx = { version = "0.7", features = [
 time = { version = "0.3", features = ["macros", "serde", "serde-well-known"] }
 tokio = { version = "1.0", features = ["full"] }
 tower = "0.4.13"
-tower-http = { version = "0.4.4", features = ["full"] }
+tower-http = { version = "0.5.2", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 

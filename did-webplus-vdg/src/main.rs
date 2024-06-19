@@ -3,8 +3,6 @@ use reqwest::StatusCode;
 pub(crate) mod models;
 pub(crate) mod services;
 
-use std::net::SocketAddr;
-
 use anyhow::Context;
 use axum::{routing, Router};
 use sqlx::postgres::PgPoolOptions;
@@ -86,12 +84,12 @@ async fn main() -> anyhow::Result<()> {
 
     // This has to be 0.0.0.0 otherwise it won't work in a docker container.
     // 127.0.0.1 is only the loopback device, and isn't available outside the host.
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
         .unwrap();
-    Ok(())
+    axum::serve(listener, app)
+        .await
+        .context("failed to start server")
 }
 
 lazy_static::lazy_static! {
