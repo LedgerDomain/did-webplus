@@ -1,10 +1,18 @@
+use std::sync::Arc;
+
 use reqwest::StatusCode;
 
 pub(crate) mod models;
 pub(crate) mod services;
 
+use aide::{
+    axum::ApiRouter,
+    openapi::{OpenApi, Tag},
+    transform::TransformOpenApi,
+};
 use anyhow::Context;
-use axum::{routing, Router};
+use axum::{routing, Extension};
+use services::docs::docs_routes;
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
@@ -62,6 +70,11 @@ async fn main() -> anyhow::Result<()> {
 
     sqlx::migrate!().run(&pool).await?;
 
+    aide::gen::on_error(|error| {
+        tracing::error!("{error}");
+    });
+    aide::gen::extract_schemas(true);
+
     let middleware_stack = ServiceBuilder::new()
         .layer(CompressionLayer::new())
         .layer(
@@ -72,8 +85,12 @@ async fn main() -> anyhow::Result<()> {
         .layer(CorsLayer::permissive())
         .into_inner();
 
-    let app = Router::new()
-        .merge(crate::services::did_resolve::get_routes(&pool))
+    let mut api = OpenApi::default();
+    let app = ApiRouter::new()
+        .nest_api_service("/", crate::services::did_resolve::get_routes(&pool))
+        .nest_api_service("/docs", docs_routes())
+        .finish_api_with(&mut api, api_docs)
+        .layer(Extension(Arc::new(api)))
         .layer(middleware_stack)
         .route("/health", routing::get(|| async { "OK" }));
 
@@ -107,4 +124,13 @@ fn parse_did_document(
             "malformed DID document".to_string(),
         )
     })
+}
+
+fn api_docs(api: TransformOpenApi) -> TransformOpenApi {
+    api.title("Did-Webplus Verifiable Data Gateway")
+        .summary("Reference example of a Verifiable Data Gateway for the did-webplus project.")
+        .tag(Tag {
+            name: "Did".into(),
+            ..Default::default()
+        })
 }

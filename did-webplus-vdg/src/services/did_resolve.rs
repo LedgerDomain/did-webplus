@@ -1,13 +1,18 @@
 use std::str::FromStr;
 
+use aide::{
+    axum::{
+        routing::{get_with, post_with},
+        ApiRouter,
+    },
+    transform::TransformOperation,
+};
 use axum::{
     extract::{Path, State},
     http::{
         header::{CACHE_CONTROL, ETAG, EXPIRES, LAST_MODIFIED},
         HeaderMap, HeaderValue, StatusCode,
     },
-    routing::{get, post},
-    Router,
 };
 use did_webplus::{DIDWithQuery, DID};
 use sqlx::PgPool;
@@ -20,10 +25,10 @@ use crate::{models::did_document_record::DIDDocumentRecord, parse_did_document};
 const CACHE_DAYS: i64 = 365;
 type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
 
-pub fn get_routes(pool: &PgPool) -> Router {
-    Router::new()
-        .route("/:did_query", get(resolve_did))
-        .route("/update/:did", post(update_did))
+pub fn get_routes(pool: &PgPool) -> ApiRouter {
+    ApiRouter::new()
+        .api_route("/:did_query", get_with(resolve_did, resolve_did_docs))
+        .api_route("/update/:did", post_with(update_did, update_did_docs))
         .with_state(pool.clone())
 }
 
@@ -34,6 +39,13 @@ async fn resolve_did(
     Path(did_query): Path<String>,
 ) -> DidResult {
     resolve_did_impl(&db, did_query).await
+}
+
+fn resolve_did_docs(op: TransformOperation) -> TransformOperation {
+    op.description("Resolve a did and get its did document.")
+        .response::<200, String>()
+        .response_with::<400, (), _>(|res| res.description("malformed DID query"))
+        .response_with::<422, (), _>(|res| res.description("DID document with versionId <version_id> has selfHash <self_hash> which does not match the requested selfHash <requested_self_hash>"))
 }
 
 async fn resolve_did_impl(
@@ -348,4 +360,9 @@ async fn update_did(
     });
 
     Ok((StatusCode::OK, "DID document update initiated".to_string()))
+}
+
+fn update_did_docs(op: TransformOperation) -> TransformOperation {
+    op.description("Update a did document from a vdr.")
+        .response::<200, String>()
 }
