@@ -17,10 +17,14 @@ impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
         }
         // Get rid of the "did:" prefix.
         let s = s.split_once(':').unwrap().1;
-        let (method, post_method_str) = s.split_once(':').unwrap();
+        let (method, post_method_str) = s.split_once(':').ok_or(Error::Malformed(
+            "DID URI is expected to have a second ':' after the method",
+        ))?;
         // TODO: Validation on the method string.
 
-        let (host, post_host_str) = post_method_str.split_once(':').unwrap();
+        let (host, post_host_str) = post_method_str.split_once(':').ok_or(Error::Malformed(
+            "DID URI is expected to have a third ':' after the host",
+        ))?;
         // TODO: Validation on host
 
         let (path, query_o, fragment_o) =
@@ -30,12 +34,10 @@ impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
                 } else {
                     (path, Some(query_and_maybe_fragment), None)
                 }
+            } else if let Some((path, fragment)) = post_host_str.split_once('#') {
+                (path, None, Some(fragment))
             } else {
-                if let Some((path, fragment)) = post_host_str.split_once('#') {
-                    (path, None, Some(fragment))
-                } else {
-                    (post_host_str, None, None)
-                }
+                (post_host_str, None, None)
             };
         // TODO: Validation on path, query_o, and fragment_o
 
