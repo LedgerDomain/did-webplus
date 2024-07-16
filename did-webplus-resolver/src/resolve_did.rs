@@ -160,7 +160,7 @@ pub async fn resolve_did<Storage: DIDDocStorage>(
     let target_did_document = parse_did_document(&target_did_doc_body)?;
     // Fetch predecessor DID docs from VDR.  TODO: Probably parallelize these requests with some max
     // on the number of simultaneous requests.
-    let prev_did_document_body_o = latest_did_doc_record_o.map(|record| record.did_document);
+    let prev_did_document_body_o = latest_did_doc_record_o.map(|record| record.did_document_jcs);
     let mut prev_did_document_o = prev_did_document_body_o.map(|prev_did_document_body| {
         parse_did_document(&prev_did_document_body)
             .expect("programmer error: stored DID document should be valid JSON")
@@ -232,7 +232,7 @@ pub async fn resolve_did<Storage: DIDDocStorage>(
         did: did.to_string(),
         version_id: target_did_document.version_id as i64,
         valid_from: target_did_document.valid_from(),
-        did_document: target_did_doc_body,
+        did_document_jcs: target_did_doc_body,
     };
     Ok(target_did_doc_record)
 }

@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use did_webplus::{DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, PublicKeySet};
-use selfhash::HashFunction;
 use selfsign::SelfSignAndHashable;
 
 #[test]
@@ -172,13 +171,7 @@ fn test_did_document_verification() {
     );
     println!(
         "did_document_0 in JCS format:\n{}",
-        std::str::from_utf8(
-            did_document_0
-                .serialize_canonically_to_vec()
-                .expect("pass")
-                .as_slice()
-        )
-        .expect("pass")
+        did_document_0.serialize_canonically().expect("pass")
     );
     did_document_0
         .verify_self_signatures_and_hashes()
@@ -200,7 +193,7 @@ fn test_did_document_verification() {
                 capability_delegation_v: vec![&ed25519_verifying_key_2],
             },
         },
-        selfhash::Blake3.new_hasher(),
+        &selfhash::Blake3,
         &ed25519_signing_key_1,
     )
     .expect("pass");
@@ -210,13 +203,7 @@ fn test_did_document_verification() {
     );
     println!(
         "did_document_1 in JCS format:\n{}",
-        std::str::from_utf8(
-            did_document_1
-                .serialize_canonically_to_vec()
-                .expect("pass")
-                .as_slice()
-        )
-        .expect("pass")
+        did_document_1.serialize_canonically().expect("pass")
     );
     did_document_1
         .verify_self_signatures_and_hashes()
@@ -244,7 +231,7 @@ fn test_did_document_verification() {
                 capability_delegation_v: vec![&ed25519_verifying_key_2],
             },
         },
-        selfhash::Blake3.new_hasher(),
+        &selfhash::Blake3,
         &ed25519_signing_key_attacker,
     )
     .expect_err("pass");
@@ -312,7 +299,7 @@ fn test_signature_generation_with_witness() {
                 did_document_0.self_hash_o.as_ref().unwrap().clone(),
                 did_document_0.version_id,
             )
-            .with_fragment(verifying_key_0.to_keri_verifier().into_owned());
+            .with_fragment(verifying_key_0.to_keri_verifier());
         // Set the key_id field of the JWK, so that it appears in the header of JWS signatures.
         priv_jwk_0.key_id = Some(did_with_query_and_key_id_fragment.to_string());
         println!("We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));

@@ -23,9 +23,9 @@ lazy_static = "1.4.0"
 rand = "0.8"
 reqwest = "0.11.22"
 # Enable all the hash function features to support them all.
-selfhash = { version = "0.1.4", features = ["blake3", "sha-256", "sha-512"] }
+selfhash = { version = "0.2.2", features = ["blake3", "sha-256", "sha-512"] }
 # Enable all the cryptographic key type features to support them all.
-selfsign = { version = "0.2.4", features = ["ed25519-dalek", "k256"] }
+selfsign = { version = "0.4.0", features = ["ed25519-dalek", "k256"] }
 sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [
     "ed25519",

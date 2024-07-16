@@ -16,7 +16,7 @@ impl VerificationMethod {
     /// that the fragment and the key_id of the PublicKeyJWK will both be set to the KERIVerifier
     /// value of the verifier.
     pub fn json_web_key_2020(controller: DID, verifier: &dyn selfsign::Verifier) -> Self {
-        let key_id = verifier.to_keri_verifier().into_owned();
+        let key_id = verifier.to_keri_verifier();
         let did_with_key_id_fragment = controller.with_fragment(key_id);
         let public_key_jwk = PublicKeyJWK {
             kid_o: Some(did_with_key_id_fragment.clone().into()),
@@ -91,7 +91,7 @@ impl VerificationMethod {
         iter_chain
     }
     pub fn set_root_did_document_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
-        let keri_hash = hash.to_keri_hash().into_owned();
+        let keri_hash = hash.to_keri_hash();
         self.id.self_hash = keri_hash.clone();
         self.controller.self_hash = keri_hash.clone();
         if let Some(kid) = self.public_key_jwk.kid_o.as_mut() {

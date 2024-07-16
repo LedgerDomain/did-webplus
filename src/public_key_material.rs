@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{DIDKeyIdFragment, Error, KeyPurpose, PublicKeySet, VerificationMethod, DID};
+use crate::{
+    DIDKeyIdFragment, Error, KeyPurpose, KeyPurposeFlags, PublicKeySet, VerificationMethod, DID,
+};
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyMaterial {
@@ -23,7 +25,7 @@ impl PublicKeyMaterial {
         did: DID,
         public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
     ) -> Result<Self, Error> {
-        let mut verification_method_m: HashMap<selfsign::KERIVerifier<'a>, VerificationMethod> =
+        let mut verification_method_m: HashMap<selfsign::KERIVerifier, VerificationMethod> =
             HashMap::new();
         for public_key in public_key_set.iter() {
             let verification_method =
@@ -35,27 +37,27 @@ impl PublicKeyMaterial {
         let authentication_key_id_fragment_v = public_key_set
             .authentication_v
             .into_iter()
-            .map(|v| v.to_keri_verifier().into_owned().into())
+            .map(|v| v.to_keri_verifier().into())
             .collect();
         let assertion_method_key_id_fragment_v = public_key_set
             .assertion_method_v
             .into_iter()
-            .map(|v| v.to_keri_verifier().into_owned().into())
+            .map(|v| v.to_keri_verifier().into())
             .collect();
         let key_agreement_key_id_fragment_v = public_key_set
             .key_agreement_v
             .into_iter()
-            .map(|v| v.to_keri_verifier().into_owned().into())
+            .map(|v| v.to_keri_verifier().into())
             .collect();
         let capability_invocation_key_id_fragment_v = public_key_set
             .capability_invocation_v
             .into_iter()
-            .map(|v| v.to_keri_verifier().into_owned().into())
+            .map(|v| v.to_keri_verifier().into())
             .collect();
         let capability_delegation_key_id_fragment_v = public_key_set
             .capability_delegation_v
             .into_iter()
-            .map(|v| v.to_keri_verifier().into_owned().into())
+            .map(|v| v.to_keri_verifier().into())
             .collect();
 
         Ok(Self {
@@ -67,14 +69,37 @@ impl PublicKeyMaterial {
             capability_delegation_key_id_fragment_v,
         })
     }
+    /// Returns the key ids for the given KeyPurpose, i.e. the elements of the "authentication", "assertionMethod",
+    /// "keyAgreement", "capabilityInvocation", and "capabilityDelegation" fields of the DID document.
     pub fn key_id_fragments_for_purpose(&self, key_purpose: KeyPurpose) -> &[DIDKeyIdFragment] {
         match key_purpose {
-            KeyPurpose::Authentication => &self.authentication_key_id_fragment_v,
-            KeyPurpose::AssertionMethod => &self.assertion_method_key_id_fragment_v,
-            KeyPurpose::KeyAgreement => &self.key_agreement_key_id_fragment_v,
-            KeyPurpose::CapabilityInvocation => &self.capability_invocation_key_id_fragment_v,
-            KeyPurpose::CapabilityDelegation => &self.capability_delegation_key_id_fragment_v,
+            KeyPurpose::Authentication => self.authentication_key_id_fragment_v.as_slice(),
+            KeyPurpose::AssertionMethod => self.assertion_method_key_id_fragment_v.as_slice(),
+            KeyPurpose::KeyAgreement => self.key_agreement_key_id_fragment_v.as_slice(),
+            KeyPurpose::CapabilityInvocation => {
+                self.capability_invocation_key_id_fragment_v.as_slice()
+            }
+            KeyPurpose::CapabilityDelegation => {
+                self.capability_delegation_key_id_fragment_v.as_slice()
+            }
         }
+    }
+    /// Returns the KeyPurposeFlags representing all the KeyPurposes that the given verification method allows.
+    /// This is defined by the the presence of the key id in the list of key ids for the specified purpose
+    /// (i.e. "authentication", "assertionMethod", "keyAgreement", "capabilityInvocation", and "capabilityDelegation"
+    /// fields of the DID document).
+    pub fn key_purpose_flags_for_key_id_fragment(
+        &self,
+        key_id_fragment: &DIDKeyIdFragment,
+    ) -> KeyPurposeFlags {
+        let mut key_purpose_flags = KeyPurposeFlags::NONE;
+        for key_purpose in KeyPurpose::VARIANTS {
+            let key_id_fragment_v = self.key_id_fragments_for_purpose(key_purpose);
+            if key_id_fragment_v.contains(key_id_fragment) {
+                key_purpose_flags |= KeyPurposeFlags::from(key_purpose);
+            }
+        }
+        key_purpose_flags
     }
     pub fn verify(&self, expected_controller: &DID) -> Result<(), Error> {
         for verification_method in &self.verification_method_v {
@@ -85,23 +110,12 @@ impl PublicKeyMaterial {
             .iter()
             .map(|verification_method| &verification_method.id.fragment)
             .collect::<HashSet<&DIDKeyIdFragment>>();
-        for (key_purpose_name, key_purpose_key_id_fragment_v) in [
-            ("authentication", &self.authentication_key_id_fragment_v),
-            ("assertion", &self.assertion_method_key_id_fragment_v),
-            ("key agreement", &self.key_agreement_key_id_fragment_v),
-            (
-                "capability invocation",
-                &self.capability_invocation_key_id_fragment_v,
-            ),
-            (
-                "capability delegation",
-                &self.capability_delegation_key_id_fragment_v,
-            ),
-        ] {
-            for key_id_fragment in key_purpose_key_id_fragment_v.iter() {
+        for key_purpose in KeyPurpose::VARIANTS {
+            let key_id_fragment_v = self.key_id_fragments_for_purpose(key_purpose);
+            for key_id_fragment in key_id_fragment_v.iter() {
                 if !key_id_fragment_s.contains(&key_id_fragment) {
                     return Err(Error::MalformedKeyFragment(
-                        key_purpose_name,
+                        key_purpose.as_str(),
                         "key id fragment does not match any listed verification method",
                     ));
                 }

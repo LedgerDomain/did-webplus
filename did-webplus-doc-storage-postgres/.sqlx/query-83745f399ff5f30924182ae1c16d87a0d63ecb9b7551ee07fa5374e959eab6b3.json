@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                select did, version_id, valid_from, self_hash, did_document#>>'{}' as \"did_document!: String\"\n                from did_document_records\n                where did = $1 and self_hash = $2\n            ",
+  "query": "\n                select did, version_id, valid_from, self_hash, did_document#>>'{}' as \"did_document_jcs!: String\"\n                from did_document_records\n                where did = $1\n                order by version_id desc\n                limit 1\n            ",
   "describe": {
     "columns": [
       {
@@ -25,13 +25,12 @@
       },
       {
         "ordinal": 4,
-        "name": "did_document!: String",
+        "name": "did_document_jcs!: String",
         "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
         "Text"
       ]
     },
@@ -43,5 +42,5 @@
       null
     ]
   },
-  "hash": "eddcc35c4e6bfe8627e6b47249565c08f79847852bfb12736578ee9f5d3134a4"
+  "hash": "83745f399ff5f30924182ae1c16d87a0d63ecb9b7551ee07fa5374e959eab6b3"
 }

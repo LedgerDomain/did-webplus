@@ -8,8 +8,8 @@ use did_webplus::{
 use crate::{Microledger, VDRClient};
 
 pub struct ControlledDID {
-    pub current_public_key_set: PublicKeySet<selfsign::KERIVerifier<'static>>,
-    signer_m: HashMap<selfsign::KERIVerifier<'static>, Box<dyn selfsign::Signer>>,
+    pub current_public_key_set: PublicKeySet<selfsign::KERIVerifier>,
+    signer_m: HashMap<selfsign::KERIVerifier, Box<dyn selfsign::Signer>>,
     microledger: Microledger,
 }
 
@@ -83,7 +83,6 @@ impl ControlledDID {
     pub fn update(&mut self, vdr_client: &dyn VDRClient) -> Result<(), Error> {
         let (new_signer_m, new_public_key_set) = Self::generate_new_keys();
 
-        use selfhash::HashFunction;
         let new_did_document = DIDDocument::update_from_previous(
             self.microledger.view().latest_did_document(),
             DIDDocumentUpdateParams {
@@ -116,7 +115,7 @@ impl ControlledDID {
                         .collect(),
                 },
             },
-            selfhash::Blake3.new_hasher(),
+            &selfhash::Blake3,
             self.signer_and_key_id_for_key_purpose(KeyPurpose::CapabilityInvocation)
                 .0,
         )?;
@@ -163,8 +162,8 @@ impl ControlledDID {
         (signer, key_id)
     }
     fn generate_new_keys() -> (
-        HashMap<selfsign::KERIVerifier<'static>, Box<dyn selfsign::Signer>>,
-        PublicKeySet<selfsign::KERIVerifier<'static>>,
+        HashMap<selfsign::KERIVerifier, Box<dyn selfsign::Signer>>,
+        PublicKeySet<selfsign::KERIVerifier>,
     ) {
         // Generate a full set of private keys.
 
@@ -195,53 +194,37 @@ impl ControlledDID {
 
         use selfsign::Verifier;
         let current_public_key_set = PublicKeySet {
-            authentication_v: vec![ed25519_verifying_key_authentication
-                .to_keri_verifier()
-                .into_owned()],
-            assertion_method_v: vec![ed25519_verifying_key_assertion_method
-                .to_keri_verifier()
-                .into_owned()],
-            key_agreement_v: vec![ed25519_verifying_key_key_agreement
-                .to_keri_verifier()
-                .into_owned()],
-            capability_invocation_v: vec![ed25519_verifying_key_capability_invocation
-                .to_keri_verifier()
-                .into_owned()],
-            capability_delegation_v: vec![ed25519_verifying_key_capability_delegation
-                .to_keri_verifier()
-                .into_owned()],
+            authentication_v: vec![ed25519_verifying_key_authentication.to_keri_verifier()],
+            assertion_method_v: vec![ed25519_verifying_key_assertion_method.to_keri_verifier()],
+            key_agreement_v: vec![ed25519_verifying_key_key_agreement.to_keri_verifier()],
+            capability_invocation_v: vec![
+                ed25519_verifying_key_capability_invocation.to_keri_verifier()
+            ],
+            capability_delegation_v: vec![
+                ed25519_verifying_key_capability_delegation.to_keri_verifier()
+            ],
         };
         let signer_m = {
-            let mut signer_m: HashMap<selfsign::KERIVerifier<'static>, Box<dyn selfsign::Signer>> =
+            let mut signer_m: HashMap<selfsign::KERIVerifier, Box<dyn selfsign::Signer>> =
                 HashMap::new();
             signer_m.insert(
-                ed25519_verifying_key_authentication
-                    .to_keri_verifier()
-                    .into_owned(),
+                ed25519_verifying_key_authentication.to_keri_verifier(),
                 Box::new(ed25519_signing_key_authentication),
             );
             signer_m.insert(
-                ed25519_verifying_key_assertion_method
-                    .to_keri_verifier()
-                    .into_owned(),
+                ed25519_verifying_key_assertion_method.to_keri_verifier(),
                 Box::new(ed25519_signing_key_assertion_method),
             );
             signer_m.insert(
-                ed25519_verifying_key_key_agreement
-                    .to_keri_verifier()
-                    .into_owned(),
+                ed25519_verifying_key_key_agreement.to_keri_verifier(),
                 Box::new(ed25519_signing_key_key_agreement),
             );
             signer_m.insert(
-                ed25519_verifying_key_capability_invocation
-                    .to_keri_verifier()
-                    .into_owned(),
+                ed25519_verifying_key_capability_invocation.to_keri_verifier(),
                 Box::new(ed25519_signing_key_capability_invocation),
             );
             signer_m.insert(
-                ed25519_verifying_key_capability_delegation
-                    .to_keri_verifier()
-                    .into_owned(),
+                ed25519_verifying_key_capability_delegation.to_keri_verifier(),
                 Box::new(ed25519_signing_key_capability_delegation),
             );
             signer_m

@@ -30,35 +30,22 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
     ) -> Result<Self::Transaction<'s>> {
         if let Some(existing_transaction) = existing_transaction_o {
             use sqlx::Acquire;
-            Ok(existing_transaction
-                .begin()
-                .await
-                .map_err(sqlx_error_into_storage_error)?)
+            Ok(existing_transaction.begin().await?)
         } else {
-            Ok(self
-                .pg_pool
-                .begin()
-                .await
-                .map_err(sqlx_error_into_storage_error)?)
+            Ok(self.pg_pool.begin().await?)
         }
     }
     async fn commit_transaction(&self, transaction: Self::Transaction<'_>) -> Result<()> {
-        transaction
-            .commit()
-            .await
-            .map_err(sqlx_error_into_storage_error)
+        Ok(transaction.commit().await?)
     }
     async fn rollback_transaction(&self, transaction: Self::Transaction<'_>) -> Result<()> {
-        transaction
-            .rollback()
-            .await
-            .map_err(sqlx_error_into_storage_error)
+        Ok(transaction.rollback().await?)
     }
     async fn add_did_document(
         &self,
         transaction: &mut Self::Transaction<'_>,
         did_document: &DIDDocument,
-        did_document_body: &str,
+        did_document_jcs: &str,
     ) -> Result<()> {
         assert!(
             did_document.self_hash_o.is_some(),
@@ -73,18 +60,17 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
                     values ($1, $2, $3, $4, to_jsonb($5::text))
                     returning *
                 )
-                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document!: String"
+                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
                 from inserted_record
             "#,
             did_string,
             did_document.version_id() as i64,
             did_document.valid_from(),
             did_document.self_hash().to_string(),
-            did_document_body,
+            did_document_jcs,
         )
         .fetch_one(transaction.as_mut())
-        .await
-        .map_err(sqlx_error_into_storage_error)?;
+        .await?;
         Ok(())
     }
     async fn get_did_doc_record_with_self_hash(
@@ -97,7 +83,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         let did_doc_record_o = sqlx::query_as!(
             DIDDocRecord,
             r#"
-                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document!: String"
+                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
                 from did_document_records
                 where did = $1 and self_hash = $2
             "#,
@@ -105,8 +91,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             self_hash.to_string()
         )
         .fetch_optional(transaction.as_mut())
-        .await
-        .map_err(sqlx_error_into_storage_error)?;
+        .await?;
         Ok(did_doc_record_o)
     }
     async fn get_did_doc_record_with_version_id(
@@ -119,7 +104,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         let did_doc_record_o = sqlx::query_as!(
             DIDDocRecord,
             r#"
-                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document!: String"
+                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
                 from did_document_records
                 where did = $1 and version_id = $2
             "#,
@@ -127,8 +112,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             version_id as i64
         )
         .fetch_optional(transaction.as_mut())
-        .await
-        .map_err(sqlx_error_into_storage_error)?;
+        .await?;
         Ok(did_doc_record_o)
     }
     async fn get_latest_did_doc_record(
@@ -140,7 +124,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         let did_doc_record = sqlx::query_as!(
             DIDDocRecord,
             r#"
-                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document!: String"
+                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
                 from did_document_records
                 where did = $1
                 order by version_id desc
@@ -149,13 +133,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             did_string,
         )
         .fetch_optional(transaction.as_mut())
-        .await
-        .map_err(sqlx_error_into_storage_error)?;
+        .await?;
         Ok(did_doc_record)
     }
-}
-
-/// Helper function to convert a sqlx::Error into a did_webplus_doc_store::Error::StorageError.
-fn sqlx_error_into_storage_error(err: sqlx::Error) -> Error {
-    Error::StorageError(err.to_string().into())
 }

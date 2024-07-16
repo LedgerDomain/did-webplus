@@ -15,3 +15,10 @@ pub enum Error {
     #[error("Storage error: {0}")]
     StorageError(Cow<'static, str>),
 }
+
+#[cfg(feature = "sqlx")]
+impl From<sqlx::Error> for Error {
+    fn from(err: sqlx::Error) -> Self {
+        Self::StorageError(err.to_string().into())
+    }
+}

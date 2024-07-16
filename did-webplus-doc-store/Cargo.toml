@@ -4,12 +4,16 @@ version = "0.1.0"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
 
+[features]
+sqlx = ["dep:sqlx"]
+
 [dependencies]
 anyhow = "1.0.83"
 async-trait = "0.1.80"
 did-webplus = { path = ".." }
-selfhash = "0.1.4"
-selfsign = "0.2.4"
+selfhash = "0.2.2"
+selfsign = "0.4.0"
 serde_json = "1.0.107"
+sqlx = { version = "0.7", default-features = false, optional = true }
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }

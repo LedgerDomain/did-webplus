@@ -8,17 +8,18 @@ use time::OffsetDateTime;
 pub struct DIDDocRecord {
     pub self_hash: String,
     pub did: String,
+    // TODO: Make this u32?  Or would it be better to just use i64 for all contexts?
     pub version_id: i64,
     pub valid_from: OffsetDateTime,
-    pub did_document: String,
+    pub did_document_jcs: String,
 }
 
 impl DIDDocRecord {
     /// This is rather pedantic, but it's important to guarantee the consistency of DIDDocRecord-s
     /// because the whole validation scheme of did:webplus depends on it.
     pub fn validate_consistency(&self) -> Result<()> {
-        let did_document: DIDDocument =
-            serde_json::from_str(self.did_document.as_str()).map_err(|err| {
+        let did_document = serde_json::from_str::<DIDDocument>(self.did_document_jcs.as_str())
+            .map_err(|err| {
                 Error::RecordCorruption(
                     format!("Malformed DID doc; parse error was {}", err).into(),
                     self.self_hash.to_string().into(),

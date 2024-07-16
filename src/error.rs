@@ -1,3 +1,4 @@
+// TODO: Use Cow<'static, str>
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Already exists: {0}")]

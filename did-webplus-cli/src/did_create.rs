@@ -6,7 +6,7 @@ pub struct DIDCreate {
     /// Specify the URL of the VDR to use for DID creation.  If the URL's scheme is omitted, then "https" will be used.
     /// A scheme of "http" is only allowed if the host is "localhost".  The URL must not contain a query string or fragment.
     #[arg(name = "vdr", short, long, value_name = "URL")]
-    pub vdr_create_endpoint: url::Url,
+    pub vdr_did_create_endpoint: url::Url,
 }
 
 impl DIDCreate {

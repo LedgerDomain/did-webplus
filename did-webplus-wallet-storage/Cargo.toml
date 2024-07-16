@@ -1,0 +1,19 @@
+[package]
+name = "did-webplus-wallet-storage"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[features]
+sqlx = ["dep:sqlx"]
+
+[dependencies]
+async-trait = "0.1.80"
+did-webplus = { path = ".." }
+did-webplus-doc-store = { path = "../did-webplus-doc-store" }
+selfhash = "0.2.2"
+selfsign = "0.4.0"
+sqlx = { version = "0.7", default-features = false, optional = true }
+thiserror = "1.0.60"
+time = { version = "0.3", features = ["serde"] }
+uuid = "1.9.1"

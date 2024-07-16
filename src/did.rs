@@ -11,7 +11,7 @@ pub type DIDWebplus = DID;
 pub struct DID {
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
-    pub(crate) self_hash: selfhash::KERIHash<'static>,
+    pub(crate) self_hash: selfhash::KERIHash,
 }
 
 impl DID {
@@ -30,7 +30,7 @@ impl DID {
     pub fn new(
         host: String,
         path_o: Option<String>,
-        self_hash: selfhash::KERIHash<'static>,
+        self_hash: selfhash::KERIHash,
     ) -> Result<Self, Error> {
         // TODO: Validation of host
         // Validate path.  It must not begin or end with ':'.  Its components must be ':'-delimited.
@@ -49,10 +49,7 @@ impl DID {
             self_hash,
         })
     }
-    pub fn with_query_self_hash(
-        &self,
-        query_self_hash: selfhash::KERIHash<'static>,
-    ) -> DIDWithQuery {
+    pub fn with_query_self_hash(&self, query_self_hash: selfhash::KERIHash) -> DIDWithQuery {
         DIDWithQuery {
             host: self.host.clone(),
             path_o: self.path_o.clone(),
@@ -72,7 +69,7 @@ impl DID {
     }
     pub fn with_queries(
         &self,
-        query_self_hash: selfhash::KERIHash<'static>,
+        query_self_hash: selfhash::KERIHash,
         query_version_id: u32,
     ) -> DIDWithQuery {
         DIDWithQuery {
@@ -103,7 +100,7 @@ impl DID {
         self.path_o.as_deref()
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
+    pub fn self_hash(&self) -> &selfhash::KERIHash {
         &self.self_hash
     }
     /// Produce the URL that addresses the latest DID document for this DID.
@@ -281,5 +278,21 @@ impl std::str::FromStr for DID {
             path_o,
             self_hash,
         })
+    }
+}
+
+impl TryFrom<&str> for DID {
+    type Error = Error;
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        use std::str::FromStr;
+        Self::from_str(s)
+    }
+}
+
+impl TryFrom<String> for DID {
+    type Error = Error;
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        use std::str::FromStr;
+        Self::from_str(s.as_str())
     }
 }

@@ -55,7 +55,7 @@ impl DIDResolveFull {
         .await?;
         transaction.commit().await?;
 
-        println!("{}", did_doc_record.did_document);
+        println!("{}", did_doc_record.did_document_jcs);
         Ok(())
     }
 }

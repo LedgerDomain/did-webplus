@@ -3,15 +3,16 @@ use crate::{DIDFragment, DIDURIComponents, DIDWithFragment, DIDWithQuery, Error,
 #[deprecated = "Use DIDWithQueryAndFragment instead"]
 pub type DIDWebplusWithQueryAndFragment<F> = DIDWithQueryAndFragment<F>;
 
+// TODO: Consider renaming this to something like DIDResourceFullyQualified
 #[derive(
-    Clone, Debug, serde_with::DeserializeFromStr, Eq, PartialEq, serde_with::SerializeDisplay,
+    Clone, Debug, serde_with::DeserializeFromStr, Eq, Hash, PartialEq, serde_with::SerializeDisplay,
 )]
 pub struct DIDWithQueryAndFragment<F: Fragment> {
     // TODO: Maybe just use DIDWithQuery instead of repeating the fields host, path_o, self_hash, query_*?
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
-    pub(crate) self_hash: selfhash::KERIHash<'static>,
-    pub(crate) query_self_hash_o: Option<selfhash::KERIHash<'static>>,
+    pub(crate) self_hash: selfhash::KERIHash,
+    pub(crate) query_self_hash_o: Option<selfhash::KERIHash>,
     pub(crate) query_version_id_o: Option<u32>,
     pub(crate) fragment: DIDFragment<F>,
 }
@@ -20,8 +21,8 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
     pub fn new(
         host: String,
         path_o: Option<String>,
-        self_hash: selfhash::KERIHash<'static>,
-        query_self_hash_o: Option<selfhash::KERIHash<'static>>,
+        self_hash: selfhash::KERIHash,
+        query_self_hash_o: Option<selfhash::KERIHash>,
         query_version_id_o: Option<u32>,
         fragment: DIDFragment<F>,
     ) -> Result<Self, Error> {
@@ -81,7 +82,7 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
         self.path_o.as_deref()
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
+    pub fn self_hash(&self) -> &selfhash::KERIHash {
         &self.self_hash
     }
     /// This is the string-formatted query parameters portion of the DID URI, in which the selfHash and

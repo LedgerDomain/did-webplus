@@ -3,14 +3,15 @@ use crate::{DIDFragment, DIDURIComponents, DIDWithQueryAndFragment, Error, Fragm
 #[deprecated = "Use DIDWithFragment instead"]
 pub type DIDWebplusWithFragment<F> = DIDWithFragment<F>;
 
+// TODO: Consider renaming to DIDResource.
 #[derive(
-    Clone, Debug, serde_with::DeserializeFromStr, Eq, PartialEq, serde_with::SerializeDisplay,
+    Clone, Debug, serde_with::DeserializeFromStr, Eq, Hash, PartialEq, serde_with::SerializeDisplay,
 )]
 pub struct DIDWithFragment<F: Fragment> {
     // TODO: Maybe just use DID instead of repeating the fields host, path_o, self_hash?
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
-    pub(crate) self_hash: selfhash::KERIHash<'static>,
+    pub(crate) self_hash: selfhash::KERIHash,
     pub(crate) fragment: DIDFragment<F>,
 }
 
@@ -18,7 +19,7 @@ impl<F: Fragment> DIDWithFragment<F> {
     pub fn new(
         host: String,
         path_o: Option<String>,
-        self_hash: selfhash::KERIHash<'static>,
+        self_hash: selfhash::KERIHash,
         fragment: DIDFragment<F>,
     ) -> Result<Self, Error> {
         // TODO: Validation of host
@@ -48,7 +49,7 @@ impl<F: Fragment> DIDWithFragment<F> {
     }
     pub fn with_query_self_hash(
         &self,
-        query_self_hash: selfhash::KERIHash<'static>,
+        query_self_hash: selfhash::KERIHash,
     ) -> DIDWithQueryAndFragment<F> {
         DIDWithQueryAndFragment {
             host: self.host.clone(),
@@ -71,7 +72,7 @@ impl<F: Fragment> DIDWithFragment<F> {
     }
     pub fn with_queries(
         &self,
-        query_self_hash: selfhash::KERIHash<'static>,
+        query_self_hash: selfhash::KERIHash,
         query_version_id: u32,
     ) -> DIDWithQueryAndFragment<F> {
         DIDWithQueryAndFragment {
@@ -95,7 +96,7 @@ impl<F: Fragment> DIDWithFragment<F> {
         self.path_o.as_deref()
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
+    pub fn self_hash(&self) -> &selfhash::KERIHash {
         &self.self_hash
     }
     /// This is the fragment portion of the DID URI, which is typically a key ID, but could refer to another

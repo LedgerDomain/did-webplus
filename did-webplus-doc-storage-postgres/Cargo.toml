@@ -10,7 +10,9 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.80"
 did-webplus = { path = ".." }
-did-webplus-doc-store = { path = "../did-webplus-doc-store" }
+did-webplus-doc-store = { path = "../did-webplus-doc-store", features = [
+    "sqlx",
+] }
 sqlx = { version = "0.7", features = [
     "runtime-tokio-rustls",
     "postgres",

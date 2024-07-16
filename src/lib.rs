@@ -10,6 +10,7 @@ mod did_with_query;
 mod did_with_query_and_fragment;
 mod error;
 mod key_purpose;
+mod key_purpose_flags;
 mod microledger_mut_view;
 #[cfg(feature = "async-traits")]
 mod microledger_mut_view_async;
@@ -46,6 +47,7 @@ pub use crate::{
     did_with_query_and_fragment::DIDWithQueryAndFragment,
     error::Error,
     key_purpose::KeyPurpose,
+    key_purpose_flags::KeyPurposeFlags,
     microledger_mut_view::MicroledgerMutView,
     microledger_view::MicroledgerView,
     public_key_jwk::PublicKeyJWK,
@@ -64,15 +66,14 @@ pub use crate::{
 
 #[allow(deprecated)]
 #[deprecated = "Use DIDKeyIdFragment instead"]
-pub type DIDWebplusKeyIdFragment = DIDFragment<selfsign::KERIVerifier<'static>>;
+pub type DIDWebplusKeyIdFragment = DIDFragment<selfsign::KERIVerifier>;
 #[allow(deprecated)]
 #[deprecated = "Use DIDWithKeyIdFragment instead"]
-pub type DIDWebplusWithKeyIdFragment = DIDWithFragment<selfsign::KERIVerifier<'static>>;
+pub type DIDWebplusWithKeyIdFragment = DIDWithFragment<selfsign::KERIVerifier>;
 #[allow(deprecated)]
 #[deprecated = "Use DIDWithQueryAndKeyIdFragment instead"]
-pub type DIDWebplusWithQueryAndKeyIdFragment =
-    DIDWithQueryAndFragment<selfsign::KERIVerifier<'static>>;
+pub type DIDWebplusWithQueryAndKeyIdFragment = DIDWithQueryAndFragment<selfsign::KERIVerifier>;
 
-pub type DIDKeyIdFragment = DIDFragment<selfsign::KERIVerifier<'static>>;
-pub type DIDWithKeyIdFragment = DIDWithFragment<selfsign::KERIVerifier<'static>>;
-pub type DIDWithQueryAndKeyIdFragment = DIDWithQueryAndFragment<selfsign::KERIVerifier<'static>>;
+pub type DIDKeyIdFragment = DIDFragment<selfsign::KERIVerifier>;
+pub type DIDWithKeyIdFragment = DIDWithFragment<selfsign::KERIVerifier>;
+pub type DIDWithQueryAndKeyIdFragment = DIDWithQueryAndFragment<selfsign::KERIVerifier>;

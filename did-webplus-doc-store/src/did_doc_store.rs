@@ -25,27 +25,27 @@ impl<Storage: DIDDocStorage> DIDDocStore<Storage> {
         self.storage.commit_transaction(transaction).await
     }
     /// Rollback a transaction for the underlying storage.  This should be done if an error occurs during
-    ///
+    /// storage operations.
     pub async fn rollback_transaction(&self, transaction: Storage::Transaction<'_>) -> Result<()> {
         self.storage.rollback_transaction(transaction).await
     }
-    // NOTE: did_document and did_document_body are redundant, and this assumes that they're consistent.
+    // NOTE: did_document and did_document_jcs are redundant, and this assumes that they're consistent.
     pub async fn validate_and_add_did_doc(
         &self,
         transaction: &mut Storage::Transaction<'_>,
         did_document: &DIDDocument,
         prev_did_document: Option<&DIDDocument>,
-        did_document_body: &str,
+        did_document_jcs: &str,
     ) -> Result<()> {
         assert_eq!(
-            parse_did_document(did_document_body)?,
+            parse_did_document(did_document_jcs)?,
             *did_document,
             "programmer error: body and did_document are inconsistent"
         );
         // This assumes that all stored DID documents have been validated inductively from the root!
         did_document.verify_nonrecursive(prev_did_document)?;
         self.storage
-            .add_did_document(transaction, did_document, did_document_body)
+            .add_did_document(transaction, did_document, did_document_jcs)
             .await?;
         Ok(())
     }

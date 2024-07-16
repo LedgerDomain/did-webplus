@@ -11,6 +11,7 @@ use crate::parse_did_document;
 // #[serde(rename_all = "camelCase")]
 pub struct DIDDocumentRecord {
     pub self_hash: String,
+    #[allow(dead_code)]
     pub did: String,
     pub version_id: i64,
     // #[serde(with = "time::serde::rfc3339")]

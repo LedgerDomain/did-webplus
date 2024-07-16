@@ -320,13 +320,13 @@ pub struct MockVerifiedCache {
     did_document_v: Vec<DIDDocument>,
     /// Table of self-hash values of DID documents.  The indexes of these elements define the primary
     /// key for this table.
-    self_hash_v: Vec<selfhash::KERIHash<'static>>,
+    self_hash_v: Vec<selfhash::KERIHash>,
 
     // Indexes -- hand-rolled "database" indexes.
     /// This is the index mapping DID to DID primary key.
     did_primary_key_m: HashMap<DID, DIDPrimaryKey>,
     /// This is the index mapping self-hash to self-hash primary key.
-    self_hash_primary_key_m: HashMap<selfhash::KERIHash<'static>, SelfHashPrimaryKey>,
+    self_hash_primary_key_m: HashMap<selfhash::KERIHash, SelfHashPrimaryKey>,
     /// This is the index mapping self-hash primary key to DID document primary key.
     self_hash_did_document_m: HashMap<SelfHashPrimaryKey, DIDDocumentPrimaryKey>,
     /// This is the index mapping (DID primary key, version_id) to the DID document primary key.

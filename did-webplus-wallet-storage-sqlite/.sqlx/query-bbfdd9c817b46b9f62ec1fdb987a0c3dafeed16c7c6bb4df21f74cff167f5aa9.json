@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT rowid, wallet_uuid, created_at, updated_at, deleted_at_o, wallet_name_o\n                FROM wallets\n                WHERE wallet_uuid = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "rowid",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "wallet_uuid",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 2,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 3,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "deleted_at_o",
+        "ordinal": 4,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "wallet_name_o",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "bbfdd9c817b46b9f62ec1fdb987a0c3dafeed16c7c6bb4df21f74cff167f5aa9"
+}

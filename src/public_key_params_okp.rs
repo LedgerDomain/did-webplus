@@ -42,7 +42,7 @@ impl TryFrom<&dyn selfsign::Verifier> for PublicKeyParamsOKP {
     }
 }
 
-impl TryFrom<&PublicKeyParamsOKP> for selfsign::KERIVerifier<'_> {
+impl TryFrom<&PublicKeyParamsOKP> for selfsign::KERIVerifier {
     type Error = Error;
     fn try_from(public_key_params_okp: &PublicKeyParamsOKP) -> Result<Self, Self::Error> {
         match public_key_params_okp.crv.as_str() {

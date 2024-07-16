@@ -66,13 +66,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
             .latest_did_document();
         println!(
             "Alice's latest DID document: {}",
-            std::str::from_utf8(
-                alice_did_document
-                    .serialize_canonically_to_vec()
-                    .expect("pass")
-                    .as_slice()
-            )
-            .unwrap()
+            alice_did_document.serialize_canonically().expect("pass")
         );
         assert_eq!(
             reqwest::Client::new()
@@ -112,13 +106,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
                 .latest_did_document();
             println!(
                 "Alice's latest DID document: {}",
-                std::str::from_utf8(
-                    alice_did_document
-                        .serialize_canonically_to_vec()
-                        .expect("pass")
-                        .as_slice()
-                )
-                .unwrap()
+                alice_did_document.serialize_canonically().expect("pass")
             );
             assert_eq!(
                 reqwest::Client::new()

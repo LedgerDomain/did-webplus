@@ -1,7 +1,10 @@
 [package]
 name = "did-webplus"
 version = "0.4.0"
-authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+authors = [
+    "Victor Dods <victor.dods@ledgerdomain.com>",
+    "Ben Nichols <ben.nichols@ledgerdomain.com>",
+]
 edition = "2021"
 
 [features]
@@ -16,8 +19,10 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "from",
     "into",
 ] }
-selfhash = { version = "0.1.4", features = ["serde", "blake3"] }
-selfsign = { version = "0.2.5", features = ["serde", "jcs"] }
+enum-map = "2.7.3"
+flagset = "0.4.6"
+selfhash = { version = "0.2.2", features = ["serde", "blake3"] }
+selfsign = { version = "0.4.0", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json_canonicalizer = "0.2.0"
 serde_json = "1.0.106"
@@ -30,7 +35,7 @@ time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 [dev-dependencies]
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
 rand = "0.8"
-selfsign = { version = "0.2.5", features = ["ed25519-dalek"] }
+selfsign = { version = "0.4.0", features = ["ed25519-dalek"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [
@@ -41,8 +46,8 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
 ] }
 
 [patch.crates-io]
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "65e3f0252e67809f10e86ca9d010f31a38a06647" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "579ccbab81067978acb95d9a8e2af3e2915ce3a9" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.2.2" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "selfsign-v0.4.0" }
 
 [workspace]
 resolver = "2"
@@ -53,6 +58,10 @@ members = [
     "did-webplus-doc-store",
     "did-webplus-mock",
     "did-webplus-resolver",
+    "did-webplus-software-wallet",
     "did-webplus-vdg",
     "did-webplus-vdr",
+    "did-webplus-wallet",
+    "did-webplus-wallet-storage",
+    "did-webplus-wallet-storage-sqlite",
 ]

@@ -5,13 +5,15 @@ use crate::{DIDURIComponents, DIDWithQueryAndFragment, Error, Fragment};
 #[deprecated = "Use DIDWithQuery instead"]
 pub type DIDWebplusWithQuery = DIDWithQuery;
 
-#[derive(Debug, serde_with::DeserializeFromStr, serde_with::SerializeDisplay)]
+// TODO: Consider renaming this to something like DIDFullyQualified (though this would only if
+// both self_hash and version_id are present; there would be other variants for partial qualification)
+#[derive(Clone, Debug, serde_with::DeserializeFromStr, serde_with::SerializeDisplay)]
 pub struct DIDWithQuery {
     // TODO: Maybe just use DID instead of repeating the fields host, path_o, self_hash?
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
-    pub(crate) self_hash: selfhash::KERIHash<'static>,
-    pub(crate) query_self_hash_o: Option<selfhash::KERIHash<'static>>,
+    pub(crate) self_hash: selfhash::KERIHash,
+    pub(crate) query_self_hash_o: Option<selfhash::KERIHash>,
     pub(crate) query_version_id_o: Option<u32>,
 }
 
@@ -19,8 +21,8 @@ impl DIDWithQuery {
     pub fn new(
         host: String,
         path_o: Option<String>,
-        self_hash: selfhash::KERIHash<'static>,
-        query_self_hash_o: Option<selfhash::KERIHash<'static>>,
+        self_hash: selfhash::KERIHash,
+        query_self_hash_o: Option<selfhash::KERIHash>,
         query_version_id_o: Option<u32>,
     ) -> Result<Self, Error> {
         // TODO: Validation of host
@@ -78,7 +80,7 @@ impl DIDWithQuery {
         self.path_o.as_deref()
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
+    pub fn self_hash(&self) -> &selfhash::KERIHash {
         &self.self_hash
     }
     /// This is the string-formatted query parameters portion of the DID URI, in which the selfHash and
@@ -227,7 +229,7 @@ impl DIDWithQuery {
     }
     pub fn parse_query_params(
         query_params: &str,
-    ) -> Result<(Option<selfhash::KERIHash<'static>>, Option<u32>), Error> {
+    ) -> Result<(Option<selfhash::KERIHash>, Option<u32>), Error> {
         let mut query_self_hash_o = None;
         let mut query_version_id_o: Option<u32> = None;
         for query_param in query_params.split('&') {
