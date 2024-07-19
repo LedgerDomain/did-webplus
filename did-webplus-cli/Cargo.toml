@@ -21,7 +21,7 @@ ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
 lazy_static = "1.4.0"
 # NOTE: This is only used by ed25519-dalek
 rand = "0.8"
-reqwest = "0.11.22"
+reqwest = "0.12.5"
 # Enable all the hash function features to support them all.
 selfhash = { version = "0.2.2", features = ["blake3", "sha-256", "sha-512"] }
 # Enable all the cryptographic key type features to support them all.
