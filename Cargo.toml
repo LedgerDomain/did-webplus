@@ -21,6 +21,7 @@ derive_more = { version = "0.99.17", default-features = false, features = [
 ] }
 enum-map = "2.7.3"
 flagset = "0.4.6"
+pneutype = "0.2.0"
 selfhash = { version = "0.2.2", features = ["serde", "blake3"] }
 selfsign = { version = "0.4.0", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -46,8 +47,12 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
 ] }
 
 [patch.crates-io]
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.2.2" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "selfsign-v0.4.0" }
+# pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.2.0" }
+# selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.2.2" }
+# selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "selfsign-v0.4.0" }
+pneutype = { path = "../../vdods/pneutype/pneutype" }
+selfhash = { path = "../selfhash" }
+selfsign = { path = "../selfsign" }
 
 [workspace]
 resolver = "2"

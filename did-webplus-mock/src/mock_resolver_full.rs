@@ -1,14 +1,12 @@
+use crate::{
+    mock_resolver_internal::MockResolverInternal, MockVDG, MockVDR, MockVerifiedCache, Resolver,
+};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
 use std::{
     borrow::Cow,
     collections::HashMap,
     ops::DerefMut,
     sync::{Arc, RwLock},
-};
-
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
-
-use crate::{
-    mock_resolver_internal::MockResolverInternal, MockVDG, MockVDR, MockVerifiedCache, Resolver,
 };
 
 /// This is a "full" resolver which keeps a MockVerifiedCache of all DIDs it has resolved.
@@ -46,7 +44,7 @@ impl MockResolverFull {
 impl Resolver for MockResolverFull {
     fn get_did_documents<'s>(
         &'s mut self,
-        did: &DID,
+        did: &DIDStr,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
@@ -83,8 +81,8 @@ impl Resolver for MockResolverFull {
     }
     fn resolve_did_document<'s>(
         &'s mut self,
-        did: &DID,
-        self_hash_o: Option<&selfhash::KERIHash>,
+        did: &DIDStr,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         version_id_o: Option<u32>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {

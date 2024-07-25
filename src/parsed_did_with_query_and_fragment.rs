@@ -1,13 +1,15 @@
-use crate::{DIDFragment, DIDURIComponents, DIDWithFragment, DIDWithQuery, Error, Fragment};
+use crate::{
+    DIDFragment, DIDURIComponents, Error, Fragment, ParsedDIDWithFragment, ParsedDIDWithQuery,
+};
 
 #[deprecated = "Use DIDWithQueryAndFragment instead"]
-pub type DIDWebplusWithQueryAndFragment<F> = DIDWithQueryAndFragment<F>;
+pub type DIDWebplusWithQueryAndFragment<F> = ParsedDIDWithQueryAndFragment<F>;
 
 // TODO: Consider renaming this to something like DIDResourceFullyQualified
 #[derive(
     Clone, Debug, serde_with::DeserializeFromStr, Eq, Hash, PartialEq, serde_with::SerializeDisplay,
 )]
-pub struct DIDWithQueryAndFragment<F: Fragment> {
+pub struct ParsedDIDWithQueryAndFragment<F: Fragment> {
     // TODO: Maybe just use DIDWithQuery instead of repeating the fields host, path_o, self_hash, query_*?
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
@@ -17,7 +19,7 @@ pub struct DIDWithQueryAndFragment<F: Fragment> {
     pub(crate) fragment: DIDFragment<F>,
 }
 
-impl<F: Fragment> DIDWithQueryAndFragment<F> {
+impl<F: Fragment> ParsedDIDWithQueryAndFragment<F> {
     pub fn new(
         host: String,
         path_o: Option<String>,
@@ -53,16 +55,17 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
             fragment,
         })
     }
-    pub fn without_query(&self) -> DIDWithFragment<F> {
-        DIDWithFragment {
-            host: self.host.clone(),
-            path_o: self.path_o.clone(),
-            self_hash: self.self_hash.clone(),
-            fragment: self.fragment.clone(),
-        }
+    pub fn without_query(&self) -> ParsedDIDWithFragment<F> {
+        ParsedDIDWithFragment::new(
+            self.host.clone(),
+            self.path_o.clone(),
+            self.self_hash.clone(),
+            self.fragment.clone(),
+        )
+        .expect("programmer error")
     }
-    pub fn without_fragment(&self) -> DIDWithQuery {
-        DIDWithQuery {
+    pub fn without_fragment(&self) -> ParsedDIDWithQuery {
+        ParsedDIDWithQuery {
             host: self.host.clone(),
             path_o: self.path_o.clone(),
             self_hash: self.self_hash.clone(),
@@ -103,8 +106,8 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
             }
         }
     }
-    pub fn query_self_hash_o(&self) -> Option<&selfhash::KERIHash> {
-        self.query_self_hash_o.as_ref()
+    pub fn query_self_hash_o(&self) -> Option<&selfhash::KERIHashStr> {
+        self.query_self_hash_o.as_deref()
     }
     pub fn query_version_id_o(&self) -> Option<u32> {
         self.query_version_id_o
@@ -116,7 +119,7 @@ impl<F: Fragment> DIDWithQueryAndFragment<F> {
     }
 }
 
-impl<F: Fragment> std::fmt::Display for DIDWithQueryAndFragment<F> {
+impl<F: Fragment> std::fmt::Display for ParsedDIDWithQueryAndFragment<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Note that the fragment includes the leading '#' when it is displayed.
         let (path, delimiter) = if let Some(path) = self.path_o.as_deref() {
@@ -137,7 +140,7 @@ impl<F: Fragment> std::fmt::Display for DIDWithQueryAndFragment<F> {
     }
 }
 
-impl<F: Fragment> std::str::FromStr for DIDWithQueryAndFragment<F> {
+impl<F: Fragment> std::str::FromStr for ParsedDIDWithQueryAndFragment<F> {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let did_uri_components = DIDURIComponents::try_from(s)?;
@@ -162,7 +165,7 @@ impl<F: Fragment> std::str::FromStr for DIDWithQueryAndFragment<F> {
         let self_hash = selfhash::KERIHash::from_str(self_hash_str)?;
 
         let (query_self_hash_o, query_version_id_o) =
-            DIDWithQuery::parse_query_params(did_uri_components.query_o.unwrap())?;
+            ParsedDIDWithQuery::parse_query_params(did_uri_components.query_o.unwrap())?;
 
         let fragment = DIDFragment::from_str_without_hash(did_uri_components.fragment_o.unwrap())?;
         Ok(Self {

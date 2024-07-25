@@ -99,7 +99,7 @@ impl Microledger {
 
 impl<'m> MicroledgerView<'m> for &'m Microledger {
     fn did(&self) -> &'m did_webplus::DID {
-        &self.root_did_document().did
+        self.root_did_document().did()
     }
     fn root_did_document(&self) -> &'m did_webplus::DIDDocument {
         self.did_document_v
@@ -146,7 +146,7 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
     }
     fn did_document_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHash,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<&'m DIDDocument, Error> {
         let version_id = self.self_hash_version_id_m.get(self_hash).ok_or_else(|| {
             did_webplus::Error::NotFound("self-hash does not match any existing DID document")

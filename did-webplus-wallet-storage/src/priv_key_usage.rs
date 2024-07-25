@@ -1,5 +1,5 @@
 use crate::{PrivKeyUsageType, Result};
-use did_webplus::{DIDWithQuery, DIDWithQueryAndKeyIdFragment, DID};
+use did_webplus::{ParsedDIDWithQuery, DIDWithQueryAndKeyIdFragment, DID};
 
 /// Specific usages for a private key, along with type-specific data that does NOT include signature data.
 // TODO: Figure out if the other pub key in a key exchange is a risk to store.
@@ -8,7 +8,7 @@ pub enum PrivKeyUsage {
     DIDCreate { created_did_o: Option<DID> },
     /// Optionally contains the DIDWithQuery with selfHash and versionId that was used in the update.
     DIDUpdate {
-        updated_did_with_query_o: Option<DIDWithQuery>,
+        updated_did_with_query_o: Option<ParsedDIDWithQuery>,
     },
     /// Optionally contains the signing input for the signing operation.
     Sign { signing_input_o: Option<Vec<u8>> },

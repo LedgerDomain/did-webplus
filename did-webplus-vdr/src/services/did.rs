@@ -8,7 +8,7 @@ use axum::{
 };
 use did_webplus::{
     DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
-    DIDDocumentMetadataIdempotent, DIDWithQuery, DID,
+    DIDDocumentMetadataIdempotent, DIDStr, ParsedDIDWithQuery, DID,
 };
 use sqlx::PgPool;
 use tokio::task;
@@ -52,7 +52,9 @@ async fn get_did_document_or_metadata(
     }
 
     // Cases for retrieving a specific DID doc based on selfHash or versionId
-    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(host.as_str(), path.as_str()) {
+    if let Ok(did_with_query) =
+        ParsedDIDWithQuery::from_resolution_url(host.as_str(), path.as_str())
+    {
         let did = did_with_query.without_query();
         if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
             return get_did_document_with_self_hash(app_state.db, &did, query_self_hash.deref())
@@ -131,10 +133,12 @@ async fn get_did_document_or_metadata(
             let did = DID::from_resolution_url(host.as_str(), path)
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
+            let filename_self_hash = selfhash::KERIHashStr::new_ref(filename_self_hash_str)
+                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let did_document_record = DIDDocumentRecord::select_did_document(
                 &app_state.db,
                 &did,
-                Some(filename_self_hash_str),
+                Some(filename_self_hash),
                 None,
             )
             .await?
@@ -203,7 +207,7 @@ async fn get_did_document_or_metadata(
     Err((StatusCode::BAD_REQUEST, "".to_string()))
 }
 
-async fn get_latest_did_document(db: PgPool, did: &DID) -> Result<String, (StatusCode, String)> {
+async fn get_latest_did_document(db: PgPool, did: &DIDStr) -> Result<String, (StatusCode, String)> {
     let latest_record_o = DIDDocumentRecord::select_latest(&db, did).await?;
     match latest_record_o {
         Some(latest_did_document_record) => Ok(latest_did_document_record.did_document),
@@ -213,11 +217,11 @@ async fn get_latest_did_document(db: PgPool, did: &DID) -> Result<String, (Statu
 
 async fn get_did_document_with_self_hash(
     db: PgPool,
-    did: &DID,
-    self_hash_str: &str,
+    did: &DIDStr,
+    self_hash: &selfhash::KERIHashStr,
 ) -> Result<String, (StatusCode, String)> {
     let did_document_record_o =
-        DIDDocumentRecord::select_did_document(&db, did, Some(self_hash_str), None).await?;
+        DIDDocumentRecord::select_did_document(&db, did, Some(self_hash), None).await?;
     match did_document_record_o {
         Some(did_document_record) => Ok(did_document_record.did_document),
         None => Err((StatusCode::NOT_FOUND, "".to_string())),
@@ -226,7 +230,7 @@ async fn get_did_document_with_self_hash(
 
 async fn get_did_document_with_version_id(
     db: PgPool,
-    did: &DID,
+    did: &DIDStr,
     version_id: u32,
 ) -> Result<String, (StatusCode, String)> {
     let did_document_record_o =
@@ -270,12 +274,12 @@ async fn create_did(
     }
 
     let root_did_document = parse_did_document(&body)?;
-    if root_did_document.did != did {
+    if *root_did_document.did() != did {
         return Err((
             StatusCode::BAD_REQUEST,
             format!(
                 "DID in document does not match the DID in the resolution URL: {} != {}",
-                root_did_document.did, did
+                root_did_document.parsed_did, did
             ),
         ));
     }
@@ -313,12 +317,13 @@ async fn update_did(
     let latest_did_document_record = latest_did_document_record_o.unwrap();
 
     let new_did_document = parse_did_document(&body)?;
-    if new_did_document.did != did {
+    if *new_did_document.did() != did {
         return Err((
             StatusCode::BAD_REQUEST,
             format!(
                 "DID in document does not match the DID in the resolution URL: {} != {}",
-                new_did_document.did, did
+                new_did_document.did(),
+                did
             ),
         ));
     }

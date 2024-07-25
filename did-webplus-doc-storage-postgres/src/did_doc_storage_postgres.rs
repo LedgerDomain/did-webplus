@@ -1,4 +1,4 @@
-use did_webplus::{DIDDocument, DID};
+use did_webplus::{DIDDocument, DIDStr};
 use did_webplus_doc_store::{DIDDocRecord, Error, Result};
 use sqlx::PgPool;
 
@@ -51,7 +51,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             did_document.self_hash_o.is_some(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
-        let did_string = did_document.did.to_string();
+        let did_string = did_document.parsed_did.to_string();
         sqlx::query_as!(
             did_webplus_doc_store::DIDDocRecord,
             r#"
@@ -76,10 +76,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
     async fn get_did_doc_record_with_self_hash(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
-        self_hash: &str,
+        did: &DIDStr,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
         let did_doc_record_o = sqlx::query_as!(
             DIDDocRecord,
             r#"
@@ -87,8 +86,8 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
                 from did_document_records
                 where did = $1 and self_hash = $2
             "#,
-            did_string,
-            self_hash.to_string()
+            did.as_str(),
+            self_hash.as_str()
         )
         .fetch_optional(transaction.as_mut())
         .await?;
@@ -97,10 +96,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
     async fn get_did_doc_record_with_version_id(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
         version_id: u32,
     ) -> Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
         let did_doc_record_o = sqlx::query_as!(
             DIDDocRecord,
             r#"
@@ -108,7 +106,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
                 from did_document_records
                 where did = $1 and version_id = $2
             "#,
-            did_string,
+            did.as_str(),
             version_id as i64
         )
         .fetch_optional(transaction.as_mut())
@@ -118,9 +116,8 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
     async fn get_latest_did_doc_record(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
         let did_doc_record = sqlx::query_as!(
             DIDDocRecord,
             r#"
@@ -130,7 +127,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
                 order by version_id desc
                 limit 1
             "#,
-            did_string,
+            did.as_str(),
         )
         .fetch_optional(transaction.as_mut())
         .await?;

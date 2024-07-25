@@ -1,7 +1,6 @@
-use std::borrow::Cow;
-
-use did_webplus::{DIDWithQuery, DID};
+use did_webplus::{DIDStr, ParsedDIDWithQuery};
 use reqwest::StatusCode;
+use std::borrow::Cow;
 
 lazy_static::lazy_static! {
     /// Building a reqwest::Client is *incredibly* slow, so we use a global instance and then clone
@@ -48,14 +47,14 @@ async fn http_get(url: &str) -> HTTPResult<String> {
 }
 
 pub async fn vdr_fetch_latest_did_document_body(
-    did: &DID,
+    did: &DIDStr,
     scheme: &'static str,
 ) -> HTTPResult<String> {
     http_get(did.resolution_url(scheme).as_str()).await
 }
 
 pub async fn vdr_fetch_did_document_body(
-    did_with_query: &DIDWithQuery,
+    did_with_query: &ParsedDIDWithQuery,
     scheme: &'static str,
 ) -> HTTPResult<String> {
     http_get(did_with_query.resolution_url(scheme).as_str()).await

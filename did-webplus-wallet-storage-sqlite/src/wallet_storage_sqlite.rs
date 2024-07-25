@@ -1,6 +1,6 @@
 use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageRow};
 use did_webplus::{
-    DIDDocument, DIDKeyIdFragment, DIDWithQueryAndKeyIdFragment, KeyPurposeFlags, DID,
+    DIDDocument, DIDKeyIdFragment, DIDStr, DIDWithQueryAndKeyIdFragment, KeyPurposeFlags, DID,
 };
 use did_webplus_doc_store::{DIDDocRecord, DIDDocStorage};
 use did_webplus_wallet_storage::{
@@ -71,7 +71,7 @@ impl DIDDocStorage for WalletStorageSQLite {
         );
         let did_document_row_sqlite = DIDDocumentRowSQLite {
             self_hash: Some(did_document.self_hash().to_string()),
-            did: did_document.did.to_string(),
+            did: did_document.parsed_did.to_string(),
             version_id: did_document.version_id() as i64,
             valid_from: did_document.valid_from(),
             did_document_jcs: did_document_jcs.to_string(),
@@ -126,10 +126,11 @@ impl DIDDocStorage for WalletStorageSQLite {
     async fn get_did_doc_record_with_self_hash(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
-        self_hash: &str,
+        did: &DIDStr,
+        self_hash: &selfhash::KERIHashStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
+        let did_str = did.as_str();
+        let self_hash_str = self_hash.as_str();
         let did_doc_record_o = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
@@ -137,8 +138,8 @@ impl DIDDocStorage for WalletStorageSQLite {
                 FROM did_documents
                 WHERE did = $1 AND self_hash = $2
             "#,
-            did_string,
-            self_hash
+            did_str,
+            self_hash_str,
         )
         .fetch_optional(transaction.as_mut())
         .await?
@@ -149,10 +150,10 @@ impl DIDDocStorage for WalletStorageSQLite {
     async fn get_did_doc_record_with_version_id(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
         version_id: u32,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
+        let did_str = did.as_str();
         let version_id = version_id as i64;
         let did_doc_record_o = sqlx::query_as!(
             DIDDocumentRowSQLite,
@@ -161,7 +162,7 @@ impl DIDDocStorage for WalletStorageSQLite {
                 FROM did_documents
                 WHERE did = $1 AND version_id = $2
             "#,
-            did_string,
+            did_str,
             version_id,
         )
         .fetch_optional(transaction.as_mut())
@@ -173,9 +174,9 @@ impl DIDDocStorage for WalletStorageSQLite {
     async fn get_latest_did_doc_record(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
+        let did_str = did.as_str();
         let did_doc_record_o = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
@@ -185,7 +186,7 @@ impl DIDDocStorage for WalletStorageSQLite {
                 ORDER BY version_id desc
                 LIMIT 1
             "#,
-            did_string,
+            did_str,
         )
         .fetch_optional(transaction.as_mut())
         .await?
@@ -300,7 +301,7 @@ impl WalletStorage for WalletStorageSQLite {
         &self,
         transaction: &mut Self::Transaction<'_>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifier,
+        pub_key: &selfsign::KERIVerifierStr,
     ) -> Result<()> {
         // This will only update if the priv key is not already deleted.
         let deleted_at_o = Some(time::OffsetDateTime::now_utc());
@@ -323,7 +324,7 @@ impl WalletStorage for WalletStorageSQLite {
         &self,
         transaction: &mut Self::Transaction<'_>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifier,
+        pub_key: &selfsign::KERIVerifierStr,
     ) -> Result<Option<PrivKeyRecord>> {
         let pub_key_str = pub_key.as_str();
         sqlx::query_as!(

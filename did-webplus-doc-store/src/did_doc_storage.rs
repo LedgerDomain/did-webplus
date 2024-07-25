@@ -1,5 +1,5 @@
 use crate::{DIDDocRecord, Result};
-use did_webplus::{DIDDocument, DID};
+use did_webplus::{DIDDocument, DIDStr};
 
 #[async_trait::async_trait]
 pub trait DIDDocStorage: Send + Sync {
@@ -33,15 +33,15 @@ pub trait DIDDocStorage: Send + Sync {
     async fn get_did_doc_record_with_self_hash(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
-        self_hash: &str,
+        did: &DIDStr,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<Option<DIDDocRecord>>;
     /// Attempt to get a DIDDocRecord with a specific version-id value from the store.  Will return None if
     /// the requested DIDDocRecord does not exist.
     async fn get_did_doc_record_with_version_id(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
         version_id: u32,
     ) -> Result<Option<DIDDocRecord>>;
     /// Get the latest DIDDocRecord for the specified DID from the store.  Will return None if the DID has
@@ -49,6 +49,6 @@ pub trait DIDDocStorage: Send + Sync {
     async fn get_latest_did_doc_record(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>>;
 }

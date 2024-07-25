@@ -432,7 +432,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "clap_lex",
- "strsim",
+ "strsim 0.11.1",
 ]
 
 [[package]]
@@ -677,12 +677,36 @@ dependencies = [
 
 [[package]]
 name = "darling"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
+dependencies = [
+ "darling_core 0.13.4",
+ "darling_macro 0.13.4",
+]
+
+[[package]]
+name = "darling"
 version = "0.20.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83b2eb4d90d12bdda5ed17de686c2acb4c57914f8f921b8da7e112b5a36f3fe1"
 dependencies = [
- "darling_core",
- "darling_macro",
+ "darling_core 0.20.9",
+ "darling_macro 0.20.9",
+]
+
+[[package]]
+name = "darling_core"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "859d65a907b6852c9361e3185c862aae7fafd2887876799fa55f5f99dc40d610"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim 0.10.0",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -695,8 +719,19 @@ dependencies = [
  "ident_case",
  "proc-macro2",
  "quote",
- "strsim",
+ "strsim 0.11.1",
  "syn 2.0.65",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
+dependencies = [
+ "darling_core 0.13.4",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -705,7 +740,7 @@ version = "0.20.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "733cabb43482b1a1b53eee8583c2b9e8684d592215ea83efd305dd31bc2f0178"
 dependencies = [
- "darling_core",
+ "darling_core 0.20.9",
  "quote",
  "syn 2.0.65",
 ]
@@ -801,6 +836,7 @@ dependencies = [
  "ed25519-dalek",
  "enum-map",
  "flagset",
+ "pneutype",
  "rand",
  "selfhash",
  "selfsign",
@@ -846,6 +882,7 @@ dependencies = [
  "async-trait",
  "did-webplus",
  "did-webplus-doc-store",
+ "selfhash",
  "sqlx",
 ]
 
@@ -856,6 +893,7 @@ dependencies = [
  "async-trait",
  "did-webplus",
  "did-webplus-doc-store",
+ "selfhash",
  "sqlx",
  "time",
 ]
@@ -959,6 +997,7 @@ dependencies = [
  "hyper",
  "lazy_static",
  "reqwest",
+ "selfhash",
  "serde",
  "serde_json",
  "sqlx",
@@ -2340,6 +2379,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db23d408679286588f4d4644f965003d056e3dd5abcaaa938116871d7ce2fee7"
 
 [[package]]
+name = "pneutype"
+version = "0.2.0"
+dependencies = [
+ "pneutype-derive",
+]
+
+[[package]]
+name = "pneutype-derive"
+version = "0.2.0"
+dependencies = [
+ "darling 0.13.4",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "powerfmt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2802,13 +2858,13 @@ dependencies = [
 [[package]]
 name = "selfhash"
 version = "0.2.2"
-source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.2.2#e9764d764169b3d88ee5835e250578c70c90c2ca"
 dependencies = [
  "base64 0.21.7",
  "blake3",
  "derive_more",
  "digest 0.10.7",
  "lazy_static",
+ "pneutype",
  "serde",
  "serde_json_canonicalizer",
  "serde_with",
@@ -2818,14 +2874,13 @@ dependencies = [
 [[package]]
 name = "selfsign"
 version = "0.4.0"
-source = "git+https://github.com/LedgerDomain/selfsign?rev=selfsign-v0.4.0#a06e070a6d4fbf51dabc85d29420a8b5a05c242d"
 dependencies = [
  "base64 0.21.7",
  "derive_more",
  "digest 0.10.7",
  "ed25519-dalek",
  "k256",
- "lazy_static",
+ "pneutype",
  "selfhash",
  "serde",
  "serde_json_canonicalizer",
@@ -2941,7 +2996,7 @@ version = "3.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65569b702f41443e8bc8bbb1c5779bd0450bbe723b56198980e80ec45780bce2"
 dependencies = [
- "darling",
+ "darling 0.20.9",
  "proc-macro2",
  "quote",
  "syn 2.0.65",
@@ -3404,6 +3459,12 @@ dependencies = [
  "unicode-bidi",
  "unicode-normalization",
 ]
+
+[[package]]
+name = "strsim"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strsim"

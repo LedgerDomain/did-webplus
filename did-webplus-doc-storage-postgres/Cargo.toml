@@ -13,6 +13,7 @@ did-webplus = { path = ".." }
 did-webplus-doc-store = { path = "../did-webplus-doc-store", features = [
     "sqlx",
 ] }
+selfhash = "0.2.2"
 sqlx = { version = "0.7", features = [
     "runtime-tokio-rustls",
     "postgres",

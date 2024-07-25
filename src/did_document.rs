@@ -1,6 +1,8 @@
 use selfsign::SelfSignAndHashable;
 
-use crate::{DIDDocumentCreateParams, DIDDocumentUpdateParams, Error, PublicKeyMaterial, DID};
+use crate::{
+    DIDDocumentCreateParams, DIDDocumentUpdateParams, Error, ParsedDID, PublicKeyMaterial, DID,
+};
 
 /// The generic data model for did:webplus DID documents.  There are additional constraints on the
 /// data (it must be a root DID document or a non-root DID document), and there are conversion
@@ -19,7 +21,7 @@ pub struct DIDDocument {
     /// The serde-rename to "id" is intentional.  The DID spec mandates the field name "id", but the
     /// field value does have to be a DID.
     #[serde(rename = "id")]
-    pub did: DID,
+    pub parsed_did: ParsedDID,
     /// This is the self-hash of the document.  The self-hash functions as the globally unique identifier
     /// for the DID document.
     #[serde(rename = "selfHash")]
@@ -73,15 +75,17 @@ impl DIDDocument {
             ));
         }
         let did = DID::new(
-            did_document_create_params.did_host.into_owned(),
+            did_document_create_params.did_host.as_ref(),
             did_document_create_params
                 .did_path_o
-                .map(|x| x.into_owned()),
-            hash_function.placeholder_hash().to_keri_hash().to_owned(),
+                .as_ref()
+                .map(|x| x.as_ref()),
+            hash_function.placeholder_hash().to_keri_hash().as_ref(),
         )
         .expect("pass");
+        let parsed_did = did.parsed();
         let mut root_did_document = Self {
-            did: did.clone(),
+            parsed_did: parsed_did.clone(),
             self_hash_o: None,
             self_signature_o: None,
             self_signature_verifier_o: None,
@@ -89,7 +93,7 @@ impl DIDDocument {
             version_id: 0,
             valid_from: did_document_create_params.valid_from,
             public_key_material: PublicKeyMaterial::new(
-                did,
+                parsed_did,
                 did_document_create_params.public_key_set,
             )?,
         };
@@ -129,9 +133,9 @@ impl DIDDocument {
         }
 
         // Form the new DID document
-        let did = prev_did_document.did().clone();
+        // let did = prev_did_document.parsed_did().clone();
         let mut new_non_root_did_document = Self {
-            did: did.clone(),
+            parsed_did: prev_did_document.parsed_did.clone(),
             self_hash_o: None,
             self_signature_o: None,
             self_signature_verifier_o: None,
@@ -139,7 +143,7 @@ impl DIDDocument {
             version_id: prev_did_document.version_id() + 1,
             valid_from: did_document_update_params.valid_from,
             public_key_material: PublicKeyMaterial::new(
-                did,
+                prev_did_document.parsed_did.clone(),
                 did_document_update_params.public_key_set,
             )?,
         };
@@ -181,7 +185,7 @@ impl DIDDocument {
 
     // TEMP METHODS
     pub fn did(&self) -> &DID {
-        &self.did
+        self.parsed_did.did()
     }
     // NOTE: This assumes this DIDDocument is self-hashed.
     pub fn self_hash(&self) -> &selfhash::KERIHash {
@@ -250,7 +254,7 @@ impl DIDDocument {
             ));
         }
         // Check key material
-        self.public_key_material.verify(&self.did)?;
+        self.public_key_material.verify(&self.parsed_did)?;
 
         Ok(self.self_hash_o.as_ref().unwrap())
     }
@@ -269,7 +273,7 @@ impl DIDDocument {
         // Check that id (i.e. the DID) matches the previous DID document's id (i.e. DID).
         // Note that this also implies that the host, embedded in the id, matches the host of the previous
         // DID document's id.
-        if self.did != *expected_prev_did_document.did() {
+        if self.parsed_did != expected_prev_did_document.parsed_did {
             return Err(Error::Malformed(
                 "Non-root DID document's id must match the previous DID document's id",
             ));
@@ -304,7 +308,7 @@ impl DIDDocument {
             ));
         }
         // Check key material
-        self.public_key_material.verify(&self.did)?;
+        self.public_key_material.verify(&self.parsed_did)?;
         // Now verify the self-signatures and self-hashes on this DID document.
         self.verify_self_signatures_and_hashes()?;
         assert!(self.self_hash_o.is_some());
@@ -326,7 +330,7 @@ impl selfhash::SelfHashable for DIDDocument {
         // self-hash slots to return.
         if self.is_root_did_document() {
             Box::new(
-                std::iter::once(Some(&self.did.self_hash as &dyn selfhash::Hash))
+                std::iter::once(Some(self.parsed_did.self_hash() as &dyn selfhash::Hash))
                     .chain(std::iter::once(
                         self.self_hash_o
                             .as_ref()
@@ -347,7 +351,7 @@ impl selfhash::SelfHashable for DIDDocument {
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to assign to.
         if self.is_root_did_document() {
-            self.did.self_hash = keri_hash.clone();
+            self.parsed_did.set_self_hash(keri_hash.clone());
             self.self_hash_o = Some(keri_hash.clone());
             self.public_key_material
                 .set_root_did_document_self_hash_slots_to(&keri_hash);

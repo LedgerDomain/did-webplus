@@ -1,11 +1,9 @@
+use crate::{MockVDG, Resolver, VDS};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
 use std::{
     borrow::Cow,
     sync::{Arc, RwLock},
 };
-
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
-
-use crate::{MockVDG, Resolver, VDS};
 
 // This is a "thin" resolver which doesn't keep a MockVerifiedCache, and instead outsources
 // the retrieval and verification of DID microledgers to a MockVDG.  In its mock implementation,
@@ -33,7 +31,7 @@ impl MockResolverThin {
 impl Resolver for MockResolverThin {
     fn get_did_documents<'s>(
         &'s mut self,
-        did: &DID,
+        did: &DIDStr,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
@@ -53,8 +51,8 @@ impl Resolver for MockResolverThin {
     }
     fn resolve_did_document<'s>(
         &'s mut self,
-        did: &DID,
-        self_hash_o: Option<&selfhash::KERIHash>,
+        did: &DIDStr,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         version_id_o: Option<u32>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {

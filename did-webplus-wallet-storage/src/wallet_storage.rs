@@ -36,13 +36,13 @@ pub trait WalletStorage: Clone + did_webplus_doc_store::DIDDocStorage {
         &self,
         transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifier,
+        pub_key: &selfsign::KERIVerifierStr,
     ) -> Result<()>;
     async fn get_priv_key(
         &self,
         transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifier,
+        pub_key: &selfsign::KERIVerifierStr,
     ) -> Result<Option<PrivKeyRecord>>;
     async fn get_priv_keys(
         &self,

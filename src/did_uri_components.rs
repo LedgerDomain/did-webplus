@@ -4,6 +4,8 @@ use crate::Error;
 pub struct DIDURIComponents<'a> {
     pub method: &'a str,
     pub host: &'a str,
+    /// For did:webplus, this would include the self-hash value, e.g. for "did:webplus:example.com:user:<self-hash>", the
+    /// path would be "user:<self-hash>".
     pub path: &'a str,
     pub query_o: Option<&'a str>,
     pub fragment_o: Option<&'a str>,
@@ -16,7 +18,7 @@ impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
             return Err(Error::Malformed("DID URI is expected to start with 'did:'"));
         }
         // Get rid of the "did:" prefix.
-        let s = s.split_once(':').unwrap().1;
+        let s = s.strip_prefix("did:").unwrap();
         let (method, post_method_str) = s.split_once(':').ok_or(Error::Malformed(
             "DID URI is expected to have a second ':' after the method",
         ))?;
@@ -40,6 +42,11 @@ impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
                 (post_host_str, None, None)
             };
         // TODO: Validation on path, query_o, and fragment_o
+
+        // TODO: Stronger validation
+        if path.contains('/') || path.contains('%') {
+            return Err(Error::Malformed("DID URI path must not contain '/' or '%'"));
+        }
 
         Ok(Self {
             method,

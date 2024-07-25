@@ -1,6 +1,5 @@
-use did_webplus::{DIDDocument, DID};
-
 use crate::{parse_did_document, DIDDocRecord, DIDDocStorage, Result};
+use did_webplus::{DIDDocument, DIDStr};
 
 pub struct DIDDocStore<Storage: DIDDocStorage> {
     storage: Storage,
@@ -52,8 +51,8 @@ impl<Storage: DIDDocStorage> DIDDocStore<Storage> {
     pub async fn get_did_doc_record_with_self_hash(
         &self,
         transaction: &mut Storage::Transaction<'_>,
-        did: &DID,
-        self_hash: &str,
+        did: &DIDStr,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         self.storage
             .get_did_doc_record_with_self_hash(transaction, did, self_hash)
@@ -62,7 +61,7 @@ impl<Storage: DIDDocStorage> DIDDocStore<Storage> {
     pub async fn get_did_doc_record_with_version_id(
         &self,
         transaction: &mut Storage::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
         version_id: u32,
     ) -> Result<Option<DIDDocRecord>> {
         self.storage
@@ -72,13 +71,13 @@ impl<Storage: DIDDocStorage> DIDDocStore<Storage> {
     pub async fn get_latest_did_doc_record(
         &self,
         transaction: &mut Storage::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>> {
         self.storage
             .get_latest_did_doc_record(transaction, did)
             .await
     }
-    // pub async fn did_exists(&self, did: &DID) -> Result<bool> {
+    // pub async fn did_exists(&self, did: &DIDStr) -> Result<bool> {
     //     let mut transaction = self.storage.begin_transaction().await?;
     //     let did_doc_record_o = self
     //         .storage

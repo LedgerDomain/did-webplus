@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    ops::Deref,
     sync::{Arc, RwLock},
 };
 
@@ -42,7 +41,7 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDo
     );
     assert_eq!(
         headers.get("ETag").unwrap().to_str().unwrap(),
-        did_document.self_hash().deref()
+        did_document.self_hash().as_str()
     );
 }
 

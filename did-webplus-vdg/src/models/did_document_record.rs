@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use did_webplus::{DIDDocument, DID};
+use did_webplus::{DIDDocument, DIDStr};
 // use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use time::OffsetDateTime;
@@ -32,7 +32,7 @@ impl DIDDocumentRecord {
             *did_document,
             "programmer error: body and did_document are inconsistent"
         );
-        let did_string = did_document.did.to_string();
+        let did_string = did_document.parsed_did.to_string();
         // This assumes that all stored DID documents have been validated inductively from the root!
         let self_hash = did_document
             .verify_nonrecursive(prev_did_document)
@@ -61,15 +61,14 @@ impl DIDDocumentRecord {
 
     pub async fn select_did_document(
         db: &PgPool,
-        did: &DID,
-        self_hash_o: Option<&str>,
+        did: &DIDStr,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         version_id_o: Option<u32>,
     ) -> Result<Option<Self>, (StatusCode, String)> {
         assert!(
             self_hash_o.is_some() != version_id_o.is_some(),
             "exactly one of self_hash_o or version_id_o must be set"
         );
-        let did_string = did.to_string();
         let filter_on_self_hash = self_hash_o.is_some();
         let filter_on_version_id = version_id_o.is_some();
         let did_document_record_o = sqlx::query_as!(
@@ -81,12 +80,12 @@ impl DIDDocumentRecord {
                 and (not $2 or self_hash = $3)
                 and (not $4 or version_id = $5)
             "#,
-            did_string,
+            did.as_str(),
             filter_on_self_hash,
             if let Some(self_hash) = self_hash_o.as_ref() {
-                self_hash.to_string()
+                self_hash.as_str()
             } else {
-                "".to_string()
+                ""
             },
             filter_on_version_id,
             if let Some(version_id) = version_id_o {
@@ -106,7 +105,7 @@ impl DIDDocumentRecord {
     //     since: OffsetDateTime,
     //     start_version_id: u32,
     //     end_version_id: u32,
-    //     did: &DID,
+    //     did: &DIDStr,
     // ) -> Result<Vec<Self>, anyhow::Error> {
     //     let did_string = did.to_string();
     //     let did_documents_records = sqlx::query_as!(
@@ -130,7 +129,7 @@ impl DIDDocumentRecord {
     //     Ok(did_documents_records)
     // }
 
-    // pub async fn did_exists(db: &PgPool, did: &DID) -> Result<bool, anyhow::Error> {
+    // pub async fn did_exists(db: &PgPool, did: &DIDStr) -> Result<bool, anyhow::Error> {
     //     let did_string = did.to_string();
     //     Ok(sqlx::query!(
     //         r#"
@@ -147,9 +146,8 @@ impl DIDDocumentRecord {
 
     pub async fn select_latest(
         db: &PgPool,
-        did: &DID,
+        did: &DIDStr,
     ) -> Result<Option<Self>, (StatusCode, String)> {
-        let did_string = did.to_string();
         let did_documents_record = sqlx::query_as!(
             DIDDocumentRecord,
             r#"
@@ -159,7 +157,7 @@ impl DIDDocumentRecord {
                 order by version_id desc
                 limit 1
             "#,
-            did_string,
+            did.as_str(),
         )
         .fetch_optional(db)
         .await

@@ -9,7 +9,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use did_webplus::{DIDWithQuery, DID};
+use did_webplus::{DIDStr, ParsedDIDWithQuery, DID};
 use sqlx::PgPool;
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
@@ -48,7 +48,7 @@ async fn resolve_did_impl(
     let did = if let Ok(did) = DID::from_str(did_query.as_str()) {
         tracing::trace!("got a plain DID to resolve, no query params: {}", did);
         did
-    } else if let Ok(did_with_query) = DIDWithQuery::from_str(did_query.as_str()) {
+    } else if let Ok(did_with_query) = ParsedDIDWithQuery::from_str(did_query.as_str()) {
         tracing::trace!("got a DID with query params: {}", did_with_query);
         query_self_hash_o = did_with_query.query_self_hash_o().map(|x| x.to_owned());
         query_version_id_o = did_with_query.query_version_id_o();
@@ -85,7 +85,7 @@ async fn resolve_did_impl(
                 if let Some(self_hash_str) = self_hash_str_o {
                     if let Some(did_document_record) = did_document_record_o.as_ref() {
                         tracing::trace!("both selfHash and versionId query params present, so now a consistency check will be performed");
-                        if did_document_record.self_hash != self_hash_str {
+                        if did_document_record.self_hash.as_str() != self_hash_str.as_str() {
                             // Note: If there is a real signature by the DID which contains the conflicting
                             // selfHash and versionId values, then that represents a fork in the DID document,
                             // which is considered illegal and fraudulent.  However, simply receiving a request
@@ -320,13 +320,13 @@ async fn http_get(url: &str) -> Result<String, (StatusCode, String)> {
     }
 }
 
-async fn vdr_fetch_latest_did_document_body(did: &DID) -> Result<String, (StatusCode, String)> {
+async fn vdr_fetch_latest_did_document_body(did: &DIDStr) -> Result<String, (StatusCode, String)> {
     // Use of hardcoded "http" is a TEMP HACK
     http_get(did.resolution_url("http").as_str()).await
 }
 
 async fn vdr_fetch_did_document_body(
-    did_with_query: &DIDWithQuery,
+    did_with_query: &ParsedDIDWithQuery,
 ) -> Result<String, (StatusCode, String)> {
     // Use of hardcoded "http" is a TEMP HACK
     http_get(did_with_query.resolution_url("http").as_str()).await

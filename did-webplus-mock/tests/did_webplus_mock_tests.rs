@@ -69,7 +69,7 @@ fn test_example_creating_and_updating_a_did() {
             .expect("pass"),
         )
         .expect("pass");
-        let did = microledger.view().did().clone();
+        let did = microledger.view().did();
         use selfsign::Verifier;
         let latest_did_document = microledger.view().latest_did_document();
         println!("Creating a DID produces the root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is a public key that is also found in the `capabilityInvocation` field.  This is the initial proof of control over the DID.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));
@@ -118,7 +118,7 @@ fn test_example_creating_and_updating_a_did() {
             .mut_view()
             .update(new_did_document)
             .expect("pass");
-        let did = microledger.view().did().clone();
+        let did = microledger.view().did();
         use selfsign::Verifier;
         let latest_did_document = microledger.view().latest_did_document();
         println!("Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is present in the previous (root) DID document's `capabilityInvocation` field.  This proves that the DID document was updated by an authorized entity.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));
@@ -178,7 +178,7 @@ fn test_example_creating_and_updating_a_did() {
             .mut_view()
             .update(new_did_document)
             .expect("pass");
-        let did = microledger.view().did().clone();
+        let did = microledger.view().did();
         use selfsign::Verifier;
         let latest_did_document = microledger.view().latest_did_document();
         println!("Updated DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is present in the previous (root) DID document's `capabilityInvocation` field.  This proves that the DID document was updated by an authorized entity.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));

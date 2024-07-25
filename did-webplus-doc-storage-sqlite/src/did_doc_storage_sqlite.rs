@@ -1,4 +1,4 @@
-use did_webplus::{DIDDocument, DID};
+use did_webplus::{DIDDocument, DIDStr};
 use did_webplus_doc_store::{DIDDocRecord, Error, Result};
 use sqlx::SqlitePool;
 
@@ -53,7 +53,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         );
         let did_doc_record_sqlite = DIDDocumentRowSQLite {
             self_hash: Some(did_document.self_hash().to_string()),
-            did: did_document.did.to_string(),
+            did: did_document.parsed_did.to_string(),
             version_id: did_document.version_id() as i64,
             valid_from: did_document.valid_from(),
             did_document: did_document_jcs.to_string(),
@@ -76,10 +76,11 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
     async fn get_did_doc_record_with_self_hash(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
-        self_hash: &str,
+        did: &DIDStr,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
+        let did_str = did.as_str();
+        let self_hash_str = self_hash.as_str();
         let did_doc_record_o = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
@@ -87,8 +88,8 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
                 from did_document_records
                 where did = $1 and self_hash = $2
             "#,
-            did_string,
-            self_hash
+            did_str,
+            self_hash_str
         )
         .fetch_optional(transaction.as_mut())
         .await?
@@ -99,10 +100,10 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
     async fn get_did_doc_record_with_version_id(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
         version_id: u32,
     ) -> Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
+        let did_str = did.as_str();
         let version_id = version_id as i64;
         let did_doc_record_o = sqlx::query_as!(
             DIDDocumentRowSQLite,
@@ -111,7 +112,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
                 from did_document_records
                 where did = $1 and version_id = $2
             "#,
-            did_string,
+            did_str,
             version_id,
         )
         .fetch_optional(transaction.as_mut())
@@ -123,9 +124,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
     async fn get_latest_did_doc_record(
         &self,
         transaction: &mut Self::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>> {
-        let did_string = did.to_string();
+        let did_str = did.as_str();
         let did_doc_record_o = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
@@ -135,7 +136,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
                 order by version_id desc
                 limit 1
             "#,
-            did_string,
+            did_str,
         )
         .fetch_optional(transaction.as_mut())
         .await?

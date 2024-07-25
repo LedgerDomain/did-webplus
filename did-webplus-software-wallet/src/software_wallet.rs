@@ -1,7 +1,7 @@
 use crate::REQWEST_CLIENT;
 use did_webplus::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDWithQuery, KeyPurpose,
-    KeyPurposeFlags, DID,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDStr, KeyPurpose,
+    KeyPurposeFlags, ParsedDIDWithQuery,
 };
 use did_webplus_wallet::{Error, Result, Wallet};
 use did_webplus_wallet_storage::{
@@ -24,7 +24,7 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
     async fn fetch_did_internal(
         &self,
         transaction: &mut Storage::Transaction<'_>,
-        did: &DID,
+        did: &DIDStr,
         vdr_scheme: &'static str,
     ) -> Result<did_webplus_doc_store::DIDDocRecord> {
         // Note the version of the known latest DID document.  This will only differ from the actual latest
@@ -35,7 +35,7 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
         let did_doc_record = did_webplus_resolver::resolve_did(
             &did_doc_store,
             transaction,
-            did.to_string().as_str(),
+            did.as_str(),
             vdr_scheme,
         )
         .await
@@ -46,7 +46,7 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
 
 #[async_trait::async_trait]
 impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
-    async fn create_did(&self, vdr_did_create_endpoint: &str) -> Result<DIDWithQuery> {
+    async fn create_did(&self, vdr_did_create_endpoint: &str) -> Result<ParsedDIDWithQuery> {
         // Parse the vdr_did_create_endpoint as a URL.
         let vdr_did_create_endpoint_url =
             url::Url::parse(vdr_did_create_endpoint).map_err(|e| {
@@ -138,7 +138,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         )
         .expect("pass");
         assert!(did_document.self_signature_verifier_o.is_some());
-        let did = did_document.did.clone();
+        let did = did_document.did();
 
         let mut transaction = self.storage.begin_transaction(None).await?;
 
@@ -210,7 +210,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
                         .clone(),
                     used_at: created_at,
                     usage: PrivKeyUsage::DIDCreate {
-                        created_did_o: Some(did.clone()),
+                        created_did_o: Some(did.to_owned()),
                     },
                     verification_method_and_purpose_o: Some((
                         controlled_did_with_key_id,
@@ -225,14 +225,18 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         Ok(controlled_did)
     }
     // TODO: Figure out how to update any other local doc stores.
-    async fn fetch_did(&self, did: &DID, vdr_scheme: &'static str) -> Result<()> {
+    async fn fetch_did(&self, did: &DIDStr, vdr_scheme: &'static str) -> Result<()> {
         let mut transaction = self.storage.begin_transaction(None).await?;
         self.fetch_did_internal(&mut transaction, did, vdr_scheme)
             .await?;
         self.storage.commit_transaction(transaction).await?;
         Ok(())
     }
-    async fn update_did(&self, did: &DID, vdr_scheme: &'static str) -> Result<DIDWithQuery> {
+    async fn update_did(
+        &self,
+        did: &DIDStr,
+        vdr_scheme: &'static str,
+    ) -> Result<ParsedDIDWithQuery> {
         assert!(vdr_scheme == "https" || vdr_scheme == "http");
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
@@ -274,7 +278,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
                 &mut transaction,
                 &self.ctx,
                 &LocallyControlledVerificationMethodFilter {
-                    did_o: Some(did.clone()),
+                    did_o: Some(did.to_owned()),
                     version_id_o: Some(latest_did_document.version_id),
                     key_purpose_o: None,
                 },

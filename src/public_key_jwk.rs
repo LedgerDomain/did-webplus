@@ -1,4 +1,4 @@
-use crate::{DIDWithKeyIdFragment, Error, PublicKeyParams, DID};
+use crate::{DIDStr, DIDWithKeyIdFragment, Error, PublicKeyParams};
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyJWK {
@@ -12,7 +12,7 @@ pub struct PublicKeyJWK {
 }
 
 impl PublicKeyJWK {
-    pub fn try_from_did_and_verifier(did: &DID, verifier: &dyn selfsign::Verifier) -> Self {
+    pub fn try_from_did_and_verifier(did: &DIDStr, verifier: &dyn selfsign::Verifier) -> Self {
         let keri_verifier = verifier.to_keri_verifier();
         let public_key_params = PublicKeyParams::from(verifier);
         assert!(
@@ -34,7 +34,8 @@ impl TryFrom<&PublicKeyJWK> for selfsign::KERIVerifier {
         let keri_verifier = selfsign::KERIVerifier::try_from(&public_key_jwk.public_key_params)?;
         // Verify that the kid fragment matches the KERIVerifier corresponding to the key material.
         if let Some(kid) = &public_key_jwk.kid_o {
-            if *kid.fragment != keri_verifier {
+            use std::ops::Deref;
+            if *kid.fragment().deref() != keri_verifier {
                 return Err(Error::Malformed(
                     "publicKeyJwk kid fragment does not match publicKeyJwk key material",
                 ));

@@ -41,7 +41,7 @@ fn test_roundtrip_did_with_query() {
 
     ];
     for s in str_v {
-        let did = did_webplus::DIDWithQuery::from_str(s).expect("pass");
+        let did = did_webplus::ParsedDIDWithQuery::from_str(s).expect("pass");
         println!("string form of DID: {}", s);
         println!("parsed DID: {:?}", did);
         let s2 = did.to_string();
@@ -284,7 +284,7 @@ fn test_signature_generation_with_witness() {
         did_document_0
             .verify_self_signatures_and_hashes()
             .expect("pass");
-        let did = did_document_0.did.clone();
+        let did = did_document_0.parsed_did.clone();
         println!(
             "Root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n",
             serde_json::to_string_pretty(&did_document_0).unwrap()

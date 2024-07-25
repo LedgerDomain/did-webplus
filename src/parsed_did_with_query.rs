@@ -1,14 +1,14 @@
 use std::{ops::Deref, str::FromStr};
 
-use crate::{DIDURIComponents, DIDWithQueryAndFragment, Error, Fragment};
+use crate::{DIDURIComponents, ParsedDIDWithQueryAndFragment, Error, Fragment, DID};
 
 #[deprecated = "Use DIDWithQuery instead"]
-pub type DIDWebplusWithQuery = DIDWithQuery;
+pub type DIDWebplusWithQuery = ParsedDIDWithQuery;
 
 // TODO: Consider renaming this to something like DIDFullyQualified (though this would only if
 // both self_hash and version_id are present; there would be other variants for partial qualification)
 #[derive(Clone, Debug, serde_with::DeserializeFromStr, serde_with::SerializeDisplay)]
-pub struct DIDWithQuery {
+pub struct ParsedDIDWithQuery {
     // TODO: Maybe just use DID instead of repeating the fields host, path_o, self_hash?
     pub(crate) host: String,
     pub(crate) path_o: Option<String>,
@@ -17,7 +17,7 @@ pub struct DIDWithQuery {
     pub(crate) query_version_id_o: Option<u32>,
 }
 
-impl DIDWithQuery {
+impl ParsedDIDWithQuery {
     pub fn new(
         host: String,
         path_o: Option<String>,
@@ -51,15 +51,17 @@ impl DIDWithQuery {
             query_version_id_o,
         })
     }
-    pub fn without_query(&self) -> crate::DID {
-        crate::DID {
-            host: self.host.clone(),
-            path_o: self.path_o.clone(),
-            self_hash: self.self_hash.clone(),
-        }
+    pub fn without_query(&self) -> DID {
+        // DID {
+        //     host: self.host.clone(),
+        //     path_o: self.path_o.clone(),
+        //     self_hash: self.self_hash.clone(),
+        // }
+        DID::new(self.host.as_str(), self.path_o.as_deref(), &self.self_hash)
+            .expect("programmer error")
     }
-    pub fn with_fragment<F: Fragment>(&self, fragment: F) -> DIDWithQueryAndFragment<F> {
-        DIDWithQueryAndFragment {
+    pub fn with_fragment<F: Fragment>(&self, fragment: F) -> ParsedDIDWithQueryAndFragment<F> {
+        ParsedDIDWithQueryAndFragment {
             host: self.host.clone(),
             path_o: self.path_o.clone(),
             self_hash: self.self_hash.clone(),
@@ -267,7 +269,7 @@ impl DIDWithQuery {
     }
 }
 
-impl std::fmt::Display for DIDWithQuery {
+impl std::fmt::Display for ParsedDIDWithQuery {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (path, delimiter) = if let Some(path) = self.path_o.as_deref() {
             (path, ":")
@@ -286,7 +288,7 @@ impl std::fmt::Display for DIDWithQuery {
     }
 }
 
-impl std::str::FromStr for DIDWithQuery {
+impl std::str::FromStr for ParsedDIDWithQuery {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let did_uri_components = DIDURIComponents::try_from(s)?;

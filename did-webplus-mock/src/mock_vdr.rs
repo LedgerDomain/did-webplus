@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
+use did_webplus::{
+    DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata, DID,
+};
 
 use crate::{Microledger, VDS};
 
@@ -29,20 +31,20 @@ impl MockVDR {
     ) -> Result<DID, Error> {
         println!(
             "VDR (host: {:?}) servicing CREATE DID request from {:?} for\n    DID: {}",
-            self.host, user_agent, root_did_document.did
+            self.host, user_agent, root_did_document.parsed_did
         );
         self.simulate_latency_if_necessary();
 
-        if root_did_document.did.host() != self.host.as_str() {
+        if root_did_document.parsed_did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         // This construction will fail if the root_did_document isn't valid.
         let microledger = Microledger::create(root_did_document)?;
         use did_webplus::MicroledgerView;
-        if self.microledger_m.contains_key(&microledger.view().did()) {
+        if self.microledger_m.contains_key(microledger.view().did()) {
             return Err(Error::AlreadyExists("DID already exists"));
         }
-        let did = microledger.view().did().clone();
+        let did = microledger.view().did().to_owned();
         self.microledger_m.insert(did.clone(), microledger);
         Ok(did)
     }
@@ -53,22 +55,22 @@ impl MockVDR {
     ) -> Result<(), Error> {
         println!(
             "VDR (host: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
-            self.host, user_agent, new_did_document.did
+            self.host, user_agent, new_did_document.parsed_did
         );
         self.simulate_latency_if_necessary();
 
-        if new_did_document.did.host() != self.host.as_str() {
+        if new_did_document.parsed_did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         let microledger = self
             .microledger_m
-            .get_mut(&new_did_document.did)
+            .get_mut(new_did_document.did())
             .ok_or_else(|| Error::NotFound("DID not found"))?;
         use did_webplus::MicroledgerMutView;
         microledger.mut_view().update(new_did_document)?;
         Ok(())
     }
-    fn microledger<'s>(&'s self, did: &DID) -> Result<&'s Microledger, Error> {
+    fn microledger<'s>(&'s self, did: &DIDStr) -> Result<&'s Microledger, Error> {
         self.microledger_m
             .get(did)
             .ok_or_else(|| Error::NotFound("DID not found"))
@@ -84,7 +86,7 @@ impl VDS for MockVDR {
     fn get_did_documents<'s>(
         &'s mut self,
         requester_user_agent: &str,
-        did: &DID,
+        did: &DIDStr,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
@@ -106,9 +108,9 @@ impl VDS for MockVDR {
     fn resolve_did_document<'s>(
         &'s mut self,
         requester_user_agent: &str,
-        did: &DID,
+        did: &DIDStr,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHash>,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!(

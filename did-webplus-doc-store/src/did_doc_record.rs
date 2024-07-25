@@ -32,7 +32,7 @@ impl DIDDocRecord {
                 self.self_hash.to_string().into(),
             )
         })?;
-        if did_document_self_hash.deref() != self.self_hash.as_str() {
+        if did_document_self_hash.deref().as_str() != self.self_hash.as_str() {
             return Err(Error::RecordCorruption(
                 format!(
                     "Parsed DID doc \"selfHash\" field {} doesn't match that of stored record",
@@ -43,7 +43,7 @@ impl DIDDocRecord {
             ));
         }
 
-        let did_document_did_string = did_document.did.to_string();
+        let did_document_did_string = did_document.parsed_did.to_string();
         if did_document_did_string != self.did {
             return Err(Error::RecordCorruption(
                 format!(

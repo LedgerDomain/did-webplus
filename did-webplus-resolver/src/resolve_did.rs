@@ -1,5 +1,5 @@
 use crate::{vdr_fetch_did_document_body, vdr_fetch_latest_did_document_body, Error, Result};
-use did_webplus::{DIDURIComponents, DIDWithQuery, DID};
+use did_webplus::{DIDURIComponents, ParsedDIDWithQuery, DID};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStorage, DIDDocStore};
 use std::str::FromStr;
 
@@ -29,7 +29,7 @@ pub async fn resolve_did<Storage: DIDDocStorage>(
         DID::from_str(did_query).map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?
     } else {
         tracing::trace!("got a DID with query params: {}", did_query);
-        let did_with_query = DIDWithQuery::from_str(did_query)
+        let did_with_query = ParsedDIDWithQuery::from_str(did_query)
             .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?;
         query_self_hash_o = did_with_query.query_self_hash_o().map(|x| x.to_owned());
         query_version_id_o = did_with_query.query_version_id_o();
@@ -67,7 +67,7 @@ pub async fn resolve_did<Storage: DIDDocStorage>(
                 if let Some(self_hash_str) = self_hash_str_o {
                     if let Some(did_doc_record) = did_doc_record_o.as_ref() {
                         tracing::trace!("both selfHash and versionId query params present, so now a consistency check will be performed");
-                        if did_doc_record.self_hash != self_hash_str {
+                        if did_doc_record.self_hash.as_str() != self_hash_str.as_str() {
                             // Note: If there is a real signature by the DID which contains the
                             // conflicting selfHash and versionId values, then that represents a fork
                             // in the DID document, which is considered illegal and fraudulent.
