@@ -18,7 +18,7 @@ impl DIDWithQueryStr {
     pub fn host(&self) -> &str {
         self.uri_components().host
     }
-    /// This is everything between the host and the self_hash, not including the leading and trailing
+    /// This is everything between the host and the root self_hash, not including the leading and trailing
     /// colons.  In particular, if the path is empty, this will be None.  Another example is
     /// "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz"
     /// which will have path_o of Some("foo:bar:baz").
@@ -26,8 +26,8 @@ impl DIDWithQueryStr {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn self_hash(&self) -> &selfhash::KERIHashStr {
-        self.uri_components().self_hash
+    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+        self.uri_components().root_self_hash
     }
     /// Returns the query selfHash value if present, otherwise None.
     pub fn query_self_hash_o(&self) -> Option<&selfhash::KERIHashStr> {
@@ -48,7 +48,7 @@ impl DIDWithQueryStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash().as_str());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did");
 
         // Append query param portion of filename.

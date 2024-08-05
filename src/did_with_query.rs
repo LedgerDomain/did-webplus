@@ -20,7 +20,7 @@ impl DIDWithQuery {
     pub fn new(
         host: &str,
         path_o: Option<&str>,
-        self_hash: &selfhash::KERIHashStr,
+        root_self_hash: &selfhash::KERIHashStr,
         query_self_hash_o: Option<&selfhash::KERIHashStr>,
         query_version_id_o: Option<u32>,
     ) -> Result<Self, Error> {
@@ -37,7 +37,7 @@ impl DIDWithQuery {
                     host,
                     if path_o.is_some() { ":" } else { "" },
                     if let Some(path) = path_o { path } else { "" },
-                    self_hash,
+                    root_self_hash,
                     query_self_hash,
                     query_version_id
                 )
@@ -48,7 +48,7 @@ impl DIDWithQuery {
                     host,
                     if path_o.is_some() { ":" } else { "" },
                     if let Some(path) = path_o { path } else { "" },
-                    self_hash,
+                    root_self_hash,
                     query_self_hash
                 )
             }
@@ -58,7 +58,7 @@ impl DIDWithQuery {
                     host,
                     if path_o.is_some() { ":" } else { "" },
                     if let Some(path) = path_o { path } else { "" },
-                    self_hash,
+                    root_self_hash,
                     query_version_id
                 )
             }
@@ -85,30 +85,32 @@ impl DIDWithQuery {
             let query_self_hash_str = filename.strip_suffix(".json").unwrap();
             let query_self_hash =
                 selfhash::KERIHashStr::new_ref(query_self_hash_str).map_err(|_| {
-                    Error::Malformed("invalid self-hash in filename component of resolution URL")
+                    Error::Malformed(
+                        "invalid query self-hash in filename component of resolution URL",
+                    )
                 })?;
             match path.rsplit_once('/') {
-                Some((path, did_self_hash_str)) => {
-                    let did_self_hash =
-                        selfhash::KERIHashStr::new_ref(did_self_hash_str).map_err(|_| {
-                            Error::Malformed("invalid self-hash component of resolution URL")
+                Some((path, root_self_hash_str)) => {
+                    let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)
+                        .map_err(|_| {
+                            Error::Malformed("invalid root self-hash component of resolution URL")
                         })?;
                     Ok(Self::new(
                         host,
                         Some(path),
-                        did_self_hash,
+                        root_self_hash,
                         Some(query_self_hash),
                         None,
                     )?)
                 }
                 None => {
-                    let did_self_hash = selfhash::KERIHashStr::new_ref(path).map_err(|_| {
-                        Error::Malformed("invalid self-hash component of resolution URL")
+                    let root_self_hash = selfhash::KERIHashStr::new_ref(path).map_err(|_| {
+                        Error::Malformed("invalid root self-hash component of resolution URL")
                     })?;
                     Ok(Self::new(
                         host,
                         None,
-                        did_self_hash,
+                        root_self_hash,
                         Some(query_self_hash),
                         None,
                     )?)
@@ -118,30 +120,30 @@ impl DIDWithQuery {
             let path = path.strip_suffix("/did/versionId").unwrap();
             let query_version_id_str = filename.strip_suffix(".json").unwrap();
             let query_version_id: u32 = query_version_id_str.parse().map_err(|_| {
-                Error::Malformed("invalid version ID in filename component of resolution URL")
+                Error::Malformed("invalid query version ID in filename component of resolution URL")
             })?;
             match path.rsplit_once('/') {
-                Some((path, did_self_hash_str)) => {
-                    let did_self_hash =
-                        selfhash::KERIHashStr::new_ref(did_self_hash_str).map_err(|_| {
-                            Error::Malformed("invalid self-hash component of resolution URL")
+                Some((path, root_self_hash_str)) => {
+                    let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)
+                        .map_err(|_| {
+                            Error::Malformed("invalid root self-hash component of resolution URL")
                         })?;
                     Ok(Self::new(
                         host,
                         Some(path),
-                        did_self_hash,
+                        root_self_hash,
                         None,
                         Some(query_version_id),
                     )?)
                 }
                 None => {
-                    let did_self_hash = selfhash::KERIHashStr::new_ref(path).map_err(|_| {
-                        Error::Malformed("invalid self-hash component of resolution URL")
+                    let root_self_hash = selfhash::KERIHashStr::new_ref(path).map_err(|_| {
+                        Error::Malformed("invalid root self-hash component of resolution URL")
                     })?;
                     Ok(Self::new(
                         host,
                         None,
-                        did_self_hash,
+                        root_self_hash,
                         None,
                         Some(query_version_id),
                     )?)

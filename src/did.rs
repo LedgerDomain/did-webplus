@@ -9,14 +9,14 @@ impl DID {
     pub fn new(
         host: &str,
         path_o: Option<&str>,
-        self_hash: &selfhash::KERIHashStr,
+        root_self_hash: &selfhash::KERIHashStr,
     ) -> Result<Self, Error> {
         let did_string = format!(
             "did:webplus:{}:{}{}{}",
             host,
             path_o.unwrap_or(""),
             if path_o.is_some() { ":" } else { "" },
-            self_hash
+            root_self_hash
         );
         use pneutype::Validate;
         debug_assert!(
@@ -37,29 +37,28 @@ impl DID {
                 "resolution URL path must end with 'did.json'",
             ));
         }
-        let path_and_self_hash_str = path.strip_suffix("/did.json").unwrap();
-        let (path_o, self_hash_str) = match path_and_self_hash_str.rsplit_once('/') {
-            Some((path, self_hash_str)) => {
+        let path_and_root_self_hash_str = path.strip_suffix("/did.json").unwrap();
+        let (path_o, root_self_hash_str) = match path_and_root_self_hash_str.rsplit_once('/') {
+            Some((path, root_self_hash_str)) => {
                 // Replace all the '/' chars with ':' chars.
                 let path = path.replace('/', ":");
                 // Self::new_with_self_hash_str(host, Some(path.as_str()), self_hash_str)
-                (Some(path), self_hash_str)
+                (Some(path), root_self_hash_str)
             }
             None => {
-                let self_hash_str = path_and_self_hash_str;
+                let root_self_hash_str = path_and_root_self_hash_str;
                 // return Self::new_with_self_hash_str(host, None, self_hash_str);
-                (None, self_hash_str)
+                (None, root_self_hash_str)
             }
         };
-        let self_hash = selfhash::KERIHashStr::new_ref(self_hash_str)?;
-        Self::new(host, path_o.as_deref(), self_hash)
+        let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)?;
+        Self::new(host, path_o.as_deref(), root_self_hash)
     }
-    // TODO: Consider renaming "self hash" to "root self hash" to make it clear that it's distinct from
-    // "query self hash".
-    pub fn set_self_hash(&mut self, self_hash: &selfhash::KERIHashStr) {
-        // Strip off the self_hash portion, not including the ':' delimiter before it.
+    /// Set the root self hash value to the given value.
+    pub fn set_root_self_hash(&mut self, root_self_hash: &selfhash::KERIHashStr) {
+        // Strip off the root self_hash portion, not including the ':' delimiter before it.
         self.0.truncate(self.0.rfind(':').unwrap() + 1);
-        self.0.push_str(self_hash.as_str());
+        self.0.push_str(root_self_hash.as_str());
         use pneutype::Validate;
         debug_assert!(
             DIDStr::validate(self.0.as_str()).is_ok(),
@@ -73,12 +72,12 @@ impl DID {
 /// this semantic difference isn't worth doing anything about.
 impl selfhash::Hash for DID {
     fn hash_function(&self) -> &dyn selfhash::HashFunction {
-        self.self_hash().hash_function()
+        self.root_self_hash().hash_function()
     }
     fn to_hash_bytes<'s: 'h, 'h>(&'s self) -> selfhash::HashBytes<'h> {
-        self.self_hash().to_hash_bytes()
+        self.root_self_hash().to_hash_bytes()
     }
     fn to_keri_hash<'s: 'h, 'h>(&'s self) -> std::borrow::Cow<'h, selfhash::KERIHashStr> {
-        std::borrow::Cow::Borrowed(self.self_hash())
+        std::borrow::Cow::Borrowed(self.root_self_hash())
     }
 }

@@ -14,8 +14,8 @@ impl DIDStr {
     pub fn root_did_document_fully_qualified(&self) -> DIDFullyQualified {
         DIDFullyQualified::try_from(format!(
             "{}?selfHash={}&versionId=0",
-            self.as_str(),
-            self.self_hash_str()
+            self,
+            self.root_self_hash()
         ))
         .expect("programmer error")
     }
@@ -28,31 +28,22 @@ impl DIDStr {
     pub fn host(&self) -> &str {
         self.uri_components().host
     }
-    /// This is everything between the host and the self_hash, not including the leading and trailing
+    /// This is everything between the host and the root self_hash, not including the leading and trailing
     /// colons.  In particular, if the path is empty, this will be None.  Another example is
     /// "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ" which will have path_o
     /// of Some("foo:bar:baz").
-    // TODO: Maybe "no path" should just be the empty string to simplify things.
     pub fn path_o(&self) -> Option<&str> {
         self.uri_components().path_o
     }
-    /// This is the self-hash (as a &str) of the root DID document, which is what makes it a unique ID.
-    // TODO: Consider renaming "self hash" to "root self hash" to make it clear that it's distinct from
-    // "query self hash".
-    fn self_hash_str(&self) -> &str {
-        self.uri_components().self_hash.as_str()
-    }
     /// This is the self-hash (as a KERIHash) of the root DID document, which is what makes it a unique ID.
-    // TODO: Consider renaming "self hash" to "root self hash" to make it clear that it's distinct from
-    // "query self hash".
-    pub fn self_hash(&self) -> &selfhash::KERIHashStr {
-        self.uri_components().self_hash
+    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+        self.uri_components().root_self_hash
     }
     pub fn with_query_self_hash(&self, query_self_hash: &selfhash::KERIHashStr) -> DIDWithQuery {
         DIDWithQuery::new(
             self.host(),
             self.path_o(),
-            self.self_hash(),
+            self.root_self_hash(),
             Some(query_self_hash),
             None,
         )
@@ -62,7 +53,7 @@ impl DIDStr {
         DIDWithQuery::new(
             self.host(),
             self.path_o(),
-            self.self_hash(),
+            self.root_self_hash(),
             None,
             Some(query_version_id),
         )
@@ -76,7 +67,7 @@ impl DIDStr {
         DIDFullyQualified::new(
             self.host(),
             self.path_o(),
-            self.self_hash(),
+            self.root_self_hash(),
             query_self_hash,
             query_version_id,
         )
@@ -86,7 +77,7 @@ impl DIDStr {
         DIDResource::new(
             self.host(),
             self.path_o(),
-            self.self_hash(),
+            self.root_self_hash(),
             &DIDFragment::<F>::from(fragment),
         )
         .expect("programmer error")
@@ -98,7 +89,7 @@ impl DIDStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash_str());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did.json");
         url
     }
@@ -113,7 +104,7 @@ impl DIDStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash_str());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did/selfHash/");
         url.push_str(self_hash.as_str());
         url.push_str(".json");
@@ -126,7 +117,7 @@ impl DIDStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash_str());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did/versionId/");
         url.push_str(&format!("{}.json", version_id));
         url
@@ -138,7 +129,7 @@ impl DIDStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash_str());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did/metadata.json");
         url
     }
@@ -150,7 +141,7 @@ impl DIDStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash_str());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did/metadata/constant.json");
         url
     }
@@ -166,7 +157,7 @@ impl DIDStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash_str());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did/metadata/selfHash/");
         url.push_str(self_hash.as_str());
         url.push_str(".json");
@@ -184,7 +175,7 @@ impl DIDStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash_str());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did/metadata/versionId/");
         url.push_str(&format!("{}.json", version_id));
         url

@@ -4,7 +4,7 @@ use crate::{parse_did_query_params, Error};
 pub struct DIDWebplusURIComponents<'a> {
     pub host: &'a str,
     pub path_o: Option<&'a str>,
-    pub self_hash: &'a selfhash::KERIHashStr,
+    pub root_self_hash: &'a selfhash::KERIHashStr,
     pub query_self_hash_o: Option<&'a selfhash::KERIHashStr>,
     pub query_version_id_o: Option<u32>,
     pub fragment_o: Option<&'a str>,
@@ -59,7 +59,8 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         }
 
         // Split the URI path into the did:webplus path and root self-hash parts.
-        let (path_o, self_hash_str) = if let Some((path, self_hash_str)) = uri_path.rsplit_once(':')
+        let (path_o, root_self_hash_str) = if let Some((path, root_self_hash_str)) =
+            uri_path.rsplit_once(':')
         {
             // TODO: More path validation.
             for path_component in path.split(':') {
@@ -67,11 +68,11 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
                     return Err(Error::Malformed("did:webplus URI path must not have empty path components (i.e. two ':' chars in a row)"));
                 }
             }
-            (Some(path), self_hash_str)
+            (Some(path), root_self_hash_str)
         } else {
             (None, uri_path)
         };
-        let self_hash = selfhash::KERIHashStr::new_ref(self_hash_str)?;
+        let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)?;
 
         // Parse the query portion.
         let (query_self_hash_o, query_version_id_o) = if let Some(query) = query_o {
@@ -83,7 +84,7 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         Ok(Self {
             host,
             path_o,
-            self_hash,
+            root_self_hash,
             query_self_hash_o,
             query_version_id_o,
             fragment_o,

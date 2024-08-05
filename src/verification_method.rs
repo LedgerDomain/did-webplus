@@ -46,7 +46,7 @@ impl VerificationMethod {
                 "VerificationMethod id host does not match controller host",
             ));
         }
-        if self.id.self_hash() != self.controller.self_hash() {
+        if self.id.root_self_hash() != self.controller.root_self_hash() {
             return Err(Error::Malformed(
                 "VerificationMethod id self-signature component does not match controller self-signature component",
             ));
@@ -91,10 +91,10 @@ impl VerificationMethod {
     }
     pub fn set_root_did_document_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
         let keri_hash = hash.to_keri_hash();
-        self.controller.set_self_hash(&keri_hash);
+        self.controller.set_root_self_hash(&keri_hash);
         if let Some(kid) = self.public_key_jwk.kid_o.as_mut() {
-            kid.set_self_hash(&keri_hash);
+            kid.set_root_self_hash(&keri_hash);
         }
-        self.id.set_self_hash(&keri_hash);
+        self.id.set_root_self_hash(&keri_hash);
     }
 }

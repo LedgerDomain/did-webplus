@@ -1,7 +1,7 @@
 use crate::{
     DIDFragment, DIDResourceFullyQualified, DIDStr, DIDWebplusURIComponents, Error, Fragment,
 };
-use std::{ops::Deref, str::FromStr};
+use std::str::FromStr;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr, serde::Serialize)]
 #[pneu_str(deserialize)]
@@ -18,7 +18,7 @@ impl DIDFullyQualifiedStr {
         DIDResourceFullyQualified::new(
             self.host(),
             self.path_o(),
-            self.self_hash(),
+            self.root_self_hash(),
             self.query_self_hash(),
             self.query_version_id(),
             DIDFragment::from(fragment),
@@ -31,7 +31,7 @@ impl DIDFullyQualifiedStr {
     pub fn host(&self) -> &str {
         self.uri_components().host
     }
-    /// This is everything between the host and the self_hash, not including the leading and trailing
+    /// This is everything between the host and the root self_hash, not including the leading and trailing
     /// colons.  In particular, if the path is empty, this will be None.  Another example is
     /// "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz"
     /// which will have path_o of Some("foo:bar:baz").
@@ -39,8 +39,8 @@ impl DIDFullyQualifiedStr {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn self_hash(&self) -> &selfhash::KERIHashStr {
-        self.uri_components().self_hash
+    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+        self.uri_components().root_self_hash
     }
     pub fn query_self_hash(&self) -> &selfhash::KERIHashStr {
         self.uri_components().query_self_hash_o.expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified")
@@ -57,13 +57,13 @@ impl DIDFullyQualifiedStr {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
         }
-        url.push_str(self.self_hash().deref());
+        url.push_str(self.root_self_hash().as_str());
         url.push_str("/did");
 
         // Append query param portion of filename.  We only use the selfHash to form the URL.
         // Note that %3D is the URL-encoding of '='
         url.push_str("/selfHash/");
-        url.push_str(self.query_self_hash().deref());
+        url.push_str(self.query_self_hash().as_str());
         url.push_str(".json");
 
         url

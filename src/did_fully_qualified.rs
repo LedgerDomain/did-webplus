@@ -15,7 +15,7 @@ impl DIDFullyQualified {
     pub fn new(
         host: &str,
         path_o: Option<&str>,
-        self_hash: &selfhash::KERIHashStr,
+        root_self_hash: &selfhash::KERIHashStr,
         query_self_hash: &selfhash::KERIHashStr,
         query_version_id: u32,
     ) -> Result<Self, Error> {
@@ -30,7 +30,7 @@ impl DIDFullyQualified {
             host,
             if path_o.is_some() { ":" } else { "" },
             if let Some(path) = path_o { path } else { "" },
-            self_hash,
+            root_self_hash,
             query_self_hash,
             query_version_id
         ))

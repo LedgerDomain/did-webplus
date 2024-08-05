@@ -14,9 +14,10 @@ impl<F: Fragment> DIDResourceFullyQualified<F> {
     pub fn new(
         host: &str,
         path_o: Option<&str>,
-        self_hash: &selfhash::KERIHashStr,
+        root_self_hash: &selfhash::KERIHashStr,
         query_self_hash: &selfhash::KERIHashStr,
         query_version_id: u32,
+        // TODO: This should be just F, or &F::Borrowed or something.
         fragment: DIDFragment<F>,
     ) -> Result<Self, Error> {
         // TODO: Validation of host
@@ -36,7 +37,7 @@ impl<F: Fragment> DIDResourceFullyQualified<F> {
             host,
             if path_o.is_some() { ":" } else { "" },
             if let Some(path) = path_o { path } else { "" },
-            self_hash,
+            root_self_hash,
             query_self_hash,
             query_version_id,
             fragment

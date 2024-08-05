@@ -49,10 +49,13 @@ async fn test_wallet_operations_impl(use_path: bool) {
         format!(
             "http://localhost:8085/{}/{}/did.json",
             alice_did_path,
-            alice_did.self_hash()
+            alice_did.root_self_hash()
         )
     } else {
-        format!("http://localhost:8085/{}/did.json", alice_did.self_hash())
+        format!(
+            "http://localhost:8085/{}/did.json",
+            alice_did.root_self_hash()
+        )
     };
     // Hacky way to test the actual VDR, which is assumed be running in a separate process.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.

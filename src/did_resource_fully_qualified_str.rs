@@ -12,7 +12,7 @@ impl<F: 'static + Fragment> DIDResourceFullyQualifiedStr<F> {
         DIDResource::new(
             self.host(),
             self.path_o(),
-            &self.self_hash(),
+            &self.root_self_hash(),
             &self.fragment(),
         )
         .expect("programmer error")
@@ -27,7 +27,7 @@ impl<F: 'static + Fragment> DIDResourceFullyQualifiedStr<F> {
     pub fn host(&self) -> &str {
         self.uri_components().host
     }
-    /// This is everything between the host and the self_hash, not including the leading and trailing
+    /// This is everything between the host and the root self_hash, not including the leading and trailing
     /// colons.  In particular, if the path is empty, this will be None.  Another example is
     /// "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU"
     /// which will have path_o of Some("foo:bar:baz").
@@ -35,8 +35,8 @@ impl<F: 'static + Fragment> DIDResourceFullyQualifiedStr<F> {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn self_hash(&self) -> &selfhash::KERIHashStr {
-        self.uri_components().self_hash
+    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+        self.uri_components().root_self_hash
     }
     pub fn query_self_hash(&self) -> &selfhash::KERIHashStr {
         self.uri_components().query_self_hash_o.expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")

@@ -20,7 +20,7 @@ impl<F: 'static + Fragment> DIDResourceStr<F> {
         DIDResourceFullyQualified::new(
             self.host(),
             self.path_o(),
-            self.self_hash(),
+            self.root_self_hash(),
             query_self_hash,
             query_version_id,
             self.fragment(),
@@ -41,8 +41,8 @@ impl<F: 'static + Fragment> DIDResourceStr<F> {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn self_hash(&self) -> &selfhash::KERIHashStr {
-        self.uri_components().self_hash
+    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+        self.uri_components().root_self_hash
     }
     /// This is the fragment portion of the DID URI, which is typically a key ID, but could refer to another
     /// resource within the DID document.

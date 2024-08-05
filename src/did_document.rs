@@ -346,7 +346,7 @@ impl selfhash::SelfHashable for DIDDocument {
         if self.is_root_did_document() {
             self.public_key_material
                 .set_root_did_document_self_hash_slots_to(&keri_hash);
-            self.did.set_self_hash(&keri_hash);
+            self.did.set_root_self_hash(&keri_hash);
             self.self_hash_o = Some(keri_hash);
         } else {
             self.self_hash_o = Some(keri_hash);
