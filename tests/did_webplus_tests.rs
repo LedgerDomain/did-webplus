@@ -41,35 +41,53 @@ fn test_roundtrip_did_with_query() {
 
     ];
     for s in str_v {
-        let did = did_webplus::ParsedDIDWithQuery::from_str(s).expect("pass");
-        println!("string form of DID: {}", s);
-        println!("parsed DID: {:?}", did);
-        let s2 = did.to_string();
-        println!("re-stringed form of DID: {}", s);
+        let did_with_query = did_webplus::DIDWithQueryStr::new_ref(s).expect("pass");
+        println!("string form of DID with query: {}", s);
+        println!("DIDWithQuery: {:?}", did_with_query);
+        let s2 = did_with_query.to_string();
+        println!("re-stringed form of DIDWithQuery: {}", s);
         assert_eq!(s, &s2);
     }
 }
 
+// #[test]
+// #[serial_test::serial]
+// fn test_roundtrip_did_key_resource_with_query() {
+//     // Note that the String -> String roundtrip depends on the specific order of selfHash
+//     // then versionId in the query params.
+//     let str_v = [
+//         "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+//         "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+//         "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+
+//         "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+//         "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+//         "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+
+//         "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+//         "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+//         "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+//     ];
+//     for s in str_v {
+//         let did = did_webplus::DIDKeyResourceWithQuery::from_str(s).expect("pass");
+//         println!("string form of DID: {}", s);
+//         println!("parsed DID: {:?}", did);
+//         let s2 = did.to_string();
+//         println!("re-stringed form of DID: {}", s);
+//         assert_eq!(s, &s2);
+//     }
+// }
+
 #[test]
 #[serial_test::serial]
-fn test_roundtrip_did_with_query_and_key_id_fragment() {
-    // Note that the String -> String roundtrip depends on the specific order of selfHash
-    // then versionId in the query params.
+fn test_roundtrip_did_key_resource_fully_qualified() {
     let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-
         "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
         "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
         "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
     ];
     for s in str_v {
-        let did = did_webplus::DIDWithQueryAndKeyIdFragment::from_str(s).expect("pass");
+        let did = did_webplus::DIDKeyResourceFullyQualified::from_str(s).expect("pass");
         println!("string form of DID: {}", s);
         println!("parsed DID: {:?}", did);
         let s2 = did.to_string();
@@ -284,7 +302,7 @@ fn test_signature_generation_with_witness() {
         did_document_0
             .verify_self_signatures_and_hashes()
             .expect("pass");
-        let did = did_document_0.parsed_did.clone();
+        let did = did_document_0.did.clone();
         println!(
             "Root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n",
             serde_json::to_string_pretty(&did_document_0).unwrap()
@@ -296,7 +314,7 @@ fn test_signature_generation_with_witness() {
         // form of witnessing.
         let did_with_query_and_key_id_fragment = did
             .with_queries(
-                did_document_0.self_hash_o.as_ref().unwrap().clone(),
+                did_document_0.self_hash_o.as_deref().unwrap(),
                 did_document_0.version_id,
             )
             .with_fragment(verifying_key_0.to_keri_verifier());

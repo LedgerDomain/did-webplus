@@ -1,7 +1,6 @@
 use crate::{vdr_fetch_did_document_body, vdr_fetch_latest_did_document_body, Error, Result};
-use did_webplus::{DIDURIComponents, ParsedDIDWithQuery, DID};
+use did_webplus::{DIDStr, DIDWebplusURIComponents, DIDWithQueryStr};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStorage, DIDDocStore};
-use std::str::FromStr;
 
 // TODO: Probably add params for what metadata is desired
 pub async fn resolve_did<Storage: DIDDocStorage>(
@@ -16,24 +15,28 @@ pub async fn resolve_did<Storage: DIDDocStorage>(
     let mut query_version_id_o = None;
 
     // Determine which case we're handling; a DID with or without query params.
-    let did_uri_components = DIDURIComponents::try_from(did_query)
+    let did_webplus_uri_components = DIDWebplusURIComponents::try_from(did_query)
         .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?;
-    tracing::trace!("did_uri_components: {:?}", did_uri_components);
-    if did_uri_components.fragment_o.is_some() {
+    tracing::trace!(
+        "did_webplus_uri_components: {:?}",
+        did_webplus_uri_components
+    );
+    if did_webplus_uri_components.has_fragment() {
         return Err(Error::MalformedDIDQuery(
             "DID query contains a fragment (this is not (yet?) supported)".into(),
         ));
     }
-    let did = if did_uri_components.query_o.is_none() {
+    let did = if !did_webplus_uri_components.has_query() {
         tracing::trace!("got a plain DID to resolve, no query params: {}", did_query);
-        DID::from_str(did_query).map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?
+        DIDStr::new_ref(did_query)
+            .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?
     } else {
         tracing::trace!("got a DID with query params: {}", did_query);
-        let did_with_query = ParsedDIDWithQuery::from_str(did_query)
+        let did_with_query = DIDWithQueryStr::new_ref(did_query)
             .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?;
-        query_self_hash_o = did_with_query.query_self_hash_o().map(|x| x.to_owned());
+        query_self_hash_o = did_with_query.query_self_hash_o();
         query_version_id_o = did_with_query.query_version_id_o();
-        did_with_query.without_query()
+        did_with_query.did()
     };
     tracing::trace!("DID: {:?}", did);
 
@@ -128,12 +131,12 @@ pub async fn resolve_did<Storage: DIDDocStorage>(
     };
 
     // Because we don't have the requested DID doc, we should fetch it and its predecessors from the VDR.
-    let target_did_doc_body = match (query_self_hash_o.as_ref(), query_version_id_o) {
+    let target_did_doc_body = match (query_self_hash_o, query_version_id_o) {
         (Some(query_self_hash), _) => {
             // A DID doc with a specific selfHash value is being requested.  selfHash always overrides
             // versionId in terms of resolution.  Thus we have to fetch the selfHash-identified DID doc,
             // then all its predecessors.
-            let did_with_query = did.with_query_self_hash(query_self_hash.clone());
+            let did_with_query = did.with_query_self_hash(query_self_hash);
             tracing::trace!(
                 "fetching DID document from VDR with selfHash value {}",
                 query_self_hash

@@ -46,7 +46,7 @@ impl DIDDocumentRecord {
                 select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document!: String"
                 from inserted_record
             "#,
-            did_document.did().as_str(),
+            did_document.did.as_str(),
             did_document.version_id() as i64,
             did_document.valid_from(),
             self_hash.as_str(),

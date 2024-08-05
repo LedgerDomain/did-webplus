@@ -1,7 +1,7 @@
 use crate::Resolver;
 use base64::Engine;
 use did_webplus::{
-    DIDDocument, DIDDocumentMetadata, DIDWithQueryAndKeyIdFragment, Error, KeyPurpose,
+    DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified, Error, KeyPurpose,
     RequestedDIDDocumentMetadata,
 };
 use std::{borrow::Cow, io::Write};
@@ -13,7 +13,7 @@ pub struct JWSHeader {
     pub alg: String,
     /// Specifies the precise key used to sign the JWS by specifying the selfHash and versionId of the DID document
     /// and the ID of the public key.
-    pub kid: DIDWithQueryAndKeyIdFragment,
+    pub kid: DIDKeyResourceFullyQualified,
     /// Specifies critical headers that must be understood and processed.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crit: Option<Vec<String>>,
@@ -182,24 +182,12 @@ impl<'j> JWS<'j> {
     /// Generate a JWS Compact Serialization from the given header and payload, optionally encoding the given
     /// payload bytes, and then signing the signing input using the given signer.
     pub fn signed(
-        kid: DIDWithQueryAndKeyIdFragment,
+        kid: DIDKeyResourceFullyQualified,
         payload_bytes: &mut dyn std::io::Read,
         payload_presence: JWSPayloadPresence,
         payload_encoding: JWSPayloadEncoding,
         signer: &dyn selfsign::Signer,
     ) -> Result<Self, Error> {
-        // Verify that the kid has both selfHash and versionId query params.
-        if kid.query_self_hash_o().is_none() {
-            return Err(Error::Malformed(
-                "JWS header 'kid' field is missing 'selfHash'",
-            ));
-        }
-        if kid.query_version_id_o().is_none() {
-            return Err(Error::Invalid(
-                "JWS header 'kid' field is missing 'versionId'",
-            ));
-        }
-
         let alg = signer
             .signature_algorithm()
             .named_signature_algorithm()
@@ -412,27 +400,19 @@ pub fn resolve_did_and_verify_jws<'r, 'p>(
     requested_did_document_metadata: RequestedDIDDocumentMetadata,
     detached_payload_bytes_o: Option<&'p mut dyn std::io::Read>,
 ) -> Result<(Cow<'r, DIDDocument>, DIDDocumentMetadata), Error> {
-    let did = jws.header.kid.without_fragment().without_query();
+    let kid_without_fragment = jws.header.kid.without_fragment();
+    let did = kid_without_fragment.did();
+    // This will not allocate once DIDFragmentStr exists
     let key_id = jws.header.kid.fragment();
-    if jws.header.kid.query_self_hash_o().is_none() {
-        return Err(Error::Malformed(
-            "JWS header 'kid' field is missing 'selfHash'",
-        ));
-    }
-    if jws.header.kid.query_version_id_o().is_none() {
-        return Err(Error::Invalid(
-            "JWS header 'kid' field is missing 'versionId'",
-        ));
-    }
 
     log::debug!(
         "resolve_did_and_verify_jws; JWS kid field is DID query: {}",
         jws.header.kid
     );
     let (did_document, did_document_metadata) = resolver.resolve_did_document(
-        &did,
-        jws.header.kid.query_self_hash_o(),
-        jws.header.kid.query_version_id_o(),
+        did,
+        Some(jws.header.kid.query_self_hash()),
+        Some(jws.header.kid.query_version_id()),
         requested_did_document_metadata,
     )?;
     log::trace!("resolved DID document: {:?}", did_document);

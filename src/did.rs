@@ -1,9 +1,7 @@
-#![allow(dead_code)]
-
 use crate::{DIDStr, Error};
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString, serde::Serialize)]
-#[pneu_string(as_pneu_str = "as_did_str", borrow = "DIDStr", deserialize)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
+#[pneu_string(as_pneu_str = "as_did_str", borrow = "DIDStr", deserialize, serialize)]
 pub struct DID(String);
 
 impl DID {
@@ -56,6 +54,8 @@ impl DID {
         let self_hash = selfhash::KERIHashStr::new_ref(self_hash_str)?;
         Self::new(host, path_o.as_deref(), self_hash)
     }
+    // TODO: Consider renaming "self hash" to "root self hash" to make it clear that it's distinct from
+    // "query self hash".
     pub fn set_self_hash(&mut self, self_hash: &selfhash::KERIHashStr) {
         // Strip off the self_hash portion, not including the ':' delimiter before it.
         self.0.truncate(self.0.rfind(':').unwrap() + 1);
@@ -65,5 +65,20 @@ impl DID {
             DIDStr::validate(self.0.as_str()).is_ok(),
             "programmer error"
         );
+    }
+}
+
+/// This implementation is to allow a `&DID` to function as a `&dyn selfhash::Hash`, which is necessary
+/// for the self-hashing functionality.  A DID isn't strictly "a Hash", more like it "has a Hash", but
+/// this semantic difference isn't worth doing anything about.
+impl selfhash::Hash for DID {
+    fn hash_function(&self) -> &dyn selfhash::HashFunction {
+        self.self_hash().hash_function()
+    }
+    fn to_hash_bytes<'s: 'h, 'h>(&'s self) -> selfhash::HashBytes<'h> {
+        self.self_hash().to_hash_bytes()
+    }
+    fn to_keri_hash<'s: 'h, 'h>(&'s self) -> std::borrow::Cow<'h, selfhash::KERIHashStr> {
+        std::borrow::Cow::Borrowed(self.self_hash())
     }
 }

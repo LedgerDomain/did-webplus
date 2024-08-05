@@ -4,12 +4,12 @@ pub trait Fragment: Clone + std::fmt::Debug + std::fmt::Display + std::str::From
 
 impl<F: Clone + std::fmt::Debug + std::fmt::Display + std::str::FromStr> Fragment for F {}
 
-#[deprecated = "Use DIDFragment instead"]
-pub type DIDWebplusFragment<F> = DIDFragment<F>;
-
 // This is meant to be the did:webplus-specific relative DID URL.  F is the data type meant to represent
 // the content after the '#' portion of the DID URI.  Usually this is a key id, but it could refer to
 // another kind of resource, such as a service endpoint.
+// TODO: make this into a PneuString.
+// TODO: The fact that this includes the '#' char is weird, but it's used to have relative URLs within the DID doc.
+// figure out a clear way to handle this.  Maybe call this DIDRelativeResource?
 #[derive(
     Clone,
     Debug,
@@ -22,7 +22,7 @@ pub type DIDWebplusFragment<F> = DIDFragment<F>;
 pub struct DIDFragment<F>(F);
 
 impl<F: Fragment> DIDFragment<F> {
-    pub fn from_str_without_hash(s: &str) -> Result<Self, Error> {
+    pub fn from_str_without_hash_char(s: &str) -> Result<Self, Error> {
         if s.starts_with('#') {
             return Err(Error::Malformed(
                 "DIDFragment::from_str_without_hash expected string to not start with '#'",

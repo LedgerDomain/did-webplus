@@ -65,6 +65,8 @@ COPY --from=builder /usr/local/bin/did-webplus-vdr /usr/local/bin/
 # Copy the config file
 COPY did-webplus-vdr/config.yml /etc/did-webplus-vdr/config.yml
 
+ENV RUST_BACKTRACE=1
+
 # Our standard entrypoint
 ENTRYPOINT ["/usr/local/bin/did-webplus-vdr"]
 

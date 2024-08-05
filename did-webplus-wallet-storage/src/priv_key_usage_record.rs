@@ -1,5 +1,5 @@
 use crate::PrivKeyUsage;
-use did_webplus::{DIDWithQueryAndKeyIdFragment, KeyPurpose};
+use did_webplus::{DIDKeyResourceFullyQualified, KeyPurpose};
 
 /// Records the usage of a private key in a cryptographic operation, including several details of what it was used for.
 pub struct PrivKeyUsageRecord {
@@ -11,5 +11,5 @@ pub struct PrivKeyUsageRecord {
     pub usage: PrivKeyUsage,
     /// If there was an associated controlled DID, then this is the DID with its key id fragment, and the
     /// KeyPurpose of the usage.
-    pub verification_method_and_purpose_o: Option<(DIDWithQueryAndKeyIdFragment, KeyPurpose)>,
+    pub verification_method_and_purpose_o: Option<(DIDKeyResourceFullyQualified, KeyPurpose)>,
 }

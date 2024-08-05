@@ -32,7 +32,6 @@ impl DIDDocumentRecord {
             *did_document,
             "programmer error: body and did_document are inconsistent"
         );
-        let did_string = did_document.parsed_did.to_string();
         // This assumes that all stored DID documents have been validated inductively from the root!
         let self_hash = did_document
             .verify_nonrecursive(prev_did_document)
@@ -48,10 +47,10 @@ impl DIDDocumentRecord {
                 select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document!: String"
                 from inserted_record
             "#,
-            did_string,
+            did_document.did.as_str(),
             did_document.version_id() as i64,
             did_document.valid_from(),
-            self_hash.to_string(),
+            self_hash.as_str(),
             body,
         )
         .fetch_one(db)
@@ -107,7 +106,6 @@ impl DIDDocumentRecord {
     //     end_version_id: u32,
     //     did: &DIDStr,
     // ) -> Result<Vec<Self>, anyhow::Error> {
-    //     let did_string = did.to_string();
     //     let did_documents_records = sqlx::query_as!(
     //         DIDDocumentRecord,
     //         r#"
@@ -119,7 +117,7 @@ impl DIDDocumentRecord {
     //             and valid_from >= $4
     //             order by version_id asc
     //         "#,
-    //         did_string,
+    //         did.as_str(),
     //         start_version_id as i64,
     //         end_version_id as i64,
     //         since,
@@ -130,12 +128,11 @@ impl DIDDocumentRecord {
     // }
 
     // pub async fn did_exists(db: &PgPool, did: &DIDStr) -> Result<bool, anyhow::Error> {
-    //     let did_string = did.to_string();
     //     Ok(sqlx::query!(
     //         r#"
     //             select exists(select 1 from did_document_records where did = $1)
     //         "#,
-    //         did_string
+    //         did.as_str()
     //     )
     //     .fetch_one(db)
     //     .await

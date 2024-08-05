@@ -28,7 +28,7 @@ impl VDRClient for MockVDRClient {
         &self,
         root_did_document: did_webplus::DIDDocument,
     ) -> Result<did_webplus::DID, Error> {
-        let host = root_did_document.parsed_did.host();
+        let host = root_did_document.did.host();
         let mock_vdr_la = self
             .mock_vdr_lam
             .get(host)
@@ -37,7 +37,7 @@ impl VDRClient for MockVDRClient {
         mock_vdr_g.create_did(self.user_agent.as_str(), root_did_document)
     }
     fn update_did(&self, new_did_document: did_webplus::DIDDocument) -> Result<(), Error> {
-        let host = new_did_document.parsed_did.host();
+        let host = new_did_document.did.host();
         let mock_vdr_la = self
             .mock_vdr_lam
             .get(host)

@@ -51,23 +51,20 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
             did_document.self_hash_o.is_some(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
-        let did_doc_record_sqlite = DIDDocumentRowSQLite {
-            self_hash: Some(did_document.self_hash().to_string()),
-            did: did_document.parsed_did.to_string(),
-            version_id: did_document.version_id() as i64,
-            valid_from: did_document.valid_from(),
-            did_document: did_document_jcs.to_string(),
-        };
+        let did_str = did_document.did.as_str();
+        let version_id = did_document.version_id() as i64;
+        let valid_from = did_document.valid_from();
+        let self_hash_str = did_document.self_hash().as_str();
         sqlx::query!(
             r#"
                 insert into did_document_records(did, version_id, valid_from, self_hash, did_document)
                 values ($1, $2, $3, $4, $5)
             "#,
-            did_doc_record_sqlite.did,
-            did_doc_record_sqlite.version_id,
-            did_doc_record_sqlite.valid_from,
-            did_doc_record_sqlite.self_hash,
-            did_doc_record_sqlite.did_document,
+            did_str,
+            version_id,
+            valid_from,
+            self_hash_str,
+            did_document_jcs,
         )
         .execute(transaction.as_mut())
         .await?;

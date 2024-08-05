@@ -1,5 +1,5 @@
 use crate::{PrivKeyUsageType, Result};
-use did_webplus::{ParsedDIDWithQuery, DIDWithQueryAndKeyIdFragment, DID};
+use did_webplus::{DIDFullyQualified, DIDKeyResourceFullyQualified, DID};
 
 /// Specific usages for a private key, along with type-specific data that does NOT include signature data.
 // TODO: Figure out if the other pub key in a key exchange is a risk to store.
@@ -8,7 +8,7 @@ pub enum PrivKeyUsage {
     DIDCreate { created_did_o: Option<DID> },
     /// Optionally contains the DIDWithQuery with selfHash and versionId that was used in the update.
     DIDUpdate {
-        updated_did_with_query_o: Option<ParsedDIDWithQuery>,
+        updated_did_fully_qualified_o: Option<DIDFullyQualified>,
     },
     /// Optionally contains the signing input for the signing operation.
     Sign { signing_input_o: Option<Vec<u8>> },
@@ -37,7 +37,7 @@ pub enum PrivKeyUsage {
     // keypair for the session, and only using the shared secret to encrypt that, this would only be a risk if the
     // comms channel could be monitored (past or future).
     KeyExchangeWithDID {
-        other_o: Option<DIDWithQueryAndKeyIdFragment>,
+        other_o: Option<DIDKeyResourceFullyQualified>,
     },
 }
 
@@ -62,7 +62,7 @@ impl PrivKeyUsage {
                 .as_ref()
                 .map(|created_did| created_did.to_string().as_bytes().to_vec()),
             Self::DIDUpdate {
-                updated_did_with_query_o,
+                updated_did_fully_qualified_o: updated_did_with_query_o,
             } => updated_did_with_query_o
                 .as_ref()
                 .map(|updated_did_with_query| {

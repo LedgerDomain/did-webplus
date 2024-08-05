@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::{Error, Result};
 use did_webplus::DIDDocument;
 use time::OffsetDateTime;
@@ -32,7 +30,7 @@ impl DIDDocRecord {
                 self.self_hash.to_string().into(),
             )
         })?;
-        if did_document_self_hash.deref().as_str() != self.self_hash.as_str() {
+        if did_document_self_hash.as_str() != self.self_hash.as_str() {
             return Err(Error::RecordCorruption(
                 format!(
                     "Parsed DID doc \"selfHash\" field {} doesn't match that of stored record",
@@ -43,12 +41,11 @@ impl DIDDocRecord {
             ));
         }
 
-        let did_document_did_string = did_document.parsed_did.to_string();
-        if did_document_did_string != self.did {
+        if did_document.did.as_str() != self.did.as_str() {
             return Err(Error::RecordCorruption(
                 format!(
                     "Parsed DID doc did (\"id\" field) {:?} doesn't match stored record's did {:?}",
-                    did_document_did_string, self.did
+                    did_document.did, self.did
                 )
                 .into(),
                 self.self_hash.to_string().into(),

@@ -1,6 +1,6 @@
 use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageRow};
 use did_webplus::{
-    DIDDocument, DIDKeyIdFragment, DIDStr, DIDWithQueryAndKeyIdFragment, KeyPurposeFlags, DID,
+    DIDDocument, DIDKeyIdFragment, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags,
 };
 use did_webplus_doc_store::{DIDDocRecord, DIDDocStorage};
 use did_webplus_wallet_storage::{
@@ -69,24 +69,21 @@ impl DIDDocStorage for WalletStorageSQLite {
             did_document.self_hash_o.is_some(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
-        let did_document_row_sqlite = DIDDocumentRowSQLite {
-            self_hash: Some(did_document.self_hash().to_string()),
-            did: did_document.parsed_did.to_string(),
-            version_id: did_document.version_id() as i64,
-            valid_from: did_document.valid_from(),
-            did_document_jcs: did_document_jcs.to_string(),
-        };
+        let did_str = did_document.did.as_str();
+        let version_id = did_document.version_id() as i64;
+        let valid_from = did_document.valid_from();
+        let self_hash_str = did_document.self_hash().as_str();
         let did_documents_rowid = sqlx::query!(
             r#"
                 INSERT INTO did_documents(did, version_id, valid_from, self_hash, did_document_jcs)
                 VALUES ($1, $2, $3, $4, $5)
                 RETURNING rowid
             "#,
-            did_document_row_sqlite.did,
-            did_document_row_sqlite.version_id,
-            did_document_row_sqlite.valid_from,
-            did_document_row_sqlite.self_hash,
-            did_document_row_sqlite.did_document_jcs,
+            did_str,
+            version_id,
+            valid_from,
+            self_hash_str,
+            did_document_jcs,
         )
         .fetch_one(transaction.as_mut())
         .await?
@@ -98,19 +95,19 @@ impl DIDDocStorage for WalletStorageSQLite {
             .verification_method_v
             .iter()
         {
+            // TODO: This will not alloc once DIDFragmentStr exists.
             let key_id_fragment = verification_method.id.fragment().to_string();
-            let controller = verification_method.controller.to_string();
+            let controller = verification_method.controller.as_str();
             let pub_key =
                 selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?.to_string();
             let key_purpose_flags = did_document
                 .public_key_material
-                .key_purpose_flags_for_key_id_fragment(verification_method.id.fragment());
+                .key_purpose_flags_for_key_id_fragment(&verification_method.id.fragment());
             let key_purpose_flags_integer = key_purpose_flags.integer_value() as i32;
             sqlx::query!(
                 r#"
                     INSERT INTO verification_methods(did_documents_rowid, key_id_fragment, controller, pub_key, key_purpose_flags)
                     VALUES ($1, $2, $3, $4, $5)
-                    -- RETURNING verification_methods.rowid
                 "#,
                 did_documents_rowid,
                 key_id_fragment,
@@ -466,7 +463,7 @@ impl WalletStorage for WalletStorageSQLite {
         &self,
         _transaction: &mut Self::Transaction<'_>,
         _ctx: &WalletStorageCtx,
-        _did_with_query_and_key_id_fragment: &DIDWithQueryAndKeyIdFragment,
+        _did_key_resource_fully_qualified: &DIDKeyResourceFullyQualifiedStr,
     ) -> Result<VerificationMethodRecord> {
         unimplemented!();
     }
@@ -538,7 +535,7 @@ impl WalletStorage for WalletStorageSQLite {
 
         let mut locally_controlled_verification_method_v = Vec::with_capacity(query_result_v.len());
         for query_result in query_result_v.into_iter() {
-            let did = DID::try_from(query_result.did.clone()).map_err(|e| {
+            let did = DIDStr::new_ref(query_result.did.as_str()).map_err(|e| {
                 Error::RecordCorruption(
                     format!(
                         "invalid did_documents.did value {}; error was {}",
@@ -547,8 +544,8 @@ impl WalletStorage for WalletStorageSQLite {
                     .into(),
                 )
             })?;
-            let self_hash =
-                selfhash::KERIHash::try_from(query_result.self_hash.clone()).map_err(|e| {
+            let self_hash = selfhash::KERIHashStr::new_ref(query_result.self_hash.as_str())
+                .map_err(|e| {
                     Error::RecordCorruption(
                         format!(
                             "invalid did_documents.self_hash value {}; error was {}",
@@ -577,7 +574,7 @@ impl WalletStorage for WalletStorageSQLite {
                     )
                 })?;
             use std::ops::Deref;
-            let did_resource_fully_qualified = did
+            let did_key_resource_fully_qualified = did
                 .with_queries(self_hash, version_id)
                 .with_fragment(key_id_fragment.deref().clone());
 
@@ -617,7 +614,7 @@ impl WalletStorage for WalletStorageSQLite {
             let priv_key_record = priv_key_row.try_into_priv_key_record()?;
 
             let verification_method_record = VerificationMethodRecord {
-                did_resource_fully_qualified,
+                did_key_resource_fully_qualified,
                 key_purpose_flags,
                 pub_key: priv_key_record.pub_key.clone(),
             };

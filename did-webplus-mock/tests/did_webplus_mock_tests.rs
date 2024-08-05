@@ -78,7 +78,7 @@ fn test_example_creating_and_updating_a_did() {
         // Add (key ID) fragment to identify which key it is.
         let did_with_query_and_key_id_fragment = did
             .with_queries(
-                latest_did_document.self_hash().clone(),
+                latest_did_document.self_hash(),
                 latest_did_document.version_id(),
             )
             .with_fragment(verifying_key_0.to_keri_verifier());
@@ -126,7 +126,7 @@ fn test_example_creating_and_updating_a_did() {
         println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
         let did_with_query_and_key_id_fragment = did
             .with_queries(
-                latest_did_document.self_hash().clone(),
+                latest_did_document.self_hash(),
                 latest_did_document.version_id(),
             )
             .with_fragment(verifying_key_1.to_keri_verifier());
@@ -137,7 +137,7 @@ fn test_example_creating_and_updating_a_did() {
         );
         let did_with_query_and_key_id_fragment = did
             .with_queries(
-                latest_did_document.self_hash().clone(),
+                latest_did_document.self_hash(),
                 latest_did_document.version_id(),
             )
             .with_fragment(verifying_key_0.to_keri_verifier());
@@ -187,7 +187,7 @@ fn test_example_creating_and_updating_a_did() {
         println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
         let did_with_query_and_key_id_fragment = did
             .with_queries(
-                latest_did_document.self_hash().clone(),
+                latest_did_document.self_hash(),
                 latest_did_document.version_id(),
             )
             .with_fragment(verifying_key_2.to_keri_verifier());
@@ -198,7 +198,7 @@ fn test_example_creating_and_updating_a_did() {
         );
         let did_with_query_and_key_id_fragment = did
             .with_queries(
-                latest_did_document.self_hash().clone(),
+                latest_did_document.self_hash(),
                 latest_did_document.version_id(),
             )
             .with_fragment(verifying_key_0.to_keri_verifier());
@@ -206,7 +206,7 @@ fn test_example_creating_and_updating_a_did() {
         println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
         let did_with_query_and_key_id_fragment = did
             .with_queries(
-                latest_did_document.self_hash().clone(),
+                latest_did_document.self_hash(),
                 latest_did_document.version_id(),
             )
             .with_fragment(verifying_key_1.to_keri_verifier());

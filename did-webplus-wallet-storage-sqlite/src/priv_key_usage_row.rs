@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use did_webplus::{DIDWithQueryAndKeyIdFragment, KeyPurpose};
+use did_webplus::{DIDKeyResourceFullyQualified, KeyPurpose};
 use did_webplus_wallet_storage::{
     Error, PrivKeyUsage, PrivKeyUsageRecord, PrivKeyUsageType, Result, WalletStorageCtx,
 };
@@ -54,10 +54,10 @@ impl PrivKeyUsageRow {
             self.did_resource_fully_qualified_o,
             self.key_purpose_o,
         ) {
-            (Some(did_resource_fully_qualified_string), Some(key_purpose_integer)) => {
-                let did_resource_fully_qualified = DIDWithQueryAndKeyIdFragment::from_str(did_resource_fully_qualified_string.as_str()).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.did_resource_fully_qualified_o contained invalid DIDFullyQualified value {:?}; error was {}", did_resource_fully_qualified_string, e).into()))?;
+            (Some(did_key_resource_fully_qualified_string), Some(key_purpose_integer)) => {
+                let did_key_resource_fully_qualified = DIDKeyResourceFullyQualified::try_from(did_key_resource_fully_qualified_string).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.did_resource_fully_qualified_o contained invalid DIDKeyResourceFullyQualified value; error was {}", e).into()))?;
                 let key_purpose = KeyPurpose::try_from(u8::try_from(key_purpose_integer).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.key_purpose_o contained invalid KeyPurpose value {}; error was {}", key_purpose_integer, e).into()))?).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.key_purpose_o contained invalid KeyPurpose value {}; error was {}", key_purpose_integer, e).into()))?;
-                Some((did_resource_fully_qualified, key_purpose))
+                Some((did_key_resource_fully_qualified, key_purpose))
             }
             (None, None) => None,
             _ => {

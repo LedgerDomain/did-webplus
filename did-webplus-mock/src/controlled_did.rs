@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use did_webplus::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDWithQueryAndKeyIdFragment,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDKeyResourceFullyQualified,
     Error, KeyPurpose, MicroledgerView, PublicKeySet, DID,
 };
 
@@ -142,7 +142,7 @@ impl ControlledDID {
     pub fn signer_and_key_id_for_key_purpose(
         &self,
         key_purpose: KeyPurpose,
-    ) -> (&dyn selfsign::Signer, DIDWithQueryAndKeyIdFragment) {
+    ) -> (&dyn selfsign::Signer, DIDKeyResourceFullyQualified) {
         let public_key_v = self
             .current_public_key_set
             .public_keys_for_purpose(key_purpose);
@@ -157,7 +157,7 @@ impl ControlledDID {
         let version_id = self.microledger.view().latest_did_document().version_id();
         let self_hash = self.microledger.view().latest_did_document().self_hash();
         let key_id = did
-            .with_queries(self_hash.clone(), version_id)
+            .with_queries(self_hash, version_id)
             .with_fragment(public_key.to_owned());
         (signer, key_id)
     }

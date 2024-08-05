@@ -1,10 +1,10 @@
-use did_webplus::{DIDWithQueryAndKeyIdFragment, KeyPurposeFlags};
+use did_webplus::{DIDKeyResourceFullyQualified, KeyPurposeFlags};
 
 /// This specifies the membership of a verification method (i.e. pub key) for a specific purpose in a DID doc.
 #[derive(Debug)]
 pub struct VerificationMethodRecord {
     /// Specifies the DID with its selfHash and versionId query params and key ID fragment.
-    pub did_resource_fully_qualified: DIDWithQueryAndKeyIdFragment,
+    pub did_key_resource_fully_qualified: DIDKeyResourceFullyQualified,
     /// Specifies the purposes of this verification method.
     // pub key_purpose_s: HashSet<KeyPurpose>,
     pub key_purpose_flags: KeyPurposeFlags,

@@ -59,7 +59,7 @@ async fn test_software_wallet() {
         .create_did(vdr_did_create_endpoint.as_str())
         .await
         .expect("pass");
-    let did = controlled_did.without_query();
+    let did = controlled_did.did();
     tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 
     let controlled_did = software_wallet

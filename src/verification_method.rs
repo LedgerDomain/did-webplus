@@ -1,11 +1,11 @@
-use crate::{DIDWithKeyIdFragment, Error, ParsedDID, PublicKeyJWK, PublicKeyParams};
+use crate::{DIDStr, DIDWithKeyIdFragment, Error, PublicKeyJWK, PublicKeyParams, DID};
 
 // TODO: Refactor to use jsonWebKey2020 specifically, absorb "type" field into serde tag.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct VerificationMethod {
     pub id: DIDWithKeyIdFragment,
     pub r#type: String,
-    pub controller: ParsedDID,
+    pub controller: DID,
     /// We only support jsonWebKey2020 here.
     #[serde(rename = "publicKeyJwk")]
     pub public_key_jwk: PublicKeyJWK,
@@ -15,7 +15,7 @@ impl VerificationMethod {
     /// Convenience method for making a well-formed JsonWebKey2020 entry for a DID document.  Note
     /// that the fragment and the key_id of the PublicKeyJWK will both be set to the KERIVerifier
     /// value of the verifier.
-    pub fn json_web_key_2020(controller: ParsedDID, verifier: &dyn selfsign::Verifier) -> Self {
+    pub fn json_web_key_2020(controller: DID, verifier: &dyn selfsign::Verifier) -> Self {
         let key_id = verifier.to_keri_verifier();
         let did_with_key_id_fragment = controller.with_fragment(key_id);
         let public_key_jwk = PublicKeyJWK {
@@ -29,8 +29,8 @@ impl VerificationMethod {
             public_key_jwk,
         }
     }
-    pub fn verify(&self, expected_controller: &ParsedDID) -> Result<(), crate::Error> {
-        if self.controller != *expected_controller {
+    pub fn verify(&self, expected_controller: &DIDStr) -> Result<(), crate::Error> {
+        if self.controller.as_did_str() != expected_controller {
             return Err(Error::Malformed(
                 "VerificationMethod controller does not match expected DID",
             ));
@@ -79,24 +79,22 @@ impl VerificationMethod {
     ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> {
         let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> =
             Box::new(
-                std::iter::once(Some(self.id.self_hash() as &dyn selfhash::Hash)).chain(
-                    std::iter::once(Some(self.controller.self_hash() as &dyn selfhash::Hash)),
-                ),
+                std::iter::once(Some(&self.id as &dyn selfhash::Hash)).chain(std::iter::once(
+                    Some(&self.controller as &dyn selfhash::Hash),
+                )),
             );
-        // iter_chain = Box::new(iter_chain);
         if let Some(kid) = self.public_key_jwk.kid_o.as_ref() {
-            iter_chain = Box::new(iter_chain.chain(std::iter::once(Some(
-                kid.self_hash() as &dyn selfhash::Hash
-            ))));
+            iter_chain =
+                Box::new(iter_chain.chain(std::iter::once(Some(kid as &dyn selfhash::Hash))));
         }
         iter_chain
     }
     pub fn set_root_did_document_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
         let keri_hash = hash.to_keri_hash();
-        self.id.set_self_hash(keri_hash.clone());
-        self.controller.set_self_hash(keri_hash.clone());
+        self.controller.set_self_hash(&keri_hash);
         if let Some(kid) = self.public_key_jwk.kid_o.as_mut() {
-            kid.set_self_hash(keri_hash);
+            kid.set_self_hash(&keri_hash);
         }
+        self.id.set_self_hash(&keri_hash);
     }
 }

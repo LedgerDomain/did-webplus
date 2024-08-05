@@ -31,11 +31,11 @@ impl MockVDR {
     ) -> Result<DID, Error> {
         println!(
             "VDR (host: {:?}) servicing CREATE DID request from {:?} for\n    DID: {}",
-            self.host, user_agent, root_did_document.parsed_did
+            self.host, user_agent, root_did_document.did
         );
         self.simulate_latency_if_necessary();
 
-        if root_did_document.parsed_did.host() != self.host.as_str() {
+        if root_did_document.did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         // This construction will fail if the root_did_document isn't valid.
@@ -55,16 +55,16 @@ impl MockVDR {
     ) -> Result<(), Error> {
         println!(
             "VDR (host: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
-            self.host, user_agent, new_did_document.parsed_did
+            self.host, user_agent, new_did_document.did
         );
         self.simulate_latency_if_necessary();
 
-        if new_did_document.parsed_did.host() != self.host.as_str() {
+        if new_did_document.did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
         let microledger = self
             .microledger_m
-            .get_mut(new_did_document.did())
+            .get_mut(&new_did_document.did)
             .ok_or_else(|| Error::NotFound("DID not found"))?;
         use did_webplus::MicroledgerMutView;
         microledger.mut_view().update(new_did_document)?;

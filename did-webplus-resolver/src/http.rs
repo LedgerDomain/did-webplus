@@ -1,4 +1,4 @@
-use did_webplus::{DIDStr, ParsedDIDWithQuery};
+use did_webplus::{DIDStr, DIDWithQueryStr};
 use reqwest::StatusCode;
 use std::borrow::Cow;
 
@@ -54,7 +54,7 @@ pub async fn vdr_fetch_latest_did_document_body(
 }
 
 pub async fn vdr_fetch_did_document_body(
-    did_with_query: &ParsedDIDWithQuery,
+    did_with_query: &DIDWithQueryStr,
     scheme: &'static str,
 ) -> HTTPResult<String> {
     http_get(did_with_query.resolution_url(scheme).as_str()).await

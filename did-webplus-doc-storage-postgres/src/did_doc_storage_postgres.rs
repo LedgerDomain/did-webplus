@@ -51,7 +51,6 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             did_document.self_hash_o.is_some(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
-        let did_string = did_document.parsed_did.to_string();
         sqlx::query_as!(
             did_webplus_doc_store::DIDDocRecord,
             r#"
@@ -63,10 +62,10 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
                 select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
                 from inserted_record
             "#,
-            did_string,
+            did_document.did.as_str(),
             did_document.version_id() as i64,
             did_document.valid_from(),
-            did_document.self_hash().to_string(),
+            did_document.self_hash().as_str(),
             did_document_jcs,
         )
         .fetch_one(transaction.as_mut())

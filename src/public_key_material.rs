@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    DIDKeyIdFragment, Error, KeyPurpose, KeyPurposeFlags, ParsedDID, PublicKeySet,
-    VerificationMethod,
+    DIDKeyIdFragment, DIDStr, Error, KeyPurpose, KeyPurposeFlags, PublicKeySet, VerificationMethod,
+    DID,
 };
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
@@ -23,14 +23,14 @@ pub struct PublicKeyMaterial {
 
 impl PublicKeyMaterial {
     pub fn new<'a>(
-        parsed_did: ParsedDID,
+        did: DID,
         public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
     ) -> Result<Self, Error> {
         let mut verification_method_m: HashMap<selfsign::KERIVerifier, VerificationMethod> =
             HashMap::new();
-        for public_key in public_key_set.iter() {
+        for &public_key in public_key_set.iter() {
             let verification_method =
-                VerificationMethod::json_web_key_2020(parsed_did.clone(), *public_key);
+                VerificationMethod::json_web_key_2020(did.clone(), public_key);
             verification_method_m.insert(public_key.to_keri_verifier(), verification_method);
         }
         let verification_method_v = verification_method_m.into_values().collect();
@@ -102,7 +102,7 @@ impl PublicKeyMaterial {
         }
         key_purpose_flags
     }
-    pub fn verify(&self, expected_controller: &ParsedDID) -> Result<(), Error> {
+    pub fn verify(&self, expected_controller: &DIDStr) -> Result<(), Error> {
         for verification_method in &self.verification_method_v {
             verification_method.verify(expected_controller)?;
         }
@@ -110,7 +110,8 @@ impl PublicKeyMaterial {
             .verification_method_v
             .iter()
             .map(|verification_method| verification_method.id.fragment())
-            .collect::<HashSet<&DIDKeyIdFragment>>();
+            // TODO: Change this back to be a reference once DIDFragmentStr exists.
+            .collect::<HashSet<DIDKeyIdFragment>>();
         for key_purpose in KeyPurpose::VARIANTS {
             let key_id_fragment_v = self.key_id_fragments_for_purpose(key_purpose);
             for key_id_fragment in key_id_fragment_v.iter() {

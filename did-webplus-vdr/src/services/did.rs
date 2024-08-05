@@ -1,5 +1,7 @@
-use std::ops::Deref;
-
+use super::AppState;
+use crate::{
+    config::AppConfig, models::did_document_record::DIDDocumentRecord, parse_did_document,
+};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -8,15 +10,10 @@ use axum::{
 };
 use did_webplus::{
     DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
-    DIDDocumentMetadataIdempotent, DIDStr, ParsedDIDWithQuery, DID,
+    DIDDocumentMetadataIdempotent, DIDStr, DIDWithQuery, DID,
 };
 use sqlx::PgPool;
 use tokio::task;
-
-use super::AppState;
-use crate::{
-    config::AppConfig, models::did_document_record::DIDDocumentRecord, parse_did_document,
-};
 
 pub fn get_routes(pool: &PgPool, config: &AppConfig) -> Router {
     let state = AppState {
@@ -52,13 +49,10 @@ async fn get_did_document_or_metadata(
     }
 
     // Cases for retrieving a specific DID doc based on selfHash or versionId
-    if let Ok(did_with_query) =
-        ParsedDIDWithQuery::from_resolution_url(host.as_str(), path.as_str())
-    {
-        let did = did_with_query.without_query();
+    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(host.as_str(), path.as_str()) {
+        let did = did_with_query.did();
         if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
-            return get_did_document_with_self_hash(app_state.db, &did, query_self_hash.deref())
-                .await;
+            return get_did_document_with_self_hash(app_state.db, &did, query_self_hash).await;
         } else if let Some(query_version_id) = did_with_query.query_version_id_o() {
             return get_did_document_with_version_id(app_state.db, &did, query_version_id).await;
         } else {
@@ -274,12 +268,12 @@ async fn create_did(
     }
 
     let root_did_document = parse_did_document(&body)?;
-    if *root_did_document.did() != did {
+    if root_did_document.did != did {
         return Err((
             StatusCode::BAD_REQUEST,
             format!(
                 "DID in document does not match the DID in the resolution URL: {} != {}",
-                root_did_document.parsed_did, did
+                root_did_document.did, did
             ),
         ));
     }
@@ -317,13 +311,12 @@ async fn update_did(
     let latest_did_document_record = latest_did_document_record_o.unwrap();
 
     let new_did_document = parse_did_document(&body)?;
-    if *new_did_document.did() != did {
+    if new_did_document.did != did {
         return Err((
             StatusCode::BAD_REQUEST,
             format!(
                 "DID in document does not match the DID in the resolution URL: {} != {}",
-                new_did_document.did(),
-                did
+                new_did_document.did, did
             ),
         ));
     }

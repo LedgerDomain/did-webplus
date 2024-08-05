@@ -1,5 +1,4 @@
-use std::str::FromStr;
-
+use crate::{models::did_document_record::DIDDocumentRecord, parse_did_document};
 use axum::{
     extract::{Path, State},
     http::{
@@ -9,12 +8,10 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use did_webplus::{DIDStr, ParsedDIDWithQuery, DID};
+use did_webplus::{DIDStr, DIDWithQueryStr};
 use sqlx::PgPool;
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
-
-use crate::{models::did_document_record::DIDDocumentRecord, parse_did_document};
 
 // Perhaps make this configurable?
 const CACHE_DAYS: i64 = 365;
@@ -45,14 +42,14 @@ async fn resolve_did_impl(
     let mut query_self_hash_o = None;
     let mut query_version_id_o = None;
 
-    let did = if let Ok(did) = DID::from_str(did_query.as_str()) {
+    let did = if let Ok(did) = DIDStr::new_ref(did_query.as_str()) {
         tracing::trace!("got a plain DID to resolve, no query params: {}", did);
         did
-    } else if let Ok(did_with_query) = ParsedDIDWithQuery::from_str(did_query.as_str()) {
+    } else if let Ok(did_with_query) = DIDWithQueryStr::new_ref(did_query.as_str()) {
         tracing::trace!("got a DID with query params: {}", did_with_query);
-        query_self_hash_o = did_with_query.query_self_hash_o().map(|x| x.to_owned());
+        query_self_hash_o = did_with_query.query_self_hash_o();
         query_version_id_o = did_with_query.query_version_id_o();
-        did_with_query.without_query()
+        did_with_query.did()
     } else {
         return Err((StatusCode::BAD_REQUEST, "malformed DID query".to_string()));
     };
@@ -156,7 +153,7 @@ async fn resolve_did_impl(
             // A DID doc with a specific selfHash value is being requested.  selfHash always overrides
             // versionId in terms of resolution.  Thus we have to fetch the selfHash-identified DID doc,
             // then all its predecessors.
-            let did_with_query = did.with_query_self_hash(query_self_hash.clone());
+            let did_with_query = did.with_query_self_hash(query_self_hash);
             tracing::trace!(
                 "fetching DID document from VDR with selfHash value {}",
                 query_self_hash
@@ -326,7 +323,7 @@ async fn vdr_fetch_latest_did_document_body(did: &DIDStr) -> Result<String, (Sta
 }
 
 async fn vdr_fetch_did_document_body(
-    did_with_query: &ParsedDIDWithQuery,
+    did_with_query: &DIDWithQueryStr,
 ) -> Result<String, (StatusCode, String)> {
     // Use of hardcoded "http" is a TEMP HACK
     http_get(did_with_query.resolution_url("http").as_str()).await

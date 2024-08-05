@@ -4,7 +4,7 @@ use crate::{
     PrivKeyUsageRecord, PrivKeyUsageRecordFilter, Result, WalletRecord, WalletRecordFilter,
     WalletStorageCtx,
 };
-use did_webplus::DIDWithQueryAndKeyIdFragment;
+use did_webplus::DIDKeyResourceFullyQualifiedStr;
 
 /// Trait which defines the storage interface for a SoftwareWallet.
 // TODO: Should this be SoftwareWalletStorage?
@@ -68,7 +68,7 @@ pub trait WalletStorage: Clone + did_webplus_doc_store::DIDDocStorage {
         &self,
         transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
         ctx: &WalletStorageCtx,
-        did_with_query_and_key_id_fragment: &DIDWithQueryAndKeyIdFragment,
+        did_key_resource_fully_qualified: &DIDKeyResourceFullyQualifiedStr,
     ) -> Result<VerificationMethodRecord>;
 
     /// A "locally controlled" verification method is one whose associated priv key is present in the wallet.

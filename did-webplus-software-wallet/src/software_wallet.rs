@@ -1,7 +1,7 @@
 use crate::REQWEST_CLIENT;
 use did_webplus::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDStr, KeyPurpose,
-    KeyPurposeFlags, ParsedDIDWithQuery,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDFullyQualified, DIDStr,
+    KeyPurpose, KeyPurposeFlags,
 };
 use did_webplus_wallet::{Error, Result, Wallet};
 use did_webplus_wallet_storage::{
@@ -46,7 +46,7 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
 
 #[async_trait::async_trait]
 impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
-    async fn create_did(&self, vdr_did_create_endpoint: &str) -> Result<ParsedDIDWithQuery> {
+    async fn create_did(&self, vdr_did_create_endpoint: &str) -> Result<DIDFullyQualified> {
         // Parse the vdr_did_create_endpoint as a URL.
         let vdr_did_create_endpoint_url =
             url::Url::parse(vdr_did_create_endpoint).map_err(|e| {
@@ -138,7 +138,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         )
         .expect("pass");
         assert!(did_document.self_signature_verifier_o.is_some());
-        let did = did_document.did();
+        let did = did_document.did.as_did_str();
 
         let mut transaction = self.storage.begin_transaction(None).await?;
 
@@ -190,7 +190,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         }
 
         // Add the priv key usage for the DIDCreate.
-        let controlled_did = did.with_queries(did_document.self_hash().clone(), 0);
+        let controlled_did = did.with_queries(did_document.self_hash(), 0);
         let controlled_did_with_key_id = controlled_did.with_fragment(
             did_document
                 .self_signature_verifier_o
@@ -236,7 +236,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         &self,
         did: &DIDStr,
         vdr_scheme: &'static str,
-    ) -> Result<ParsedDIDWithQuery> {
+    ) -> Result<DIDFullyQualified> {
         assert!(vdr_scheme == "https" || vdr_scheme == "http");
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
@@ -371,7 +371,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
 
         // Add the priv key usage for the DIDUpdate
         let controlled_did = did.with_queries(
-            updated_did_document.self_hash().clone(),
+            updated_did_document.self_hash(),
             updated_did_document.version_id,
         );
         let controlled_did_with_key_id = controlled_did.with_fragment(
@@ -393,7 +393,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
                         .clone(),
                     used_at: now_utc,
                     usage: PrivKeyUsage::DIDUpdate {
-                        updated_did_with_query_o: Some(controlled_did.clone()),
+                        updated_did_fully_qualified_o: Some(controlled_did.clone()),
                     },
                     verification_method_and_purpose_o: Some((
                         controlled_did_with_key_id,
