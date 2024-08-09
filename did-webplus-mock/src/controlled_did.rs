@@ -158,7 +158,7 @@ impl ControlledDID {
         let self_hash = self.microledger.view().latest_did_document().self_hash();
         let key_id = did
             .with_queries(self_hash, version_id)
-            .with_fragment(public_key.to_owned());
+            .with_fragment(public_key.as_keri_verifier_str());
         (signer, key_id)
     }
     fn generate_new_keys() -> (
@@ -194,37 +194,53 @@ impl ControlledDID {
 
         use selfsign::Verifier;
         let current_public_key_set = PublicKeySet {
-            authentication_v: vec![ed25519_verifying_key_authentication.to_keri_verifier()],
-            assertion_method_v: vec![ed25519_verifying_key_assertion_method.to_keri_verifier()],
-            key_agreement_v: vec![ed25519_verifying_key_key_agreement.to_keri_verifier()],
-            capability_invocation_v: vec![
-                ed25519_verifying_key_capability_invocation.to_keri_verifier()
-            ],
-            capability_delegation_v: vec![
-                ed25519_verifying_key_capability_delegation.to_keri_verifier()
-            ],
+            authentication_v: vec![ed25519_verifying_key_authentication
+                .to_keri_verifier()
+                .into_owned()],
+            assertion_method_v: vec![ed25519_verifying_key_assertion_method
+                .to_keri_verifier()
+                .into_owned()],
+            key_agreement_v: vec![ed25519_verifying_key_key_agreement
+                .to_keri_verifier()
+                .into_owned()],
+            capability_invocation_v: vec![ed25519_verifying_key_capability_invocation
+                .to_keri_verifier()
+                .into_owned()],
+            capability_delegation_v: vec![ed25519_verifying_key_capability_delegation
+                .to_keri_verifier()
+                .into_owned()],
         };
         let signer_m = {
             let mut signer_m: HashMap<selfsign::KERIVerifier, Box<dyn selfsign::Signer>> =
                 HashMap::new();
             signer_m.insert(
-                ed25519_verifying_key_authentication.to_keri_verifier(),
+                ed25519_verifying_key_authentication
+                    .to_keri_verifier()
+                    .into_owned(),
                 Box::new(ed25519_signing_key_authentication),
             );
             signer_m.insert(
-                ed25519_verifying_key_assertion_method.to_keri_verifier(),
+                ed25519_verifying_key_assertion_method
+                    .to_keri_verifier()
+                    .into_owned(),
                 Box::new(ed25519_signing_key_assertion_method),
             );
             signer_m.insert(
-                ed25519_verifying_key_key_agreement.to_keri_verifier(),
+                ed25519_verifying_key_key_agreement
+                    .to_keri_verifier()
+                    .into_owned(),
                 Box::new(ed25519_signing_key_key_agreement),
             );
             signer_m.insert(
-                ed25519_verifying_key_capability_invocation.to_keri_verifier(),
+                ed25519_verifying_key_capability_invocation
+                    .to_keri_verifier()
+                    .into_owned(),
                 Box::new(ed25519_signing_key_capability_invocation),
             );
             signer_m.insert(
-                ed25519_verifying_key_capability_delegation.to_keri_verifier(),
+                ed25519_verifying_key_capability_delegation
+                    .to_keri_verifier()
+                    .into_owned(),
                 Box::new(ed25519_signing_key_capability_delegation),
             );
             signer_m

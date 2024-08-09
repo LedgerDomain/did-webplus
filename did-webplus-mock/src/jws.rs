@@ -400,10 +400,9 @@ pub fn resolve_did_and_verify_jws<'r, 'p>(
     requested_did_document_metadata: RequestedDIDDocumentMetadata,
     detached_payload_bytes_o: Option<&'p mut dyn std::io::Read>,
 ) -> Result<(Cow<'r, DIDDocument>, DIDDocumentMetadata), Error> {
-    let kid_without_fragment = jws.header.kid.without_fragment();
-    let did = kid_without_fragment.did();
-    // This will not allocate once DIDFragmentStr exists
-    let key_id = jws.header.kid.fragment();
+    let did_fully_qualified = jws.header.kid.without_fragment();
+    let did = did_fully_qualified.did();
+    let key_id_fragment = jws.header.kid.fragment();
 
     log::debug!(
         "resolve_did_and_verify_jws; JWS kid field is DID query: {}",
@@ -426,8 +425,8 @@ pub fn resolve_did_and_verify_jws<'r, 'p>(
 
     if !did_document
         .public_key_material()
-        .key_id_fragments_for_purpose(verification_key_purpose)
-        .contains(&key_id)
+        .relative_key_resources_for_purpose(verification_key_purpose)
+        .any(|relative_key_resource| relative_key_resource.fragment() == key_id_fragment)
     {
         return Err(Error::Invalid(
             "signing key is not present in specified verification method in resolved DID document",
@@ -439,7 +438,7 @@ pub fn resolve_did_and_verify_jws<'r, 'p>(
         .public_key_material()
         .verification_method_v
         .iter()
-        .find(|&verification_method| verification_method.id.fragment() == key_id)
+        .find(|&verification_method| verification_method.id.fragment() == key_id_fragment)
         .expect("programmer error: this key_id should be present in the verification method list; this should have been guaranteed by the resolver");
     let verifier = selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?;
 

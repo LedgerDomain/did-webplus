@@ -1,19 +1,23 @@
 use crate::{
-    DIDFragment, DIDFullyQualifiedStr, DIDResource, DIDWebplusURIComponents, Error, Fragment,
+    DIDFullyQualifiedStr, DIDResource, DIDWebplusURIComponents, Error, Fragment,
+    RelativeResourceStr,
 };
 
-#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr, serde::Serialize)]
-#[pneu_str(deserialize, str_field = "1")]
+#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
+#[pneu_str(deserialize, serialize, str_field = "1")]
 #[repr(transparent)]
-pub struct DIDResourceFullyQualifiedStr<F: 'static + Fragment>(std::marker::PhantomData<F>, str);
+pub struct DIDResourceFullyQualifiedStr<F: 'static + Fragment + ?Sized>(
+    std::marker::PhantomData<F>,
+    str,
+);
 
-impl<F: 'static + Fragment> DIDResourceFullyQualifiedStr<F> {
+impl<F: 'static + Fragment + ?Sized> DIDResourceFullyQualifiedStr<F> {
     pub fn without_query(&self) -> DIDResource<F> {
         DIDResource::new(
             self.host(),
             self.path_o(),
-            &self.root_self_hash(),
-            &self.fragment(),
+            self.root_self_hash(),
+            self.fragment(),
         )
         .expect("programmer error")
     }
@@ -44,15 +48,24 @@ impl<F: 'static + Fragment> DIDResourceFullyQualifiedStr<F> {
     pub fn query_version_id(&self) -> u32 {
         self.uri_components().query_version_id_o.expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
     }
+
+    /// This is the relative resource portion of the DID URI, which is the '#' char and everything following.
+    pub fn relative_resource(&self) -> &RelativeResourceStr<F> {
+        RelativeResourceStr::<F>::new_ref(
+            self.uri_components()
+                .relative_resource_o
+                .expect("programmer error"),
+        )
+        .expect("programmer error")
+    }
     /// This is the fragment portion of the DID URI, which is typically a key ID, but could refer to another
     /// resource within the DID document.
-    // TODO: Make this return a reference once DIDFragmentStr is implemented
-    pub fn fragment(&self) -> DIDFragment<F> {
-        DIDFragment::<F>::from_str_without_hash_char(self.uri_components().fragment_o.expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")).expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
+    pub fn fragment(&self) -> &F {
+        F::new_ref(self.uri_components().fragment_o.unwrap()).unwrap()
     }
 }
 
-impl<F: 'static + Fragment> pneutype::Validate for DIDResourceFullyQualifiedStr<F> {
+impl<F: 'static + Fragment + ?Sized> pneutype::Validate for DIDResourceFullyQualifiedStr<F> {
     type Data = str;
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
@@ -63,9 +76,8 @@ impl<F: 'static + Fragment> pneutype::Validate for DIDResourceFullyQualifiedStr<
         if !did_webplus_uri_components.has_fragment() {
             return Err(Error::Malformed("DID fragment is missing"));
         }
-        DIDFragment::<F>::from_str_without_hash_char(
-            did_webplus_uri_components.fragment_o.unwrap(),
-        )?;
+        <F as pneutype::Validate>::validate(did_webplus_uri_components.fragment_o.unwrap())
+            .map_err(|_| Error::Malformed("DID fragment is malformed"))?;
         Ok(())
     }
 }

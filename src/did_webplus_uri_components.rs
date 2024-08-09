@@ -7,6 +7,8 @@ pub struct DIDWebplusURIComponents<'a> {
     pub root_self_hash: &'a selfhash::KERIHashStr,
     pub query_self_hash_o: Option<&'a selfhash::KERIHashStr>,
     pub query_version_id_o: Option<u32>,
+    /// This is the fragment with the leading '#' char, if present.
+    pub relative_resource_o: Option<&'a str>,
     pub fragment_o: Option<&'a str>,
 }
 
@@ -37,17 +39,26 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         ))?;
         // TODO: Validation on host
 
-        let (uri_path, query_o, fragment_o) =
+        let (uri_path, query_o, relative_resource_o, fragment_o) =
             if let Some((uri_path, query_and_maybe_fragment)) = post_host_str.split_once('?') {
                 if let Some((query, fragment)) = query_and_maybe_fragment.split_once('#') {
-                    (uri_path, Some(query), Some(fragment))
+                    let relative_resource = query_and_maybe_fragment
+                        .split_at(query_and_maybe_fragment.find('#').unwrap())
+                        .1;
+                    (
+                        uri_path,
+                        Some(query),
+                        Some(relative_resource),
+                        Some(fragment),
+                    )
                 } else {
-                    (uri_path, Some(query_and_maybe_fragment), None)
+                    (uri_path, Some(query_and_maybe_fragment), None, None)
                 }
             } else if let Some((uri_path, fragment)) = post_host_str.split_once('#') {
-                (uri_path, None, Some(fragment))
+                let relative_resource = post_host_str.split_at(post_host_str.find('#').unwrap()).1;
+                (uri_path, None, Some(relative_resource), Some(fragment))
             } else {
-                (post_host_str, None, None)
+                (post_host_str, None, None, None)
             };
         // TODO: Validation on path, query_o, and fragment_o
 
@@ -87,6 +98,7 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
             root_self_hash,
             query_self_hash_o,
             query_version_id_o,
+            relative_resource_o,
             fragment_o,
         })
     }

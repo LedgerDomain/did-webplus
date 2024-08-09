@@ -1,7 +1,7 @@
 use crate::{DIDStr, DIDWebplusURIComponents, Error};
 
-#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr, serde::Serialize)]
-#[pneu_str(deserialize)]
+#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
+#[pneu_str(deserialize, serialize)]
 #[repr(transparent)]
 pub struct DIDWithQueryStr(str);
 

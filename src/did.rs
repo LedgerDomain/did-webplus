@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{DIDStr, Error};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
@@ -71,13 +73,10 @@ impl DID {
 /// for the self-hashing functionality.  A DID isn't strictly "a Hash", more like it "has a Hash", but
 /// this semantic difference isn't worth doing anything about.
 impl selfhash::Hash for DID {
-    fn hash_function(&self) -> &dyn selfhash::HashFunction {
+    fn hash_function(&self) -> &'static dyn selfhash::HashFunction {
         self.root_self_hash().hash_function()
     }
-    fn to_hash_bytes<'s: 'h, 'h>(&'s self) -> selfhash::HashBytes<'h> {
-        self.root_self_hash().to_hash_bytes()
-    }
-    fn to_keri_hash<'s: 'h, 'h>(&'s self) -> std::borrow::Cow<'h, selfhash::KERIHashStr> {
-        std::borrow::Cow::Borrowed(self.root_self_hash())
+    fn as_preferred_hash_format<'s: 'h, 'h>(&'s self) -> selfhash::PreferredHashFormat<'h> {
+        Cow::Borrowed(self.root_self_hash()).into()
     }
 }

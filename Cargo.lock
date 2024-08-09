@@ -2380,16 +2380,16 @@ checksum = "db23d408679286588f4d4644f965003d056e3dd5abcaaa938116871d7ce2fee7"
 
 [[package]]
 name = "pneutype"
-version = "0.4.0"
-source = "git+https://github.com/vdods/pneutype?rev=pneutype-v0.4.0#a2ba7bceadca305ae72094c76df006db680a8737"
+version = "0.5.0"
+source = "git+https://github.com/vdods/pneutype?rev=pneutype-v0.5.0#646b6136e23dabc4cfe8b7cb81504d63c1268f87"
 dependencies = [
  "pneutype-derive",
 ]
 
 [[package]]
 name = "pneutype-derive"
-version = "0.3.0"
-source = "git+https://github.com/vdods/pneutype?rev=pneutype-v0.4.0#a2ba7bceadca305ae72094c76df006db680a8737"
+version = "0.5.0"
+source = "git+https://github.com/vdods/pneutype?rev=pneutype-v0.5.0#646b6136e23dabc4cfe8b7cb81504d63c1268f87"
 dependencies = [
  "darling 0.13.4",
  "proc-macro2",
@@ -2859,8 +2859,8 @@ dependencies = [
 
 [[package]]
 name = "selfhash"
-version = "0.2.2"
-source = "git+https://github.com/LedgerDomain/selfhash?branch=keri-hash-as-pneutype#98bed8b939a6b3a7283b1c960ce446e6bccc1ce9"
+version = "0.3.0"
+source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.3.0#cabd26030f4da20ecf4ca5465b090cbe0dae583e"
 dependencies = [
  "base64 0.21.7",
  "blake3",
@@ -2876,8 +2876,8 @@ dependencies = [
 
 [[package]]
 name = "selfsign"
-version = "0.4.0"
-source = "git+https://github.com/LedgerDomain/selfsign?branch=keri-signature-and-verifier-as-pneutype#f66c2784d3a16f415f2c304f74b98ec6979bd086"
+version = "0.5.0"
+source = "git+https://github.com/LedgerDomain/selfsign?rev=selfsign-v0.5.0#5c28731dd4a54746beddd08fe6bcdd49d2e420a2"
 dependencies = [
  "base64 0.21.7",
  "derive_more",

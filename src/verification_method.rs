@@ -1,9 +1,9 @@
-use crate::{DIDStr, DIDWithKeyIdFragment, Error, PublicKeyJWK, PublicKeyParams, DID};
+use crate::{DIDKeyResource, DIDStr, Error, PublicKeyJWK, PublicKeyParams, DID};
 
 // TODO: Refactor to use jsonWebKey2020 specifically, absorb "type" field into serde tag.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct VerificationMethod {
-    pub id: DIDWithKeyIdFragment,
+    pub id: DIDKeyResource,
     pub r#type: String,
     pub controller: DID,
     /// We only support jsonWebKey2020 here.
@@ -17,13 +17,13 @@ impl VerificationMethod {
     /// value of the verifier.
     pub fn json_web_key_2020(controller: DID, verifier: &dyn selfsign::Verifier) -> Self {
         let key_id = verifier.to_keri_verifier();
-        let did_with_key_id_fragment = controller.with_fragment(key_id);
+        let did_key_resource: DIDKeyResource = controller.with_fragment(&key_id);
         let public_key_jwk = PublicKeyJWK {
-            kid_o: Some(did_with_key_id_fragment.clone().into()),
+            kid_o: Some(did_key_resource.clone().into()),
             public_key_params: PublicKeyParams::from(verifier),
         };
         Self {
-            id: did_with_key_id_fragment,
+            id: did_key_resource,
             r#type: "JsonWebKey2020".into(),
             controller,
             public_key_jwk,
@@ -65,8 +65,7 @@ impl VerificationMethod {
         // NOTE: This constraint might be infeasible for some key types that have very large public keys
         // (e.g. some post-quantum crypto schemes).  So this constraint may not stay around.
         let keri_verifier = selfsign::KERIVerifier::try_from(&self.public_key_jwk)?;
-        use std::ops::Deref;
-        if keri_verifier != *self.id.fragment().deref() {
+        if keri_verifier.as_keri_verifier_str() != self.id.fragment() {
             return Err(Error::Malformed(
                 "VerificationMethod id fragment does not match publicKeyJwk key material",
             ));

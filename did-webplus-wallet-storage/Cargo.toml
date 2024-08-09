@@ -11,8 +11,8 @@ sqlx = ["dep:sqlx"]
 async-trait = "0.1.80"
 did-webplus = { path = ".." }
 did-webplus-doc-store = { path = "../did-webplus-doc-store" }
-selfhash = "0.2.2"
-selfsign = "0.4.0"
+selfhash = "0.3.0"
+selfsign = "0.5.0"
 sqlx = { version = "0.7", default-features = false, optional = true }
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }

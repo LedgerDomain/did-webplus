@@ -21,9 +21,9 @@ derive_more = { version = "0.99.17", default-features = false, features = [
 ] }
 enum-map = "2.7.3"
 flagset = "0.4.6"
-pneutype = "0.4.0"
-selfhash = { version = "0.2.2", features = ["serde", "blake3"] }
-selfsign = { version = "0.4.0", features = ["serde", "jcs"] }
+pneutype = "0.5.0"
+selfhash = { version = "0.3.0", features = ["serde", "blake3"] }
+selfsign = { version = "0.5.0", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json_canonicalizer = "0.2.0"
 serde_json = "1.0.106"
@@ -36,7 +36,7 @@ time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 [dev-dependencies]
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
 rand = "0.8"
-selfsign = { version = "0.4.0", features = ["ed25519-dalek"] }
+selfsign = { version = "0.5.0", features = ["ed25519-dalek"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [
@@ -47,14 +47,9 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
 ] }
 
 [patch.crates-io]
-pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.4.0" }
-# pneutype = { path = "../../vdods/pneutype/pneutype" }
-# selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.2.2" }
-# selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "selfsign-v0.4.0" }
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", branch = "keri-hash-as-pneutype" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", branch = "keri-signature-and-verifier-as-pneutype" }
-# selfhash = { path = "../selfhash" }
-# selfsign = { path = "../selfsign" }
+pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.0" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.3.0" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "selfsign-v0.5.0" }
 
 [workspace]
 resolver = "2"

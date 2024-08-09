@@ -1,15 +1,13 @@
 use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageRow};
-use did_webplus::{
-    DIDDocument, DIDKeyIdFragment, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags,
-};
+use did_webplus::{DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocStorage};
 use did_webplus_wallet_storage::{
     Error, LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter,
     PrivKeyUsageRecord, PrivKeyUsageRecordFilter, Result, VerificationMethodRecord, WalletRecord,
     WalletRecordFilter, WalletStorage, WalletStorageCtx,
 };
+use selfsign::KERIVerifierStr;
 use sqlx::SqlitePool;
-use std::str::FromStr;
 
 #[derive(Clone)]
 pub struct WalletStorageSQLite {
@@ -95,14 +93,13 @@ impl DIDDocStorage for WalletStorageSQLite {
             .verification_method_v
             .iter()
         {
-            // TODO: This will not alloc once DIDFragmentStr exists.
-            let key_id_fragment = verification_method.id.fragment().to_string();
+            let key_id_fragment_str = verification_method.id.fragment().as_str();
             let controller = verification_method.controller.as_str();
             let pub_key =
                 selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?.to_string();
             let key_purpose_flags = did_document
                 .public_key_material
-                .key_purpose_flags_for_key_id_fragment(&verification_method.id.fragment());
+                .key_purpose_flags_for_key_id_fragment(verification_method.id.fragment());
             let key_purpose_flags_integer = key_purpose_flags.integer_value() as i32;
             sqlx::query!(
                 r#"
@@ -110,7 +107,7 @@ impl DIDDocStorage for WalletStorageSQLite {
                     VALUES ($1, $2, $3, $4, $5)
                 "#,
                 did_documents_rowid,
-                key_id_fragment,
+                key_id_fragment_str,
                 controller,
                 pub_key,
                 key_purpose_flags_integer,
@@ -563,20 +560,19 @@ impl WalletStorage for WalletStorageSQLite {
                     .into(),
                 )
             })?;
-            let key_id_fragment = DIDKeyIdFragment::from_str(query_result.key_id_fragment.as_str())
+            let key_id_fragment = KERIVerifierStr::new_ref(query_result.key_id_fragment.as_str())
                 .map_err(|e| {
-                    Error::RecordCorruption(
-                        format!(
-                            "invalid verification_methods.key_id_fragment value {}; error was {}",
-                            query_result.key_id_fragment, e
-                        )
-                        .into(),
+                Error::RecordCorruption(
+                    format!(
+                        "invalid verification_methods.key_id_fragment value {:?}; error was {}",
+                        query_result.key_id_fragment, e
                     )
-                })?;
-            use std::ops::Deref;
+                    .into(),
+                )
+            })?;
             let did_key_resource_fully_qualified = did
                 .with_queries(self_hash, version_id)
-                .with_fragment(key_id_fragment.deref().clone());
+                .with_fragment(key_id_fragment);
 
             let key_purpose_flags = KeyPurposeFlags::try_from(
                 u8::try_from(query_result.key_purpose_flags).map_err(|e| {

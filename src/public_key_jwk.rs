@@ -1,11 +1,11 @@
-use crate::{DIDStr, DIDWithKeyIdFragment, Error, PublicKeyParams};
+use crate::{DIDKeyResource, DIDStr, Error, PublicKeyParams};
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyJWK {
     // TODO: kid field is optional; consider taking this out to simplify things.
     #[serde(rename = "kid")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kid_o: Option<DIDWithKeyIdFragment>,
+    pub kid_o: Option<DIDKeyResource>,
     // Note that this will use the "kty" field in serde to determine the variant of the enum.
     #[serde(flatten)]
     pub public_key_params: PublicKeyParams,
@@ -16,11 +16,13 @@ impl PublicKeyJWK {
         let keri_verifier = verifier.to_keri_verifier();
         let public_key_params = PublicKeyParams::from(verifier);
         assert!(
-            selfsign::KERIVerifier::try_from(&public_key_params).expect("programmer error")
-                == keri_verifier,
+            selfsign::KERIVerifier::try_from(&public_key_params)
+                .expect("programmer error")
+                .as_keri_verifier_str()
+                == keri_verifier.as_ref(),
             "sanity check"
         );
-        let kid = did.with_fragment(keri_verifier);
+        let kid: DIDKeyResource = did.with_fragment(keri_verifier.as_ref());
         Self {
             kid_o: Some(kid),
             public_key_params,
@@ -34,8 +36,7 @@ impl TryFrom<&PublicKeyJWK> for selfsign::KERIVerifier {
         let keri_verifier = selfsign::KERIVerifier::try_from(&public_key_jwk.public_key_params)?;
         // Verify that the kid fragment matches the KERIVerifier corresponding to the key material.
         if let Some(kid) = &public_key_jwk.kid_o {
-            use std::ops::Deref;
-            if *kid.fragment().deref() != keri_verifier {
+            if kid.fragment() != keri_verifier.as_keri_verifier_str() {
                 return Err(Error::Malformed(
                     "publicKeyJwk kid fragment does not match publicKeyJwk key material",
                 ));

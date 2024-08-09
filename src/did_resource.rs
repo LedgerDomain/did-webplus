@@ -1,6 +1,8 @@
-use crate::{DIDFragment, DIDResourceStr, Error, Fragment};
+use std::borrow::Cow;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
+use crate::{DIDResourceStr, Error, Fragment};
+
+#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(
     as_pneu_str = "as_did_resource_str",
     borrow = "DIDResourceStr",
@@ -8,15 +10,24 @@ use crate::{DIDFragment, DIDResourceStr, Error, Fragment};
     serialize,
     string_field = "1"
 )]
-pub struct DIDResource<F: 'static + Fragment>(std::marker::PhantomData<F>, String);
+pub struct DIDResource<F: 'static + Fragment + ?Sized>(std::marker::PhantomData<F>, String);
 
-impl<F: 'static + Fragment> DIDResource<F> {
+/// Because DIDResource has a type parameter that doesn't require Clone,
+/// the standard derive(Clone) doesn't work, because it has incorrect, non-minimal bounds.
+/// See https://github.com/rust-lang/rust/issues/41481
+/// and https://github.com/rust-lang/rust/issues/26925
+impl<F: 'static + Fragment + ?Sized> Clone for DIDResource<F> {
+    fn clone(&self) -> Self {
+        Self(Default::default(), self.1.clone())
+    }
+}
+
+impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
     pub fn new(
         host: &str,
         path_o: Option<&str>,
         root_self_hash: &selfhash::KERIHashStr,
-        // TODO: This should just be F or &F::Borrowed
-        fragment: &DIDFragment<F>,
+        fragment: &F,
     ) -> Result<Self, Error> {
         // TODO: Complete validation of host
         if host.contains(':') || host.contains('/') {
@@ -25,7 +36,7 @@ impl<F: 'static + Fragment> DIDResource<F> {
             ));
         }
         Self::try_from(format!(
-            "did:webplus:{}{}{}:{}{}",
+            "did:webplus:{}{}{}:{}#{}",
             host,
             if path_o.is_some() { ":" } else { "" },
             if let Some(path) = path_o { path } else { "" },
@@ -50,14 +61,11 @@ impl<F: 'static + Fragment> DIDResource<F> {
 /// This implementation is to allow a `&DIDResource` to function as a `&dyn selfhash::Hash`, which is necessary
 /// for the self-hashing functionality.  A DIDResource isn't strictly "a Hash", more like it "has a Hash", but
 /// this semantic difference isn't worth doing anything about.
-impl<F: 'static + Fragment> selfhash::Hash for DIDResource<F> {
-    fn hash_function(&self) -> &dyn selfhash::HashFunction {
+impl<F: 'static + Fragment + ?Sized> selfhash::Hash for DIDResource<F> {
+    fn hash_function(&self) -> &'static dyn selfhash::HashFunction {
         self.root_self_hash().hash_function()
     }
-    fn to_hash_bytes<'s: 'h, 'h>(&'s self) -> selfhash::HashBytes<'h> {
-        self.root_self_hash().to_hash_bytes()
-    }
-    fn to_keri_hash<'s: 'h, 'h>(&'s self) -> std::borrow::Cow<'h, selfhash::KERIHashStr> {
-        std::borrow::Cow::Borrowed(self.root_self_hash())
+    fn as_preferred_hash_format<'s: 'h, 'h>(&'s self) -> selfhash::PreferredHashFormat<'h> {
+        Cow::Borrowed(self.root_self_hash()).into()
     }
 }

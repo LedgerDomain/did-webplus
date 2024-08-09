@@ -13,8 +13,8 @@ did-webplus-doc-store = { path = "../did-webplus-doc-store", features = [
 did-webplus-wallet-storage = { path = "../did-webplus-wallet-storage", features = [
     "sqlx",
 ] }
-selfhash = "0.2.2"
-selfsign = "0.4.0"
+selfhash = "0.3.0"
+selfsign = "0.5.0"
 sqlx = { version = "0.7", features = ["sqlite", "time", "uuid"] }
 time = { version = "0.3", features = ["serde"] }
 tracing = "0.1.37"

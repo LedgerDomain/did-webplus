@@ -1,10 +1,8 @@
-use crate::{
-    DIDFragment, DIDResourceFullyQualified, DIDStr, DIDWebplusURIComponents, Error, Fragment,
-};
+use crate::{DIDResourceFullyQualified, DIDStr, DIDWebplusURIComponents, Error, Fragment};
 use std::str::FromStr;
 
-#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr, serde::Serialize)]
-#[pneu_str(deserialize)]
+#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
+#[pneu_str(deserialize, serialize)]
 #[repr(transparent)]
 pub struct DIDFullyQualifiedStr(str);
 
@@ -14,14 +12,17 @@ impl DIDFullyQualifiedStr {
         let (did, _query_params) = self.0.split_once('?').expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified");
         DIDStr::new_ref(did).expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified")
     }
-    pub fn with_fragment<F: Fragment>(&self, fragment: F) -> DIDResourceFullyQualified<F> {
+    pub fn with_fragment<F: Fragment + ?Sized>(
+        &self,
+        fragment: &F,
+    ) -> DIDResourceFullyQualified<F> {
         DIDResourceFullyQualified::new(
             self.host(),
             self.path_o(),
             self.root_self_hash(),
             self.query_self_hash(),
             self.query_version_id(),
-            DIDFragment::from(fragment),
+            fragment,
         ).expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified")
     }
     fn uri_components(&self) -> DIDWebplusURIComponents {

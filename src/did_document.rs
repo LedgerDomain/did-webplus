@@ -59,7 +59,8 @@ impl DIDDocument {
         signer: &dyn selfsign::Signer,
     ) -> Result<Self, Error> {
         // Ensure that the signer's verifier is a member of did_document_create_params.capability_invocation_verifier_v.
-        let keri_verifier = signer.verifier().to_keri_verifier();
+        let verifier = signer.verifier();
+        let keri_verifier = verifier.to_keri_verifier();
         if !did_document_create_params
             .public_key_set
             .capability_invocation_v
@@ -116,12 +117,13 @@ impl DIDDocument {
                 )
             })?;
         // TODO: Put this into a function
-        let keri_verifier = signer.verifier().to_keri_verifier();
+        let verifier = signer.verifier();
+        let keri_verifier = verifier.to_keri_verifier();
         if !prev_did_document
             .public_key_material()
-            .capability_invocation_key_id_fragment_v
+            .capability_invocation_relative_key_resource_v
             .iter()
-            .all(|key_id_fragment| **key_id_fragment == keri_verifier)
+            .all(|relative_key_resource| relative_key_resource.fragment() == keri_verifier.as_ref())
         {
             return Err(Error::InvalidDIDUpdateOperation(
                 "Unauthorized update operation; Signer's pub key not present in previous DID document's capability_invocation_v",
@@ -375,8 +377,7 @@ impl selfsign::SelfSignable for DIDDocument {
     }
     fn set_self_signature_slots_to(&mut self, signature: &dyn selfsign::Signature) {
         // Root and non-root DID documents both have the same self-signature slots.
-        let keri_signature = signature.to_keri_signature();
-        self.self_signature_o = Some(keri_signature);
+        self.self_signature_o = Some(signature.to_keri_signature().into_owned());
     }
     fn self_signature_verifier_oi<'a, 'b: 'a>(
         &'b self,
@@ -390,6 +391,6 @@ impl selfsign::SelfSignable for DIDDocument {
     }
     fn set_self_signature_verifier_slots_to(&mut self, verifier: &dyn selfsign::Verifier) {
         // Root and non-root DID documents both have the same self-signature verifier slots.
-        self.self_signature_verifier_o = Some(verifier.to_keri_verifier());
+        self.self_signature_verifier_o = Some(verifier.to_keri_verifier().into_owned());
     }
 }

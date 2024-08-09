@@ -1,10 +1,9 @@
 use crate::{
-    DIDFragment, DIDFullyQualified, DIDResource, DIDWebplusURIComponents, DIDWithQuery, Error,
-    Fragment,
+    DIDFullyQualified, DIDResource, DIDWebplusURIComponents, DIDWithQuery, Error, Fragment,
 };
 
-#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr, serde::Serialize)]
-#[pneu_str(deserialize)]
+#[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
+#[pneu_str(deserialize, serialize)]
 #[repr(transparent)]
 pub struct DIDStr(str);
 
@@ -73,14 +72,9 @@ impl DIDStr {
         )
         .expect("programmer error")
     }
-    pub fn with_fragment<F: Fragment>(&self, fragment: F) -> DIDResource<F> {
-        DIDResource::new(
-            self.host(),
-            self.path_o(),
-            self.root_self_hash(),
-            &DIDFragment::<F>::from(fragment),
-        )
-        .expect("programmer error")
+    pub fn with_fragment<F: Fragment + ?Sized>(&self, fragment: &F) -> DIDResource<F> {
+        DIDResource::new(self.host(), self.path_o(), self.root_self_hash(), fragment)
+            .expect("programmer error")
     }
     /// Produce the URL that addresses the latest DID document for this DID.
     pub fn resolution_url(&self, scheme: &'static str) -> String {

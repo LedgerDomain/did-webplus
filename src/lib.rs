@@ -3,7 +3,6 @@ mod did_document;
 mod did_document_create_params;
 mod did_document_metadata;
 mod did_document_update_params;
-mod did_fragment;
 mod did_fully_qualified;
 mod did_fully_qualified_str;
 mod did_resource;
@@ -29,6 +28,8 @@ mod public_key_params;
 mod public_key_params_ec;
 mod public_key_params_okp;
 mod public_key_set;
+mod relative_resource;
+mod relative_resource_str;
 mod verification_method;
 
 pub(crate) use crate::did_fully_qualified_str::parse_did_query_params;
@@ -41,7 +42,6 @@ pub use crate::{
         DIDDocumentMetadataIdempotent, RequestedDIDDocumentMetadata,
     },
     did_document_update_params::DIDDocumentUpdateParams,
-    did_fragment::{DIDFragment, Fragment},
     did_fully_qualified::DIDFullyQualified,
     did_fully_qualified_str::DIDFullyQualifiedStr,
     did_resource::DIDResource,
@@ -63,6 +63,8 @@ pub use crate::{
     public_key_params_ec::PublicKeyParamsEC,
     public_key_params_okp::PublicKeyParamsOKP,
     public_key_set::PublicKeySet,
+    relative_resource::{Fragment, RelativeResource},
+    relative_resource_str::RelativeResourceStr,
     verification_method::VerificationMethod,
 };
 #[cfg(feature = "async-traits")]
@@ -71,7 +73,8 @@ pub use crate::{
     microledger_view_async::MicroledgerViewAsync,
 };
 
-pub type DIDKeyIdFragment = DIDFragment<selfsign::KERIVerifier>;
-pub type DIDWithKeyIdFragment = DIDResource<selfsign::KERIVerifier>;
-pub type DIDKeyResourceFullyQualified = DIDResourceFullyQualified<selfsign::KERIVerifier>;
-pub type DIDKeyResourceFullyQualifiedStr = DIDResourceFullyQualifiedStr<selfsign::KERIVerifier>;
+pub type RelativeKeyResource = RelativeResource<selfsign::KERIVerifierStr>;
+pub type RelativeKeyResourceStr = RelativeResourceStr<selfsign::KERIVerifierStr>;
+pub type DIDKeyResource = DIDResource<selfsign::KERIVerifierStr>;
+pub type DIDKeyResourceFullyQualified = DIDResourceFullyQualified<selfsign::KERIVerifierStr>;
+pub type DIDKeyResourceFullyQualifiedStr = DIDResourceFullyQualifiedStr<selfsign::KERIVerifierStr>;

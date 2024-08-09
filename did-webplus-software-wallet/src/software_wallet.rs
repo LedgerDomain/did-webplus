@@ -175,7 +175,10 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
                     &mut transaction,
                     &self.ctx,
                     PrivKeyRecord {
-                        pub_key: priv_key_m[key_purpose].verifying_key().to_keri_verifier(),
+                        pub_key: priv_key_m[key_purpose]
+                            .verifying_key()
+                            .to_keri_verifier()
+                            .into_owned(),
                         key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
                         created_at,
                         last_used_at_o: None,
@@ -191,13 +194,8 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
 
         // Add the priv key usage for the DIDCreate.
         let controlled_did = did.with_queries(did_document.self_hash(), 0);
-        let controlled_did_with_key_id = controlled_did.with_fragment(
-            did_document
-                .self_signature_verifier_o
-                .as_ref()
-                .unwrap()
-                .clone(),
-        );
+        let controlled_did_with_key_id = controlled_did
+            .with_fragment(did_document.self_signature_verifier_o.as_deref().unwrap());
         self.storage
             .add_priv_key_usage(
                 &mut transaction,
@@ -263,11 +261,11 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         // TODO: Somehow iterate?
         use selfsign::Verifier;
         let pub_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => priv_key_m[KeyPurpose::Authentication].verifying_key().to_keri_verifier(),
-            KeyPurpose::AssertionMethod => priv_key_m[KeyPurpose::AssertionMethod].verifying_key().to_keri_verifier(),
-            KeyPurpose::KeyAgreement => priv_key_m[KeyPurpose::KeyAgreement].verifying_key().to_keri_verifier(),
-            KeyPurpose::CapabilityInvocation => priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key().to_keri_verifier(),
-            KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key().to_keri_verifier(),
+            KeyPurpose::Authentication => priv_key_m[KeyPurpose::Authentication].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::AssertionMethod => priv_key_m[KeyPurpose::AssertionMethod].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::KeyAgreement => priv_key_m[KeyPurpose::KeyAgreement].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::CapabilityInvocation => priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key().to_keri_verifier().into_owned(),
         };
 
         // Select all the locally-stored keys that are in the latest DID document, so that they can be
@@ -307,11 +305,15 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
             DIDDocumentUpdateParams {
                 valid_from: now_utc,
                 public_key_set: did_webplus::PublicKeySet {
-                    authentication_v: vec![&pub_key_m[KeyPurpose::Authentication]],
-                    assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod]],
-                    key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement]],
-                    capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
-                    capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
+                    authentication_v: vec![&pub_key_m[KeyPurpose::Authentication].as_ref()],
+                    assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod].as_ref()],
+                    key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement].as_ref()],
+                    capability_invocation_v: vec![
+                        &pub_key_m[KeyPurpose::CapabilityInvocation].as_ref()
+                    ],
+                    capability_delegation_v: vec![
+                        &pub_key_m[KeyPurpose::CapabilityDelegation].as_ref()
+                    ],
                 },
             },
             &selfhash::Blake3,
@@ -355,7 +357,10 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
                     &mut transaction,
                     &self.ctx,
                     PrivKeyRecord {
-                        pub_key: priv_key_m[key_purpose].verifying_key().to_keri_verifier(),
+                        pub_key: priv_key_m[key_purpose]
+                            .verifying_key()
+                            .to_keri_verifier()
+                            .into_owned(),
                         key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
                         created_at: now_utc,
                         last_used_at_o: None,
@@ -377,9 +382,8 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         let controlled_did_with_key_id = controlled_did.with_fragment(
             updated_did_document
                 .self_signature_verifier_o
-                .as_ref()
-                .unwrap()
-                .clone(),
+                .as_deref()
+                .unwrap(),
         );
         self.storage
             .add_priv_key_usage(
