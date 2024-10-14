@@ -1,5 +1,5 @@
 use did_webplus::{DIDDocument, DIDStr};
-use did_webplus_doc_store::{DIDDocRecord, Error, Result};
+use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, Error, Result};
 use sqlx::SqlitePool;
 
 pub struct DIDDocStorageSQLite {
@@ -140,6 +140,39 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
         .transpose()?;
         Ok(did_doc_record_o)
+    }
+    async fn get_did_doc_records(
+        &self,
+        transaction: &mut Self::Transaction<'_>,
+        did_doc_record_filter: &DIDDocRecordFilter,
+    ) -> Result<Vec<DIDDocRecord>> {
+        let filter_on_did = did_doc_record_filter.did_o.is_some();
+        let filter_on_self_hash = did_doc_record_filter.self_hash_o.is_some();
+        let filter_on_version_id = did_doc_record_filter.version_id_o.is_some();
+        // TODO: SQL-based filtering on valid_at
+        // let filter_on_valid_at = did_doc_record_filter.valid_at_o.is_some();
+        let did_doc_record_v = sqlx::query_as!(
+            DIDDocumentRowSQLite,
+            r#"
+                select did, version_id, valid_from, self_hash, did_document
+                from did_document_records
+                where (NOT $1 OR did = $2) AND
+                      (NOT $3 OR self_hash = $4) AND
+                      (NOT $5 OR version_id = $6)
+            "#,
+            filter_on_did,
+            did_doc_record_filter.did_o,
+            filter_on_self_hash,
+            did_doc_record_filter.self_hash_o,
+            filter_on_version_id,
+            did_doc_record_filter.version_id_o,
+        )
+        .fetch_all(transaction.as_mut())
+        .await?
+        .into_iter()
+        .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
+        .collect::<Result<Vec<_>>>()?;
+        Ok(did_doc_record_v)
     }
 }
 

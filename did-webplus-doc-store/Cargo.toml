@@ -11,8 +11,9 @@ sqlx = ["dep:sqlx"]
 anyhow = "1.0.83"
 async-trait = "0.1.80"
 did-webplus = { path = ".." }
-selfhash = "0.3.0"
-selfsign = "0.5.0"
+selfhash = "0.4.0"
+selfsign = "0.6.0"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0.107"
 sqlx = { version = "0.7", default-features = false, optional = true }
 thiserror = "1.0.60"

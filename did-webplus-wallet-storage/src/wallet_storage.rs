@@ -21,8 +21,8 @@ pub trait WalletStorage: Clone + did_webplus_doc_store::DIDDocStorage {
         wallet_uuid: &uuid::Uuid,
     ) -> Result<Option<(WalletStorageCtx, WalletRecord)>>;
     async fn get_wallets(
+        &self,
         transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
-        ctx: &WalletStorageCtx,
         wallet_record_filter: &WalletRecordFilter,
     ) -> Result<Vec<(WalletStorageCtx, WalletRecord)>>;
 
@@ -79,12 +79,4 @@ pub trait WalletStorage: Clone + did_webplus_doc_store::DIDDocStorage {
         ctx: &WalletStorageCtx,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
     ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>>;
-    /// Return up to one locally controlled verification method for the given DID.  If there are multiple matches,
-    /// return error.
-    async fn get_locally_controlled_verification_method(
-        &self,
-        transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
-        ctx: &WalletStorageCtx,
-        locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Option<(VerificationMethodRecord, PrivKeyRecord)>>;
 }

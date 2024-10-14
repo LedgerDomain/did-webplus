@@ -46,6 +46,7 @@ async fn http_get(url: &str) -> HTTPResult<String> {
     }
 }
 
+// TODO: Add optional VDG to use as a proxy
 pub async fn vdr_fetch_latest_did_document_body(
     did: &DIDStr,
     scheme: &'static str,
@@ -53,6 +54,7 @@ pub async fn vdr_fetch_latest_did_document_body(
     http_get(did.resolution_url(scheme).as_str()).await
 }
 
+// TODO: Add optional VDG to use as a proxy
 pub async fn vdr_fetch_did_document_body(
     did_with_query: &DIDWithQueryStr,
     scheme: &'static str,

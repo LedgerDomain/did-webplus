@@ -1,6 +1,8 @@
 use crate::{determine_http_scheme, parse_url, temp_hack_incomplete_url_encoded, Result};
 
-/// Perform DID resolution for a given query URI, using the "thin" resolver, relying on a VDG.
+/// Perform DID resolution for a given query URI, using the "thin" resolver, relying on a VDG
+/// (Verifiable Data Gateway) to perform fetching, validation, and storage.  This is useful
+/// for clients that can't or do not want to implement the full DID resolution logic themselves.
 #[derive(Debug, clap::Parser)]
 pub struct DIDResolveThin {
     /// The DID query URI to be resolved.  Examples:
@@ -15,7 +17,7 @@ pub struct DIDResolveThin {
     /// or fragment.
     #[arg(
         name = "vdg",
-        env = "DID_WEBPLUS_CLI_VDG",
+        env = "DID_WEBPLUS_VDG",
         short,
         long,
         value_name = "URL",

@@ -30,7 +30,7 @@ rmi: remove-docker-image
 # run the `did-webplus` binary manually against the VDG and VDR.
 #
 # Note that because TLS is not being used currently in the VDG/VDR, the env var
-# DID_WEBPLUS_CLI_HTTP_SCHEME_OVERRIDE (development-only) is set to http so that all HTTP requests
+# DID_WEBPLUS_HTTP_SCHEME_OVERRIDE (development-only) is set to http so that all HTTP requests
 # use scheme http:// instead of the default https:// (mandatory in all production scenarios).
 shell:
 	mkdir -p ~/.did-webplus
@@ -39,8 +39,8 @@ shell:
 		--volume ~/.did-webplus:/root/.did-webplus \
 		--env RUST_BACKTRACE=1 \
 		--env RUST_LOG=did_webplus=trace,debug \
-		--env DID_WEBPLUS_CLI_DOC_STORE=sqlite:///root/.did-webplus/doc-store.db \
-		--env DID_WEBPLUS_CLI_VDG=witness.org \
-		--env DID_WEBPLUS_CLI_HTTP_SCHEME_OVERRIDE=http \
+		--env DID_WEBPLUS_DOC_STORE=sqlite:///root/.did-webplus/doc-store.db \
+		--env DID_WEBPLUS_VDG=witness.org \
+		--env DID_WEBPLUS_HTTP_SCHEME_OVERRIDE=http \
 		--entrypoint bash \
 		$(CLI_PROJECT_NAME):latest

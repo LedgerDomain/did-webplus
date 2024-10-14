@@ -1,11 +1,9 @@
-use std::collections::{HashMap, HashSet};
-
-use selfsign::KERIVerifierStr;
-
 use crate::{
     DIDStr, Error, KeyPurpose, KeyPurposeFlags, PublicKeySet, RelativeKeyResource,
-    RelativeKeyResourceStr, VerificationMethod, DID,
+    RelativeKeyResourceStr, Result, VerificationMethod, DID,
 };
+use selfsign::KERIVerifierStr;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyMaterial {
@@ -27,7 +25,7 @@ impl PublicKeyMaterial {
     pub fn new<'a>(
         did: DID,
         public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         let mut verification_method_m: HashMap<selfsign::KERIVerifier, VerificationMethod> =
             HashMap::new();
         for &public_key in public_key_set.iter() {
@@ -111,7 +109,7 @@ impl PublicKeyMaterial {
         }
         key_purpose_flags
     }
-    pub fn verify(&self, expected_controller: &DIDStr) -> Result<(), Error> {
+    pub fn verify(&self, expected_controller: &DIDStr) -> Result<()> {
         for verification_method in &self.verification_method_v {
             verification_method.verify(expected_controller)?;
         }
@@ -123,7 +121,7 @@ impl PublicKeyMaterial {
         for key_purpose in KeyPurpose::VARIANTS {
             for relative_key_resource in self.relative_key_resources_for_purpose(key_purpose) {
                 if !relative_key_resource_s.contains(relative_key_resource) {
-                    return Err(Error::MalformedKeyFragment(
+                    return Err(Error::MalformedKeyId(
                         key_purpose.as_str(),
                         "key id fragment does not match any listed verification method",
                     ));
@@ -148,9 +146,13 @@ impl PublicKeyMaterial {
         }
         iter_chain
     }
-    pub fn set_root_did_document_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
+    pub fn set_root_did_document_self_hash_slots_to(
+        &mut self,
+        hash: &dyn selfhash::Hash,
+    ) -> Result<()> {
         for verification_method in &mut self.verification_method_v {
-            verification_method.set_root_did_document_self_hash_slots_to(hash);
+            verification_method.set_root_did_document_self_hash_slots_to(hash)?;
         }
+        Ok(())
     }
 }

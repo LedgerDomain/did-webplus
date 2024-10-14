@@ -86,7 +86,10 @@ impl<'j> JWS<'j> {
 
         if let Some(detached_payload_bytes) = detached_payload_bytes_o {
             if !self.raw_attached_payload_str().is_empty() {
-                panic!("detached_payload_bytes_o must be None if the payload is not empty");
+                // panic!("detached_payload_bytes_o must be None if the payload is not empty");
+                return Err(Error::Invalid(
+                    "if the JWS payload is not empty, then no detached payload may be specified",
+                ));
             }
             if self.payload_is_base64url_encoded() {
                 let mut base64url_encoder = base64::write::EncoderWriter::new(
@@ -349,9 +352,24 @@ impl<'j> TryFrom<Cow<'j, str>> for JWS<'j> {
             return Err(Error::Malformed("JWS has too many parts"));
         }
 
+        // Warn of whitespace in the base64urlnopad-encoded parts.
+        if header_base64.contains(char::is_whitespace) {
+            return Err(Error::Malformed("Encoded JWS header contains whitespace"));
+        }
+        // TODO: This needs to change to support attached, non-encoded payloads.
+        if payload_base64.contains(char::is_whitespace) {
+            return Err(Error::Malformed("Encoded JWS payload contains whitespace"));
+        }
+        if signature_base64.contains(char::is_whitespace) {
+            return Err(Error::Malformed(
+                "Encoded JWS signature contains whitespace",
+            ));
+        }
+
         if !is_base64urlnopad_encoded(header_base64) {
             return Err(Error::Malformed("JWS header is not base64urlnopad-encoded"));
         }
+        // TODO: This needs to change to support attached, non-encoded payloads.
         if !is_base64urlnopad_encoded(payload_base64) {
             return Err(Error::Malformed(
                 "JWS payload is not base64urlnopad-encoded",
@@ -449,7 +467,7 @@ pub fn resolve_did_and_verify_jws<'r, 'p>(
 }
 
 fn is_base64urlnopad_encoded(s: &str) -> bool {
-    // Base64urlnopad encoding is a subset of base64 encoding, so we can just check for the presence of
+    // Base64urlnopad encoding is a subset of base64url encoding, so we can just check for the presence of
     // characters that are not in the base64url-nopad alphabet.
     s.chars()
         .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')

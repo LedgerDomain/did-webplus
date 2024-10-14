@@ -1,11 +1,12 @@
 mod did_doc_record;
+mod did_doc_record_filter;
 mod did_doc_storage;
 mod did_doc_store;
 mod error;
 
 pub use crate::{
-    did_doc_record::DIDDocRecord, did_doc_storage::DIDDocStorage, did_doc_store::DIDDocStore,
-    error::Error,
+    did_doc_record::DIDDocRecord, did_doc_record_filter::DIDDocRecordFilter,
+    did_doc_storage::DIDDocStorage, did_doc_store::DIDDocStore, error::Error,
 };
 pub type Result<T> = std::result::Result<T, Error>;
 

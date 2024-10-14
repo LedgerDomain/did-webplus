@@ -1,4 +1,4 @@
-use crate::{DIDKeyResource, DIDStr, Error, PublicKeyJWK, PublicKeyParams, DID};
+use crate::{DIDKeyResource, DIDStr, Error, PublicKeyJWK, PublicKeyParams, Result, DID};
 
 // TODO: Refactor to use jsonWebKey2020 specifically, absorb "type" field into serde tag.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
@@ -29,7 +29,7 @@ impl VerificationMethod {
             public_key_jwk,
         }
     }
-    pub fn verify(&self, expected_controller: &DIDStr) -> Result<(), crate::Error> {
+    pub fn verify(&self, expected_controller: &DIDStr) -> Result<()> {
         if self.controller.as_did_str() != expected_controller {
             return Err(Error::Malformed(
                 "VerificationMethod controller does not match expected DID",
@@ -88,12 +88,16 @@ impl VerificationMethod {
         }
         iter_chain
     }
-    pub fn set_root_did_document_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
-        let keri_hash = hash.to_keri_hash();
+    pub fn set_root_did_document_self_hash_slots_to(
+        &mut self,
+        hash: &dyn selfhash::Hash,
+    ) -> Result<()> {
+        let keri_hash = hash.to_keri_hash()?;
         self.controller.set_root_self_hash(&keri_hash);
         if let Some(kid) = self.public_key_jwk.kid_o.as_mut() {
             kid.set_root_self_hash(&keri_hash);
         }
         self.id.set_root_self_hash(&keri_hash);
+        Ok(())
     }
 }

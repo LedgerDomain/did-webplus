@@ -1,4 +1,4 @@
-use crate::{DIDDocRecord, Result};
+use crate::{DIDDocRecord, DIDDocRecordFilter, Result};
 use did_webplus::{DIDDocument, DIDStr};
 
 #[async_trait::async_trait]
@@ -51,4 +51,10 @@ pub trait DIDDocStorage: Send + Sync {
         transaction: &mut Self::Transaction<'_>,
         did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>>;
+    /// Get all DIDDocRecord-s in the store, subject to the given filter.
+    async fn get_did_doc_records(
+        &self,
+        transaction: &mut Self::Transaction<'_>,
+        did_doc_record_filter: &DIDDocRecordFilter,
+    ) -> Result<Vec<DIDDocRecord>>;
 }

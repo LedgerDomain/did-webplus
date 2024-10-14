@@ -1,6 +1,6 @@
 use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageRow};
 use did_webplus::{DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags};
-use did_webplus_doc_store::{DIDDocRecord, DIDDocStorage};
+use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, DIDDocStorage};
 use did_webplus_wallet_storage::{
     Error, LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter,
     PrivKeyUsageRecord, PrivKeyUsageRecordFilter, Result, VerificationMethodRecord, WalletRecord,
@@ -188,6 +188,39 @@ impl DIDDocStorage for WalletStorageSQLite {
         .transpose()?;
         Ok(did_doc_record_o)
     }
+    async fn get_did_doc_records(
+        &self,
+        transaction: &mut Self::Transaction<'_>,
+        did_doc_record_filter: &DIDDocRecordFilter,
+    ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
+        let filter_on_did = did_doc_record_filter.did_o.is_some();
+        let filter_on_self_hash = did_doc_record_filter.self_hash_o.is_some();
+        let filter_on_version_id = did_doc_record_filter.version_id_o.is_some();
+        // TODO: SQL-based filtering on valid_at
+        // let filter_on_valid_at = did_doc_record_filter.valid_at_o.is_some();
+        let did_doc_record_v = sqlx::query_as!(
+            DIDDocumentRowSQLite,
+            r#"
+                select did, version_id, valid_from, self_hash, did_document_jcs
+                from did_documents
+                where (NOT $1 OR did = $2) AND
+                      (NOT $3 OR self_hash = $4) AND
+                      (NOT $5 OR version_id = $6)
+            "#,
+            filter_on_did,
+            did_doc_record_filter.did_o,
+            filter_on_self_hash,
+            did_doc_record_filter.self_hash_o,
+            filter_on_version_id,
+            did_doc_record_filter.version_id_o,
+        )
+        .fetch_all(transaction.as_mut())
+        .await?
+        .into_iter()
+        .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
+        .collect::<did_webplus_doc_store::Result<Vec<_>>>()?;
+        Ok(did_doc_record_v)
+    }
 }
 
 #[async_trait::async_trait]
@@ -259,11 +292,56 @@ impl WalletStorage for WalletStorageSQLite {
         }
     }
     async fn get_wallets(
-        _transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
-        _ctx: &WalletStorageCtx,
-        _wallet_record_filter: &WalletRecordFilter,
+        &self,
+        transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
+        wallet_record_filter: &WalletRecordFilter,
     ) -> Result<Vec<(WalletStorageCtx, WalletRecord)>> {
-        unimplemented!();
+        let filter_on_wallet_uuid = wallet_record_filter.wallet_uuid_o.is_some();
+        let wallet_uuid_string_o = wallet_record_filter
+            .wallet_uuid_o
+            .as_ref()
+            .map(|wallet_uuid| wallet_uuid.as_hyphenated());
+        let filter_on_wallet_name = wallet_record_filter.wallet_name_o.is_some();
+        sqlx::query!(
+            r#"
+                SELECT rowid, wallet_uuid, created_at, updated_at, deleted_at_o, wallet_name_o
+                FROM wallets
+                WHERE 
+                    (NOT $1 OR wallet_uuid = $2) AND
+                    (NOT $3 OR wallet_name_o = $4)
+            "#,
+            filter_on_wallet_uuid,
+            wallet_uuid_string_o,
+            filter_on_wallet_name,
+            wallet_record_filter.wallet_name_o,
+        )
+        .fetch_all(transaction.as_mut())
+        .await?
+        .into_iter()
+        .map(|query_result| -> Result<(WalletStorageCtx, WalletRecord)> {
+            let wallet_storage_ctx = WalletStorageCtx {
+                wallets_rowid: query_result.rowid,
+            };
+            let wallet_record = WalletRecord {
+                wallet_uuid: uuid::Uuid::try_parse(query_result.wallet_uuid.as_str()).map_err(
+                    |e| {
+                        Error::RecordCorruption(
+                            format!(
+                                "Invalid UUID in database: {}; error was {}",
+                                query_result.wallet_uuid, e
+                            )
+                            .into(),
+                        )
+                    },
+                )?,
+                created_at: query_result.created_at,
+                updated_at: query_result.updated_at,
+                deleted_at_o: query_result.deleted_at_o,
+                wallet_name_o: query_result.wallet_name_o,
+            };
+            Ok((wallet_storage_ctx, wallet_record))
+        })
+        .collect::<Result<Vec<_>>>()
     }
 
     async fn add_priv_key(
@@ -474,10 +552,10 @@ impl WalletStorage for WalletStorageSQLite {
         let filter_on_did = locally_controlled_verification_method_filter
             .did_o
             .is_some();
-        let did_string_o = locally_controlled_verification_method_filter
+        let did_o = locally_controlled_verification_method_filter
             .did_o
             .as_ref()
-            .map(|did| did.to_string());
+            .map(|did| did.as_str());
         let filter_on_version_id = locally_controlled_verification_method_filter
             .version_id_o
             .is_some();
@@ -486,7 +564,7 @@ impl WalletStorage for WalletStorageSQLite {
             .is_some();
         let key_purpose_integer_o = locally_controlled_verification_method_filter
             .key_purpose_o
-            .map(|key_purpose| key_purpose.integer_value() as i64);
+            .map(|key_purpose| key_purpose.as_key_purpose_flags().integer_value() as i64);
 
         let query_result_v = sqlx::query!(
             r#"
@@ -521,7 +599,7 @@ impl WalletStorage for WalletStorageSQLite {
             "#,
             ctx.wallets_rowid,
             filter_on_did,
-            did_string_o,
+            did_o,
             filter_on_version_id,
             locally_controlled_verification_method_filter.version_id_o,
             filter_on_key_purpose,
@@ -618,13 +696,5 @@ impl WalletStorage for WalletStorageSQLite {
                 .push((verification_method_record, priv_key_record));
         }
         Ok(locally_controlled_verification_method_v)
-    }
-    async fn get_locally_controlled_verification_method(
-        &self,
-        _transaction: &mut Self::Transaction<'_>,
-        _ctx: &WalletStorageCtx,
-        _locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Option<(VerificationMethodRecord, PrivKeyRecord)>> {
-        unimplemented!();
     }
 }

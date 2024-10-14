@@ -16,11 +16,15 @@ pub enum Error {
     #[error("Malformed: {0}")]
     Malformed(&'static str),
     #[error("Malformed {0} method: {1}")]
-    MalformedKeyFragment(&'static str, &'static str),
+    MalformedKeyId(&'static str, &'static str),
     #[error("Not found: {0}")]
     NotFound(&'static str),
     #[error("Generic error: {0}")]
     Generic(&'static str),
+    #[error("Self-hash error: {0}")]
+    SelfHashError(selfhash::Error),
+    #[error("Self-sign error: {0}")]
+    SelfSignError(selfsign::Error),
     #[error("Serialization error: {0}")]
     Serialization(&'static str),
     #[error("Unrecognized: {0}")]
@@ -32,5 +36,17 @@ pub enum Error {
 impl From<&'static str> for Error {
     fn from(s: &'static str) -> Self {
         Self::Generic(s)
+    }
+}
+
+impl From<selfhash::Error> for Error {
+    fn from(e: selfhash::Error) -> Self {
+        Self::SelfHashError(e)
+    }
+}
+
+impl From<selfsign::Error> for Error {
+    fn from(e: selfsign::Error) -> Self {
+        Self::SelfSignError(e)
     }
 }

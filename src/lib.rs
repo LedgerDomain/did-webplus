@@ -73,6 +73,8 @@ pub use crate::{
     microledger_view_async::MicroledgerViewAsync,
 };
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 pub type RelativeKeyResource = RelativeResource<selfsign::KERIVerifierStr>;
 pub type RelativeKeyResourceStr = RelativeResourceStr<selfsign::KERIVerifierStr>;
 pub type DIDKeyResource = DIDResource<selfsign::KERIVerifierStr>;

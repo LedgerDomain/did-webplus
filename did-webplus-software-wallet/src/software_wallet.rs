@@ -6,7 +6,7 @@ use did_webplus::{
 use did_webplus_wallet::{Error, Result, Wallet};
 use did_webplus_wallet_storage::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyUsage, PrivKeyUsageRecord,
-    WalletStorage, WalletStorageCtx,
+    VerificationMethodRecord, WalletStorage, WalletStorageCtx,
 };
 use selfsign::Signer;
 use std::borrow::Cow;
@@ -279,6 +279,8 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
                     did_o: Some(did.to_owned()),
                     version_id_o: Some(latest_did_document.version_id),
                     key_purpose_o: None,
+                    key_id_o: None,
+                    result_limit_o: None,
                 },
             )
             .await?;
@@ -419,5 +421,21 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         self.storage.commit_transaction(transaction).await?;
 
         Ok(controlled_did)
+    }
+    async fn get_locally_controlled_verification_methods(
+        &self,
+        locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
+    ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>> {
+        let mut transaction = self.storage.begin_transaction(None).await?;
+        let query_result_v = self
+            .storage
+            .get_locally_controlled_verification_methods(
+                &mut transaction,
+                &self.ctx,
+                locally_controlled_verification_method_filter,
+            )
+            .await?;
+        self.storage.commit_transaction(transaction).await?;
+        Ok(query_result_v)
     }
 }

@@ -1,9 +1,8 @@
-use crate::{determine_http_scheme, Result};
-use did_webplus_doc_storage_sqlite::DIDDocStorageSQLite;
-use did_webplus_doc_store::DIDDocStore;
-use sqlx::migrate::MigrateDatabase;
+use crate::{determine_http_scheme, get_did_doc_store, Result};
+use std::io::Write;
 
-/// Perform DID resolution for a given query URI, using the "thin" resolver, relying on a VDG.
+/// Perform DID resolution for a given query URI, using the "full" resolver, which does all
+/// fetching, verification, and storage locally using the specified DID doc store.
 #[derive(Debug, clap::Parser)]
 pub struct DIDResolveFull {
     /// The DID query URI to be resolved.  Examples:
@@ -15,17 +14,22 @@ pub struct DIDResolveFull {
     pub did_query: String,
     /// Specify the URL to the SQLite DID doc store to use for the "full" resolver.  This is
     /// what stores validated DID docs.  It should have the form `sqlite://<local-path>`.
-    // TODO: Default in some home directory?
     // TODO: Figure out how not to print the env var value, since if it ever were a general postgres
     // url, it could contain a password.
     #[arg(
         name = "doc-store",
-        env = "DID_WEBPLUS_CLI_DOC_STORE",
+        env = "DID_WEBPLUS_DOC_STORE",
         short,
         long,
-        value_name = "URL"
+        value_name = "URL",
+        default_value = "sqlite://~/.did-webplus/doc-store.db"
     )]
-    pub did_doc_store_url: String,
+    pub did_doc_store_db_url: String,
+    // TODO: Optionally specify a VDG.  You would use this if you wanted to guarantee consortium- or
+    // global-scoped agreement on DID docs.
+    /// Do not print a newline at the end of the output.
+    #[arg(short, long)]
+    pub no_newline: bool,
     // TODO: Implement use of a VDG within the full resolver -- it has slightly different logic than
     // talking to a VDR.
 }
@@ -36,14 +40,7 @@ impl DIDResolveFull {
 
         let http_scheme = determine_http_scheme();
 
-        // TODO: Handle home dir stuff
-        // Ensure the DB exists before attempting to open.
-        if !sqlx::Sqlite::database_exists(&self.did_doc_store_url).await? {
-            sqlx::Sqlite::create_database(&self.did_doc_store_url).await?;
-        }
-        let sqlite_pool = sqlx::SqlitePool::connect(self.did_doc_store_url.as_str()).await?;
-        let did_doc_storage = DIDDocStorageSQLite::open_and_run_migrations(sqlite_pool).await?;
-        let did_doc_store = DIDDocStore::new(did_doc_storage);
+        let did_doc_store = get_did_doc_store(&self.did_doc_store_db_url).await?;
 
         let mut transaction = did_doc_store.begin_transaction(None).await?;
         let did_doc_record = did_webplus_resolver::resolve_did(
@@ -55,7 +52,11 @@ impl DIDResolveFull {
         .await?;
         transaction.commit().await?;
 
-        println!("{}", did_doc_record.did_document_jcs);
+        std::io::stdout().write_all(did_doc_record.did_document_jcs.as_bytes())?;
+        if !self.no_newline {
+            std::io::stdout().write_all(b"\n")?;
+        }
+
         Ok(())
     }
 }

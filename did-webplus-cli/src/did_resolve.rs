@@ -1,11 +1,11 @@
-use crate::DIDResolveFull;
-use crate::{DIDResolveThin, Result};
+use crate::{DIDResolveFull, DIDResolveRaw, DIDResolveThin, Result};
 
 /// DID resolution operations.
 #[derive(clap::Subcommand)]
 pub enum DIDResolve {
     Full(DIDResolveFull),
     Thin(DIDResolveThin),
+    Raw(DIDResolveRaw),
 }
 
 impl DIDResolve {
@@ -13,6 +13,7 @@ impl DIDResolve {
         match self {
             DIDResolve::Full(x) => x.handle().await,
             DIDResolve::Thin(x) => x.handle().await,
+            DIDResolve::Raw(x) => x.handle().await,
         }
     }
 }

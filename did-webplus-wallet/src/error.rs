@@ -6,6 +6,8 @@ pub enum Error {
     DIDDocStoreError(did_webplus_doc_store::Error),
     #[error("Failed to fetch DID updates: {0}")]
     DIDFetchError(Cow<'static, str>),
+    #[error("Wallet does not control DID: {0}")]
+    DIDNotControlledByWallet(Cow<'static, str>),
     #[error(transparent)]
     DIDWebplusError(did_webplus::Error),
     // TODO: is there an HTTP status code to include here?
@@ -20,10 +22,20 @@ pub enum Error {
     InvalidVDRDIDUpdateURL(Cow<'static, str>),
     #[error("Malformed: {0}")]
     Malformed(Cow<'static, str>),
+    #[error("Multiple locally controlled verification methods found: {0}")]
+    MultipleLocallyControlledVerificationMethodsFound(Cow<'static, str>),
+    #[error("Multiple suitable priv key found: {0}")]
+    MultipleSuitablePrivKeysFound(Cow<'static, str>),
+    #[error("Multiple controlled DIDs found: {0}")]
+    MultipleControlledDIDsFound(Cow<'static, str>),
+    #[error("No locally controlled verification method found: {0}")]
+    NoLocallyControlledVerificationMethodFound(Cow<'static, str>),
     #[error("Not found: {0}")]
     NotFound(Cow<'static, str>),
     #[error("No suitable priv key found: {0}")]
     NoSuitablePrivKeyFound(Cow<'static, str>),
+    #[error("No uniquely determinable controlled DID found: {0}")]
+    NoUniquelyDeterminableControlledDIDFound(Cow<'static, str>),
     #[error(transparent)]
     WalletStorageError(did_webplus_wallet_storage::Error),
 }

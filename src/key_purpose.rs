@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{Error, KeyPurposeFlags};
 
 /// Enumeration of the purposes of verification methods, as specified by the DID spec.
 #[repr(u8)]
@@ -36,6 +36,10 @@ impl KeyPurpose {
             KeyPurpose::CapabilityInvocation => "capabilityInvocation",
             KeyPurpose::CapabilityDelegation => "capabilityDelegation",
         }
+    }
+    /// Equivalent to KeyPurposeFlags::from(self).
+    pub fn as_key_purpose_flags(self) -> KeyPurposeFlags {
+        KeyPurposeFlags::from(self)
     }
 }
 

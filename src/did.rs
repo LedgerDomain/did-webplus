@@ -73,10 +73,12 @@ impl DID {
 /// for the self-hashing functionality.  A DID isn't strictly "a Hash", more like it "has a Hash", but
 /// this semantic difference isn't worth doing anything about.
 impl selfhash::Hash for DID {
-    fn hash_function(&self) -> &'static dyn selfhash::HashFunction {
+    fn hash_function(&self) -> selfhash::Result<&'static dyn selfhash::HashFunction> {
         self.root_self_hash().hash_function()
     }
-    fn as_preferred_hash_format<'s: 'h, 'h>(&'s self) -> selfhash::PreferredHashFormat<'h> {
-        Cow::Borrowed(self.root_self_hash()).into()
+    fn as_preferred_hash_format<'s: 'h, 'h>(
+        &'s self,
+    ) -> selfhash::Result<selfhash::PreferredHashFormat<'h>> {
+        Ok(Cow::Borrowed(self.root_self_hash()).into())
     }
 }

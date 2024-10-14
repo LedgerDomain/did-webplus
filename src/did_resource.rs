@@ -62,10 +62,12 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
 /// for the self-hashing functionality.  A DIDResource isn't strictly "a Hash", more like it "has a Hash", but
 /// this semantic difference isn't worth doing anything about.
 impl<F: 'static + Fragment + ?Sized> selfhash::Hash for DIDResource<F> {
-    fn hash_function(&self) -> &'static dyn selfhash::HashFunction {
+    fn hash_function(&self) -> selfhash::Result<&'static dyn selfhash::HashFunction> {
         self.root_self_hash().hash_function()
     }
-    fn as_preferred_hash_format<'s: 'h, 'h>(&'s self) -> selfhash::PreferredHashFormat<'h> {
-        Cow::Borrowed(self.root_self_hash()).into()
+    fn as_preferred_hash_format<'s: 'h, 'h>(
+        &'s self,
+    ) -> selfhash::Result<selfhash::PreferredHashFormat<'h>> {
+        Ok(Cow::Borrowed(self.root_self_hash()).into())
     }
 }

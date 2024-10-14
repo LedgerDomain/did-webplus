@@ -1,26 +1,19 @@
-use crate::{DIDCreate, DIDKeyExchange, DIDList, DIDResolve, DIDSign, DIDUpdate, Result};
+use crate::{DIDList, DIDResolve, Result};
 
+/// DID operations that don't require a wallet.  These are operations typically associated
+/// with verifying parties that don't necessarily control a DID.
 #[derive(clap::Subcommand)]
 pub enum DID {
+    List(DIDList),
     #[command(subcommand)]
     Resolve(DIDResolve),
-    #[command(subcommand)]
-    List(DIDList),
-    Create(DIDCreate),
-    Update(DIDUpdate),
-    Sign(DIDSign),
-    KeyExchange(DIDKeyExchange),
 }
 
 impl DID {
     pub async fn handle(self) -> Result<()> {
         match self {
-            DID::Resolve(x) => x.handle().await,
             DID::List(x) => x.handle().await,
-            DID::Create(x) => x.handle().await,
-            DID::Update(x) => x.handle().await,
-            DID::Sign(x) => x.handle().await,
-            DID::KeyExchange(x) => x.handle().await,
+            DID::Resolve(x) => x.handle().await,
         }
     }
 }

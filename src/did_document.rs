@@ -78,7 +78,7 @@ impl DIDDocument {
                 .did_path_o
                 .as_ref()
                 .map(|x| x.as_ref()),
-            hash_function.placeholder_hash().to_keri_hash().as_ref(),
+            hash_function.placeholder_hash().to_keri_hash()?.as_ref(),
         )
         .expect("pass");
         let mut root_did_document = Self {
@@ -277,7 +277,7 @@ impl DIDDocument {
         // Check that prev_did_document_self_signature matches the expected_prev_did_document_b's self-signature.
         use selfhash::Hash;
         let prev_did_document_self_hash = self.prev_did_document_self_hash_o.as_ref().unwrap();
-        if !prev_did_document_self_hash.equals(expected_prev_did_document_self_hash) {
+        if !prev_did_document_self_hash.equals(expected_prev_did_document_self_hash)? {
             return Err(Error::Malformed(
                 "Non-root DID document's prev_did_document_self_signature must match the self-signature of the previous DID document",
             ));
@@ -315,16 +315,17 @@ impl DIDDocument {
 }
 
 impl selfhash::SelfHashable for DIDDocument {
-    fn write_digest_data(&self, hasher: &mut dyn selfhash::Hasher) {
-        selfhash::write_digest_data_using_jcs(self, hasher);
+    fn write_digest_data(&self, hasher: &mut dyn selfhash::Hasher) -> selfhash::Result<()> {
+        selfhash::write_digest_data_using_jcs(self, hasher)
     }
     fn self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> {
+    ) -> selfhash::Result<Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a>>
+    {
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to return.
         if self.is_root_did_document() {
-            Box::new(
+            Ok(Box::new(
                 std::iter::once(Some(&self.did as &dyn selfhash::Hash))
                     .chain(std::iter::once(
                         self.self_hash_o
@@ -332,27 +333,29 @@ impl selfhash::SelfHashable for DIDDocument {
                             .map(|self_hash| self_hash as &dyn selfhash::Hash),
                     ))
                     .chain(self.public_key_material.root_did_document_self_hash_oi()),
-            )
+            ))
         } else {
-            Box::new(std::iter::once(
+            Ok(Box::new(std::iter::once(
                 self.self_hash_o
                     .as_ref()
                     .map(|self_hash| self_hash as &dyn selfhash::Hash),
-            ))
+            )))
         }
     }
-    fn set_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
-        let keri_hash = hash.to_keri_hash().into_owned();
+    fn set_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) -> selfhash::Result<()> {
+        let keri_hash = hash.to_keri_hash()?.into_owned();
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to assign to.
         if self.is_root_did_document() {
             self.public_key_material
-                .set_root_did_document_self_hash_slots_to(&keri_hash);
+                .set_root_did_document_self_hash_slots_to(&keri_hash)
+                .map_err(|e| e.to_string())?;
             self.did.set_root_self_hash(&keri_hash);
             self.self_hash_o = Some(keri_hash);
         } else {
             self.self_hash_o = Some(keri_hash);
         }
+        Ok(())
     }
 }
 

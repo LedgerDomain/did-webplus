@@ -13,6 +13,6 @@ did-webplus = { path = ".." }
 did-webplus-doc-store = { path = "../did-webplus-doc-store", features = [
     "sqlx",
 ] }
-selfhash = "0.3.0"
+selfhash = "0.4.0"
 sqlx = { version = "0.7", features = ["sqlite", "time"] }
 time = "0.3"
