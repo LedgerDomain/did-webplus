@@ -889,7 +889,7 @@ dependencies = [
  "did-webplus",
  "did-webplus-doc-storage-sqlite",
  "did-webplus-doc-store",
- "did-webplus-mock",
+ "did-webplus-jws",
  "did-webplus-resolver",
  "did-webplus-software-wallet",
  "did-webplus-wallet",
@@ -954,13 +954,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "did-webplus-mock"
+name = "did-webplus-jws"
 version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
+ "derive_more",
+ "did-webplus",
+ "selfsign",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "did-webplus-mock"
+version = "0.1.0"
+dependencies = [
  "ctor",
  "derive_more",
  "did-webplus",
+ "did-webplus-jws",
  "ed25519-dalek",
  "env_logger",
  "log",

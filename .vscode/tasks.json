@@ -289,10 +289,7 @@
 					"SQLX_OFFLINE": "true"
 				}
 			},
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
@@ -323,6 +320,57 @@
 					"SQLX_OFFLINE": "true"
 				}
 			},
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "check did-webplus-jws",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-jws",
+				"--all-features",
+				"--tests"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "test did-webplus-jws",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--package",
+				"did-webplus-jws",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
 			"group": "build",
 			"presentation": {
 				"clear": true,
@@ -374,7 +422,10 @@
 				"--",
 				"--nocapture"
 			],
-			"group": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"

@@ -66,9 +66,9 @@ impl WalletDIDSignJWS {
         let controlled_did = wallet.get_controlled_did(self.did_o.as_deref()).await?;
 
         let payload_presence = if self.payload.eq_ignore_ascii_case("attached") {
-            did_webplus_mock::JWSPayloadPresence::Attached
+            did_webplus_jws::JWSPayloadPresence::Attached
         } else if self.payload.eq_ignore_ascii_case("detached") {
-            did_webplus_mock::JWSPayloadPresence::Detached
+            did_webplus_jws::JWSPayloadPresence::Detached
         } else {
             anyhow::bail!(
                 "Invalid value {:?} for --payload argument; expected \"attached\" or \"detached\"",
@@ -77,9 +77,9 @@ impl WalletDIDSignJWS {
         };
 
         let payload_encoding = if self.encoding.eq_ignore_ascii_case("none") {
-            did_webplus_mock::JWSPayloadEncoding::None
+            did_webplus_jws::JWSPayloadEncoding::None
         } else if self.encoding.eq_ignore_ascii_case("base64") {
-            did_webplus_mock::JWSPayloadEncoding::Base64URL
+            did_webplus_jws::JWSPayloadEncoding::Base64URL
         } else {
             anyhow::bail!(
                 "Invalid value {:?} for --encoding argument; expected \"none\" or \"base64\"",
@@ -114,7 +114,7 @@ impl WalletDIDSignJWS {
         };
 
         let signer = priv_key_record.private_key_bytes_o.unwrap();
-        let jws = did_webplus_mock::JWS::signed(
+        let jws = did_webplus_jws::JWS::signed(
             verification_method_record.did_key_resource_fully_qualified,
             &mut std::io::stdin(),
             payload_presence,

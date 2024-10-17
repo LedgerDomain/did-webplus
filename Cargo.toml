@@ -60,6 +60,7 @@ members = [
     "did-webplus-doc-storage-postgres",
     "did-webplus-doc-storage-sqlite",
     "did-webplus-doc-store",
+    "did-webplus-jws",
     "did-webplus-mock",
     "did-webplus-resolver",
     "did-webplus-software-wallet",

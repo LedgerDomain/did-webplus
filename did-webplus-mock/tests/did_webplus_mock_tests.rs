@@ -1,15 +1,18 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     sync::{Arc, RwLock},
 };
 
 use did_webplus::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDKeyResourceFullyQualified,
-    KeyPurpose, MicroledgerMutView, MicroledgerView, PublicKeySet, RequestedDIDDocumentMetadata,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentMetadata, DIDDocumentUpdateParams,
+    DIDKeyResourceFullyQualified, Error, KeyPurpose, MicroledgerMutView, MicroledgerView,
+    PublicKeySet, RequestedDIDDocumentMetadata,
 };
+use did_webplus_jws::{JWSPayloadEncoding, JWSPayloadPresence, JWS};
 use did_webplus_mock::{
-    JWSPayloadEncoding, JWSPayloadPresence, Microledger, MockResolverFull, MockResolverThin,
-    MockVDG, MockVDR, MockVDRClient, MockVerifiedCache, MockWallet, JWS,
+    Microledger, MockResolverFull, MockResolverThin, MockVDG, MockVDR, MockVDRClient,
+    MockVerifiedCache, MockWallet,
 };
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -29,6 +32,65 @@ fn priv_jwk_from_ed25519_signing_key(
             ed25519_signing_key.to_bytes().to_vec(),
         )),
     }))
+}
+
+/// Resolves the DID of the signer to the appropriate DID document, then uses the appropriate public key
+/// to verify the signature.  If the verification succeeds, then the resolved DID document is returned, along
+/// with the metadata of the DID document.  This can be used to check other constraints pertaining to the
+/// DID document, such as the KeyPurpose of the signing key or its validity time range.
+fn resolve_did_and_verify_jws<'r, 'p>(
+    jws: &JWS<'_>,
+    resolver: &'r mut dyn did_webplus_mock::Resolver,
+    verification_key_purpose: KeyPurpose,
+    requested_did_document_metadata: RequestedDIDDocumentMetadata,
+    detached_payload_bytes_o: Option<&'p mut dyn std::io::Read>,
+) -> Result<(Cow<'r, DIDDocument>, DIDDocumentMetadata), Error> {
+    let did_fully_qualified = jws.header().kid.without_fragment();
+    let did = did_fully_qualified.did();
+    let key_id_fragment = jws.header().kid.fragment();
+
+    log::debug!(
+        "resolve_did_and_verify_jws; JWS kid field is DID query: {}",
+        jws.header().kid
+    );
+    let (did_document, did_document_metadata) = resolver.resolve_did_document(
+        did,
+        Some(jws.header().kid.query_self_hash()),
+        Some(jws.header().kid.query_version_id()),
+        requested_did_document_metadata,
+    )?;
+    log::trace!("resolved DID document: {:?}", did_document);
+    log::trace!(
+        "resolved DID document metadata: {:?}",
+        did_document_metadata
+    );
+    // TODO: Probably sanity-check that the DIDDocument is valid (i.e. all its DID-specific constraints are satisfied),
+    // though this should be guaranteed by the resolver.  In particular, that each key_id listed in each verification
+    // key purpose is present in the verification method list of the DID document.
+
+    if !did_document
+        .public_key_material()
+        .relative_key_resources_for_purpose(verification_key_purpose)
+        .any(|relative_key_resource| relative_key_resource.fragment() == key_id_fragment)
+    {
+        return Err(Error::Invalid(
+            "signing key is not present in specified verification method in resolved DID document",
+        ));
+    }
+
+    // Retrieve the appropriate verifier from the DID document.
+    let verification_method = did_document
+        .public_key_material()
+        .verification_method_v
+        .iter()
+        .find(|&verification_method| verification_method.id.fragment() == key_id_fragment)
+        .expect("programmer error: this key_id should be present in the verification method list; this should have been guaranteed by the resolver");
+    let verifier = selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?;
+
+    // Finally, verify the signature using the resolved verifier.
+    jws.verify(&verifier, detached_payload_bytes_o)?;
+
+    Ok((did_document, did_document_metadata))
 }
 
 // NOTE: This test is a rather low-level test of Microledger.  It's more complex than the one that uses MockWallet,
@@ -288,7 +350,7 @@ fn test_did_operations() {
         let jws = JWS::try_from(jws_string).expect("pass");
 
         // Verify the JWS using the full resolver.
-        let (did_document, did_document_metadata) = did_webplus_mock::resolve_did_and_verify_jws(
+        let (did_document, did_document_metadata) = resolve_did_and_verify_jws(
             &jws,
             &mut mock_resolver_full,
             did_webplus::KeyPurpose::Authentication,
@@ -298,15 +360,14 @@ fn test_did_operations() {
         .expect("pass");
 
         // Also resolve using mock_resolver_thin.
-        let (did_document_2, did_document_metadata_2) =
-            did_webplus_mock::resolve_did_and_verify_jws(
-                &jws,
-                &mut mock_resolver_thin,
-                did_webplus::KeyPurpose::Authentication,
-                did_webplus::RequestedDIDDocumentMetadata::all(),
-                None,
-            )
-            .expect("pass");
+        let (did_document_2, did_document_metadata_2) = resolve_did_and_verify_jws(
+            &jws,
+            &mut mock_resolver_thin,
+            did_webplus::KeyPurpose::Authentication,
+            did_webplus::RequestedDIDDocumentMetadata::all(),
+            None,
+        )
+        .expect("pass");
 
         assert_eq!(did_document, did_document_2);
         assert_eq!(did_document_metadata, did_document_metadata_2);

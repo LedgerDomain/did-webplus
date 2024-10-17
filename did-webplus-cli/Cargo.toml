@@ -15,8 +15,7 @@ clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus = { path = ".." }
 did-webplus-doc-store = { path = "../did-webplus-doc-store" }
 did-webplus-doc-storage-sqlite = { path = "../did-webplus-doc-storage-sqlite" }
-# It's a bit of a hack to depend on this, but this is where the JWS struct is at the moment.
-did-webplus-mock = { path = "../did-webplus-mock" }
+did-webplus-jws = { path = "../did-webplus-jws" }
 did-webplus-resolver = { path = "../did-webplus-resolver" }
 did-webplus-software-wallet = { path = "../did-webplus-software-wallet" }
 did-webplus-wallet = { path = "../did-webplus-wallet" }

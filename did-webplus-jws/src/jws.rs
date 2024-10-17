@@ -1,43 +1,8 @@
-use crate::Resolver;
 use base64::Engine;
-use did_webplus::{
-    DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified, Error, KeyPurpose,
-    RequestedDIDDocumentMetadata,
-};
+use did_webplus::{DIDKeyResourceFullyQualified, Error};
 use std::{borrow::Cow, io::Write};
 
-/// See RFC 7515, https://datatracker.ietf.org/doc/html/rfc7515
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct JWSHeader {
-    /// Signature algorithm used to sign the JWS.
-    pub alg: String,
-    /// Specifies the precise key used to sign the JWS by specifying the selfHash and versionId of the DID document
-    /// and the ID of the public key.
-    pub kid: DIDKeyResourceFullyQualified,
-    /// Specifies critical headers that must be understood and processed.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub crit: Option<Vec<String>>,
-    /// If present, then specifies if the payload is base64url-encoded or not.  This is used in combination
-    /// with the "b64" element of the "crit" field.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub b64: Option<bool>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum JWSPayloadPresence {
-    /// The payload is included within the JWS.
-    Attached,
-    /// The payload is not included within the JWS.
-    Detached,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum JWSPayloadEncoding {
-    /// No encoding.
-    None,
-    /// This really means base64url-no-pad encoding.
-    Base64URL,
-}
+use crate::{JWSHeader, JWSPayloadEncoding, JWSPayloadPresence};
 
 /// This is the compact, encoded form of a JWS (JWS Compact Serialization).  Has the form:
 /// <base64url(JSON(header))>.<base64url(payload)>.<base64url(signature)> if encoded, attached payload,
@@ -264,10 +229,10 @@ impl<'j> JWS<'j> {
             .sign_digest(hasher_b)?
             .to_signature_bytes()
             .into_owned();
-        log::debug!(
-            "JWS::signed; signature_bytes.len(): {}",
-            signature_bytes.len()
-        );
+        // log::debug!(
+        //     "JWS::signed; signature_bytes.len(): {}",
+        //     signature_bytes.len()
+        // );
 
         // Append the separator character and base64url-encoded signature.
         {
@@ -407,64 +372,66 @@ impl<'j> TryFrom<Cow<'j, str>> for JWS<'j> {
     }
 }
 
-/// Resolves the DID of the signer to the appropriate DID document, then uses the appropriate public key
-/// to verify the signature.  If the verification succeeds, then the resolved DID document is returned, along
-/// with the metadata of the DID document.  This can be used to check other constraints pertaining to the
-/// DID document, such as the KeyPurpose of the signing key or its validity time range.
-pub fn resolve_did_and_verify_jws<'r, 'p>(
-    jws: &JWS<'_>,
-    resolver: &'r mut dyn Resolver,
-    verification_key_purpose: KeyPurpose,
-    requested_did_document_metadata: RequestedDIDDocumentMetadata,
-    detached_payload_bytes_o: Option<&'p mut dyn std::io::Read>,
-) -> Result<(Cow<'r, DIDDocument>, DIDDocumentMetadata), Error> {
-    let did_fully_qualified = jws.header.kid.without_fragment();
-    let did = did_fully_qualified.did();
-    let key_id_fragment = jws.header.kid.fragment();
+// TODO: Implement a version of this that uses some real Resolver trait
 
-    log::debug!(
-        "resolve_did_and_verify_jws; JWS kid field is DID query: {}",
-        jws.header.kid
-    );
-    let (did_document, did_document_metadata) = resolver.resolve_did_document(
-        did,
-        Some(jws.header.kid.query_self_hash()),
-        Some(jws.header.kid.query_version_id()),
-        requested_did_document_metadata,
-    )?;
-    log::trace!("resolved DID document: {:?}", did_document);
-    log::trace!(
-        "resolved DID document metadata: {:?}",
-        did_document_metadata
-    );
-    // TODO: Probably sanity-check that the DIDDocument is valid (i.e. all its DID-specific constraints are satisfied),
-    // though this should be guaranteed by the resolver.  In particular, that each key_id listed in each verification
-    // key purpose is present in the verification method list of the DID document.
+// /// Resolves the DID of the signer to the appropriate DID document, then uses the appropriate public key
+// /// to verify the signature.  If the verification succeeds, then the resolved DID document is returned, along
+// /// with the metadata of the DID document.  This can be used to check other constraints pertaining to the
+// /// DID document, such as the KeyPurpose of the signing key or its validity time range.
+// pub fn resolve_did_and_verify_jws<'r, 'p>(
+//     jws: &JWS<'_>,
+//     resolver: &'r mut dyn Resolver,
+//     verification_key_purpose: KeyPurpose,
+//     requested_did_document_metadata: RequestedDIDDocumentMetadata,
+//     detached_payload_bytes_o: Option<&'p mut dyn std::io::Read>,
+// ) -> Result<(Cow<'r, DIDDocument>, DIDDocumentMetadata), Error> {
+//     let did_fully_qualified = jws.header.kid.without_fragment();
+//     let did = did_fully_qualified.did();
+//     let key_id_fragment = jws.header.kid.fragment();
 
-    if !did_document
-        .public_key_material()
-        .relative_key_resources_for_purpose(verification_key_purpose)
-        .any(|relative_key_resource| relative_key_resource.fragment() == key_id_fragment)
-    {
-        return Err(Error::Invalid(
-            "signing key is not present in specified verification method in resolved DID document",
-        ));
-    }
+//     log::debug!(
+//         "resolve_did_and_verify_jws; JWS kid field is DID query: {}",
+//         jws.header.kid
+//     );
+//     let (did_document, did_document_metadata) = resolver.resolve_did_document(
+//         did,
+//         Some(jws.header.kid.query_self_hash()),
+//         Some(jws.header.kid.query_version_id()),
+//         requested_did_document_metadata,
+//     )?;
+//     log::trace!("resolved DID document: {:?}", did_document);
+//     log::trace!(
+//         "resolved DID document metadata: {:?}",
+//         did_document_metadata
+//     );
+//     // TODO: Probably sanity-check that the DIDDocument is valid (i.e. all its DID-specific constraints are satisfied),
+//     // though this should be guaranteed by the resolver.  In particular, that each key_id listed in each verification
+//     // key purpose is present in the verification method list of the DID document.
 
-    // Retrieve the appropriate verifier from the DID document.
-    let verification_method = did_document
-        .public_key_material()
-        .verification_method_v
-        .iter()
-        .find(|&verification_method| verification_method.id.fragment() == key_id_fragment)
-        .expect("programmer error: this key_id should be present in the verification method list; this should have been guaranteed by the resolver");
-    let verifier = selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?;
+//     if !did_document
+//         .public_key_material()
+//         .relative_key_resources_for_purpose(verification_key_purpose)
+//         .any(|relative_key_resource| relative_key_resource.fragment() == key_id_fragment)
+//     {
+//         return Err(Error::Invalid(
+//             "signing key is not present in specified verification method in resolved DID document",
+//         ));
+//     }
 
-    // Finally, verify the signature using the resolved verifier.
-    jws.verify(&verifier, detached_payload_bytes_o)?;
+//     // Retrieve the appropriate verifier from the DID document.
+//     let verification_method = did_document
+//         .public_key_material()
+//         .verification_method_v
+//         .iter()
+//         .find(|&verification_method| verification_method.id.fragment() == key_id_fragment)
+//         .expect("programmer error: this key_id should be present in the verification method list; this should have been guaranteed by the resolver");
+//     let verifier = selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?;
 
-    Ok((did_document, did_document_metadata))
-}
+//     // Finally, verify the signature using the resolved verifier.
+//     jws.verify(&verifier, detached_payload_bytes_o)?;
+
+//     Ok((did_document, did_document_metadata))
+// }
 
 fn is_base64urlnopad_encoded(s: &str) -> bool {
     // Base64urlnopad encoding is a subset of base64url encoding, so we can just check for the presence of

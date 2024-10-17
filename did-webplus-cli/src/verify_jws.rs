@@ -54,7 +54,7 @@ impl VerifyJWS {
         let mut jws_string = String::new();
         std::io::stdin().read_to_string(&mut jws_string)?;
         let jws_str = jws_string.trim();
-        let jws = did_webplus_mock::JWS::try_from(jws_str)?;
+        let jws = did_webplus_jws::JWS::try_from(jws_str)?;
 
         let http_scheme = determine_http_scheme();
 
