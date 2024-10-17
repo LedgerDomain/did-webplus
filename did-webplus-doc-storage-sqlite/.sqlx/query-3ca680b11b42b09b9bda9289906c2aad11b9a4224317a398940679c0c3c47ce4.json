@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                select did, version_id, valid_from, self_hash, did_document\n                from did_document_records\n                where (NOT $1 OR did = $2) AND\n                      (NOT $3 OR self_hash = $4) AND\n                      (NOT $5 OR version_id = $6)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "did",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "version_id",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "valid_from",
+        "ordinal": 2,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "self_hash",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "did_document",
+        "ordinal": 4,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3ca680b11b42b09b9bda9289906c2aad11b9a4224317a398940679c0c3c47ce4"
+}
