@@ -1070,6 +1070,8 @@ dependencies = [
  "config",
  "ctor",
  "did-webplus",
+ "did-webplus-doc-storage-postgres",
+ "did-webplus-doc-store",
  "did-webplus-mock",
  "http",
  "http-body",

@@ -2,7 +2,7 @@ use crate::{DIDDocRecord, DIDDocRecordFilter, Result};
 use did_webplus::{DIDDocument, DIDStr};
 
 #[async_trait::async_trait]
-pub trait DIDDocStorage: Send + Sync {
+pub trait DIDDocStorage: Clone + Send + Sync {
     /// Defines the transaction type for this DID document storage implementation.  The transaction must rollback upon Drop.
     type Transaction<'t>: std::ops::Drop + Send + 't;
 

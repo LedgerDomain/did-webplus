@@ -1,5 +1,4 @@
 mod config;
-mod models;
 mod services;
 
 use std::env;
@@ -40,14 +39,17 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Config: {:?}", config);
 
-    let pool = PgPoolOptions::new()
+    let pg_pool = PgPoolOptions::new()
         .max_connections(config.max_connections)
         .acquire_timeout(std::time::Duration::from_secs(3))
         .connect(&config.database_url)
         .await
         .context("can't connect to database")?;
 
-    sqlx::migrate!().run(&pool).await?;
+    let did_doc_store = did_webplus_doc_store::DIDDocStore::new(
+        did_webplus_doc_storage_postgres::DIDDocStoragePostgres::open_and_run_migrations(pg_pool)
+            .await?,
+    );
 
     let middleware_stack = ServiceBuilder::new()
         .layer(CompressionLayer::new())
@@ -60,7 +62,7 @@ async fn main() -> anyhow::Result<()> {
         .into_inner();
 
     let app = Router::new()
-        .merge(services::did::get_routes(&pool, &config))
+        .merge(services::did::get_routes(did_doc_store, &config))
         .layer(middleware_stack)
         .route("/health", routing::get(|| async { "OK" }));
 

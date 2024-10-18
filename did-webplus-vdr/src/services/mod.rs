@@ -8,12 +8,13 @@ pub mod did;
 //     )
 // }
 
-use sqlx::PgPool;
+use did_webplus_doc_storage_postgres::DIDDocStoragePostgres;
+use did_webplus_doc_store::DIDDocStore;
 
 use crate::config::AppConfig;
 
 #[derive(Clone)]
 struct AppState {
-    db: PgPool,
+    did_doc_store: DIDDocStore<DIDDocStoragePostgres>,
     config: AppConfig,
 }

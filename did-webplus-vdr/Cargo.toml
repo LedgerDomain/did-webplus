@@ -12,6 +12,10 @@ anyhow = "1.0.83"
 axum = "0.7.5"
 config = "0.14.0"
 did-webplus = { path = "..", features = ["ed25519-dalek"] }
+did-webplus-doc-store = { path = "../did-webplus-doc-store", features = [
+    "sqlx",
+] }
+did-webplus-doc-storage-postgres = { path = "../did-webplus-doc-storage-postgres" }
 http = "1"
 http-body = "1"
 hyper = "1"

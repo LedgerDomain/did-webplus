@@ -2,6 +2,7 @@ use did_webplus::{DIDDocument, DIDStr};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, Error, Result};
 use sqlx::SqlitePool;
 
+#[derive(Clone)]
 pub struct DIDDocStorageSQLite {
     sqlite_pool: SqlitePool,
 }

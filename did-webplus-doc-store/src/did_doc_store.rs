@@ -1,6 +1,7 @@
 use crate::{parse_did_document, DIDDocRecord, DIDDocStorage, Result};
 use did_webplus::{DIDDocument, DIDStr};
 
+#[derive(Clone)]
 pub struct DIDDocStore<Storage: DIDDocStorage> {
     storage: Storage,
 }

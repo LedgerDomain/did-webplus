@@ -2,6 +2,7 @@ use did_webplus::{DIDDocument, DIDStr};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, Error, Result};
 use sqlx::PgPool;
 
+#[derive(Clone)]
 pub struct DIDDocStoragePostgres {
     pg_pool: PgPool,
 }
