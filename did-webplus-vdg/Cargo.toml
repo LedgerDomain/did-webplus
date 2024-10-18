@@ -10,7 +10,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.83"
 axum = "0.7.5"
-did-webplus = { path = "..", features = ["ed25519-dalek"] }
+did-webplus = { path = "..", features = ["ed25519-dalek", "k256"] }
 dotenvy = "0.15.7"
 http = "1"
 http-body = "1"

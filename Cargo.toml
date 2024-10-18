@@ -10,6 +10,7 @@ edition = "2021"
 [features]
 async-traits = ["dep:async-trait"]
 ed25519-dalek = ["selfsign/ed25519-dalek"]
+k256 = ["selfsign/k256"]
 
 [dependencies]
 async-trait = { version = "0.1.80", optional = true }

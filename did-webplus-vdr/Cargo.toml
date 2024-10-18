@@ -11,7 +11,7 @@ edition = "2021"
 anyhow = "1.0.83"
 axum = "0.7.5"
 config = "0.14.0"
-did-webplus = { path = "..", features = ["ed25519-dalek"] }
+did-webplus = { path = "..", features = ["ed25519-dalek", "k256"] }
 did-webplus-doc-store = { path = "../did-webplus-doc-store", features = [
     "sqlx",
 ] }
