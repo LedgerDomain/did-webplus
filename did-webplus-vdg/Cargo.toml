@@ -11,6 +11,10 @@ edition = "2021"
 anyhow = "1.0.83"
 axum = "0.7.5"
 did-webplus = { path = "..", features = ["ed25519-dalek", "k256"] }
+did-webplus-doc-store = { path = "../did-webplus-doc-store", features = [
+    "sqlx",
+] }
+did-webplus-doc-storage-postgres = { path = "../did-webplus-doc-storage-postgres" }
 dotenvy = "0.15.7"
 http = "1"
 http-body = "1"

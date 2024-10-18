@@ -1,10 +1,8 @@
-use reqwest::StatusCode;
-
-pub(crate) mod models;
 pub(crate) mod services;
 
 use anyhow::Context;
 use axum::{routing, Router};
+use reqwest::StatusCode;
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceBuilder;
 use tower_http::compression::CompressionLayer;
@@ -53,14 +51,17 @@ async fn main() -> anyhow::Result<()> {
     let max_connections: u32 = dotenvy::var("DID_WEBPLUS_VDG_DATABASE_MAX_CONNECTIONS")
         .unwrap_or("10".to_string())
         .parse()?;
-    let pool = PgPoolOptions::new()
+    let pg_pool = PgPoolOptions::new()
         .max_connections(max_connections)
         .acquire_timeout(std::time::Duration::from_secs(3))
         .connect(&database_url)
         .await
         .context("can't connect to database")?;
 
-    sqlx::migrate!().run(&pool).await?;
+    let did_doc_store = did_webplus_doc_store::DIDDocStore::new(
+        did_webplus_doc_storage_postgres::DIDDocStoragePostgres::open_and_run_migrations(pg_pool)
+            .await?,
+    );
 
     let middleware_stack = ServiceBuilder::new()
         .layer(CompressionLayer::new())
@@ -73,7 +74,7 @@ async fn main() -> anyhow::Result<()> {
         .into_inner();
 
     let app = Router::new()
-        .merge(crate::services::did_resolve::get_routes(&pool))
+        .merge(crate::services::did_resolve::get_routes(did_doc_store))
         .layer(middleware_stack)
         .route("/health", routing::get(|| async { "OK" }));
 

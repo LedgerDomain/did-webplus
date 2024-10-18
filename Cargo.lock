@@ -1042,6 +1042,8 @@ dependencies = [
  "axum",
  "ctor",
  "did-webplus",
+ "did-webplus-doc-storage-postgres",
+ "did-webplus-doc-store",
  "did-webplus-mock",
  "dotenvy",
  "http",

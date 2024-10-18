@@ -1,4 +1,4 @@
-use crate::{models::did_document_record::DIDDocumentRecord, parse_did_document};
+use crate::parse_did_document;
 use axum::{
     extract::{Path, State},
     http::{
@@ -9,7 +9,8 @@ use axum::{
     Router,
 };
 use did_webplus::{DIDStr, DIDWithQueryStr};
-use sqlx::PgPool;
+use did_webplus_doc_storage_postgres::DIDDocStoragePostgres;
+use did_webplus_doc_store::DIDDocStore;
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
 
@@ -17,24 +18,24 @@ use tokio::task;
 const CACHE_DAYS: i64 = 365;
 type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
 
-pub fn get_routes(pool: &PgPool) -> Router {
+pub fn get_routes(did_doc_store: DIDDocStore<DIDDocStoragePostgres>) -> Router {
     Router::new()
         .route("/:did_query", get(resolve_did))
         .route("/update/:did", post(update_did))
-        .with_state(pool.clone())
+        .with_state(did_doc_store)
 }
 
-#[tracing::instrument(err(Debug), skip(db))]
+#[tracing::instrument(err(Debug), skip(did_doc_store))]
 async fn resolve_did(
-    State(db): State<PgPool>,
+    State(did_doc_store): State<DIDDocStore<DIDDocStoragePostgres>>,
     // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
     Path(did_query): Path<String>,
 ) -> DidResult {
-    resolve_did_impl(&db, did_query).await
+    resolve_did_impl(&did_doc_store, did_query).await
 }
 
 async fn resolve_did_impl(
-    db: &PgPool,
+    did_doc_store: &DIDDocStore<DIDDocStoragePostgres>,
     did_query: String,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::trace!("starting DID resolution");
@@ -54,6 +55,11 @@ async fn resolve_did_impl(
         return Err((StatusCode::BAD_REQUEST, "malformed DID query".to_string()));
     };
 
+    let mut transaction = did_doc_store
+        .begin_transaction(None)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
     // If either (or both) query param(s) are present, then it's possible it's already present in the
     // database and we can attempt to retrieve it.  Contrast with the no-query-params case, which requires
     // fetching the latest DID document from the VDR.
@@ -70,19 +76,23 @@ async fn resolve_did_impl(
         // because versionId is more comprehensible for humans as having a particular location in the
         // DID microledger.
         let did_document_record_o = match (query_self_hash_o.as_deref(), query_version_id_o) {
-            (Some(self_hash_str), None) => {
+            (Some(query_self_hash), None) => {
                 // If only a selfHash is present, then we simply use it to select the DID document.
-                DIDDocumentRecord::select_did_document(db, &did, Some(self_hash_str), None).await?
+                did_doc_store
+                    .get_did_doc_record_with_self_hash(&mut transaction, &did, query_self_hash)
+                    .await
+                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             }
-            (self_hash_str_o, Some(version_id)) => {
+            (query_self_hash_o, Some(query_version_id)) => {
                 // If a versionId is present, then we can use it to select the DID document.
-                let did_document_record_o =
-                    DIDDocumentRecord::select_did_document(db, &did, None, Some(version_id))
-                        .await?;
-                if let Some(self_hash_str) = self_hash_str_o {
+                let did_document_record_o = did_doc_store
+                    .get_did_doc_record_with_version_id(&mut transaction, &did, query_version_id)
+                    .await
+                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+                if let Some(query_self_hash) = query_self_hash_o {
                     if let Some(did_document_record) = did_document_record_o.as_ref() {
                         tracing::trace!("both selfHash and versionId query params present, so now a consistency check will be performed");
-                        if did_document_record.self_hash.as_str() != self_hash_str.as_str() {
+                        if did_document_record.self_hash.as_str() != query_self_hash.as_str() {
                             // Note: If there is a real signature by the DID which contains the conflicting
                             // selfHash and versionId values, then that represents a fork in the DID document,
                             // which is considered illegal and fraudulent.  However, simply receiving a request
@@ -93,9 +103,9 @@ async fn resolve_did_impl(
                                 StatusCode::UNPROCESSABLE_ENTITY,
                                 format!(
                                     "DID document with versionId {} has selfHash {} which does not match the requested selfHash {}",
-                                    version_id,
+                                    query_version_id,
                                     did_document_record.self_hash,
-                                    self_hash_str,
+                                    query_self_hash,
                                 ),
                             ));
                         }
@@ -110,13 +120,17 @@ async fn resolve_did_impl(
         if let Some(did_document_record) = did_document_record_o {
             // If we do have the requested DID document record,  return it.
             tracing::trace!("requested DID document already in database");
+            transaction
+                .commit()
+                .await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             return Ok((
                 headers_for_did_document(
                     did_document_record.self_hash,
                     did_document_record.valid_from,
                     true,
                 ),
-                did_document_record.did_document,
+                did_document_record.did_document_jcs,
             ));
         } else {
             tracing::trace!("requested DID document not in database");
@@ -125,7 +139,10 @@ async fn resolve_did_impl(
 
     // Check what the latest version we do have is.
     tracing::trace!("checking latest DID document version in database");
-    let latest_did_document_record_o = DIDDocumentRecord::select_latest(db, &did).await?;
+    let latest_did_document_record_o = did_doc_store
+        .get_latest_did_doc_record(&mut transaction, &did)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     if let Some(latest_did_document_record) = latest_did_document_record_o.as_ref() {
         tracing::trace!(
             "latest DID document version in database: {}",
@@ -180,7 +197,8 @@ async fn resolve_did_impl(
     let target_did_document = parse_did_document(&target_did_document_body)?;
     // Fetch predecessor DID docs from VDR.  TODO: Probably parallelize these requests with some max
     // on the number of simultaneous requests.
-    let prev_did_document_body_o = latest_did_document_record_o.map(|record| record.did_document);
+    let prev_did_document_body_o =
+        latest_did_document_record_o.map(|record| record.did_document_jcs);
     let mut prev_did_document_o = prev_did_document_body_o.map(|prev_did_document_body| {
         parse_did_document(&prev_did_document_body)
             .expect("programmer error: stored DID document should be valid JSON")
@@ -193,13 +211,15 @@ async fn resolve_did_impl(
         let did_with_query = did.with_query_version_id(version_id);
         let predecessor_did_document_body = vdr_fetch_did_document_body(&did_with_query).await?;
         let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
-        DIDDocumentRecord::append_did_document(
-            db,
-            &predecessor_did_document,
-            prev_did_document_o.as_ref(),
-            predecessor_did_document_body.as_str(),
-        )
-        .await?;
+        did_doc_store
+            .validate_and_add_did_doc(
+                &mut transaction,
+                &predecessor_did_document,
+                prev_did_document_o.as_ref(),
+                predecessor_did_document_body.as_str(),
+            )
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         prev_did_document_o = Some(predecessor_did_document);
     }
     // Finally, validate and store the target DID doc if necessary.
@@ -210,13 +230,15 @@ async fn resolve_did_impl(
         || *latest_did_document_version_id_o.as_ref().unwrap() < target_did_document.version_id
     {
         tracing::trace!("validating and storing target DID document");
-        DIDDocumentRecord::append_did_document(
-            db,
-            &target_did_document,
-            prev_did_document_o.as_ref(),
-            target_did_document_body.as_str(),
-        )
-        .await?;
+        did_doc_store
+            .validate_and_add_did_doc(
+                &mut transaction,
+                &target_did_document,
+                prev_did_document_o.as_ref(),
+                &target_did_document_body,
+            )
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     }
 
     // Now that we have fetched, validated, and stored the target DID doc and its predecessors,
@@ -246,6 +268,12 @@ async fn resolve_did_impl(
             unreachable!("programmer error: this should not be possible");
         }
     }
+
+    transaction
+        .commit()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
     Ok((
         headers_for_did_document(
             target_did_document.self_hash().to_string(),
@@ -329,16 +357,16 @@ async fn vdr_fetch_did_document_body(
     http_get(did_with_query.resolution_url("http").as_str()).await
 }
 
-#[tracing::instrument(err(Debug), skip(db))]
+#[tracing::instrument(err(Debug), skip(did_doc_store))]
 async fn update_did(
-    State(db): State<PgPool>,
+    State(did_doc_store): State<DIDDocStore<DIDDocStoragePostgres>>,
     Path(did): Path<String>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
     // Spawn a new task to handle the update since the vdr shouldn't need to wait
     // for the response as the vdg queries back the vdr for the latest did document
     task::spawn({
         async move {
-            if let Err((_, err)) = resolve_did_impl(&db, did).await {
+            if let Err((_, err)) = resolve_did_impl(&did_doc_store, did).await {
                 tracing::error!("error updating DID document: {}", err);
             }
         }
