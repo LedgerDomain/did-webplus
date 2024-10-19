@@ -11,9 +11,9 @@ pub enum DIDResolve {
 impl DIDResolve {
     pub async fn handle(self) -> Result<()> {
         match self {
-            DIDResolve::Full(x) => x.handle().await,
-            DIDResolve::Thin(x) => x.handle().await,
-            DIDResolve::Raw(x) => x.handle().await,
+            Self::Full(x) => x.handle().await,
+            Self::Thin(x) => x.handle().await,
+            Self::Raw(x) => x.handle().await,
         }
     }
 }

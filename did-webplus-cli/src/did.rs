@@ -12,8 +12,8 @@ pub enum DID {
 impl DID {
     pub async fn handle(self) -> Result<()> {
         match self {
-            DID::List(x) => x.handle().await,
-            DID::Resolve(x) => x.handle().await,
+            Self::List(x) => x.handle().await,
+            Self::Resolve(x) => x.handle().await,
         }
     }
 }

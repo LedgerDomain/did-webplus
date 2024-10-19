@@ -1,15 +1,17 @@
-use crate::{Result, WalletDIDSignJWS};
+use crate::{Result, WalletDIDSignJWS, WalletDIDSignVJSON};
 
-/// Wallet DID signing operations.
+/// Signing operations using a specified DID from a specified wallet.
 #[derive(clap::Subcommand)]
 pub enum WalletDIDSign {
     JWS(WalletDIDSignJWS),
+    VJSON(WalletDIDSignVJSON),
 }
 
 impl WalletDIDSign {
     pub async fn handle(self) -> Result<()> {
         match self {
-            WalletDIDSign::JWS(x) => x.handle().await,
+            Self::JWS(x) => x.handle().await,
+            Self::VJSON(x) => x.handle().await,
         }
     }
 }

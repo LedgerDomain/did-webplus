@@ -903,7 +903,9 @@ dependencies = [
  "reqwest",
  "selfhash",
  "selfsign",
+ "serde",
  "serde_json",
+ "serde_json_canonicalizer",
  "sqlx",
  "ssi-jwk",
  "time",
@@ -1892,6 +1894,17 @@ dependencies = [
  "pest",
  "pest_derive",
  "serde",
+]
+
+[[package]]
+name = "jsonpath_lib"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaa63191d68230cccb81c5aa23abd53ed64d83337cacbb25a7b8c7979523774f"
+dependencies = [
+ "log",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2995,9 +3008,11 @@ dependencies = [
  "blake3",
  "derive_more",
  "digest 0.10.7",
+ "jsonpath_lib",
  "lazy_static",
  "pneutype",
  "serde",
+ "serde_json",
  "serde_json_canonicalizer",
  "serde_with",
  "sha2 0.10.8",
@@ -3065,6 +3080,7 @@ version = "1.0.117"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "455182ea6142b14f93f4bc5320a2b31c1f266b66a4a5c858b013302a5d8cbfc3"
 dependencies = [
+ "indexmap",
  "itoa",
  "ryu",
  "serde",

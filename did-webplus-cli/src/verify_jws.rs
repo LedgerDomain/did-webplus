@@ -101,6 +101,7 @@ impl VerifyJWS {
         } else {
             jws.verify(&verifier, None)?;
         }
+        log::info!("Input JWS was successfully validated.");
 
         Ok(())
     }

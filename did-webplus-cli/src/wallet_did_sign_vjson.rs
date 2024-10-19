@@ -1,11 +1,17 @@
-use crate::{get_wallet, Result};
+use crate::{get_wallet, Result, SelfHashArgs};
 use did_webplus_wallet_storage::LocallyControlledVerificationMethodFilter;
-use std::io::Write;
+use selfhash::{HashFunction, SelfHashable};
+use std::{
+    borrow::Cow,
+    io::{Read, Write},
+};
 
-/// Sign a JWS using the specified DID and specified key purpose from the specified wallet.  The payload
-/// for the JWS will be read from stdin.  The JWS will be written to stdout.
+/// Produce VJSON (Verifiable JSON) by signing it using the specified DID and specified key purpose from the
+/// specified wallet, then self-hashing it.  The JSON will be read from stdin, and if there is an existing
+/// "proofs" field (where the signatures are represented), then this operation will append the produced
+/// signature to it.  The resulting VJSON will be written to stdout.
 #[derive(clap::Parser)]
-pub struct WalletDIDSignJWS {
+pub struct WalletDIDSignVJSON {
     /// Specify the URL to the wallet database.  The URL must start with "sqlite://".
     #[arg(
         short = 'u',
@@ -32,23 +38,14 @@ pub struct WalletDIDSignJWS {
     /// then use the uniquely determinable key if there is one.  Otherwise return error.
     #[arg(name = "key-id", short = 'k', long, value_name = "KEY_ID")]
     pub key_id_o: Option<String>,
-    /// Specify if the payload is "attached" (meaning included in the JWS itself) or "detached" (meaning
-    /// omitted from the JWS itself).
-    // TODO: Use enums
-    #[arg(long, value_name = "VALUE", default_value = "attached")]
-    pub payload: String,
-    /// Specify how the payload should be interpreted -- "none" means that the bytes of the payload should
-    /// not be base64url-nopad-decoded before processing.  "base64" means that the bytes of the payload
-    /// should be base64url-nopad-decoded before processing.
-    // TODO: Use enums
-    #[arg(long, value_name = "ENCODING", default_value = "base64")]
-    pub encoding: String,
+    #[command(flatten)]
+    pub self_hash_args: SelfHashArgs,
     /// Do not print a newline at the end of the output.
     #[arg(short, long)]
     pub no_newline: bool,
 }
 
-impl WalletDIDSignJWS {
+impl WalletDIDSignVJSON {
     pub async fn handle(self) -> Result<()> {
         let wallet_uuid_o = self
             .wallet_uuid_o
@@ -64,28 +61,6 @@ impl WalletDIDSignJWS {
 
         use did_webplus_wallet::Wallet;
         let controlled_did = wallet.get_controlled_did(self.did_o.as_deref()).await?;
-
-        let payload_presence = if self.payload.eq_ignore_ascii_case("attached") {
-            did_webplus_jws::JWSPayloadPresence::Attached
-        } else if self.payload.eq_ignore_ascii_case("detached") {
-            did_webplus_jws::JWSPayloadPresence::Detached
-        } else {
-            anyhow::bail!(
-                "Invalid value {:?} for --payload argument; expected \"attached\" or \"detached\"",
-                self.payload
-            );
-        };
-
-        let payload_encoding = if self.encoding.eq_ignore_ascii_case("none") {
-            did_webplus_jws::JWSPayloadEncoding::None
-        } else if self.encoding.eq_ignore_ascii_case("base64") {
-            did_webplus_jws::JWSPayloadEncoding::Base64URL
-        } else {
-            anyhow::bail!(
-                "Invalid value {:?} for --encoding argument; expected \"none\" or \"base64\"",
-                self.encoding
-            );
-        };
 
         // Get the specified signing key.
         let (verification_method_record, priv_key_record) = {
@@ -114,15 +89,69 @@ impl WalletDIDSignJWS {
         };
 
         let signer = priv_key_record.private_key_bytes_o.unwrap();
-        let jws = did_webplus_jws::JWS::signed(
-            verification_method_record.did_key_resource_fully_qualified,
-            &mut std::io::stdin(),
-            payload_presence,
-            payload_encoding,
-            &signer,
-        )?;
 
-        std::io::stdout().write_all(jws.as_bytes())?;
+        // Read all of stdin into a String and parse it as JSON.
+        let mut input = String::new();
+        std::io::stdin().read_to_string(&mut input).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&input)?;
+
+        let mut proofs = {
+            anyhow::ensure!(value.is_object(), "JSON must be an object");
+            let value_object = value.as_object_mut().unwrap();
+            // Extract the "proofs" field, if it exists, and if so, ensure that it's an array.  We will
+            // add the proof to it, and re-add it after signing.
+            match value_object.remove("proofs") {
+                None => {
+                    // No existing "proofs" field, this is fine.  Create an empty array to be populated later.
+                    Vec::new()
+                }
+                Some(serde_json::Value::Array(proofs)) => {
+                    // Existing "proofs" field that is an array, as expected.  Use it.
+                    proofs
+                }
+                Some(_) => {
+                    anyhow::bail!("\"proofs\" field, if it exists, must be an array");
+                }
+            }
+        };
+
+        let self_hash_path_s = self.self_hash_args.parse_self_hash_paths();
+        let self_hash_url_path_s = self.self_hash_args.parse_self_hash_url_paths();
+
+        let mut json = selfhash::SelfHashableJSON::new(
+            value,
+            Cow::Borrowed(&self_hash_path_s),
+            Cow::Borrowed(&self_hash_url_path_s),
+        )
+        .unwrap();
+
+        let jws = {
+            json.set_self_hash_slots_to(selfhash::Blake3.placeholder_hash())
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            log::debug!("json that will be signed: {}", json.value().to_string());
+            let payload_bytes = serde_json_canonicalizer::to_vec(json.value())?;
+            did_webplus_jws::JWS::signed(
+                verification_method_record.did_key_resource_fully_qualified,
+                &mut payload_bytes.as_slice(),
+                did_webplus_jws::JWSPayloadPresence::Detached,
+                did_webplus_jws::JWSPayloadEncoding::Base64URL,
+                &signer,
+            )?
+        };
+
+        // Attach the JWS to the "proofs" array.
+        proofs.push(serde_json::Value::String(jws.into_string()));
+
+        // Re-add the "proofs" field to the json.
+        let value_object = json.value_mut().as_object_mut().unwrap();
+        value_object.insert("proofs".to_owned(), serde_json::Value::Array(proofs));
+
+        // Self-hash the JSON with the "proofs" field populated.
+        json.self_hash(selfhash::Blake3.new_hasher())
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
+
+        // Print the signed-and-self-hashed JSON and optional newline.
+        serde_json_canonicalizer::to_writer(json.value(), &mut std::io::stdout())?;
         if !self.no_newline {
             std::io::stdout().write_all(b"\n")?;
         }

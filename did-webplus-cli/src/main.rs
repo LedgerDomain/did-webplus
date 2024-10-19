@@ -5,26 +5,33 @@ mod did_resolve;
 mod did_resolve_full;
 mod did_resolve_raw;
 mod did_resolve_thin;
+mod jws;
+mod self_hash_args;
 mod verify;
 mod verify_jws;
-// mod verify_jwt;
+mod verify_vjson;
+mod vjson;
+mod vjson_self_hash;
 mod wallet;
 mod wallet_did;
 mod wallet_did_create;
 mod wallet_did_list;
 mod wallet_did_sign;
 mod wallet_did_sign_jws;
+mod wallet_did_sign_vjson;
 mod wallet_did_update;
 mod wallet_list;
 
 pub use crate::did_resolve_full::DIDResolveFull;
 pub use crate::{
     did::DID, did_key_exchange::DIDKeyExchange, did_list::DIDList, did_resolve::DIDResolve,
-    did_resolve_raw::DIDResolveRaw, did_resolve_thin::DIDResolveThin, verify::Verify,
-    verify_jws::VerifyJWS, wallet::Wallet, wallet_did::WalletDID,
+    did_resolve_raw::DIDResolveRaw, did_resolve_thin::DIDResolveThin, jws::JWS,
+    self_hash_args::SelfHashArgs, verify::Verify, verify_jws::VerifyJWS, verify_vjson::VerifyVJSON,
+    vjson::VJSON, vjson_self_hash::VJSONSelfHash, wallet::Wallet, wallet_did::WalletDID,
     wallet_did_create::WalletDIDCreate, wallet_did_list::WalletDIDList,
     wallet_did_sign::WalletDIDSign, wallet_did_sign_jws::WalletDIDSignJWS,
-    wallet_did_update::WalletDIDUpdate, wallet_list::WalletList,
+    wallet_did_sign_vjson::WalletDIDSignVJSON, wallet_did_update::WalletDIDUpdate,
+    wallet_list::WalletList,
 };
 pub use anyhow::Result;
 
@@ -289,13 +296,18 @@ async fn get_uniquely_determinable_did(
     Ok(did)
 }
 
-/// did-webplus CLI tool for all client-side operations and a few others.
+/// did:webplus CLI tool for all client-side operations and related utility operations.  Note that some subcommands
+/// appear at  multiple places in the command hierarchy so each command group is "complete".
 #[derive(clap::Parser)]
 enum Root {
     #[command(subcommand)]
     DID(DID),
     #[command(subcommand)]
+    JWS(JWS),
+    #[command(subcommand)]
     Verify(Verify),
+    #[command(subcommand)]
+    VJSON(VJSON),
     #[command(subcommand)]
     Wallet(Wallet),
 }
@@ -303,9 +315,11 @@ enum Root {
 impl Root {
     async fn handle(self) -> Result<()> {
         match self {
-            Root::DID(x) => x.handle().await,
-            Root::Verify(x) => x.handle().await,
-            Root::Wallet(x) => x.handle().await,
+            Self::DID(x) => x.handle().await,
+            Self::JWS(x) => x.handle().await,
+            Self::Verify(x) => x.handle().await,
+            Self::VJSON(x) => x.handle().await,
+            Self::Wallet(x) => x.handle().await,
         }
     }
 }

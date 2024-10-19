@@ -14,10 +14,10 @@ pub enum Wallet {
 impl Wallet {
     pub async fn handle(self) -> Result<()> {
         match self {
-            Wallet::DID(x) => x.handle().await,
-            // Wallet::KeyExchange(x) => x.handle().await,
-            Wallet::List(x) => x.handle().await,
-            // Wallet::Sign(x) => x.handle().await,
+            Self::DID(x) => x.handle().await,
+            // Self::KeyExchange(x) => x.handle().await,
+            Self::List(x) => x.handle().await,
+            // Self::Sign(x) => x.handle().await,
         }
     }
 }
