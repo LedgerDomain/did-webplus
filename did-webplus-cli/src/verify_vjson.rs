@@ -1,28 +1,19 @@
-use crate::{determine_http_scheme, get_did_doc_store, Result, SelfHashArgs};
+use crate::{determine_http_scheme, DIDDocStoreArgs, NewlineArgs, Result, SelfHashArgs};
+use did_webplus::DIDKeyResourceFullyQualifiedStr;
 use selfhash::{HashFunction, SelfHashable};
-use std::{borrow::Cow, io::Write};
+use std::borrow::Cow;
 
-/// Read VJSON from stdin and verify it -- self-hash and all signatures.  If valid, the VJSON will be written to stdout.
+/// Read VJSON from stdin and verify it, using the "full" resolver with the specified DID doc store.
+/// Verification includes verifying self-hash and all signatures.  If valid, the VJSON will be written
+/// to stdout.
 ///
 /// Verifiable JSON has "self-hash slots" and "self-hash URL slots" which, in order to be valid, must
 /// all specify the self-hash value of the JCS-serialized form of the JSON after setting each self-hash
 /// slot and self-hash URL slot to the self-hash's placeholder value.
 #[derive(clap::Parser)]
 pub struct VerifyVJSON {
-    /// Specify the URL to the SQLite DID doc store to use for the "full" resolver to use in this
-    /// verify operation.  This is what stores validated DID docs.  It should have the form
-    /// `sqlite://<local-path>`.
-    // TODO: Figure out how not to print the env var value, since if it ever were a general postgres
-    // url, it could contain a password.
-    #[arg(
-        name = "doc-store",
-        env = "DID_WEBPLUS_DOC_STORE",
-        short,
-        long,
-        value_name = "URL",
-        default_value = "sqlite://~/.did-webplus/doc-store.db"
-    )]
-    pub did_doc_store_db_url: String,
+    #[command(flatten)]
+    pub did_doc_store_args: DIDDocStoreArgs,
     // TODO: Implement this
     // /// Optionally specify the URL of the "resolve" endpoint of the VDG to use for DID resolution
     // /// during this verify operation.  The URL can omit the scheme (i.e. the "https://" portion).
@@ -38,9 +29,8 @@ pub struct VerifyVJSON {
     // pub vdg_resolve_endpoint_o: Option<url::Url>,
     #[command(flatten)]
     pub self_hash_args: SelfHashArgs,
-    /// Do not print a newline at the end of the output.
-    #[arg(short, long)]
-    pub no_newline: bool,
+    #[command(flatten)]
+    pub newline_args: NewlineArgs,
 }
 
 impl VerifyVJSON {
@@ -114,7 +104,7 @@ impl VerifyVJSON {
             );
 
             let http_scheme = determine_http_scheme();
-            let did_doc_store = get_did_doc_store(&self.did_doc_store_db_url).await?;
+            let did_doc_store = self.did_doc_store_args.get_did_doc_store().await?;
 
             // Validate the self-hash now that the "proofs" field is removed.  Then form the detached payload that is the
             // message that is supposed to be signed by each proof.
@@ -128,23 +118,49 @@ impl VerifyVJSON {
                 let jws = did_webplus_jws::JWS::try_from(proof.as_str())?;
                 log::debug!("Verifying proof with JWS header: {:?}", jws.header());
 
-                // Use "full" DID resolver to resolve the key specified in the JWS header.
-                let mut transaction = did_doc_store.begin_transaction(None).await?;
-                let _did_doc_record = did_webplus_resolver::resolve_did(
-                    &did_doc_store,
-                    &mut transaction,
-                    jws.header().kid.without_fragment().as_str(),
-                    http_scheme,
-                )
-                .await?;
-                transaction.commit().await?;
+                // Depending on the DID method specified by the JWS header kid field, use different resolution methods.
+                let verifier_b: Box<dyn selfsign::Verifier> =
+                    if jws.header().kid.starts_with("did:key:") {
+                        log::debug!(
+                            "JWS header \"kid\" was {:?}; verifying using did:key method",
+                            jws.header().kid
+                        );
+                        let did_resource = did_key::DIDResourceStr::new_ref(&jws.header().kid)?;
+                        did_resource.did().to_verifier()
+                    } else if jws.header().kid.starts_with("did:webplus:") {
+                        log::debug!(
+                            "JWS header \"kid\" was {:?}; verifying using did:webplus method",
+                            jws.header().kid
+                        );
+                        let did_key_resource_fully_qualified =
+                            DIDKeyResourceFullyQualifiedStr::new_ref(&jws.header().kid)?;
 
-                // Part of DID doc verification is ensuring that the key ID represents the same public key as
-                // the JsonWebKey2020 value.  So we can use the key ID KERIVerifier value as the public key.
-                // TODO: Assert that this is actually the case.
-                let verifier = jws.header().kid.fragment();
+                        // Use "full" DID resolver to resolve the key specified in the JWS header.
+                        let mut transaction = did_doc_store.begin_transaction(None).await?;
+                        let _did_doc_record = did_webplus_resolver::resolve_did(
+                            &did_doc_store,
+                            &mut transaction,
+                            did_key_resource_fully_qualified.without_fragment().as_str(),
+                            http_scheme,
+                        )
+                        .await?;
+                        transaction.commit().await?;
 
-                jws.verify(&verifier, Some(&mut detached_payload_bytes.as_slice()))?;
+                        // Part of DID doc verification is ensuring that the key ID represents the same public key as
+                        // the JsonWebKey2020 value.  So we can use the key ID KERIVerifier value as the public key.
+                        // TODO: Assert that this is actually the case.
+                        Box::new(did_key_resource_fully_qualified.fragment())
+                    } else {
+                        anyhow::bail!(
+                            "JWS header \"kid\" field was {}, which uses an unsupported DID method",
+                            jws.header().kid
+                        );
+                    };
+
+                jws.verify(
+                    verifier_b.as_ref(),
+                    Some(&mut detached_payload_bytes.as_slice()),
+                )?;
                 log::debug!("Proof with JWS header {:?} was verified", jws.header());
             }
         }
@@ -153,9 +169,8 @@ impl VerifyVJSON {
 
         // JCS-serialize the verified JSON to stdout, and add a newline if specified.
         serde_json_canonicalizer::to_writer(&value, &mut std::io::stdout())?;
-        if !self.no_newline {
-            std::io::stdout().write("\n".as_bytes()).unwrap();
-        }
+        self.newline_args
+            .print_newline_if_necessary(&mut std::io::stdout())?;
 
         Ok(())
     }

@@ -10,7 +10,7 @@ pub struct DIDResourceStr<F: 'static + Fragment + ?Sized>(std::marker::PhantomDa
 
 impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
     pub fn did(&self) -> &DIDStr {
-        let (did, _query_params) = self.1.split_once('#').expect("programmer error: this should not fail due to guarantees in construction of DIDResource");
+        let (did, _fragment) = self.1.split_once('#').expect("programmer error: this should not fail due to guarantees in construction of DIDResource");
         DIDStr::new_ref(did).expect("programmer error: this should not fail due to guarantees in construction of DIDResource")
     }
     pub fn with_queries(

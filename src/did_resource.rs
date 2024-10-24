@@ -1,6 +1,5 @@
-use std::borrow::Cow;
-
 use crate::{DIDResourceStr, Error, Fragment};
+use std::borrow::Cow;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(

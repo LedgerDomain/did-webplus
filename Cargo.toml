@@ -22,7 +22,7 @@ derive_more = { version = "0.99.17", default-features = false, features = [
 ] }
 enum-map = "2.7.3"
 flagset = "0.4.6"
-pneutype = "0.5.0"
+pneutype = "0.5.1"
 selfhash = { version = "0.4.0", features = ["serde", "blake3"] }
 selfsign = { version = "0.6.0", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -57,6 +57,7 @@ selfsign = { git = "https://github.com/LedgerDomain/selfsign", branch = "jsonpat
 [workspace]
 resolver = "2"
 members = [
+    "did-key",
     "did-webplus-cli",
     "did-webplus-doc-storage-postgres",
     "did-webplus-doc-storage-sqlite",

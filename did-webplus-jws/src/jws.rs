@@ -1,8 +1,7 @@
-use base64::Engine;
-use did_webplus::{DIDKeyResourceFullyQualified, Error};
-use std::{borrow::Cow, io::Write};
-
 use crate::{JWSHeader, JWSPayloadEncoding, JWSPayloadPresence};
+use base64::Engine;
+use did_webplus::Error;
+use std::{borrow::Cow, io::Write};
 
 /// This is the compact, encoded form of a JWS (JWS Compact Serialization).  Has the form:
 /// <base64url(JSON(header))>.<base64url(payload)>.<base64url(signature)> if encoded, attached payload,
@@ -150,7 +149,8 @@ impl<'j> JWS<'j> {
     /// Generate a JWS Compact Serialization from the given header and payload, optionally encoding the given
     /// payload bytes, and then signing the signing input using the given signer.
     pub fn signed(
-        kid: DIDKeyResourceFullyQualified,
+        kid: String,
+        // kid: DIDKeyResourceFullyQualified,
         payload_bytes: &mut dyn std::io::Read,
         payload_presence: JWSPayloadPresence,
         payload_encoding: JWSPayloadEncoding,

@@ -857,6 +857,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "did-key"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ctor",
+ "ed25519-dalek",
+ "env_logger",
+ "k256",
+ "log",
+ "multibase",
+ "pneutype",
+ "selfsign",
+ "serde",
+]
+
+[[package]]
 name = "did-webplus"
 version = "0.4.0"
 dependencies = [
@@ -886,6 +902,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "did-key",
  "did-webplus",
  "did-webplus-doc-storage-sqlite",
  "did-webplus-doc-store",
@@ -897,8 +914,10 @@ dependencies = [
  "did-webplus-wallet-storage-sqlite",
  "ed25519-dalek",
  "expanduser",
+ "k256",
  "lazy_static",
  "log",
+ "pkcs8 0.10.2",
  "rand",
  "reqwest",
  "selfhash",

@@ -1,37 +1,17 @@
-use crate::{get_wallet, Result};
+use crate::{NewlineArgs, Result, VerificationMethodArgs, WalletArgs};
 use did_webplus_wallet_storage::LocallyControlledVerificationMethodFilter;
 use std::io::Write;
 
 /// Sign a JWS using the specified DID and specified key purpose from the specified wallet.  The payload
-/// for the JWS will be read from stdin.  The JWS will be written to stdout.
+/// for the JWS will be read from stdin.  The JWS will be written to stdout.  If no --wallet-uuid
+/// argument is specified, then there must only be one wallet in the database, and that wallet will be
+/// used.  If there is more than one wallet in the database, the --wallet-uuid argument must be specified.
 #[derive(clap::Parser)]
 pub struct WalletDIDSignJWS {
-    /// Specify the URL to the wallet database.  The URL must start with "sqlite://".
-    #[arg(
-        short = 'u',
-        long,
-        value_name = "URL",
-        default_value = "sqlite://~/.did-webplus/wallet.db"
-    )]
-    pub wallet_db_url: String,
-    /// Specify the UUID of the wallet within the database to use.  If not specified, then either the
-    /// only wallet in the database will be used, or a new wallet will be created.  If there is more
-    /// than one wallet in the database, an error will be returned.
-    #[arg(name = "wallet-uuid", short = 'w', long, value_name = "UUID")]
-    pub wallet_uuid_o: Option<String>,
-    /// Specify the DID to be used for signing.  If not specified and there is exactly one DID controlled by
-    /// the wallet, then that DID will be used -- it is uniquely determinable.  If there is no uniquely
-    /// determinable DID, then an error will be returned.
-    #[arg(name = "did", short, long, value_name = "DID")]
-    pub did_o: Option<did_webplus::DID>,
-    /// Specify which key purpose to use when signing the JWS.  Valid values are "authentication",
-    /// "assertionMethod", "keyAgreement", "capabilityInvocation", and "capabilityDelegation".
-    #[arg(short = 'p', long, value_name = "PURPOSE")]
-    pub key_purpose: did_webplus::KeyPurpose,
-    /// If specified, then use key with the given public key when signing the JWS.  If not specified,
-    /// then use the uniquely determinable key if there is one.  Otherwise return error.
-    #[arg(name = "key-id", short = 'k', long, value_name = "KEY_ID")]
-    pub key_id_o: Option<String>,
+    #[command(flatten)]
+    pub wallet_args: WalletArgs,
+    #[command(flatten)]
+    pub verification_method_args: VerificationMethodArgs,
     /// Specify if the payload is "attached" (meaning included in the JWS itself) or "detached" (meaning
     /// omitted from the JWS itself).
     // TODO: Use enums
@@ -43,27 +23,25 @@ pub struct WalletDIDSignJWS {
     // TODO: Use enums
     #[arg(long, value_name = "ENCODING", default_value = "base64")]
     pub encoding: String,
-    /// Do not print a newline at the end of the output.
-    #[arg(short, long)]
-    pub no_newline: bool,
+    #[command(flatten)]
+    pub newline_args: NewlineArgs,
 }
 
 impl WalletDIDSignJWS {
     pub async fn handle(self) -> Result<()> {
-        let wallet_uuid_o = self
-            .wallet_uuid_o
-            .map(|wallet_uuid_string| uuid::Uuid::parse_str(&wallet_uuid_string))
-            .transpose()?;
         let key_id_o = self
+            .verification_method_args
             .key_id_o
             .map(|key_id| selfsign::KERIVerifier::try_from(key_id))
             .transpose()
             .map_err(|e| anyhow::anyhow!("Parse error in --key-id argument; error was {}", e))?;
 
-        let wallet = get_wallet(&self.wallet_db_url, wallet_uuid_o.as_ref()).await?;
+        let wallet = self.wallet_args.get_wallet().await?;
 
         use did_webplus_wallet::Wallet;
-        let controlled_did = wallet.get_controlled_did(self.did_o.as_deref()).await?;
+        let controlled_did = wallet
+            .get_controlled_did(self.verification_method_args.did_o.as_deref())
+            .await?;
 
         let payload_presence = if self.payload.eq_ignore_ascii_case("attached") {
             did_webplus_jws::JWSPayloadPresence::Attached
@@ -93,7 +71,7 @@ impl WalletDIDSignJWS {
                 .get_locally_controlled_verification_methods(
                     &LocallyControlledVerificationMethodFilter {
                         did_o: Some(controlled_did.did().to_owned()),
-                        key_purpose_o: Some(self.key_purpose),
+                        key_purpose_o: Some(self.verification_method_args.key_purpose),
                         version_id_o: None,
                         key_id_o,
                         result_limit_o: Some(2),
@@ -103,19 +81,21 @@ impl WalletDIDSignJWS {
             if query_result_v.is_empty() {
                 anyhow::bail!(
                     "No locally controlled verification method found for KeyPurpose \"{}\" and {}",
-                    self.key_purpose,
+                    self.verification_method_args.key_purpose,
                     controlled_did
                 );
             }
             if query_result_v.len() > 1 {
-                anyhow::bail!("Multiple locally controlled verification methods found for KeyPurpose \"{}\" and {}; use --key-id to select a single key", self.key_purpose, controlled_did);
+                anyhow::bail!("Multiple locally controlled verification methods found for KeyPurpose \"{}\" and {}; use --key-id to select a single key", self.verification_method_args.key_purpose, controlled_did);
             }
             query_result_v.into_iter().next().unwrap()
         };
 
         let signer = priv_key_record.private_key_bytes_o.unwrap();
         let jws = did_webplus_jws::JWS::signed(
-            verification_method_record.did_key_resource_fully_qualified,
+            verification_method_record
+                .did_key_resource_fully_qualified
+                .to_string(),
             &mut std::io::stdin(),
             payload_presence,
             payload_encoding,
@@ -123,9 +103,8 @@ impl WalletDIDSignJWS {
         )?;
 
         std::io::stdout().write_all(jws.as_bytes())?;
-        if !self.no_newline {
-            std::io::stdout().write_all(b"\n")?;
-        }
+        self.newline_args
+            .print_newline_if_necessary(&mut std::io::stdout())?;
 
         Ok(())
     }

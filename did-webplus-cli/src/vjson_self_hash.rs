@@ -1,9 +1,6 @@
-use crate::{Result, SelfHashArgs};
+use crate::{NewlineArgs, Result, SelfHashArgs};
 use selfhash::{HashFunction, SelfHashable};
-use std::{
-    borrow::Cow,
-    io::{Read, Write},
-};
+use std::{borrow::Cow, io::Read};
 
 /// Read JSON from stdin and write self-hashed but non-signed Verifiable JSON (VJSON) to stdout.
 ///
@@ -19,9 +16,8 @@ use std::{
 pub struct VJSONSelfHash {
     #[command(flatten)]
     pub self_hash_args: SelfHashArgs,
-    /// If specified, don't print a trailing newline in the output [default: print newline].
-    #[arg(short, long)]
-    pub no_newline: bool,
+    #[command(flatten)]
+    pub newline_args: NewlineArgs,
 }
 
 impl VJSONSelfHash {
@@ -54,9 +50,8 @@ impl VJSONSelfHash {
 
         // Print the self-hashed JSON and optional newline.
         serde_json_canonicalizer::to_writer(json.value(), &mut std::io::stdout()).unwrap();
-        if !self.no_newline {
-            std::io::stdout().write("\n".as_bytes()).unwrap();
-        }
+        self.newline_args
+            .print_newline_if_necessary(&mut std::io::stdout())?;
 
         Ok(())
     }

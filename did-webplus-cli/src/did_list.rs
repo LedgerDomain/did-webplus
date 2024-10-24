@@ -1,23 +1,12 @@
-use crate::{get_did_doc_storage, Result};
+use crate::{DIDDocStoreArgs, NewlineArgs, Result};
 use std::io::Write;
 
 /// List all DID documents in the specified DID doc store.  These are the DID documents that have
 /// been fetched, validated, and stored in that DID doc store.
 #[derive(Debug, clap::Parser)]
 pub struct DIDList {
-    /// Specify the URL to the SQLite DID doc store to use for the DID list operation.  This is
-    /// what stores validated DID docs.  It should have the form `sqlite://<local-path>`.
-    // TODO: Figure out how not to print the env var value, since if it ever were a general postgres
-    // url, it could contain a password.
-    #[arg(
-        name = "doc-store",
-        env = "DID_WEBPLUS_DOC_STORE",
-        short,
-        long,
-        value_name = "URL",
-        default_value = "sqlite://~/.did-webplus/doc-store.db"
-    )]
-    pub did_doc_store_db_url: String,
+    #[command(flatten)]
+    pub did_doc_store_args: DIDDocStoreArgs,
     /// If specified, limit results to DID documents for the given DID.
     #[arg(name = "did", long, value_name = "DID")]
     pub did_o: Option<did_webplus::DID>,
@@ -27,9 +16,8 @@ pub struct DIDList {
     /// If specified, limit results to DID documents having the given version ID.
     #[arg(name = "version-id", long, value_name = "ID")]
     pub version_id_o: Option<u32>,
-    /// Do not print a newline at the end of the output.
-    #[arg(short, long)]
-    pub no_newline: bool,
+    #[command(flatten)]
+    pub newline_args: NewlineArgs,
 }
 
 impl DIDList {
@@ -46,7 +34,7 @@ impl DIDList {
             })?;
         }
 
-        let did_doc_storage = get_did_doc_storage(&self.did_doc_store_db_url).await?;
+        let did_doc_storage = self.did_doc_store_args.get_did_doc_storage().await?;
         use did_webplus_doc_store::DIDDocStorage;
         let mut transaction = did_doc_storage.begin_transaction(None).await?;
         let did_doc_record_v = did_doc_storage
@@ -75,9 +63,8 @@ impl DIDList {
             }
         }
         std::io::stdout().write_all(b"]")?;
-        if !self.no_newline {
-            std::io::stdout().write_all(b"\n")?;
-        }
+        self.newline_args
+            .print_newline_if_necessary(&mut std::io::stdout())?;
 
         Ok(())
     }

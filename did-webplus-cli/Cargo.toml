@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = { version = "1.0.83", features = ["backtrace"] }
 clap = { version = "4.5.4", features = ["derive", "env"] }
+did-key = { path = "../did-key", features = ["ed25519-dalek", "k256"] }
 did-webplus = { path = ".." }
 did-webplus-doc-store = { path = "../did-webplus-doc-store" }
 did-webplus-doc-storage-sqlite = { path = "../did-webplus-doc-storage-sqlite" }
@@ -24,10 +25,14 @@ did-webplus-wallet-storage = { path = "../did-webplus-wallet-storage", features 
 ] }
 did-webplus-wallet-storage-sqlite = { path = "../did-webplus-wallet-storage-sqlite" }
 # TODO: Maybe make this a feature
-ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
+ed25519-dalek = { version = "2.0.0", features = ["pkcs8", "rand_core"] }
 expanduser = "1.2.2"
+# NOTE: This is only used by did_key.rs for now, though it will be used in general.
+k256 = { version = "0.13.1", features = ["pkcs8"] }
 lazy_static = "1.4.0"
 log = "0.4.21"
+# NOTE: This is used by did:key stuff.
+pkcs8 = { version = "0.10.2", features = ["pem", "std"] }
 # NOTE: This is only used by ed25519-dalek
 rand = "0.8"
 reqwest = "0.12.5"

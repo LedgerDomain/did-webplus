@@ -39,8 +39,8 @@ shell:
 		--volume ~/.did-webplus:/root/.did-webplus \
 		--env RUST_BACKTRACE=1 \
 		--env RUST_LOG=did_webplus=trace,debug \
-		--env DID_WEBPLUS_DOC_STORE=sqlite:///root/.did-webplus/doc-store.db \
 		--env DID_WEBPLUS_VDG=witness.org \
+		--env DID_WEBPLUS_VDR=fancy.net \
 		--env DID_WEBPLUS_HTTP_SCHEME_OVERRIDE=http \
 		--entrypoint bash \
 		$(CLI_PROJECT_NAME):latest
