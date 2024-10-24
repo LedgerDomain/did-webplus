@@ -45,7 +45,7 @@ impl PublicKeyParamsEC {
     }
 }
 
-impl TryFrom<&PublicKeyParamsEC> for selfsign::KERIVerifier<'_> {
+impl TryFrom<&PublicKeyParamsEC> for selfsign::KERIVerifier {
     type Error = Error;
     fn try_from(public_key_params_ec: &PublicKeyParamsEC) -> Result<Self, Self::Error> {
         match public_key_params_ec.crv.as_str() {

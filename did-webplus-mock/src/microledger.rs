@@ -13,7 +13,7 @@ pub struct Microledger {
     /// updates the previous DID document.
     did_document_v: Vec<DIDDocument>,
     /// A map from the DID document's self-hash to its version_id field value.
-    self_hash_version_id_m: HashMap<selfhash::KERIHash<'static>, u32>,
+    self_hash_version_id_m: HashMap<selfhash::KERIHash, u32>,
     /// An ordered map from the DID document's valid_from field value to its version_id field value.
     valid_from_version_id_m: BTreeMap<time::OffsetDateTime, u32>,
 }
@@ -146,7 +146,7 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
     }
     fn did_document_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHash,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<&'m DIDDocument, Error> {
         let version_id = self.self_hash_version_id_m.get(self_hash).ok_or_else(|| {
             did_webplus::Error::NotFound("self-hash does not match any existing DID document")

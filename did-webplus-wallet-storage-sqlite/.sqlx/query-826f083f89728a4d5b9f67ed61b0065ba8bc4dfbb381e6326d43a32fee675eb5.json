@@ -1,0 +1,74 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT wallets_rowid, pub_key, key_type, key_purpose_restriction_o, created_at, last_used_at_o, usage_count, deleted_at_o, priv_key_format_o, priv_key_bytes_o\n                FROM priv_keys\n                WHERE wallets_rowid = $1 AND pub_key = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "wallets_rowid",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "pub_key",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_type",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_purpose_restriction_o",
+        "ordinal": 3,
+        "type_info": "Int64"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 4,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "last_used_at_o",
+        "ordinal": 5,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "usage_count",
+        "ordinal": 6,
+        "type_info": "Int64"
+      },
+      {
+        "name": "deleted_at_o",
+        "ordinal": 7,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "priv_key_format_o",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "priv_key_bytes_o",
+        "ordinal": 9,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "826f083f89728a4d5b9f67ed61b0065ba8bc4dfbb381e6326d43a32fee675eb5"
+}

@@ -1,0 +1,85 @@
+version: '3.3'
+
+# Save/persist our PostgreSQL database
+volumes:
+  postgres_data:
+
+services:
+
+  ####################################
+  # Service #1: Auto-Restarter based on Docker Health Checks
+  ####################################
+  autoheal:
+    image: willfarrell/autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    <<: &autoRestartOnFailure
+      deploy:
+        restart_policy:
+          condition: on-failure
+          max_attempts: 10
+
+  ####################################
+  # Service #2: PostgreSQL Database
+  ####################################
+  database:
+    <<: *autoRestartOnFailure
+    image: postgres
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_DB: 'postgres'
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
+      PGPORT: 5432
+    # We want persistence for our database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 1s
+      timeout: 1s
+      retries: 15
+
+  ####################################
+  # App-Container
+  ####################################
+  # NOTE: Auto-reload happens automatically as a part of the Dockerfile Chalice initialization command
+  fancy.net:
+    <<: *autoRestartOnFailure
+    image: did-webplus-vdr
+    platform: linux/x86_64 # Helps ensure consistency even when used on an M1 Mac
+    build:
+      context: ..
+      dockerfile: did-webplus-vdr/Dockerfile
+      target: runtime
+    environment:
+      DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@database:5432/postgres?sslmode=disable
+      # Options are "compact" and "pretty" (which is very verbose)
+      DID_WEBPLUS_VDR_LOG_FORMAT: compact
+      DID_WEBPLUS_VDR_PORT: 80
+      DID_WEBPLUS_VDR_SERVICE_DOMAIN: fancy.net
+      RUST_BACKTRACE: '1'
+      RUST_LOG: 'hyper=warn,sqlx=info,debug'
+    entrypoint:
+      - /usr/local/bin/did-webplus-vdr
+    command:
+      - /etc/did-webplus-vdr/config.yml
+    ports:
+      - '8085:80'
+    depends_on:
+      # Ensure our necessary services are up
+      database:
+        condition: service_healthy
+    links:
+      - database
+    # Ensure we autoheal incase we crash hard
+    labels:
+      autoheal: 'true'
+    # Ensure our service is up and running and healthy (needed for autoheal)
+    healthcheck:
+      test: curl --fail -s http://fancy.net:80/health || exit 1
+      start_period: 10s # Wait 10 seconds for our app to startup before throwing health probes at it
+      interval: 5s
+      timeout: 4s
+      retries: 4

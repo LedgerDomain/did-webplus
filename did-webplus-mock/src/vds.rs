@@ -1,6 +1,5 @@
+use did_webplus::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
 use std::borrow::Cow;
-
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 /// VDS = Verifiable Data Source (this is defined to be the common property that VDR and VDG both have).
 /// This represents a service that is capable of servicing DID resolution requests.  The two kinds of
@@ -19,7 +18,7 @@ pub trait VDS {
     fn get_did_documents<'s>(
         &'s mut self,
         requester_user_agent: &str,
-        did: &DID,
+        did: &DIDStr,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error>;
@@ -35,9 +34,9 @@ pub trait VDS {
     fn resolve_did_document<'s>(
         &'s mut self,
         requester_user_agent: &str,
-        did: &DID,
+        did: &DIDStr,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHash>,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error>;
 }

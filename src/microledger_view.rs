@@ -37,7 +37,7 @@ pub trait MicroledgerView<'v> {
     /// Returns the node whose DID document has the given self-hash.
     fn did_document_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHash,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<&'v DIDDocument, Error>;
     /// Returns the node that is valid at the given time.
     fn did_document_valid_at_time(
@@ -112,7 +112,7 @@ pub trait MicroledgerView<'v> {
     fn resolve(
         &self,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHash>,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(&'v DIDDocument, DIDDocumentMetadata), Error> {
         let did_document = match (version_id_o, self_hash_o) {
@@ -121,7 +121,7 @@ pub trait MicroledgerView<'v> {
             (None, None) => self.latest_did_document(),
             (Some(version_id), Some(self_hash)) => {
                 let did_document = self.did_document_for_version_id(version_id)?;
-                if did_document.self_hash() != self_hash {
+                if did_document.self_hash().as_keri_hash_str() != self_hash {
                     return Err(Error::Invalid("The self-hash of the DID document for given version_id does not match the given self-hash"));
                 }
                 did_document

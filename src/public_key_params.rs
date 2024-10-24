@@ -21,7 +21,7 @@ impl From<&dyn selfsign::Verifier> for PublicKeyParams {
     }
 }
 
-impl TryFrom<&PublicKeyParams> for selfsign::KERIVerifier<'_> {
+impl TryFrom<&PublicKeyParams> for selfsign::KERIVerifier {
     type Error = Error;
     fn try_from(public_key_params: &PublicKeyParams) -> Result<Self, Self::Error> {
         match public_key_params {

@@ -1,0 +1,19 @@
+[package]
+name = "did-webplus-wallet"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.80"
+did-webplus = { path = ".." }
+did-webplus-doc-store = { path = "../did-webplus-doc-store" }
+did-webplus-wallet-storage = { path = "../did-webplus-wallet-storage" }
+thiserror = "1.0.60"
+time = { version = "0.3", features = ["serde"] }
+
+[dev-dependencies]
+ctor = "0.2.8"
+dotenvy = "0.15.7"
+tokio = { version = "1.32.0", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

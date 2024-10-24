@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT wallets_rowid, pub_key, used_at, usage_type, usage_spec_o, did_resource_fully_qualified_o, key_purpose_o\n                FROM priv_key_usages\n                WHERE wallets_rowid = $1\n                    AND (NOT $2 OR pub_key = $3)\n                    AND (NOT $4 OR usage_type = $5)\n                    AND (NOT $6 OR used_at >= $7)\n                    AND (NOT $8 OR used_at <= $9)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "wallets_rowid",
+        "ordinal": 0,
+        "type_info": "Int64"
+      },
+      {
+        "name": "pub_key",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "used_at",
+        "ordinal": 2,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "usage_type",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "usage_spec_o",
+        "ordinal": 4,
+        "type_info": "Blob"
+      },
+      {
+        "name": "did_resource_fully_qualified_o",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_purpose_o",
+        "ordinal": 6,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "b96914bfc160835acb1411a576d30cfd1a5916bae63a803a86c83c663e9e40f0"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                UPDATE priv_keys\n                SET deleted_at_o = $1, priv_key_format_o = NULL, priv_key_bytes_o = NULL\n                WHERE wallets_rowid = $2 AND pub_key = $3 AND deleted_at_o IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "d61e624d7fb67879b24db33a21363f4db2dd6c7220b9360df260e06cfad78f6c"
+}

@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
 use did_webplus::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDWithQueryAndKeyIdFragment,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDKeyResourceFullyQualified,
     Error, KeyPurpose, MicroledgerView, PublicKeySet, DID,
 };
 
 use crate::{Microledger, VDRClient};
 
 pub struct ControlledDID {
-    pub current_public_key_set: PublicKeySet<selfsign::KERIVerifier<'static>>,
-    signer_m: HashMap<selfsign::KERIVerifier<'static>, Box<dyn selfsign::Signer>>,
+    pub current_public_key_set: PublicKeySet<selfsign::KERIVerifier>,
+    signer_m: HashMap<selfsign::KERIVerifier, Box<dyn selfsign::Signer>>,
     microledger: Microledger,
 }
 
@@ -83,7 +83,6 @@ impl ControlledDID {
     pub fn update(&mut self, vdr_client: &dyn VDRClient) -> Result<(), Error> {
         let (new_signer_m, new_public_key_set) = Self::generate_new_keys();
 
-        use selfhash::HashFunction;
         let new_did_document = DIDDocument::update_from_previous(
             self.microledger.view().latest_did_document(),
             DIDDocumentUpdateParams {
@@ -116,7 +115,7 @@ impl ControlledDID {
                         .collect(),
                 },
             },
-            selfhash::Blake3.new_hasher(),
+            &selfhash::Blake3,
             self.signer_and_key_id_for_key_purpose(KeyPurpose::CapabilityInvocation)
                 .0,
         )?;
@@ -143,7 +142,7 @@ impl ControlledDID {
     pub fn signer_and_key_id_for_key_purpose(
         &self,
         key_purpose: KeyPurpose,
-    ) -> (&dyn selfsign::Signer, DIDWithQueryAndKeyIdFragment) {
+    ) -> (&dyn selfsign::Signer, DIDKeyResourceFullyQualified) {
         let public_key_v = self
             .current_public_key_set
             .public_keys_for_purpose(key_purpose);
@@ -158,13 +157,13 @@ impl ControlledDID {
         let version_id = self.microledger.view().latest_did_document().version_id();
         let self_hash = self.microledger.view().latest_did_document().self_hash();
         let key_id = did
-            .with_query(format!("versionId={}&selfHash={}", version_id, self_hash))
-            .with_fragment(public_key.to_owned());
+            .with_queries(self_hash, version_id)
+            .with_fragment(public_key.as_keri_verifier_str());
         (signer, key_id)
     }
     fn generate_new_keys() -> (
-        HashMap<selfsign::KERIVerifier<'static>, Box<dyn selfsign::Signer>>,
-        PublicKeySet<selfsign::KERIVerifier<'static>>,
+        HashMap<selfsign::KERIVerifier, Box<dyn selfsign::Signer>>,
+        PublicKeySet<selfsign::KERIVerifier>,
     ) {
         // Generate a full set of private keys.
 
@@ -212,7 +211,7 @@ impl ControlledDID {
                 .into_owned()],
         };
         let signer_m = {
-            let mut signer_m: HashMap<selfsign::KERIVerifier<'static>, Box<dyn selfsign::Signer>> =
+            let mut signer_m: HashMap<selfsign::KERIVerifier, Box<dyn selfsign::Signer>> =
                 HashMap::new();
             signer_m.insert(
                 ed25519_verifying_key_authentication

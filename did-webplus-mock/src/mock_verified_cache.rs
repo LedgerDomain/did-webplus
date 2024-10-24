@@ -1,11 +1,11 @@
+use crate::Resolver;
+use did_webplus::{
+    DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata, DID,
+};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
 };
-
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
-
-use crate::Resolver;
 
 /// Semantic subtype denoting that a u32 is the primary key for the DID table.
 #[derive(
@@ -149,7 +149,7 @@ impl<'v> did_webplus::MicroledgerView<'v> for MockVerifiedCacheMicroledgerView<'
     }
     fn did_document_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHash,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<&'v DIDDocument, Error> {
         let self_hash_primary_key = *self
             .mock_verified_cache
@@ -164,7 +164,7 @@ impl<'v> did_webplus::MicroledgerView<'v> for MockVerifiedCacheMicroledgerView<'
         let did_document = self
             .mock_verified_cache
             .did_document(did_document_primary_key);
-        if did_document.did() != self.did() {
+        if did_document.did != *self.did() {
             return Err(Error::NotFound("DID document not found in cache"));
         }
         Ok(did_document)
@@ -320,13 +320,13 @@ pub struct MockVerifiedCache {
     did_document_v: Vec<DIDDocument>,
     /// Table of self-hash values of DID documents.  The indexes of these elements define the primary
     /// key for this table.
-    self_hash_v: Vec<selfhash::KERIHash<'static>>,
+    self_hash_v: Vec<selfhash::KERIHash>,
 
     // Indexes -- hand-rolled "database" indexes.
     /// This is the index mapping DID to DID primary key.
     did_primary_key_m: HashMap<DID, DIDPrimaryKey>,
     /// This is the index mapping self-hash to self-hash primary key.
-    self_hash_primary_key_m: HashMap<selfhash::KERIHash<'static>, SelfHashPrimaryKey>,
+    self_hash_primary_key_m: HashMap<selfhash::KERIHash, SelfHashPrimaryKey>,
     /// This is the index mapping self-hash primary key to DID document primary key.
     self_hash_did_document_m: HashMap<SelfHashPrimaryKey, DIDDocumentPrimaryKey>,
     /// This is the index mapping (DID primary key, version_id) to the DID document primary key.
@@ -360,7 +360,7 @@ impl MockVerifiedCache {
     /// Get a view of the Microledger for the given DID.
     pub fn microledger_view<'s>(
         &'s self,
-        did: &DID,
+        did: &DIDStr,
     ) -> Option<impl did_webplus::MicroledgerView<'s>> {
         if let Some(&did_primary_key) = self.did_primary_key_m.get(did) {
             Some(MockVerifiedCacheMicroledgerView::new_with_did_primary_key(
@@ -375,7 +375,7 @@ impl MockVerifiedCache {
     // #[allow(dead_code)]
     pub fn microledger_mut_view<'s>(
         &'s mut self,
-        did: &DID,
+        did: &DIDStr,
     ) -> Option<impl did_webplus::MicroledgerMutView<'s>> {
         if let Some(&did_primary_key) = self.did_primary_key_m.get(did) {
             Some(
@@ -411,7 +411,7 @@ impl MockVerifiedCache {
         let (did, self_hash, version_id, valid_from) = {
             let did_document = self.did_document(did_document_primary_key);
             (
-                did_document.did().clone(),
+                did_document.did.clone(),
                 did_document.self_hash().clone(),
                 did_document.version_id(),
                 did_document.valid_from(),
@@ -449,7 +449,7 @@ impl MockVerifiedCache {
     /// up to date.
     pub fn ensure_cached_did_documents(
         &mut self,
-        did: &DID,
+        did: &DIDStr,
         through_version_id_o: Option<u32>,
         resolver: &mut dyn Resolver,
     ) -> Result<u32, Error> {
@@ -511,7 +511,7 @@ impl MockVerifiedCache {
     pub fn get_did_documents<'s>(
         &'s mut self,
         requester_user_agent: &str,
-        did: &DID,
+        did: &DIDStr,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
         resolver: &mut dyn Resolver,
@@ -540,9 +540,9 @@ impl MockVerifiedCache {
     // TODO: This probably doesn't belong in MockVerifiedCache, but rather in a DID resolver.
     pub fn resolve_did_document<'s>(
         &'s mut self,
-        did: &DID,
+        did: &DIDStr,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHash>,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
         resolver: &mut dyn Resolver,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {

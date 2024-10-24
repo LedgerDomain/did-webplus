@@ -1,6 +1,6 @@
 use crate::{
     DIDDocument, DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
-    DIDDocumentMetadataIdempotent, Error, MicroledgerView, RequestedDIDDocumentMetadata, DID,
+    DIDDocumentMetadataIdempotent, DIDStr, Error, MicroledgerView, RequestedDIDDocumentMetadata,
 };
 
 /// Async version of the MicroledgerView trait, which defines the read-only portion of the DID
@@ -14,7 +14,7 @@ use crate::{
 #[async_trait::async_trait]
 pub trait MicroledgerViewAsync<'v> {
     /// This is the DID that controls this microledger and that all DID documents in this microledger share.
-    async fn did(&self) -> &'v DID;
+    async fn did(&self) -> &'v DIDStr;
     // /// The microledger height is the number of DID documents in the microledger.
     // async fn microledger_height(&self) -> u32;
     /// Returns the root (first) DID document of the microledger.
@@ -38,7 +38,7 @@ pub trait MicroledgerViewAsync<'v> {
     /// Returns the node whose DID document has the given self-hash.
     async fn did_document_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHash,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<&'v DIDDocument, Error>;
     /// Returns the node that is valid at the given time.
     async fn did_document_valid_at_time(
@@ -115,7 +115,7 @@ pub trait MicroledgerViewAsync<'v> {
     async fn resolve(
         &self,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHash>,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(&'v DIDDocument, DIDDocumentMetadata), Error> {
         let did_document = match (version_id_o, self_hash_o) {
@@ -124,7 +124,7 @@ pub trait MicroledgerViewAsync<'v> {
             (None, None) => self.latest_did_document().await,
             (Some(version_id), Some(self_hash)) => {
                 let did_document = self.did_document_for_version_id(version_id).await?;
-                if did_document.self_hash() != self_hash {
+                if did_document.self_hash().as_keri_hash_str() != self_hash {
                     return Err(Error::Invalid("The self-hash of the DID document for given version_id does not match the given self-hash"));
                 }
                 did_document
@@ -142,7 +142,7 @@ pub trait MicroledgerViewAsync<'v> {
 /// and then the async version will be automatically derived.
 #[async_trait::async_trait]
 impl<'v, V: MicroledgerView<'v> + Sync> MicroledgerViewAsync<'v> for V {
-    async fn did(&self) -> &'v DID {
+    async fn did(&self) -> &'v DIDStr {
         MicroledgerView::did(self)
     }
     async fn root_did_document(&self) -> &'v DIDDocument {
@@ -166,7 +166,7 @@ impl<'v, V: MicroledgerView<'v> + Sync> MicroledgerViewAsync<'v> for V {
     }
     async fn did_document_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHash,
+        self_hash: &selfhash::KERIHashStr,
     ) -> Result<&'v DIDDocument, Error> {
         MicroledgerView::did_document_for_self_hash(self, self_hash)
     }
