@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                with inserted_record as (\n                    insert into did_document_records(did, version_id, valid_from, self_hash, did_document)\n                    values ($1, $2, $3, $4, to_jsonb($5::text))\n                    returning *\n                )\n                select did, version_id, valid_from, self_hash, did_document#>>'{}' as \"did_document!: String\"\n                from inserted_record\n            ",
+  "query": "\n                select did, version_id, valid_from, self_hash, did_document#>>'{}' as \"did_document_jcs!: String\"\n                from did_document_records\n                where (NOT $1 OR did = $2) AND\n                      (NOT $3 OR self_hash = $4) AND\n                      (NOT $5 OR version_id = $6)\n            ",
   "describe": {
     "columns": [
       {
@@ -25,17 +25,18 @@
       },
       {
         "ordinal": 4,
-        "name": "did_document!: String",
+        "name": "did_document_jcs!: String",
         "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
+        "Bool",
         "Text",
-        "Int8",
-        "Timestamptz",
+        "Bool",
         "Text",
-        "Text"
+        "Bool",
+        "Int8"
       ]
     },
     "nullable": [
@@ -46,5 +47,5 @@
       null
     ]
   },
-  "hash": "7e685f6e3215180918ea3930d465d327c5a623311a9ad1c9ba1ecddad15a7e7e"
+  "hash": "6bcf67af8d68c74c23bedaa18fa750eff45bb2f43f1c66e6020fe4c3ae68ae17"
 }
