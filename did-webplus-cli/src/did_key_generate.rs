@@ -18,7 +18,7 @@ pub struct DIDKeyGenerate {
 
 impl DIDKeyGenerate {
     pub fn handle(self) -> Result<()> {
-        self.private_key_file_args.ensure_file_exists()?;
+        self.private_key_file_args.ensure_file_does_not_exist()?;
 
         use selfsign::Signer;
         use std::str::FromStr;
@@ -30,7 +30,7 @@ impl DIDKeyGenerate {
                 use ed25519_dalek::pkcs8::EncodePrivateKey;
                 signing_key
                     .write_pkcs8_pem_file(
-                        &self.private_key_file_args.private_key_path,
+                        &self.private_key_file_args.private_key_path()?,
                         Default::default(),
                     )
                     .map_err(|e| {
@@ -45,7 +45,7 @@ impl DIDKeyGenerate {
                 use k256::pkcs8::EncodePrivateKey;
                 secret_key
                     .write_pkcs8_pem_file(
-                        &self.private_key_file_args.private_key_path,
+                        &self.private_key_file_args.private_key_path()?,
                         Default::default(),
                     )
                     .map_err(|e| {

@@ -2,7 +2,14 @@
 
 The `did:web` method makes straightforward use of familiar tools across a wide range of use cases. However, heavily regulated ecosystems such as the pharmaceutical supply chain demand additional guarantees of immutability and auditability, including seamless key rotation and a key usage history. `did:webplus` is a proposed fit-for-purpose DID method for use within the pharma supply chain credentialing community, with an eye towards releasing it into the wild for those communities that are similarly situated.
 
+## Quick Overview
+
 Here is a [talk](https://www.youtube.com/watch?v=tshjoED14qo) Victor Dods gave at LedgerPalooza 2024 (this is a yearly event hosted by LedgerPalooza for our colleagues and business friendlies) presenting `did:webplus`.  Here is the [slide deck](https://docs.google.com/presentation/d/1oZc4WABaG3zhw7gHclSIaQCgnchdWRJvqUDQLq4L-Ig/edit?usp=sharing) from that talk.
+
+Component documentation:
+-   [`did:webplus` Verifiable Data Registry (VDR) service](did-webplus-vdr/README.md)
+-   [`did:webplus` Verifiable Data Gateway (VDG) service](did-webplus-vdg/README.md)
+-   [`did-webplus` CLI tool](did-webplus-vdr/README.md)
 
 Along with an overview and examples, this repository includes a Rust crate for prototype implementation of the `did:webplus` DID method. This repository provides initial reference implementations of the components described herein, and your feedback is welcome.
 
@@ -14,7 +21,7 @@ To run the data model tests, which include printouts demonstrating various featu
 
 The `--all-features` is necessary for now.
 
-## Overview
+## Detailed Overview
 
 The `did:web` DID method is simple and easy enough to implement using web2 technologies. However, compared to others that incorporate more sophisticated cryptographic primitives and data structures (hashes, self-addressing identifiers, ledgers, formal DID document transactions, etc.), `did:web` often falls short. One of the biggest challenges in delivering `did:web` within a highly regulated industry such as the pharma supply chain is its lack of built-in "historicity." Many real-world `did:web` implementations assume that W3C Verifiable Presentations are ephemeral, needing to be verified at time of receipt (e.g. to access a particular resource) but not requiring retroactive verifiability in the event of a later audit. Within the Drug Supply Chain Security Act (DSCSA) and similar contexts, where a VP's historical validity may need to be checked for years after its creation, permanence rather than ephemerality is the general rule.
 
@@ -47,6 +54,8 @@ As outlined above, the validity duration applies to each DID document, and exten
 
 ## Verifiable Data Registry (VDR)
 
+Here are [instructions](did-webplus-vdr/README.md) on how to spin up the VDR service in a dockerized environment and run tests against it.
+
 A Verifiable Data Registry in the context of `did:webplus` is a web host which hosts DID documents on behalf of DID controllers.  A DID controller determines the content of each DID document, producing a self-signature over each DID document to prove valid authorship, whereas the VDR verifies DID creation and DID updates and serves DID documents to clients performing DID resolution.  Thus a DID controller is the author of a DID, but the VDR is the origin of the DID's documents.
 
 ## Long-Term Non-Repudiability via Witnessing and Archival; Scope of Truth
@@ -58,6 +67,8 @@ By itself, a `did:webplus` VDR could delete DID documents, thereby violating the
 To this end, a couple of "witnessing" schemes are presented.  A parallel consideration is the "scope of truth" for the witnessed DID document updates, i.e. the breadth of agreement on which DID document updates are considered valid.
 
 ### Verifiable Data Gateway (VDG)
+
+Here are [instructions](did-webplus-vdg/README.md) on how to spin up the VDG service in a dockerized environment and run tests against it.
 
 A Verifiable Data Gateway is meant to be a realtime replica of potentially many VDRs.  A VDG retrieves, verifies, and stores all DID microledgers within some scope of interest.  This scope could be, for example, all VDRs operating within a certain industry subject to strict long-term audit regulations.  A VDG can also service DID resolution requests on behalf of users that choose to trust it.  A VDG serves several purposes:
 -   A VDG is a long-term backup of all DID microledgers within the scope of interest, thereby meeting the need for long-term non-repudiability and resolvability.  A VDG is meant to be a highly available and robust service, and therefore be a bulwhark against VDR service outages.
