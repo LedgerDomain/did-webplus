@@ -1,12 +1,11 @@
+use crate::{MockResolverInternal, MockVDR, MockVerifiedCache, VDS};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
 use std::{
     borrow::Cow,
     collections::HashMap,
     ops::DerefMut,
     sync::{Arc, RwLock},
 };
-
-use crate::{MockResolverInternal, MockVDR, MockVerifiedCache, VDS};
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
 
 /// Mock (i.e. ephemeral, intra-process) implementation of Verifiable Data Gateway.  Handles retrieval,
 /// caching, and verification of did:webplus microledgers.
@@ -49,7 +48,7 @@ impl VDS for MockVDG {
     fn get_did_documents<'s>(
         &'s mut self,
         requester_user_agent: &str,
-        did: &DID,
+        did: &DIDStr,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
@@ -77,9 +76,9 @@ impl VDS for MockVDG {
     fn resolve_did_document<'s>(
         &'s mut self,
         requester_user_agent: &str,
-        did: &DID,
+        did: &DIDStr,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHash>,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!(

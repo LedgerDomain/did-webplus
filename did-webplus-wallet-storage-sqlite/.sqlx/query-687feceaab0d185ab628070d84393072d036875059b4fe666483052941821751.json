@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO wallets(wallet_uuid, created_at, updated_at, deleted_at_o, wallet_name_o)\n                VALUES ($1, $2, $3, $4, $5)\n                RETURNING rowid\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "rowid",
+        "ordinal": 0,
+        "type_info": "Int64"
+      }
+    ],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "687feceaab0d185ab628070d84393072d036875059b4fe666483052941821751"
+}

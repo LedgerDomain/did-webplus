@@ -1,7 +1,9 @@
 use std::str::FromStr;
 
-use did_webplus::{DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, PublicKeySet};
-use selfhash::HashFunction;
+use did_webplus::{
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDKeyResourceFullyQualified,
+    PublicKeySet,
+};
 use selfsign::SelfSignAndHashable;
 
 #[test]
@@ -25,13 +27,42 @@ fn test_roundtrip_did_basic() {
 #[test]
 #[serial_test::serial]
 fn test_roundtrip_did_with_query() {
+    // Note that the String -> String roundtrip depends on the specific order of selfHash
+    // then versionId in the query params.
     let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz",
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
+
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
+
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
+
     ];
     for s in str_v {
-        let did = did_webplus::DIDWithQuery::from_str(s).expect("pass");
+        let did_with_query = did_webplus::DIDWithQueryStr::new_ref(s).expect("pass");
+        println!("string form of DID with query: {}", s);
+        println!("DIDWithQuery: {:?}", did_with_query);
+        let s2 = did_with_query.to_string();
+        println!("re-stringed form of DIDWithQuery: {}", s);
+        assert_eq!(s, &s2);
+    }
+}
+
+#[test]
+#[serial_test::serial]
+fn test_roundtrip_did_key_resource_fully_qualified() {
+    let str_v = [
+        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+    ];
+    for s in str_v {
+        let did = did_webplus::DIDKeyResourceFullyQualified::from_str(s).expect("pass");
         println!("string form of DID: {}", s);
         println!("parsed DID: {:?}", did);
         let s2 = did.to_string();
@@ -42,32 +73,14 @@ fn test_roundtrip_did_with_query() {
 
 #[test]
 #[serial_test::serial]
-fn test_roundtrip_did_with_query_and_key_id_fragment() {
-    let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-    ];
-    for s in str_v {
-        let did = did_webplus::DIDWithQueryAndKeyIdFragment::from_str(s).expect("pass");
-        println!("string form of DID: {}", s);
-        println!("parsed DID: {:?}", did);
-        let s2 = did.to_string();
-        println!("re-stringed form of DID: {}", s);
-        assert_eq!(s, &s2);
-    }
-}
-
-#[test]
-#[serial_test::serial]
-fn test_roundtrip_did_with_key_id_fragment() {
+fn test_roundtrip_did_key_resource() {
     let str_v = [
         "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
         "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
         "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
     ];
     for s in str_v {
-        let did = did_webplus::DIDWithKeyIdFragment::from_str(s).expect("pass");
+        let did = did_webplus::DIDKeyResource::from_str(s).expect("pass");
         println!("string form of DID: {}", s);
         println!("parsed DID: {:?}", did);
         let s2 = did.to_string();
@@ -151,13 +164,7 @@ fn test_did_document_verification() {
     );
     println!(
         "did_document_0 in JCS format:\n{}",
-        std::str::from_utf8(
-            did_document_0
-                .serialize_canonically_to_vec()
-                .expect("pass")
-                .as_slice()
-        )
-        .expect("pass")
+        did_document_0.serialize_canonically().expect("pass")
     );
     did_document_0
         .verify_self_signatures_and_hashes()
@@ -179,7 +186,7 @@ fn test_did_document_verification() {
                 capability_delegation_v: vec![&ed25519_verifying_key_2],
             },
         },
-        selfhash::Blake3.new_hasher(),
+        &selfhash::Blake3,
         &ed25519_signing_key_1,
     )
     .expect("pass");
@@ -189,13 +196,7 @@ fn test_did_document_verification() {
     );
     println!(
         "did_document_1 in JCS format:\n{}",
-        std::str::from_utf8(
-            did_document_1
-                .serialize_canonically_to_vec()
-                .expect("pass")
-                .as_slice()
-        )
-        .expect("pass")
+        did_document_1.serialize_canonically().expect("pass")
     );
     did_document_1
         .verify_self_signatures_and_hashes()
@@ -223,7 +224,7 @@ fn test_did_document_verification() {
                 capability_delegation_v: vec![&ed25519_verifying_key_2],
             },
         },
-        selfhash::Blake3.new_hasher(),
+        &selfhash::Blake3,
         &ed25519_signing_key_attacker,
     )
     .expect_err("pass");
@@ -286,15 +287,14 @@ fn test_signature_generation_with_witness() {
         // Add query params for versionId and selfHash, so that the signature produced with this key commits
         // the DID document with the given versionId to have the given selfHash.  This manifests a limited
         // form of witnessing.
-        let did_with_query_and_key_id_fragment = did
-            .with_query(format!(
-                "versionId={}&selfHash={}",
+        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+            .with_queries(
+                did_document_0.self_hash_o.as_deref().unwrap(),
                 did_document_0.version_id,
-                did_document_0.self_hash_o.as_ref().unwrap()
-            ))
-            .with_fragment(verifying_key_0.to_keri_verifier().into_owned());
+            )
+            .with_fragment(&verifying_key_0.to_keri_verifier());
         // Set the key_id field of the JWK, so that it appears in the header of JWS signatures.
-        priv_jwk_0.key_id = Some(did_with_query_and_key_id_fragment.to_string());
+        priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
         println!("We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
 
         // Sign stuff.

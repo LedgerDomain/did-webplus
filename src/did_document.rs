@@ -1,6 +1,5 @@
-use selfsign::SelfSignAndHashable;
-
 use crate::{DIDDocumentCreateParams, DIDDocumentUpdateParams, Error, PublicKeyMaterial, DID};
+use selfsign::SelfSignAndHashable;
 
 /// The generic data model for did:webplus DID documents.  There are additional constraints on the
 /// data (it must be a root DID document or a non-root DID document), and there are conversion
@@ -23,23 +22,23 @@ pub struct DIDDocument {
     /// This is the self-hash of the document.  The self-hash functions as the globally unique identifier
     /// for the DID document.
     #[serde(rename = "selfHash")]
-    pub self_hash_o: Option<selfhash::KERIHash<'static>>,
+    pub self_hash_o: Option<selfhash::KERIHash>,
     /// This is the self-signature of the document, proving control over the DID.  Because this is a
     /// non-root DID document, it will not match the self-signature that forms part of the did:webplus
     /// DID (see "id" field).
     #[serde(rename = "selfSignature")]
-    pub self_signature_o: Option<selfsign::KERISignature<'static>>,
+    pub self_signature_o: Option<selfsign::KERISignature>,
     /// This is the self-signature verifier of the document.  For a valid non-root DIDDocument (which in
     /// particular must be self-signed), this value should specify a key in in the capability_invocation_v
     /// field of the previous DID document's KeyMaterial.  Note that there is a translation step between
     /// KERIVerifier and VerificationMethod.
     #[serde(rename = "selfSignatureVerifier")]
-    pub self_signature_verifier_o: Option<selfsign::KERIVerifier<'static>>,
+    pub self_signature_verifier_o: Option<selfsign::KERIVerifier>,
     /// This should be the self-signature field of the previous DID document.  This relationship is what forms
     /// the microledger.
     #[serde(rename = "prevDIDDocumentSelfHash")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_did_document_self_hash_o: Option<selfhash::KERIHash<'static>>,
+    pub prev_did_document_self_hash_o: Option<selfhash::KERIHash>,
     /// This defines the timestamp at which this DID document becomes valid.
     #[serde(rename = "validFrom")]
     #[serde(with = "time::serde::rfc3339")]
@@ -60,7 +59,8 @@ impl DIDDocument {
         signer: &dyn selfsign::Signer,
     ) -> Result<Self, Error> {
         // Ensure that the signer's verifier is a member of did_document_create_params.capability_invocation_verifier_v.
-        let keri_verifier = signer.verifier().to_keri_verifier().into_owned();
+        let verifier = signer.verifier();
+        let keri_verifier = verifier.to_keri_verifier();
         if !did_document_create_params
             .public_key_set
             .capability_invocation_v
@@ -73,11 +73,12 @@ impl DIDDocument {
             ));
         }
         let did = DID::new(
-            did_document_create_params.did_host.into_owned(),
+            did_document_create_params.did_host.as_ref(),
             did_document_create_params
                 .did_path_o
-                .map(|x| x.into_owned()),
-            hash_function.placeholder_hash().to_keri_hash().to_owned(),
+                .as_ref()
+                .map(|x| x.as_ref()),
+            hash_function.placeholder_hash().to_keri_hash()?.as_ref(),
         )
         .expect("pass");
         let mut root_did_document = Self {
@@ -105,7 +106,7 @@ impl DIDDocument {
     pub fn update_from_previous(
         prev_did_document: &DIDDocument,
         did_document_update_params: DIDDocumentUpdateParams,
-        hasher_b: Box<dyn selfhash::Hasher>,
+        hash_function: &dyn selfhash::HashFunction,
         signer: &dyn selfsign::Signer,
     ) -> Result<Self, Error> {
         prev_did_document
@@ -116,12 +117,13 @@ impl DIDDocument {
                 )
             })?;
         // TODO: Put this into a function
-        let keri_verifier = signer.verifier().to_keri_verifier().into_owned();
+        let verifier = signer.verifier();
+        let keri_verifier = verifier.to_keri_verifier();
         if !prev_did_document
             .public_key_material()
-            .capability_invocation_key_id_fragment_v
+            .capability_invocation_relative_key_resource_v
             .iter()
-            .all(|key_id_fragment| **key_id_fragment == keri_verifier)
+            .all(|relative_key_resource| relative_key_resource.fragment() == keri_verifier.as_ref())
         {
             return Err(Error::InvalidDIDUpdateOperation(
                 "Unauthorized update operation; Signer's pub key not present in previous DID document's capability_invocation_v",
@@ -129,9 +131,9 @@ impl DIDDocument {
         }
 
         // Form the new DID document
-        let did = prev_did_document.did().clone();
+        // let did = prev_did_document.parsed_did().clone();
         let mut new_non_root_did_document = Self {
-            did: did.clone(),
+            did: prev_did_document.did.clone(),
             self_hash_o: None,
             self_signature_o: None,
             self_signature_verifier_o: None,
@@ -139,11 +141,12 @@ impl DIDDocument {
             version_id: prev_did_document.version_id() + 1,
             valid_from: did_document_update_params.valid_from,
             public_key_material: PublicKeyMaterial::new(
-                did,
+                prev_did_document.did.clone(),
                 did_document_update_params.public_key_set,
             )?,
         };
         // Self-sign-and-hash the new DID document.
+        let hasher_b = hash_function.new_hasher();
         new_non_root_did_document.self_sign_and_hash(signer, hasher_b)?;
         // Verify it against the previous DID document.
         new_non_root_did_document
@@ -155,11 +158,15 @@ impl DIDDocument {
     pub fn is_root_did_document(&self) -> bool {
         self.prev_did_document_self_hash_o.is_none()
     }
-    /// This method is what you should use if you want to canonically serialize this DID document (to a Vec<u8>).
+    /// This method is what you should use if you want to canonically serialize this DID document (to a String).
     /// See also serialize_canonically_to_writer.
-    pub fn serialize_canonically_to_vec(&self) -> Result<Vec<u8>, Error> {
-        serde_json_canonicalizer::to_vec(self)
-            .map_err(|_| Error::Serialization("Failed to serialize DID document to canonical JSON"))
+    pub fn serialize_canonically(&self) -> Result<String, Error> {
+        let did_document_jcs_bytes = serde_json_canonicalizer::to_vec(self).map_err(|_| {
+            Error::Serialization(
+                "Failed to serialize DID document to canonical JSON (into Vec<u8>)",
+            )
+        })?;
+        Ok(String::from_utf8(did_document_jcs_bytes).expect("this should not be possible"))
     }
     /// This method is what you should use if you want to canonically serialize this DID document (into
     /// a std::io::Writer).  See also serialize_canonically_to_vec.
@@ -167,23 +174,23 @@ impl DIDDocument {
         &self,
         write: &mut W,
     ) -> Result<(), Error> {
-        serde_json_canonicalizer::to_writer(self, write)
-            .map_err(|_| Error::Serialization("Failed to serialize DID document to canonical JSON"))
+        serde_json_canonicalizer::to_writer(self, write).map_err(|_| {
+            Error::Serialization(
+                "Failed to serialize DID document to canonical JSON (into std::io::Write)",
+            )
+        })
     }
 
     // TEMP METHODS
-    pub fn did(&self) -> &DID {
-        &self.did
-    }
     // NOTE: This assumes this DIDDocument is self-hashed.
-    pub fn self_hash(&self) -> &selfhash::KERIHash<'static> {
+    pub fn self_hash(&self) -> &selfhash::KERIHash {
         self.self_hash_o.as_ref().expect("programmer error")
     }
     // NOTE: This assumes this DIDDocument is self-signed.
-    pub fn self_signature(&self) -> &selfsign::KERISignature<'static> {
+    pub fn self_signature(&self) -> &selfsign::KERISignature {
         self.self_signature_o.as_ref().expect("programmer error")
     }
-    pub fn prev_did_document_self_hash_o(&self) -> Option<&selfhash::KERIHash<'static>> {
+    pub fn prev_did_document_self_hash_o(&self) -> Option<&selfhash::KERIHash> {
         self.prev_did_document_self_hash_o.as_ref()
     }
     pub fn valid_from(&self) -> time::OffsetDateTime {
@@ -198,7 +205,7 @@ impl DIDDocument {
     pub fn verify_nonrecursive(
         &self,
         expected_prev_did_document_o: Option<&DIDDocument>,
-    ) -> Result<&selfhash::KERIHash<'static>, Error> {
+    ) -> Result<&selfhash::KERIHash, Error> {
         if self.is_root_did_document() {
             if expected_prev_did_document_o.is_some() {
                 return Err(Error::Malformed(
@@ -215,7 +222,7 @@ impl DIDDocument {
             self.verify_non_root_nonrecursive(expected_prev_did_document_o.unwrap())
         }
     }
-    pub fn verify_root_nonrecursive(&self) -> Result<&selfhash::KERIHash<'static>, Error> {
+    pub fn verify_root_nonrecursive(&self) -> Result<&selfhash::KERIHash, Error> {
         if !self.is_root_did_document() {
             return Err(Error::Malformed(
                 "Expected a root DID document, but this is a non-root DID document.",
@@ -249,7 +256,7 @@ impl DIDDocument {
     pub fn verify_non_root_nonrecursive(
         &self,
         expected_prev_did_document: &DIDDocument,
-    ) -> Result<&selfhash::KERIHash<'static>, Error> {
+    ) -> Result<&selfhash::KERIHash, Error> {
         if self.is_root_did_document() {
             return Err(Error::Malformed(
                 "Expected a non-root DID document, but this is a root DID document.",
@@ -261,7 +268,7 @@ impl DIDDocument {
         // Check that id (i.e. the DID) matches the previous DID document's id (i.e. DID).
         // Note that this also implies that the host, embedded in the id, matches the host of the previous
         // DID document's id.
-        if self.did != *expected_prev_did_document.did() {
+        if self.did != expected_prev_did_document.did {
             return Err(Error::Malformed(
                 "Non-root DID document's id must match the previous DID document's id",
             ));
@@ -270,7 +277,7 @@ impl DIDDocument {
         // Check that prev_did_document_self_signature matches the expected_prev_did_document_b's self-signature.
         use selfhash::Hash;
         let prev_did_document_self_hash = self.prev_did_document_self_hash_o.as_ref().unwrap();
-        if !prev_did_document_self_hash.equals(expected_prev_did_document_self_hash) {
+        if !prev_did_document_self_hash.equals(expected_prev_did_document_self_hash)? {
             return Err(Error::Malformed(
                 "Non-root DID document's prev_did_document_self_signature must match the self-signature of the previous DID document",
             ));
@@ -305,51 +312,50 @@ impl DIDDocument {
 
         Ok(self.self_hash_o.as_ref().unwrap())
     }
-    // TEMP HACK
-    pub fn to_json_pretty(&self) -> String {
-        serde_json::to_string_pretty(self).expect("pass")
-    }
 }
 
 impl selfhash::SelfHashable for DIDDocument {
-    fn write_digest_data(&self, hasher: &mut dyn selfhash::Hasher) {
-        selfhash::write_digest_data_using_jcs(self, hasher);
+    fn write_digest_data(&self, hasher: &mut dyn selfhash::Hasher) -> selfhash::Result<()> {
+        selfhash::write_digest_data_using_jcs(self, hasher)
     }
     fn self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> {
+    ) -> selfhash::Result<Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a>>
+    {
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to return.
         if self.is_root_did_document() {
-            Box::new(
-                std::iter::once(Some(&self.did.self_hash as &dyn selfhash::Hash))
+            Ok(Box::new(
+                std::iter::once(Some(&self.did as &dyn selfhash::Hash))
                     .chain(std::iter::once(
                         self.self_hash_o
                             .as_ref()
                             .map(|self_hash| self_hash as &dyn selfhash::Hash),
                     ))
                     .chain(self.public_key_material.root_did_document_self_hash_oi()),
-            )
+            ))
         } else {
-            Box::new(std::iter::once(
+            Ok(Box::new(std::iter::once(
                 self.self_hash_o
                     .as_ref()
                     .map(|self_hash| self_hash as &dyn selfhash::Hash),
-            ))
+            )))
         }
     }
-    fn set_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) {
-        let keri_hash = hash.to_keri_hash().into_owned();
+    fn set_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) -> selfhash::Result<()> {
+        let keri_hash = hash.to_keri_hash()?.into_owned();
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to assign to.
         if self.is_root_did_document() {
-            self.did.self_hash = keri_hash.clone();
-            self.self_hash_o = Some(keri_hash.clone());
             self.public_key_material
-                .set_root_did_document_self_hash_slots_to(&keri_hash);
+                .set_root_did_document_self_hash_slots_to(&keri_hash)
+                .map_err(|e| e.to_string())?;
+            self.did.set_root_self_hash(&keri_hash);
+            self.self_hash_o = Some(keri_hash);
         } else {
             self.self_hash_o = Some(keri_hash);
         }
+        Ok(())
     }
 }
 
@@ -374,8 +380,7 @@ impl selfsign::SelfSignable for DIDDocument {
     }
     fn set_self_signature_slots_to(&mut self, signature: &dyn selfsign::Signature) {
         // Root and non-root DID documents both have the same self-signature slots.
-        let keri_signature = signature.to_keri_signature().into_owned();
-        self.self_signature_o = Some(keri_signature);
+        self.self_signature_o = Some(signature.to_keri_signature().into_owned());
     }
     fn self_signature_verifier_oi<'a, 'b: 'a>(
         &'b self,

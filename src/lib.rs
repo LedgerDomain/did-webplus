@@ -3,13 +3,19 @@ mod did_document;
 mod did_document_create_params;
 mod did_document_metadata;
 mod did_document_update_params;
-mod did_fragment;
-mod did_uri_components;
-mod did_with_fragment;
+mod did_fully_qualified;
+mod did_fully_qualified_str;
+mod did_resource;
+mod did_resource_fully_qualified;
+mod did_resource_fully_qualified_str;
+mod did_resource_str;
+mod did_str;
+mod did_webplus_uri_components;
 mod did_with_query;
-mod did_with_query_and_fragment;
+mod did_with_query_str;
 mod error;
 mod key_purpose;
+mod key_purpose_flags;
 mod microledger_mut_view;
 #[cfg(feature = "async-traits")]
 mod microledger_mut_view_async;
@@ -22,14 +28,11 @@ mod public_key_params;
 mod public_key_params_ec;
 mod public_key_params_okp;
 mod public_key_set;
+mod relative_resource;
+mod relative_resource_str;
 mod verification_method;
 
-#[allow(deprecated)]
-pub use crate::{
-    did::DIDWebplus, did_fragment::DIDWebplusFragment, did_with_fragment::DIDWebplusWithFragment,
-    did_with_query::DIDWebplusWithQuery,
-    did_with_query_and_fragment::DIDWebplusWithQueryAndFragment,
-};
+pub(crate) use crate::did_fully_qualified_str::parse_did_query_params;
 pub use crate::{
     did::DID,
     did_document::DIDDocument,
@@ -39,13 +42,19 @@ pub use crate::{
         DIDDocumentMetadataIdempotent, RequestedDIDDocumentMetadata,
     },
     did_document_update_params::DIDDocumentUpdateParams,
-    did_fragment::{DIDFragment, Fragment},
-    did_uri_components::DIDURIComponents,
-    did_with_fragment::DIDWithFragment,
+    did_fully_qualified::DIDFullyQualified,
+    did_fully_qualified_str::DIDFullyQualifiedStr,
+    did_resource::DIDResource,
+    did_resource_fully_qualified::DIDResourceFullyQualified,
+    did_resource_fully_qualified_str::DIDResourceFullyQualifiedStr,
+    did_resource_str::DIDResourceStr,
+    did_str::DIDStr,
+    did_webplus_uri_components::DIDWebplusURIComponents,
     did_with_query::DIDWithQuery,
-    did_with_query_and_fragment::DIDWithQueryAndFragment,
+    did_with_query_str::DIDWithQueryStr,
     error::Error,
     key_purpose::KeyPurpose,
+    key_purpose_flags::KeyPurposeFlags,
     microledger_mut_view::MicroledgerMutView,
     microledger_view::MicroledgerView,
     public_key_jwk::PublicKeyJWK,
@@ -54,6 +63,8 @@ pub use crate::{
     public_key_params_ec::PublicKeyParamsEC,
     public_key_params_okp::PublicKeyParamsOKP,
     public_key_set::PublicKeySet,
+    relative_resource::{Fragment, RelativeResource},
+    relative_resource_str::RelativeResourceStr,
     verification_method::VerificationMethod,
 };
 #[cfg(feature = "async-traits")]
@@ -62,17 +73,10 @@ pub use crate::{
     microledger_view_async::MicroledgerViewAsync,
 };
 
-#[allow(deprecated)]
-#[deprecated = "Use DIDKeyIdFragment instead"]
-pub type DIDWebplusKeyIdFragment = DIDFragment<selfsign::KERIVerifier<'static>>;
-#[allow(deprecated)]
-#[deprecated = "Use DIDWithKeyIdFragment instead"]
-pub type DIDWebplusWithKeyIdFragment = DIDWithFragment<selfsign::KERIVerifier<'static>>;
-#[allow(deprecated)]
-#[deprecated = "Use DIDWithQueryAndKeyIdFragment instead"]
-pub type DIDWebplusWithQueryAndKeyIdFragment =
-    DIDWithQueryAndFragment<selfsign::KERIVerifier<'static>>;
+pub type Result<T> = std::result::Result<T, Error>;
 
-pub type DIDKeyIdFragment = DIDFragment<selfsign::KERIVerifier<'static>>;
-pub type DIDWithKeyIdFragment = DIDWithFragment<selfsign::KERIVerifier<'static>>;
-pub type DIDWithQueryAndKeyIdFragment = DIDWithQueryAndFragment<selfsign::KERIVerifier<'static>>;
+pub type RelativeKeyResource = RelativeResource<selfsign::KERIVerifierStr>;
+pub type RelativeKeyResourceStr = RelativeResourceStr<selfsign::KERIVerifierStr>;
+pub type DIDKeyResource = DIDResource<selfsign::KERIVerifierStr>;
+pub type DIDKeyResourceFullyQualified = DIDResourceFullyQualified<selfsign::KERIVerifierStr>;
+pub type DIDKeyResourceFullyQualifiedStr = DIDResourceFullyQualifiedStr<selfsign::KERIVerifierStr>;

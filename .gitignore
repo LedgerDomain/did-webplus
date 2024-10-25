@@ -1,4 +1,5 @@
 /target
-/Cargo.lock
 /attic
 .vscode/settings.json
+did_webplus_doc_storage_sqlite_migrations.db
+*.db

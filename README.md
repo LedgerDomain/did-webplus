@@ -2,17 +2,26 @@
 
 The `did:web` method makes straightforward use of familiar tools across a wide range of use cases. However, heavily regulated ecosystems such as the pharmaceutical supply chain demand additional guarantees of immutability and auditability, including seamless key rotation and a key usage history. `did:webplus` is a proposed fit-for-purpose DID method for use within the pharma supply chain credentialing community, with an eye towards releasing it into the wild for those communities that are similarly situated.
 
-Along with an overview and examples, this repository includes a Rust crate for prototype implementation of the `did:webplus` DID method. This is a draft only, and your feedback is welcome.
+## Quick Overview
+
+Here is a [talk](https://www.youtube.com/watch?v=tshjoED14qo) Victor Dods gave at LedgerPalooza 2024 (this is a yearly event hosted by LedgerPalooza for our colleagues and business friendlies) presenting `did:webplus`.  Here is the [slide deck](https://docs.google.com/presentation/d/1oZc4WABaG3zhw7gHclSIaQCgnchdWRJvqUDQLq4L-Ig/edit?usp=sharing) from that talk.
+
+Component documentation:
+-   [`did:webplus` Verifiable Data Registry (VDR) service](did-webplus-vdr/README.md)
+-   [`did:webplus` Verifiable Data Gateway (VDG) service](did-webplus-vdg/README.md)
+-   [`did-webplus` CLI tool](did-webplus-vdr/README.md)
+
+Along with an overview and examples, this repository includes a Rust crate for prototype implementation of the `did:webplus` DID method. This repository provides initial reference implementations of the components described herein, and your feedback is welcome.
 
 If you want to see concrete examples, skip to the Examples section.
 
-To run the tests, which include printouts demonstrating various features and data structures, run
+To run the data model tests, which include printouts demonstrating various features and data structures, run
 
     cargo test --all-features -- --nocapture
 
 The `--all-features` is necessary for now.
 
-## Overview
+## Detailed Overview
 
 The `did:web` DID method is simple and easy enough to implement using web2 technologies. However, compared to others that incorporate more sophisticated cryptographic primitives and data structures (hashes, self-addressing identifiers, ledgers, formal DID document transactions, etc.), `did:web` often falls short. One of the biggest challenges in delivering `did:web` within a highly regulated industry such as the pharma supply chain is its lack of built-in "historicity." Many real-world `did:web` implementations assume that W3C Verifiable Presentations are ephemeral, needing to be verified at time of receipt (e.g. to access a particular resource) but not requiring retroactive verifiability in the event of a later audit. Within the Drug Supply Chain Security Act (DSCSA) and similar contexts, where a VP's historical validity may need to be checked for years after its creation, permanence rather than ephemerality is the general rule.
 
@@ -33,7 +42,6 @@ Briefly, the idea is that each DID has an associated microledger of DID document
 -   The first DID document in the microledger, called the root DID document, contains a self-hash which forms part of the DID itself. This binds the DID to the content of its root DID document, and prevents alterations to the root DID document.
     -   The root DID document has its "versionId" field set to 0,
     -   The root DID document's "prevDIDDocumentSelfHash" field is omitted to indicate that there is no previous DID document.
-    -   The self-signature on the root DID document includes all occurrences of the DID throughout the DID document.  This translates to having multiple "self-signature slots" as described [in the `selfsign` crate readme](https://github.com/LedgerDomain/selfsign).
     -   The root DID document's "selfSignatureVerifier" field must correspond to one of the public keys listed in the "capabilityInvocation" field of the root DID document itself.  This field defines which keys are authorized to update this DID's DID document, and in the case of the root DID document, it establishes an initial self-consistency for that authority.
 -   Each DID document following the root DID document must obey strict constraints in order to provide the guarantees of the microledger.  In particular:
     -   The "prevDIDDocumentSelfHash" field of a DID document must be equal to the "selfHash" field of the DID document immediately preceding it in the microledger.
@@ -46,17 +54,21 @@ As outlined above, the validity duration applies to each DID document, and exten
 
 ## Verifiable Data Registry (VDR)
 
-A Verifiable Data Registry in the context of `did:webplus` is a web host which hosts DID documents on behalf of DID controllers.  A DID controller determine the content of each DID document, producing a self-signature over each DID document to prove valid authorship, whereas the VDR verifies DID creation and DID updates and serves DID documents to clients performing DID resolution.  Thus a DID controller is the author of a DID, but the VDR is the origin of the DID's documents.
+Here are [instructions](did-webplus-vdr/README.md) on how to spin up the VDR service in a dockerized environment and run tests against it.
 
-## Long-Term Non-Repudiability via Witnessing Schemes
+A Verifiable Data Registry in the context of `did:webplus` is a web host which hosts DID documents on behalf of DID controllers.  A DID controller determines the content of each DID document, producing a self-signature over each DID document to prove valid authorship, whereas the VDR verifies DID creation and DID updates and serves DID documents to clients performing DID resolution.  Thus a DID controller is the author of a DID, but the VDR is the origin of the DID's documents.
+
+## Long-Term Non-Repudiability via Witnessing and Archival; Scope of Truth
 
 Among the central goals of `did:webplus` is long-term non-repudiability, meaning that DID microledgers should be immutable and un-forkable, and should be resolvable for an indefinite amount of time.  Put differently, altering an existing DID document should be detectable and preventable, deleting a DID document should not be practically possible, and discontinuation of a Verifiable Data Registry (VDR) hosting a DID should not result in loss of the associated DID microledger.
 
 By itself, a `did:webplus` VDR could delete DID documents, thereby violating the requirement for long-term non-repudiability and availability.  If the VDR colludes with a DID controller, a DID microledger could be altered by forking it at a certain point in its history.  This violates non-repudiability, immutability, and un-forkability of DID microledgers.  Thus a `did:webplus` VDR alone is not sufficient to guarantee the desired properties.
 
-To this end, a couple of "witnessing" schemes are presented.
+To this end, a couple of "witnessing" schemes are presented.  A parallel consideration is the "scope of truth" for the witnessed DID document updates, i.e. the breadth of agreement on which DID document updates are considered valid.
 
 ### Verifiable Data Gateway (VDG)
+
+Here are [instructions](did-webplus-vdg/README.md) on how to spin up the VDG service in a dockerized environment and run tests against it.
 
 A Verifiable Data Gateway is meant to be a realtime replica of potentially many VDRs.  A VDG retrieves, verifies, and stores all DID microledgers within some scope of interest.  This scope could be, for example, all VDRs operating within a certain industry subject to strict long-term audit regulations.  A VDG can also service DID resolution requests on behalf of users that choose to trust it.  A VDG serves several purposes:
 -   A VDG is a long-term backup of all DID microledgers within the scope of interest, thereby meeting the need for long-term non-repudiability and resolvability.  A VDG is meant to be a highly available and robust service, and therefore be a bulwhark against VDR service outages.
@@ -82,6 +94,13 @@ Signatures produced by the DID controller (e.g. in JWS or when signing Verifiabl
 
 This form of witnessing binds the DID microledger at the time of signing in places external to both the VDR and the VDG, and therefore plays an important role in strengthening the `did:webplus` method.
 
+### Scope of Truth for DID Documents
+
+One consideration for DIDs is how broadly parties need to agree on which DID documents are valid.  The required "scope of truth" depends on the specific needs of the use case.  Here are three logical scopes of truth, but certainly more could be usefully defined.
+-   Collaborator-scoped: VDRs each determine the state of truth for DIDs they host, analogous to how git repos are used in software development.
+-   Consortium-scoped: A finite number of orgs use a single VDG to determine the state of truth for all DIDs in the scope of consortium.
+-   Globally-scoped: Use a cluster of VDGs to determine the globally consistent state of truth for all DIDs.
+
 ## Locally Verified Cache for DID Resolvers
 
 An agent using a DID resolver (e.g. a client that needs to verify signatures, credentials, presentations, etc) can retrieve, verify, and store their own replicas of relevant DID microledgers.  In this way they have their own private VDG, which acts as a "private" witness, and therefore can detect forked DIDs.  Furthermore, it has a local copy of DID microledgers against which it can do historical DID resolution fully offline.
@@ -104,8 +123,6 @@ Determining if a given DID document is the latest DID document, however, still r
 ## Comparison of classes of DID method.
 
 `did:web` is a weak DID method.  `did:ethr` has been chosen to generally represent a "strong" DID method, though there are others that don't necessarily involve cryptocurrency.  `did:webplus` is meant to be a fit-for-purpose balance between strength and web2-oriented practicality, suited to meet the needs of regulated communities.
-
-TODO: Add a non-cryptocurrency-based DID method to the table, e.g. `did:indy` or `did:sov`.
 
 | Feature                                    | did:web | did:webplus without VDG | did:webplus with VDG | did:ethr |
 |--------------------------------------------|---------|-------------------------|----------------------|----------|
@@ -133,4 +150,4 @@ TODO: Add a non-cryptocurrency-based DID method to the table, e.g. `did:indy` or
 
 ## Final Thoughts
 
-I'm looking for feedback on this work-in-progress.  Please post in the issues section of this Github repository.
+We're looking for feedback on this work-in-progress.  Please post in the issues section of this Github repository.

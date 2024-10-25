@@ -1,36 +1,43 @@
 [package]
 name = "did-webplus"
-version = "0.4.0"
-authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+version = "0.5.0"
+authors = [
+    "Victor Dods <victor.dods@ledgerdomain.com>",
+    "Ben Nichols <ben.nichols@ledgerdomain.com>",
+]
 edition = "2021"
 
 [features]
 async-traits = ["dep:async-trait"]
 ed25519-dalek = ["selfsign/ed25519-dalek"]
+k256 = ["selfsign/k256"]
 
 [dependencies]
-async-trait = { version = "0.1.73", optional = true }
+async-trait = { version = "0.1.80", optional = true }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
     "display",
     "from",
     "into",
 ] }
-selfhash = { version = "0.1.3", features = ["serde", "blake3"] }
-selfsign = { version = "0.2.3", features = ["serde", "jcs"] }
+enum-map = "2.7.3"
+flagset = "0.4.6"
+pneutype = "0.5.1"
+selfhash = { version = "0.4.0", features = ["serde", "blake3"] }
+selfsign = { version = "0.6.0", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json_canonicalizer = "0.2.0"
-serde_json = "1.0.106"
+serde_json = "1.0.107"
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
-thiserror = { version = "1.0.47", default-features = false }
+thiserror = { version = "1.0.60", default-features = false }
 time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 
 [dev-dependencies]
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
 rand = "0.8"
-selfsign = { version = "0.2.2", features = ["ed25519-dalek"] }
+selfsign = { version = "0.6.0", features = ["ed25519-dalek"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
 ssi-jwk = { version = "0.1.1", default-features = false, features = [
@@ -41,9 +48,27 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
 ] }
 
 [patch.crates-io]
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "c6478f2ae708f70012a10278c4624ef0cc5bf68f" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "a111c7ce801bbee2583d30ca170f2ad7db26ccea" }
+pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", branch = "jsonpath" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", branch = "jsonpath" }
+# selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.3.0" }
+# selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "selfsign-v0.5.0" }
 
 [workspace]
 resolver = "2"
-members = ["did-webplus-mock"]
+members = [
+    "did-key",
+    "did-webplus-cli",
+    "did-webplus-doc-storage-postgres",
+    "did-webplus-doc-storage-sqlite",
+    "did-webplus-doc-store",
+    "did-webplus-jws",
+    "did-webplus-mock",
+    "did-webplus-resolver",
+    "did-webplus-software-wallet",
+    "did-webplus-vdg",
+    "did-webplus-vdr",
+    "did-webplus-wallet",
+    "did-webplus-wallet-storage",
+    "did-webplus-wallet-storage-sqlite",
+]

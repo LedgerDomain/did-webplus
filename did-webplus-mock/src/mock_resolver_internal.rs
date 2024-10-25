@@ -1,8 +1,6 @@
-use std::borrow::Cow;
-
-use did_webplus::{DIDDocument, DIDDocumentMetadata, Error, RequestedDIDDocumentMetadata, DID};
-
 use crate::{Resolver, VDS};
+use did_webplus::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
+use std::borrow::Cow;
 
 /// For use in the implementation of MockResolverFull and MockVDG (both things have a MockVerifiedCache).
 pub struct MockResolverInternal<'r> {
@@ -13,7 +11,7 @@ pub struct MockResolverInternal<'r> {
 impl<'r> Resolver for MockResolverInternal<'r> {
     fn get_did_documents<'s>(
         &'s mut self,
-        did: &DID,
+        did: &DIDStr,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
@@ -22,9 +20,9 @@ impl<'r> Resolver for MockResolverInternal<'r> {
     }
     fn resolve_did_document<'s>(
         &'s mut self,
-        did: &DID,
+        did: &DIDStr,
+        self_hash_o: Option<&selfhash::KERIHashStr>,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHash>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         let (did_document, did_document_metadata) = self.vds.resolve_did_document(
