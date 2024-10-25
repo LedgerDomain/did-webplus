@@ -874,7 +874,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "derive_more",
@@ -988,7 +988,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-mock"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ctor",
  "derive_more",
