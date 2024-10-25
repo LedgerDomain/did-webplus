@@ -23,7 +23,7 @@
 			]
 		},
 		{
-			"label": "check all",
+			"label": "check all (SQLX_OFFLINE=true)",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
@@ -32,7 +32,15 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"options": {
+				"env": {
+					"SQLX_OFFLINE": "true"
+				}
+			},
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
@@ -47,7 +55,7 @@
 			]
 		},
 		{
-			"label": "test all",
+			"label": "test all (SQLX_OFFLINE=true)",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
@@ -58,6 +66,11 @@
 				"--nocapture"
 			],
 			"group": "build",
+			"options": {
+				"env": {
+					"SQLX_OFFLINE": "true"
+				}
+			},
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
@@ -184,10 +197,7 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"

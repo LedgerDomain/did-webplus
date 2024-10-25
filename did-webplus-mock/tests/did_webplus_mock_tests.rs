@@ -6,8 +6,8 @@ use std::{
 
 use did_webplus::{
     DIDDocument, DIDDocumentCreateParams, DIDDocumentMetadata, DIDDocumentUpdateParams,
-    DIDKeyResourceFullyQualified, Error, KeyPurpose, MicroledgerMutView, MicroledgerView,
-    PublicKeySet, RequestedDIDDocumentMetadata,
+    DIDKeyResourceFullyQualified, DIDKeyResourceFullyQualifiedStr, Error, KeyPurpose,
+    MicroledgerMutView, MicroledgerView, PublicKeySet, RequestedDIDDocumentMetadata,
 };
 use did_webplus_jws::{JWSPayloadEncoding, JWSPayloadPresence, JWS};
 use did_webplus_mock::{
@@ -45,9 +45,11 @@ fn resolve_did_and_verify_jws<'r, 'p>(
     requested_did_document_metadata: RequestedDIDDocumentMetadata,
     detached_payload_bytes_o: Option<&'p mut dyn std::io::Read>,
 ) -> Result<(Cow<'r, DIDDocument>, DIDDocumentMetadata), Error> {
-    let did_fully_qualified = jws.header().kid.without_fragment();
+    let did_key_resource_fully_qualified =
+        DIDKeyResourceFullyQualifiedStr::new_ref(&jws.header().kid)?;
+    let did_fully_qualified = did_key_resource_fully_qualified.without_fragment();
     let did = did_fully_qualified.did();
-    let key_id_fragment = jws.header().kid.fragment();
+    let key_id_fragment = did_key_resource_fully_qualified.fragment();
 
     log::debug!(
         "resolve_did_and_verify_jws; JWS kid field is DID query: {}",
@@ -55,8 +57,8 @@ fn resolve_did_and_verify_jws<'r, 'p>(
     );
     let (did_document, did_document_metadata) = resolver.resolve_did_document(
         did,
-        Some(jws.header().kid.query_self_hash()),
-        Some(jws.header().kid.query_version_id()),
+        Some(did_key_resource_fully_qualified.query_self_hash()),
+        Some(did_key_resource_fully_qualified.query_version_id()),
         requested_did_document_metadata,
     )?;
     log::trace!("resolved DID document: {:?}", did_document);
@@ -330,7 +332,7 @@ fn test_did_operations() {
             .expect("pass")
             .signer_and_key_id_for_key_purpose(KeyPurpose::Authentication);
         let jws = JWS::signed(
-            kid,
+            kid.to_string(),
             &mut message.as_bytes(),
             JWSPayloadPresence::Attached,
             JWSPayloadEncoding::Base64URL,

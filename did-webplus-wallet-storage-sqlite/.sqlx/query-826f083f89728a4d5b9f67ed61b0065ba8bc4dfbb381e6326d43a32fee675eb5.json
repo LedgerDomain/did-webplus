@@ -6,7 +6,7 @@
       {
         "name": "wallets_rowid",
         "ordinal": 0,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "pub_key",
@@ -21,7 +21,7 @@
       {
         "name": "key_purpose_restriction_o",
         "ordinal": 3,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "created_at",
@@ -36,7 +36,7 @@
       {
         "name": "usage_count",
         "ordinal": 6,
-        "type_info": "Int64"
+        "type_info": "Integer"
       },
       {
         "name": "deleted_at_o",
