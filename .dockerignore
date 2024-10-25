@@ -1,4 +1,8 @@
+attic
 target
 # .env files should not end up in docker image!
 **/.env
 .git
+# No keys or signatures!
+**/*.pem
+**/*.jws
