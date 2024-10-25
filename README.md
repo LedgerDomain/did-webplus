@@ -4,8 +4,6 @@ The `did:web` method makes straightforward use of familiar tools across a wide r
 
 ## Quick Overview
 
-Here is a [talk](https://www.youtube.com/watch?v=tshjoED14qo) Victor Dods gave at LedgerPalooza 2024 (this is a yearly event hosted by LedgerPalooza for our colleagues and business friendlies) presenting `did:webplus`.  Here is the [slide deck](https://docs.google.com/presentation/d/1oZc4WABaG3zhw7gHclSIaQCgnchdWRJvqUDQLq4L-Ig/edit?usp=sharing) from that talk.
-
 Component documentation:
 -   [`did:webplus` Verifiable Data Registry (VDR) service](did-webplus-vdr/README.md)
 -   [`did:webplus` Verifiable Data Gateway (VDG) service](did-webplus-vdg/README.md)
