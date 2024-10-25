@@ -7,6 +7,7 @@ pub struct JWSHeader {
     pub alg: String,
     /// Specifies the specific key associated with a DID used to sign the JWS, i.e. is a DID URI with a fragment
     /// and any query parameters are required by the DID method.
+    // TODO: This should be a general DID URI with fragment.
     pub kid: String,
     // /// Specifies the precise key used to sign the JWS by specifying the selfHash and versionId of the DID document
     // /// and the ID of the public key.
