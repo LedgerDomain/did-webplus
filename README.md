@@ -10,7 +10,7 @@ Here is a [talk](https://www.youtube.com/watch?v=Ws55MlDuUGI) Victor Dods gave a
 Component documentation:
 -   [`did:webplus` Verifiable Data Registry (VDR) service](did-webplus-vdr/README.md)
 -   [`did:webplus` Verifiable Data Gateway (VDG) service](did-webplus-vdg/README.md)
--   [`did-webplus` CLI tool](did-webplus-vdr/README.md)
+-   [`did-webplus` CLI tool](did-webplus-cli/README.md)
 
 Along with an overview and examples, this repository includes a Rust crate for prototype implementation of the `did:webplus` DID method. This repository provides initial reference implementations of the components described herein, and your feedback is welcome.
 
