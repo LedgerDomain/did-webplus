@@ -34,7 +34,7 @@ impl WalletDIDSignJWS {
             .key_id_o
             .map(|key_id| selfsign::KERIVerifier::try_from(key_id))
             .transpose()
-            .map_err(|e| anyhow::anyhow!("Parse error in --key-id argument; error was {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Parse error in --key-id argument; error was: {}", e))?;
 
         let wallet = self.wallet_args.get_wallet().await?;
 

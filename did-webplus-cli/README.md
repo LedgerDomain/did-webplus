@@ -18,7 +18,7 @@ The `did-webplus` commandline interface (CLI) tool provides all the basic client
         -   JWS
         -   VJSON
 
-An early overview of the concept of VJSON (Verifiable JSON) is available [here](https://docs.google.com/presentation/d/1DBPN-YoImfLQ5M3-csoR1ez1It0EmGvJrZuTGkmcWzo/edit?usp=sharing).
+An early overview of the concept of VJSON (Verifiable JSON) is available [here](https://docs.google.com/presentation/d/1DBPN-YoImfLQ5M3-csoR1ez1It0EmGvJrZuTGkmcWzo/edit?usp=sharing).  A working example is available [here](examples/vjson/contract).
 
 ## Installing the native binary
 

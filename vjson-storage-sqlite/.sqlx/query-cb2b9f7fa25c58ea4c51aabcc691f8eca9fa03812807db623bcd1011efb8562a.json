@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT self_hash, added_at, vjson_jcs\n                FROM vjson_records\n                WHERE self_hash = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "self_hash",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "added_at",
+        "ordinal": 1,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "vjson_jcs",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cb2b9f7fa25c58ea4c51aabcc691f8eca9fa03812807db623bcd1011efb8562a"
+}

@@ -12,7 +12,7 @@ impl DIDDocStorageSQLite {
         sqlx::migrate!().run(&sqlite_pool).await.map_err(|err| {
             Error::StorageError(
                 format!(
-                    "Failed to run SQLite database migrations; error was {}",
+                    "Failed to run SQLite database migrations; error was: {}",
                     err
                 )
                 .into(),

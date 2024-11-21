@@ -27,7 +27,7 @@ impl DIDList {
         if let Some(self_hash_str) = self.self_hash_o.as_deref() {
             selfhash::KERIHashStr::new_ref(self_hash_str).map_err(|e| {
                 anyhow::anyhow!(
-                    "Invalid --self-hash argument value {}; error was {}",
+                    "Invalid --self-hash argument value {}; error was: {}",
                     self_hash_str,
                     e
                 )

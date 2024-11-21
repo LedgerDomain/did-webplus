@@ -1,6 +1,6 @@
-use crate::{NewlineArgs, Result, SelfHashArgs};
+use crate::{NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs};
 use selfhash::{HashFunction, SelfHashable};
-use std::{borrow::Cow, io::Read};
+use std::io::Read;
 
 /// Read JSON from stdin and write self-hashed but non-signed Verifiable JSON (VJSON) to stdout.
 ///
@@ -15,41 +15,48 @@ use std::{borrow::Cow, io::Read};
 #[derive(clap::Args)]
 pub struct VJSONSelfHash {
     #[command(flatten)]
-    pub self_hash_args: SelfHashArgs,
+    pub vjson_store_args: VJSONStoreArgs,
+    #[command(flatten)]
+    pub vjson_storage_behavior_args: VJSONStorageBehaviorArgs,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
 
 impl VJSONSelfHash {
-    pub fn handle(self) -> Result<()> {
+    pub async fn handle(self) -> Result<()> {
         // Read all of stdin into a String and parse it as JSON.
         let mut input = String::new();
         std::io::stdin().read_to_string(&mut input).unwrap();
         let value = serde_json::from_str(&input).unwrap();
 
-        // Parse the self-hash related arguments.
-        let self_hash_path_s = self.self_hash_args.parse_self_hash_paths();
-        let self_hash_url_path_s = self.self_hash_args.parse_self_hash_url_paths();
+        let vjson_store = self.vjson_store_args.get_vjson_store().await?;
 
-        // Set up the context for self-hashable JSON.
-        let mut json = selfhash::SelfHashableJSON::new(
-            value,
-            Cow::Borrowed(&self_hash_path_s),
-            Cow::Borrowed(&self_hash_url_path_s),
-        )
-        .unwrap();
+        let (mut self_hashable_json, _schema_value) = {
+            let mut transaction = vjson_store.begin_transaction(None).await?;
+            let (self_hashable_json, schema_value) =
+                vjson_store::self_hashable_json_from(value, &mut transaction, &vjson_store).await?;
+            vjson_store.commit_transaction(transaction).await?;
+            (self_hashable_json, schema_value)
+        };
 
         // Self-hash the JSON.
         // TODO: Arg to specify the hash function
-        json.self_hash(selfhash::Blake3.new_hasher())
+        self_hashable_json
+            .self_hash(selfhash::Blake3.new_hasher())
             .expect("self-hash failed");
 
         // Verify the self-hash.  This is mostly a sanity check.
-        json.verify_self_hashes()
+        self_hashable_json
+            .verify_self_hashes()
             .expect("programmer error: self-hash verification failed");
 
+        self.vjson_storage_behavior_args
+            .store_if_requested(&vjson_store, self_hashable_json.value())
+            .await?;
+
         // Print the self-hashed JSON and optional newline.
-        serde_json_canonicalizer::to_writer(json.value(), &mut std::io::stdout()).unwrap();
+        serde_json_canonicalizer::to_writer(self_hashable_json.value(), &mut std::io::stdout())
+            .unwrap();
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;
 

@@ -34,7 +34,7 @@ impl DIDKeyGenerate {
                         Default::default(),
                     )
                     .map_err(|e| {
-                        anyhow::anyhow!("failed to write generated key; error was {}", e)
+                        anyhow::anyhow!("failed to write generated key; error was: {}", e)
                     })?;
                 did_key::DID::try_from(&signing_key.verifier().to_verifier_bytes())?
             }
@@ -49,7 +49,7 @@ impl DIDKeyGenerate {
                         Default::default(),
                     )
                     .map_err(|e| {
-                        anyhow::anyhow!("failed to write generated key; error was {}", e)
+                        anyhow::anyhow!("failed to write generated key; error was: {}", e)
                     })?;
                 did
             }

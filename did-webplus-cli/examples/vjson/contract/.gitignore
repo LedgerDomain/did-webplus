@@ -1,0 +1,12 @@
+Alice.*
+AliceSignature.*
+Bob.*
+BobSignature.*
+CompletedContract.schema.json
+CompletedContract.schema.url
+CompletedRadDeal.*
+Contract.schema.json
+Contract.schema.url
+RadDeal.*
+SignatureOnContract.schema.json
+SignatureOnContract.schema.url

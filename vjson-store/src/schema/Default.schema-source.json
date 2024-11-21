@@ -1,0 +1,34 @@
+{
+    "$id": "vjson:///",
+    "$schema": "vjson:///",
+    "type": "object",
+    "title": "Default VJSON Schema",
+    "properties": {
+        "$id": {
+            "type": "string",
+            "description": "The VJSON URL of this schema, used to uniquely identify and resolve it."
+        },
+        "selfHash": {
+            "type": "string",
+            "description": "Uniquely identifies this particular VJSON."
+        }
+    },
+    "required": [
+        "$id",
+        "$schema",
+        "selfHash"
+    ],
+    "additionalProperties": true,
+    "vjsonProperties": {
+        "directDependencies": [
+            "$.$schema"
+        ],
+        "mustBeSigned": false,
+        "selfHashPaths": [
+            "$.selfHash"
+        ],
+        "selfHashURLPaths": [
+            "$.$id"
+        ]
+    }
+}

@@ -12,7 +12,7 @@ impl DIDDocStoragePostgres {
         sqlx::migrate!().run(&pg_pool).await.map_err(|err| {
             Error::StorageError(
                 format!(
-                    "Failed to run PostgreSQL database migrations; error was {}",
+                    "Failed to run PostgreSQL database migrations; error was: {}",
                     err
                 )
                 .into(),

@@ -1,0 +1,13 @@
+[package]
+name = "vjson-storage-sqlite"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.80"
+log = "0.4.21"
+selfhash = "0.4.0"
+sqlx = { version = "0.8.2", features = ["sqlite", "time"] }
+time = "0.3"
+vjson-store = { path = "../vjson-store", features = ["sqlx"] }

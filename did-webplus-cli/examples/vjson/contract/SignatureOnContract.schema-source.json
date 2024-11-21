@@ -1,0 +1,47 @@
+{
+    "$id": "vjson:///",
+    "type": "object",
+    "title": "SignatureOnContract",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "The schema that this JSON must adhere to."
+        },
+        "contract": {
+            "type": "string",
+            "description": "Identifies which contract is being signed."
+        },
+        "proofs": {
+            "type": "array",
+            "description": "Array of detached JSON Web Signatures (JWS) over the VJSON."
+        },
+        "selfHash": {
+            "type": "string",
+            "description": "Uniquely identifies this particular SignatureOnContract."
+        },
+        "signedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Specifies the timestamp of this signature, in RFC 3339 format."
+        }
+    },
+    "required": [
+        "$schema",
+        "contract",
+        "proofs",
+        "selfHash",
+        "signedAt"
+    ],
+    "additionalProperties": false,
+    "vjsonProperties": {
+        "directDependencies": [
+            "$.$schema",
+            "$.contract"
+        ],
+        "mustBeSigned": true,
+        "selfHashPaths": [
+            "$.selfHash"
+        ],
+        "selfHashURLPaths": []
+    }
+}

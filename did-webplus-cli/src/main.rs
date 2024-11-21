@@ -8,13 +8,17 @@ mod did_list;
 mod did_resolve_full;
 mod did_resolve_raw;
 mod did_resolve_thin;
+mod jws_verify;
 mod newline_args;
 mod private_key_file_args;
 mod self_hash_args;
 mod verification_method_args;
-mod verify_jws;
-mod verify_vjson;
+mod vjson_default_schema;
 mod vjson_self_hash;
+mod vjson_storage_behavior_args;
+mod vjson_store_args;
+mod vjson_store_get;
+mod vjson_verify;
 mod wallet_args;
 mod wallet_did_create;
 mod wallet_did_list;
@@ -28,11 +32,12 @@ pub use crate::{
     did_doc_store_args::DIDDocStoreArgs, did_key_from_private::DIDKeyFromPrivate,
     did_key_generate::DIDKeyGenerate, did_key_sign_jws::DIDKeySignJWS,
     did_key_sign_vjson::DIDKeySignVJSON, did_list::DIDList, did_resolve_raw::DIDResolveRaw,
-    did_resolve_thin::DIDResolveThin, newline_args::NewlineArgs,
+    did_resolve_thin::DIDResolveThin, jws_verify::JWSVerify, newline_args::NewlineArgs,
     private_key_file_args::PrivateKeyFileArgs, self_hash_args::SelfHashArgs,
-    verification_method_args::VerificationMethodArgs, verify_jws::VerifyJWS,
-    verify_vjson::VerifyVJSON, vjson_self_hash::VJSONSelfHash, wallet_args::WalletArgs,
-    wallet_did_create::WalletDIDCreate, wallet_did_list::WalletDIDList,
+    verification_method_args::VerificationMethodArgs, vjson_default_schema::VJSONDefaultSchema,
+    vjson_self_hash::VJSONSelfHash, vjson_storage_behavior_args::VJSONStorageBehaviorArgs,
+    vjson_store_args::VJSONStoreArgs, vjson_store_get::VJSONStoreGet, vjson_verify::VJSONVerify,
+    wallet_args::WalletArgs, wallet_did_create::WalletDIDCreate, wallet_did_list::WalletDIDList,
     wallet_did_sign_jws::WalletDIDSignJWS, wallet_did_sign_vjson::WalletDIDSignVJSON,
     wallet_did_update::WalletDIDUpdate, wallet_list::WalletList,
 };

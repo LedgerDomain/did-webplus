@@ -1,0 +1,45 @@
+{
+    "$id": "vjson:///",
+    "type": "object",
+    "title": "CompletedContract",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "The self-hash URL of the schema that this JSON must adhere to."
+        },
+        "contract": {
+            "type": "string",
+            "description": "Specifies the self-hash URL of the Contract that has been signed by all contractees and is the subject of notarization."
+        },
+        "selfHash": {
+            "type": "string",
+            "description": "Uniquely identifies this particular CompletedContract."
+        },
+        "signatures": {
+            "type": "array",
+            "description": "Specifies the self-hash URL for each of the SignatureOnContract-s of all contractees.",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "$schema",
+        "contract",
+        "selfHash",
+        "signatures"
+    ],
+    "additionalProperties": false,
+    "vjsonProperties": {
+        "directDependencies": [
+            "$.$schema",
+            "$.contract",
+            "$.signatures[*]"
+        ],
+        "mustBeSigned": false,
+        "selfHashPaths": [
+            "$.selfHash"
+        ],
+        "selfHashURLPaths": []
+    }
+}

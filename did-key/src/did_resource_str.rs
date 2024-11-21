@@ -25,7 +25,7 @@ impl pneutype::Validate for DIDResourceStr {
             .ok_or_else(|| anyhow::anyhow!("Malformed DIDResource {:?}", data))?;
         let did = DIDStr::new_ref(did_str).map_err(|e| {
             anyhow::anyhow!(
-                "Malformed base DID portion of DIDResource {:?}; error was {}",
+                "Malformed base DID portion of DIDResource {:?}; error was: {}",
                 data,
                 e
             )

@@ -55,8 +55,8 @@ impl PrivKeyUsageRow {
             self.key_purpose_o,
         ) {
             (Some(did_key_resource_fully_qualified_string), Some(key_purpose_integer)) => {
-                let did_key_resource_fully_qualified = DIDKeyResourceFullyQualified::try_from(did_key_resource_fully_qualified_string).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.did_resource_fully_qualified_o contained invalid DIDKeyResourceFullyQualified value; error was {}", e).into()))?;
-                let key_purpose = KeyPurpose::try_from(u8::try_from(key_purpose_integer).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.key_purpose_o contained invalid KeyPurpose value {}; error was {}", key_purpose_integer, e).into()))?).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.key_purpose_o contained invalid KeyPurpose value {}; error was {}", key_purpose_integer, e).into()))?;
+                let did_key_resource_fully_qualified = DIDKeyResourceFullyQualified::try_from(did_key_resource_fully_qualified_string).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.did_resource_fully_qualified_o contained invalid DIDKeyResourceFullyQualified value; error was: {}", e).into()))?;
+                let key_purpose = KeyPurpose::try_from(u8::try_from(key_purpose_integer).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.key_purpose_o contained invalid KeyPurpose value {}; error was: {}", key_purpose_integer, e).into()))?).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.key_purpose_o contained invalid KeyPurpose value {}; error was: {}", key_purpose_integer, e).into()))?;
                 Some((did_key_resource_fully_qualified, key_purpose))
             }
             (None, None) => None,
@@ -65,12 +65,12 @@ impl PrivKeyUsageRow {
             }
         };
         Ok(PrivKeyUsageRecord {
-            pub_key: selfsign::KERIVerifier::try_from(self.pub_key.as_str()).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.pub_key column contains invalid KERIVerifier {:?}; error was {}", self.pub_key, e).into()))?,
+            pub_key: selfsign::KERIVerifier::try_from(self.pub_key.as_str()).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.pub_key column contains invalid KERIVerifier {:?}; error was: {}", self.pub_key, e).into()))?,
             used_at: self.used_at,
             usage: PrivKeyUsage::try_from_priv_key_usage_type_and_spec(
                 PrivKeyUsageType::from_str(self.usage_type.as_str())?,
                 self.usage_spec_o.as_deref(),
-            ).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.usage_type and priv_key_usages.usage_spec_o column values could not be parsed into a well-formed PrivKeyUsage; error was {}", e).into()))?,
+            ).map_err(|e| Error::RecordCorruption(format!("priv_key_usages.usage_type and priv_key_usages.usage_spec_o column values could not be parsed into a well-formed PrivKeyUsage; error was: {}", e).into()))?,
             verification_method_and_purpose_o,
         })
     }

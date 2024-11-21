@@ -4,7 +4,7 @@ use std::io::Read;
 
 /// Verify a JWS signed by a did:webplus DID, using the "full" resolver with the specified DID doc store.
 #[derive(clap::Parser)]
-pub struct VerifyJWS {
+pub struct JWSVerify {
     // TODO: Actually this should be arguments for the resolver to use.
     #[command(flatten)]
     pub did_doc_store_args: DIDDocStoreArgs,
@@ -38,7 +38,7 @@ pub struct VerifyJWS {
     pub detached_payload_file_o: Option<std::path::PathBuf>,
 }
 
-impl VerifyJWS {
+impl JWSVerify {
     pub async fn handle(self) -> Result<()> {
         // Read the JWS from stdin, making sure to trim whitespace off the ends.
         let mut jws_string = String::new();

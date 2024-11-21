@@ -1,7 +1,7 @@
 use crate::{
-    DIDResolveFull, DIDResolveRaw, DIDResolveThin, VJSONSelfHash, VerifyJWS, VerifyVJSON,
-    WalletDIDCreate, WalletDIDList, WalletDIDSignJWS, WalletDIDSignVJSON, WalletDIDUpdate,
-    WalletList,
+    DIDResolveFull, DIDResolveRaw, DIDResolveThin, JWSVerify, VJSONDefaultSchema, VJSONSelfHash,
+    VJSONStoreGet, VJSONVerify, WalletDIDCreate, WalletDIDList, WalletDIDSignJWS,
+    WalletDIDSignVJSON, WalletDIDUpdate, WalletList,
 };
 
 /// did:webplus CLI tool for all client-side operations and related utility operations.  Note that some subcommands
@@ -15,8 +15,6 @@ pub enum Root {
     #[command(subcommand)]
     JWS(JWS),
     #[command(subcommand)]
-    Verify(Verify),
-    #[command(subcommand)]
     VJSON(VJSON),
     #[command(subcommand)]
     Wallet(Wallet),
@@ -26,9 +24,9 @@ impl Root {
     pub async fn handle(self) -> Result<()> {
         match self {
             Self::DID(x) => x.handle().await,
-            Self::DIDKey(x) => x.handle(),
+            Self::DIDKey(x) => x.handle().await,
             Self::JWS(x) => x.handle().await,
-            Self::Verify(x) => x.handle().await,
+            // Self::Verify(x) => x.handle().await,
             Self::VJSON(x) => x.handle().await,
             Self::Wallet(x) => x.handle().await,
         }
@@ -65,11 +63,11 @@ pub enum DIDKey {
 }
 
 impl DIDKey {
-    pub fn handle(self) -> Result<()> {
+    pub async fn handle(self) -> Result<()> {
         match self {
             Self::FromPrivate(x) => x.handle(),
             Self::Generate(x) => x.handle(),
-            Self::Sign(x) => x.handle(),
+            Self::Sign(x) => x.handle().await,
         }
     }
 }
@@ -82,10 +80,10 @@ pub enum DIDKeySign {
 }
 
 impl DIDKeySign {
-    pub fn handle(self) -> Result<()> {
+    pub async fn handle(self) -> Result<()> {
         match self {
             Self::JWS(x) => x.handle(),
-            Self::VJSON(x) => x.handle(),
+            Self::VJSON(x) => x.handle().await,
         }
     }
 }
@@ -108,55 +106,55 @@ impl DIDResolve {
     }
 }
 
-/// JWS-related operations (JSON Web Signature).
+/// JWS-related operations (JSON Web Signature).  Note that for wallet-controlled, DID-based signing, see
+/// the `wallet did sign jws` command, and for did:key-based signing, see the `did-key sign jws` command.
+
 #[derive(clap::Subcommand)]
 pub enum JWS {
-    Sign(WalletDIDSignJWS),
-    Verify(VerifyJWS),
-    // TODO: There could be a did:key form of sign
+    Verify(JWSVerify),
 }
 
 impl JWS {
     pub async fn handle(self) -> Result<()> {
         match self {
-            Self::Sign(x) => x.handle().await,
             Self::Verify(x) => x.handle().await,
         }
     }
 }
 
-/// Verification operations.
+/// VJSON-related operations (Verifiable JSON).  Note that for wallet-controlled, DID-based signing, see
+/// the `wallet did sign vjson` command, and for did:key-based signing, see the `did-key sign vjson` command.
 #[derive(clap::Subcommand)]
-pub enum Verify {
-    JWS(VerifyJWS),
-    VJSON(VerifyVJSON),
+pub enum VJSON {
+    DefaultSchema(VJSONDefaultSchema),
+    SelfHash(VJSONSelfHash),
+    #[command(subcommand)]
+    Store(VJSONStore),
+    Verify(VJSONVerify),
 }
 
-impl Verify {
+impl VJSON {
     pub async fn handle(self) -> Result<()> {
         match self {
-            Self::JWS(x) => x.handle().await,
-            // Self::JWT(x) => x.handle().await,
-            Self::VJSON(x) => x.handle().await,
+            Self::DefaultSchema(x) => x.handle().await,
+            Self::SelfHash(x) => x.handle().await,
+            Self::Store(x) => x.handle().await,
+            Self::Verify(x) => x.handle().await,
         }
     }
 }
 
 /// VJSON-related operations (Verifiable JSON).
 #[derive(clap::Subcommand)]
-pub enum VJSON {
-    SelfHash(VJSONSelfHash),
-    Sign(WalletDIDSignVJSON),
-    Verify(VerifyVJSON),
-    // TODO: There could be a did:key form of sign
+pub enum VJSONStore {
+    Get(VJSONStoreGet),
+    // TODO: Query, Delete, etc.
 }
 
-impl VJSON {
+impl VJSONStore {
     pub async fn handle(self) -> Result<()> {
         match self {
-            Self::SelfHash(x) => x.handle(),
-            Self::Sign(x) => x.handle().await,
-            Self::Verify(x) => x.handle().await,
+            Self::Get(x) => x.handle().await,
         }
     }
 }
@@ -174,9 +172,7 @@ impl Wallet {
     pub async fn handle(self) -> Result<()> {
         match self {
             Self::DID(x) => x.handle().await,
-            // Self::KeyExchange(x) => x.handle().await,
             Self::List(x) => x.handle().await,
-            // Self::Sign(x) => x.handle().await,
         }
     }
 }

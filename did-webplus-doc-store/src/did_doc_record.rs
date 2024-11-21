@@ -19,7 +19,7 @@ impl DIDDocRecord {
         let did_document = serde_json::from_str::<DIDDocument>(self.did_document_jcs.as_str())
             .map_err(|err| {
                 Error::RecordCorruption(
-                    format!("Malformed DID doc; parse error was {}", err).into(),
+                    format!("Malformed DID doc; parse error was: {}", err).into(),
                     self.self_hash.to_string().into(),
                 )
             })?;

@@ -8,9 +8,9 @@ pub struct SelfHashArgs {
     /// a bracket-enclosed field name).  See https://en.wikipedia.org/wiki/JSONPath for details on JSONPath.
     #[arg(short, long, default_value = "$.selfHash", value_name = "PATHS")]
     self_hash_paths: String,
-    /// Optionally specify a comma-delimited list of JSONPath queries that are considered self-hash URL slots.
-    /// Note that each self-hash URL field (i.e. self-hash URL path query result) must already exist and be a
-    /// valid self-hash URL (a valid default is "selfhash:///").  Each self-hash URL path must end with a
+    /// Optionally specify a comma-delimited list of JSONPath queries that are considered self-hash VJSON URL slots.
+    /// Note that each self-hash URL field (i.e. self-hash VJSON URL path query result) must already exist and be a
+    /// valid self-hash VJSON URL (a valid default is "vjson:///").  Each self-hash VJSON URL path must end with a
     /// plain field name (not a wildcard and not a bracket-enclosed field name).  See
     /// https://en.wikipedia.org/wiki/JSONPath for details on JSONPath.
     #[arg(short = 'U', long, default_value = "", value_name = "PATHS")]

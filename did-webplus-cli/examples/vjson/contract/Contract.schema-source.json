@@ -1,0 +1,48 @@
+{
+    "$id": "vjson:///",
+    "type": "object",
+    "title": "Contract",
+    "properties": {
+        "$schema": {
+            "type": "string",
+            "description": "The schema that this JSON must adhere to."
+        },
+        "body": {
+            "type": "string",
+            "description": "The body of the contract."
+        },
+        "contractees": {
+            "type": "object",
+            "description": "Maps the public keys of the contractees to their names.",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "selfHash": {
+            "type": "string",
+            "description": "Uniquely identifies this particular Contract."
+        },
+        "title": {
+            "type": "string",
+            "description": "Concise description of the contract."
+        }
+    },
+    "required": [
+        "$schema",
+        "body",
+        "contractees",
+        "selfHash",
+        "title"
+    ],
+    "additionalProperties": false,
+    "vjsonProperties": {
+        "directDependencies": [
+            "$.$schema"
+        ],
+        "mustBeSigned": false,
+        "selfHashPaths": [
+            "$.selfHash"
+        ],
+        "selfHashURLPaths": []
+    }
+}

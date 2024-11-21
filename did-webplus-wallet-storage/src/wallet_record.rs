@@ -10,7 +10,7 @@ pub struct WalletRecord {
     #[serde(rename = "deletedAt")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at_o: Option<time::OffsetDateTime>,
-    #[serde(rename = "deletedAt")]
+    #[serde(rename = "walletName")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wallet_name_o: Option<String>,
 }

@@ -19,7 +19,7 @@ impl WalletStorageSQLite {
         sqlx::migrate!().run(&sqlite_pool).await.map_err(|err| {
             Error::StorageError(
                 format!(
-                    "Failed to run SQLite database migrations; error was {}",
+                    "Failed to run SQLite database migrations; error was: {}",
                     err
                 )
                 .into(),
@@ -274,7 +274,7 @@ impl WalletStorage for WalletStorageSQLite {
                     |e| {
                         Error::RecordCorruption(
                             format!(
-                                "invalid wallet_uuid {}; error was {}",
+                                "invalid wallet_uuid {}; error was: {}",
                                 query_result.wallet_uuid, e
                             )
                             .into(),
@@ -327,7 +327,7 @@ impl WalletStorage for WalletStorageSQLite {
                     |e| {
                         Error::RecordCorruption(
                             format!(
-                                "Invalid UUID in database: {}; error was {}",
+                                "Invalid UUID in database: {}; error was: {}",
                                 query_result.wallet_uuid, e
                             )
                             .into(),
@@ -613,7 +613,7 @@ impl WalletStorage for WalletStorageSQLite {
             let did = DIDStr::new_ref(query_result.did.as_str()).map_err(|e| {
                 Error::RecordCorruption(
                     format!(
-                        "invalid did_documents.did value {}; error was {}",
+                        "invalid did_documents.did value {}; error was: {}",
                         query_result.did, e
                     )
                     .into(),
@@ -623,7 +623,7 @@ impl WalletStorage for WalletStorageSQLite {
                 .map_err(|e| {
                     Error::RecordCorruption(
                         format!(
-                            "invalid did_documents.self_hash value {}; error was {}",
+                            "invalid did_documents.self_hash value {}; error was: {}",
                             query_result.self_hash, e
                         )
                         .into(),
@@ -632,7 +632,7 @@ impl WalletStorage for WalletStorageSQLite {
             let version_id = u32::try_from(query_result.version_id).map_err(|e| {
                 Error::RecordCorruption(
                     format!(
-                        "invalid did_documents.version_id value {}; error was {}",
+                        "invalid did_documents.version_id value {}; error was: {}",
                         query_result.version_id, e
                     )
                     .into(),
@@ -642,7 +642,7 @@ impl WalletStorage for WalletStorageSQLite {
                 .map_err(|e| {
                 Error::RecordCorruption(
                     format!(
-                        "invalid verification_methods.key_id_fragment value {:?}; error was {}",
+                        "invalid verification_methods.key_id_fragment value {:?}; error was: {}",
                         query_result.key_id_fragment, e
                     )
                     .into(),
@@ -656,7 +656,7 @@ impl WalletStorage for WalletStorageSQLite {
                 u8::try_from(query_result.key_purpose_flags).map_err(|e| {
                     Error::RecordCorruption(
                         format!(
-                            "invalid verification_methods.key_purpose_flags value {}; error was {}",
+                            "invalid verification_methods.key_purpose_flags value {}; error was: {}",
                             query_result.key_purpose_flags, e,
                         )
                         .into(),
@@ -666,7 +666,7 @@ impl WalletStorage for WalletStorageSQLite {
             .map_err(|e| {
                 Error::RecordCorruption(
                     format!(
-                        "invalid verification_methods.key_purpose_flags value {}; error was {}",
+                        "invalid verification_methods.key_purpose_flags value {}; error was: {}",
                         query_result.key_purpose_flags, e,
                     )
                     .into(),

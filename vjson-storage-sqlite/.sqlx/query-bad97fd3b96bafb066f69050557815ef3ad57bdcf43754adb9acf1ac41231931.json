@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                        INSERT INTO vjson_records(self_hash, added_at, vjson_jcs)\n                        VALUES ($1, $2, $3)\n                        ON CONFLICT DO NOTHING\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "bad97fd3b96bafb066f69050557815ef3ad57bdcf43754adb9acf1ac41231931"
+}

@@ -39,7 +39,7 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
             vdr_scheme,
         )
         .await
-        .map_err(|e| Error::DIDFetchError(format!("DID: {}, error was {}", did, e).into()))?;
+        .map_err(|e| Error::DIDFetchError(format!("DID: {}, error was: {}", did, e).into()))?;
         Ok(did_doc_record)
     }
 }
@@ -52,7 +52,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
             url::Url::parse(vdr_did_create_endpoint).map_err(|e| {
                 Error::InvalidVDRDIDCreateURL(
                     format!(
-                        "Parse error in VDR DID Create endpoint URL {:?} -- error was {}",
+                        "Parse error in VDR DID Create endpoint URL {:?} -- error was: {}",
                         vdr_did_create_endpoint, e
                     )
                     .into(),

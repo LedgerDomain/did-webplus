@@ -161,12 +161,9 @@ impl DIDDocument {
     /// This method is what you should use if you want to canonically serialize this DID document (to a String).
     /// See also serialize_canonically_to_writer.
     pub fn serialize_canonically(&self) -> Result<String, Error> {
-        let did_document_jcs_bytes = serde_json_canonicalizer::to_vec(self).map_err(|_| {
-            Error::Serialization(
-                "Failed to serialize DID document to canonical JSON (into Vec<u8>)",
-            )
-        })?;
-        Ok(String::from_utf8(did_document_jcs_bytes).expect("this should not be possible"))
+        Ok(serde_json_canonicalizer::to_string(self).map_err(|_| {
+            Error::Serialization("Failed to serialize DID document to canonical JSON (into String)")
+        })?)
     }
     /// This method is what you should use if you want to canonically serialize this DID document (into
     /// a std::io::Writer).  See also serialize_canonically_to_vec.

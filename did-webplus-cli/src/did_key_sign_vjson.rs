@@ -1,6 +1,6 @@
-use crate::{NewlineArgs, PrivateKeyFileArgs, Result, SelfHashArgs};
+use crate::{NewlineArgs, PrivateKeyFileArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs};
 use selfhash::{HashFunction, SelfHashable};
-use std::{borrow::Cow, io::Read};
+use std::io::Read;
 
 /// Produce VJSON (Verifiable JSON) by signing it using the private key from the specified file, then
 /// self-hashing it.  The JSON will be read from stdin, and if there is an existing "proofs" field (where
@@ -11,13 +11,15 @@ pub struct DIDKeySignVJSON {
     #[command(flatten)]
     pub private_key_file_args: PrivateKeyFileArgs,
     #[command(flatten)]
-    pub self_hash_args: SelfHashArgs,
+    pub vjson_store_args: VJSONStoreArgs,
+    #[command(flatten)]
+    pub vjson_storage_behavior_args: VJSONStorageBehaviorArgs,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
 
 impl DIDKeySignVJSON {
-    pub fn handle(self) -> Result<()> {
+    pub async fn handle(self) -> Result<()> {
         // Read all of stdin into a String and parse it as JSON.
         let mut input = String::new();
         std::io::stdin().read_to_string(&mut input).unwrap();
@@ -43,15 +45,15 @@ impl DIDKeySignVJSON {
             }
         };
 
-        let self_hash_path_s = self.self_hash_args.parse_self_hash_paths();
-        let self_hash_url_path_s = self.self_hash_args.parse_self_hash_url_paths();
+        let vjson_store = self.vjson_store_args.get_vjson_store().await?;
 
-        let mut json = selfhash::SelfHashableJSON::new(
-            value,
-            Cow::Borrowed(&self_hash_path_s),
-            Cow::Borrowed(&self_hash_url_path_s),
-        )
-        .unwrap();
+        let (mut self_hashable_json, schema_value) = {
+            let mut transaction = vjson_store.begin_transaction(None).await?;
+            let (self_hashable_json, schema_value) =
+                vjson_store::self_hashable_json_from(value, &mut transaction, &vjson_store).await?;
+            vjson_store.commit_transaction(transaction).await?;
+            (self_hashable_json, schema_value)
+        };
 
         self.private_key_file_args.ensure_file_exists()?;
 
@@ -60,10 +62,14 @@ impl DIDKeySignVJSON {
             did_key::DIDResource::try_from(&signer_b.verifier().to_verifier_bytes())?;
 
         let jws = {
-            json.set_self_hash_slots_to(selfhash::Blake3.placeholder_hash())
+            self_hashable_json
+                .set_self_hash_slots_to(selfhash::Blake3.placeholder_hash())
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            log::debug!("json that will be signed: {}", json.value().to_string());
-            let payload_bytes = serde_json_canonicalizer::to_vec(json.value())?;
+            log::debug!(
+                "json that will be signed: {}",
+                self_hashable_json.value().to_string()
+            );
+            let payload_bytes = serde_json_canonicalizer::to_vec(self_hashable_json.value())?;
             did_webplus_jws::JWS::signed(
                 did_resource.to_string(),
                 &mut payload_bytes.as_slice(),
@@ -77,15 +83,23 @@ impl DIDKeySignVJSON {
         proofs.push(serde_json::Value::String(jws.into_string()));
 
         // Re-add the "proofs" field to the json.
-        let value_object = json.value_mut().as_object_mut().unwrap();
+        let value_object = self_hashable_json.value_mut().as_object_mut().unwrap();
         value_object.insert("proofs".to_owned(), serde_json::Value::Array(proofs));
 
         // Self-hash the JSON with the "proofs" field populated.
-        json.self_hash(selfhash::Blake3.new_hasher())
+        self_hashable_json
+            .self_hash(selfhash::Blake3.new_hasher())
             .map_err(|e| anyhow::anyhow!("{}", e))?;
 
+        // This probably belongs here.
+        vjson_store::validate_against_json_schema(&schema_value, self_hashable_json.value())?;
+
+        self.vjson_storage_behavior_args
+            .store_if_requested(&vjson_store, self_hashable_json.value())
+            .await?;
+
         // Print the signed-and-self-hashed JSON and optional newline.
-        serde_json_canonicalizer::to_writer(json.value(), &mut std::io::stdout())?;
+        serde_json_canonicalizer::to_writer(self_hashable_json.value(), &mut std::io::stdout())?;
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;
 
