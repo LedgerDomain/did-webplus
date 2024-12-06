@@ -76,13 +76,6 @@ pub(crate) fn determine_http_scheme() -> &'static str {
     http_scheme
 }
 
-/// INCOMPLETE, TEMP HACK
-pub(crate) fn temp_hack_incomplete_url_encoded(s: &str) -> String {
-    s.replace('?', "%3F")
-        .replace('=', "%3D")
-        .replace('&', "%26")
-}
-
 async fn get_uniquely_determinable_did(
     wallet: &did_webplus_software_wallet::SoftwareWallet<
         did_webplus_wallet_storage_sqlite::WalletStorageSQLite,

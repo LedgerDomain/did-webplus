@@ -23,24 +23,27 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
     }
     async fn fetch_did_internal(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
         did: &DIDStr,
         vdr_scheme: &'static str,
-    ) -> Result<did_webplus_doc_store::DIDDocRecord> {
+    ) -> Result<did_webplus::DIDDocument> {
         // Note the version of the known latest DID document.  This will only differ from the actual latest
         // version if more than one wallet controls the DID.
 
         // Retrieve any unfetched updates to the DID.
-        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(self.storage.clone());
-        let did_doc_record = did_webplus_resolver::resolve_did(
-            &did_doc_store,
-            transaction,
-            did.as_str(),
-            vdr_scheme,
-        )
-        .await
-        .map_err(|e| Error::DIDFetchError(format!("DID: {}, error was: {}", did, e).into()))?;
-        Ok(did_doc_record)
+        let did_resolver = did_webplus_resolver::DIDResolverFull {
+            did_doc_store: did_webplus_doc_store::DIDDocStore::new(self.storage.clone()),
+            http_scheme: vdr_scheme,
+        };
+        use did_webplus_resolver::DIDResolver;
+        let (did_document, _did_doc_metadata) = did_resolver
+            .resolve_did_document(
+                did.as_str(),
+                did_webplus::RequestedDIDDocumentMetadata::none(),
+            )
+            .await
+            .map_err(|e| Error::DIDFetchError(format!("DID: {}, error was: {}", did, e).into()))?;
+
+        Ok(did_document)
     }
 }
 
@@ -224,10 +227,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
     }
     // TODO: Figure out how to update any other local doc stores.
     async fn fetch_did(&self, did: &DIDStr, vdr_scheme: &'static str) -> Result<()> {
-        let mut transaction = self.storage.begin_transaction(None).await?;
-        self.fetch_did_internal(&mut transaction, did, vdr_scheme)
-            .await?;
-        self.storage.commit_transaction(transaction).await?;
+        self.fetch_did_internal(did, vdr_scheme).await?;
         Ok(())
     }
     async fn update_did(
@@ -239,14 +239,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let mut transaction = self.storage.begin_transaction(None).await?;
-        let latest_did_doc_record = self
-            .fetch_did_internal(&mut transaction, did, vdr_scheme)
-            .await?;
-        let latest_did_document: DIDDocument =
-            serde_json::from_str(&latest_did_doc_record.did_document_jcs).map_err(|e| {
-                Error::Malformed(format!("DID document for {} -- {}", did, e).into())
-            })?;
+        let latest_did_document = self.fetch_did_internal(did, vdr_scheme).await?;
 
         // Rotate the appropriate set of keys.  Record the creation timestamp.
         let now_utc = time::OffsetDateTime::now_utc();
@@ -268,6 +261,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
             KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key().to_keri_verifier().into_owned(),
         };
 
+        let mut transaction = self.storage.begin_transaction(None).await?;
         // Select all the locally-stored keys that are in the latest DID document, so that they can be
         // retired, the CapabilityInvocation key selected for signing the update, and the new keys stored.
         let locally_controlled_verification_method_v = self

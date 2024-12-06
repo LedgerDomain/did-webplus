@@ -1,4 +1,5 @@
-use crate::{determine_http_scheme, Result};
+use crate::{determine_http_scheme, NewlineArgs, Result};
+use std::io::Write;
 
 /// Perform DID resolution for a given query URI, using the "raw" resolution method, which only does
 /// a limited subset of verification, so should not be used for any production purposes.  THIS IS
@@ -16,40 +17,30 @@ pub struct DIDResolveRaw {
     // // TODO: Validation in clap derive for this constraint.
     // #[arg(short, long, value_name = "SCHEME", default_value = "https")]
     // pub vdr_scheme: String,
+    #[command(flatten)]
+    pub newline_args: NewlineArgs,
 }
 
 impl DIDResolveRaw {
     pub async fn handle(self) -> Result<()> {
         tracing::debug!("{:?}", self);
 
-        let http_scheme = determine_http_scheme();
-
-        // // This looks dumb, but it's to get a `&'static str` as required by Wallet::update_did.
-        // let vdr_scheme = match self.vdr_scheme.as_str() {
-        //     "http" => "http",
-        //     "https" => "https",
-        //     _ => {
-        //         anyhow::bail!("--vdr-scheme argument must be \"http\" or \"https\"");
-        //     }
-        // };
-
-        let did_resolution_url = if let Ok(did_fully_qualified) =
-            did_webplus::DIDFullyQualifiedStr::new_ref(self.did_query.as_str())
-        {
-            did_fully_qualified.resolution_url(http_scheme)
-        } else if let Ok(did) = did_webplus::DIDStr::new_ref(self.did_query.as_str()) {
-            did.resolution_url(http_scheme)
-        } else {
-            anyhow::bail!("Invalid DID query: {}", self.did_query);
+        let did_resolver = did_webplus_resolver::DIDResolverRaw {
+            http_scheme: determine_http_scheme(),
         };
+        use did_webplus_resolver::DIDResolver;
+        let (did_document_string, _did_doc_metadata) = did_resolver
+            .resolve_did_document_string(
+                self.did_query.as_str(),
+                did_webplus::RequestedDIDDocumentMetadata::none(),
+            )
+            .await?;
+        // TODO: handle metadata
 
-        let response = crate::REQWEST_CLIENT
-            .get(did_resolution_url)
-            .send()
-            .await?
-            .error_for_status()?;
-        let did_document = response.text().await?;
-        println!("{}", did_document);
+        std::io::stdout().write_all(did_document_string.as_bytes())?;
+        self.newline_args
+            .print_newline_if_necessary(&mut std::io::stdout())?;
+
         Ok(())
     }
 }

@@ -64,23 +64,22 @@ impl JWSVerify {
             let did_key_resource_fully_qualified =
                 DIDKeyResourceFullyQualifiedStr::new_ref(&jws.header().kid)?;
 
-            let http_scheme = determine_http_scheme();
-            let did_doc_store = self.did_doc_store_args.get_did_doc_store().await?;
-
             // Use "full" DID resolver to resolve the key specified in the JWS header.
-            let mut transaction = did_doc_store.begin_transaction(None).await?;
-            let _did_doc_record = did_webplus_resolver::resolve_did(
-                &did_doc_store,
-                &mut transaction,
-                did_key_resource_fully_qualified.without_fragment().as_str(),
-                http_scheme,
-            )
-            .await?;
-            transaction.commit().await?;
-
+            let did_resolver = did_webplus_resolver::DIDResolverFull {
+                did_doc_store: self.did_doc_store_args.get_did_doc_store().await?,
+                http_scheme: determine_http_scheme(),
+            };
+            use did_webplus_resolver::DIDResolver;
+            let (_did_document, _did_doc_metadata) = did_resolver
+                .resolve_did_document(
+                    did_key_resource_fully_qualified.without_fragment().as_str(),
+                    did_webplus::RequestedDIDDocumentMetadata::none(),
+                )
+                .await?;
             // Part of DID doc verification is ensuring that the key ID represents the same public key as
             // the JsonWebKey2020 value.  So we can use the key ID KERIVerifier value as the public key.
             // TODO: Assert that this is actually the case.
+
             Box::new(did_key_resource_fully_qualified.fragment())
         } else {
             anyhow::bail!(

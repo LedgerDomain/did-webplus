@@ -1046,6 +1046,7 @@ dependencies = [
 name = "did-webplus-resolver"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "did-webplus",
  "did-webplus-doc-storage-postgres",
  "did-webplus-doc-storage-sqlite",
@@ -1055,6 +1056,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tracing",
+ "url",
 ]
 
 [[package]]

@@ -5,7 +5,7 @@ use std::borrow::Cow;
 lazy_static::lazy_static! {
     /// Building a reqwest::Client is *incredibly* slow, so we use a global instance and then clone
     /// it per use, as the documentation indicates.
-    static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
+    pub static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
 }
 
 #[derive(Debug)]

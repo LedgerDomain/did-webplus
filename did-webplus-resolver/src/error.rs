@@ -1,6 +1,5 @@
-use std::borrow::Cow;
-
 use crate::HTTPError;
+use std::borrow::Cow;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -10,6 +9,8 @@ pub enum Error {
     DIDResolutionFailure(HTTPError),
     #[error("Failed constraint: {0}")]
     FailedConstraint(Cow<'static, str>),
+    #[error("Malformed DID document: {0}")]
+    MalformedDIDDocument(Cow<'static, str>),
     #[error("Malformed DID query: {0}")]
     MalformedDIDQuery(Cow<'static, str>),
 }

@@ -26,22 +26,20 @@ impl DIDResolveFull {
     pub async fn handle(self) -> Result<()> {
         tracing::debug!("{:?}", self);
 
-        let http_scheme = determine_http_scheme();
+        let did_resolver = did_webplus_resolver::DIDResolverFull {
+            did_doc_store: self.did_doc_store_args.get_did_doc_store().await?,
+            http_scheme: determine_http_scheme(),
+        };
+        use did_webplus_resolver::DIDResolver;
+        // TODO: Handle metadata
+        let (did_document_string, _did_doc_metadata) = did_resolver
+            .resolve_did_document_string(
+                self.did_query.as_str(),
+                did_webplus::RequestedDIDDocumentMetadata::none(),
+            )
+            .await?;
 
-        // let did_doc_store = get_did_doc_store(&self.doc_store_args.did_doc_store_db_url).await?;
-        let did_doc_store = self.did_doc_store_args.get_did_doc_store().await?;
-
-        let mut transaction = did_doc_store.begin_transaction(None).await?;
-        let did_doc_record = did_webplus_resolver::resolve_did(
-            &did_doc_store,
-            &mut transaction,
-            self.did_query.as_str(),
-            http_scheme,
-        )
-        .await?;
-        transaction.commit().await?;
-
-        std::io::stdout().write_all(did_doc_record.did_document_jcs.as_bytes())?;
+        std::io::stdout().write_all(did_document_string.as_bytes())?;
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;
 

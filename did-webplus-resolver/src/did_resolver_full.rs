@@ -1,9 +1,66 @@
-use crate::{vdr_fetch_did_document_body, vdr_fetch_latest_did_document_body, Error, Result};
+use crate::{
+    vdr_fetch_did_document_body, vdr_fetch_latest_did_document_body, DIDResolver, Error, Result,
+};
 use did_webplus::{DIDStr, DIDWebplusURIComponents, DIDWithQueryStr};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStorage, DIDDocStore};
 
+/// This is the "full" implementation of a DID resolver, which which keeps a local copy of all DID
+/// documents it has fetched and verified.  This is in contrast to the "thin" implementation, which
+/// outsources the retrieval and verification of DID documents to a trusted Verifiable Data Gateway (VDG).
+/// A VDG can optionally be specified to forward resolution requests through, though DID documents will
+/// still be locally verified and stored.  The reason for this is to ensure a broader scope-of-truth
+/// for which DID updates are considered valid (all resolvers which trust the specified VDG will agree).
+pub struct DIDResolverFull<Storage: did_webplus_doc_store::DIDDocStorage> {
+    // TODO: Ideally this wouldn't be generic.
+    pub did_doc_store: did_webplus_doc_store::DIDDocStore<Storage>,
+    /// Optionally specifies the URL of the "resolve" endpoint of a VDG to use for DID resolution.  The URL
+    /// can omit the scheme (i.e. the "https://" portion), in which case, "https://" will be used.  The URL
+    /// must not contain a query string or fragment.
+    // TODO: Implement this.
+    // pub vdg_resolve_endpoint_o: Option<url::Url>,
+    /// TEMP HACK: Specify the scheme used for HTTP requests.  Must be either "https" or "http".  This is
+    /// only useful for testing and potentially for VPC-like situations.
+    pub http_scheme: &'static str,
+}
+
+#[async_trait::async_trait]
+impl<Storage: did_webplus_doc_store::DIDDocStorage> DIDResolver for DIDResolverFull<Storage> {
+    async fn resolve_did_document_string(
+        &self,
+        did_query: &str,
+        requested_did_document_metadata: did_webplus::RequestedDIDDocumentMetadata,
+    ) -> Result<(String, did_webplus::DIDDocumentMetadata)> {
+        if requested_did_document_metadata.constant
+            || requested_did_document_metadata.idempotent
+            || requested_did_document_metadata.currency
+        {
+            panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverThin");
+        }
+
+        let mut transaction = self.did_doc_store.begin_transaction(None).await?;
+        let did_doc_record = resolve_did(
+            &self.did_doc_store,
+            &mut transaction,
+            did_query,
+            self.http_scheme,
+        )
+        .await?;
+        self.did_doc_store.commit_transaction(transaction).await?;
+
+        // TODO: Implement metadata
+        let did_document_metadata = did_webplus::DIDDocumentMetadata {
+            constant_o: None,
+            idempotent_o: None,
+            currency_o: None,
+        };
+
+        Ok((did_doc_record.did_document_jcs, did_document_metadata))
+    }
+}
+
 // TODO: Probably add params for what metadata is desired
-pub async fn resolve_did<Storage: DIDDocStorage>(
+// TODO: Move this into did_resolver_full.rs
+async fn resolve_did<Storage: DIDDocStorage>(
     did_doc_store: &DIDDocStore<Storage>,
     transaction: &mut Storage::Transaction<'_>,
     did_query: &str,
