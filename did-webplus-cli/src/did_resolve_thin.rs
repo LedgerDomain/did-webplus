@@ -1,4 +1,4 @@
-use crate::{determine_http_scheme, parse_url, NewlineArgs, Result};
+use crate::{parse_url, HTTPSchemeArgs, NewlineArgs, Result};
 use std::io::Write;
 
 /// Perform DID resolution for a given query URI, using the "thin" resolver, relying on a VDG
@@ -26,6 +26,8 @@ pub struct DIDResolveThin {
     )]
     pub vdg_resolve_endpoint: url::Url,
     #[command(flatten)]
+    pub http_scheme_args: HTTPSchemeArgs,
+    #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
 
@@ -33,7 +35,7 @@ impl DIDResolveThin {
     pub async fn handle(mut self) -> Result<()> {
         tracing::debug!("{:?}", self);
 
-        let http_scheme = determine_http_scheme();
+        let http_scheme = self.http_scheme_args.determine_http_scheme();
 
         // Override HTTP scheme.
         self.vdg_resolve_endpoint.set_scheme(http_scheme).unwrap();

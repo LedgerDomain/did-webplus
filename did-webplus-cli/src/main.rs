@@ -8,6 +8,7 @@ mod did_list;
 mod did_resolve_full;
 mod did_resolve_raw;
 mod did_resolve_thin;
+mod http_scheme_args;
 mod jws_verify;
 mod newline_args;
 mod private_key_file_args;
@@ -32,12 +33,13 @@ pub use crate::{
     did_doc_store_args::DIDDocStoreArgs, did_key_from_private::DIDKeyFromPrivate,
     did_key_generate::DIDKeyGenerate, did_key_sign_jws::DIDKeySignJWS,
     did_key_sign_vjson::DIDKeySignVJSON, did_list::DIDList, did_resolve_raw::DIDResolveRaw,
-    did_resolve_thin::DIDResolveThin, jws_verify::JWSVerify, newline_args::NewlineArgs,
-    private_key_file_args::PrivateKeyFileArgs, self_hash_args::SelfHashArgs,
-    verification_method_args::VerificationMethodArgs, vjson_default_schema::VJSONDefaultSchema,
-    vjson_self_hash::VJSONSelfHash, vjson_storage_behavior_args::VJSONStorageBehaviorArgs,
-    vjson_store_args::VJSONStoreArgs, vjson_store_get::VJSONStoreGet, vjson_verify::VJSONVerify,
-    wallet_args::WalletArgs, wallet_did_create::WalletDIDCreate, wallet_did_list::WalletDIDList,
+    did_resolve_thin::DIDResolveThin, http_scheme_args::HTTPSchemeArgs, jws_verify::JWSVerify,
+    newline_args::NewlineArgs, private_key_file_args::PrivateKeyFileArgs,
+    self_hash_args::SelfHashArgs, verification_method_args::VerificationMethodArgs,
+    vjson_default_schema::VJSONDefaultSchema, vjson_self_hash::VJSONSelfHash,
+    vjson_storage_behavior_args::VJSONStorageBehaviorArgs, vjson_store_args::VJSONStoreArgs,
+    vjson_store_get::VJSONStoreGet, vjson_verify::VJSONVerify, wallet_args::WalletArgs,
+    wallet_did_create::WalletDIDCreate, wallet_did_list::WalletDIDList,
     wallet_did_sign_jws::WalletDIDSignJWS, wallet_did_sign_vjson::WalletDIDSignVJSON,
     wallet_did_update::WalletDIDUpdate, wallet_list::WalletList,
 };
@@ -58,22 +60,6 @@ pub(crate) fn parse_url(s: &str) -> anyhow::Result<url::Url> {
         url::Url::parse(s)?
     };
     Ok(parsed_url)
-}
-
-pub(crate) fn determine_http_scheme() -> &'static str {
-    // TODO: Make this debug-build-only.
-    // Secret env var for overriding the scheme of HTTP requests for development/testing purposes.
-    let http_scheme: &'static str = match std::env::var("DID_WEBPLUS_HTTP_SCHEME_OVERRIDE") {
-        Ok(http_scheme) => match http_scheme.as_str() {
-            "http" => "http",
-            "https" => "https",
-            _ => {
-                panic!("If specified, DID_WEBPLUS_HTTP_SCHEME_OVERRIDE env var must be set to http or https, and defines what scheme to use for all HTTP requests.  If the env var is unspecified, then https will be used.");
-            }
-        },
-        Err(_) => "https",
-    };
-    http_scheme
 }
 
 async fn get_uniquely_determinable_did(

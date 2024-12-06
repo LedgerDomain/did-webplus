@@ -1,6 +1,5 @@
 use crate::{
-    determine_http_scheme, DIDDocStoreArgs, NewlineArgs, Result, VJSONStorageBehaviorArgs,
-    VJSONStoreArgs,
+    DIDDocStoreArgs, HTTPSchemeArgs, NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs,
 };
 use did_webplus::DIDKeyResourceFullyQualifiedStr;
 use selfhash::{HashFunction, SelfHashable};
@@ -16,6 +15,8 @@ use selfhash::{HashFunction, SelfHashable};
 pub struct VJSONVerify {
     #[command(flatten)]
     pub did_doc_store_args: DIDDocStoreArgs,
+    #[command(flatten)]
+    pub http_scheme_args: HTTPSchemeArgs,
     #[command(flatten)]
     pub vjson_store_args: VJSONStoreArgs,
     #[command(flatten)]
@@ -103,7 +104,7 @@ impl VJSONVerify {
                     proof_v.len()
                 );
 
-                let http_scheme = determine_http_scheme();
+                let http_scheme = self.http_scheme_args.determine_http_scheme();
                 let did_doc_store = self.did_doc_store_args.get_did_doc_store().await?;
 
                 // Validate the self-hash now that the "proofs" field is removed.  Then form the detached payload that is the

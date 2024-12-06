@@ -1,4 +1,4 @@
-use crate::{determine_http_scheme, DIDDocStoreArgs, NewlineArgs, Result};
+use crate::{DIDDocStoreArgs, HTTPSchemeArgs, NewlineArgs, Result};
 use std::io::Write;
 
 /// Perform DID resolution for a given query URI, using the "full" resolver, which does all
@@ -14,6 +14,8 @@ pub struct DIDResolveFull {
     pub did_query: String,
     #[command(flatten)]
     pub did_doc_store_args: DIDDocStoreArgs,
+    #[command(flatten)]
+    pub http_scheme_args: HTTPSchemeArgs,
     // TODO: Optionally specify a VDG.  You would use this if you wanted to guarantee consortium- or
     // global-scoped agreement on DID docs.
     #[command(flatten)]
@@ -28,7 +30,7 @@ impl DIDResolveFull {
 
         let did_resolver = did_webplus_resolver::DIDResolverFull {
             did_doc_store: self.did_doc_store_args.get_did_doc_store().await?,
-            http_scheme: determine_http_scheme(),
+            http_scheme: self.http_scheme_args.determine_http_scheme(),
         };
         use did_webplus_resolver::DIDResolver;
         // TODO: Handle metadata

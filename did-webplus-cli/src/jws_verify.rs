@@ -1,4 +1,4 @@
-use crate::{determine_http_scheme, DIDDocStoreArgs, Result};
+use crate::{DIDDocStoreArgs, HTTPSchemeArgs, Result};
 use did_webplus::DIDKeyResourceFullyQualifiedStr;
 use std::io::Read;
 
@@ -8,6 +8,8 @@ pub struct JWSVerify {
     // TODO: Actually this should be arguments for the resolver to use.
     #[command(flatten)]
     pub did_doc_store_args: DIDDocStoreArgs,
+    #[command(flatten)]
+    pub http_scheme_args: HTTPSchemeArgs,
     // TODO: Implement this
     // /// Optionally specify the URL of the "resolve" endpoint of the VDG to use for DID resolution
     // /// during this verify operation.  The URL can omit the scheme (i.e. the "https://" portion).
@@ -67,7 +69,7 @@ impl JWSVerify {
             // Use "full" DID resolver to resolve the key specified in the JWS header.
             let did_resolver = did_webplus_resolver::DIDResolverFull {
                 did_doc_store: self.did_doc_store_args.get_did_doc_store().await?,
-                http_scheme: determine_http_scheme(),
+                http_scheme: self.http_scheme_args.determine_http_scheme(),
             };
             use did_webplus_resolver::DIDResolver;
             let (_did_document, _did_doc_metadata) = did_resolver

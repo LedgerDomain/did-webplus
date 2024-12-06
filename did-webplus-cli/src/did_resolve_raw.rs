@@ -1,4 +1,4 @@
-use crate::{determine_http_scheme, NewlineArgs, Result};
+use crate::{HTTPSchemeArgs, NewlineArgs, Result};
 use std::io::Write;
 
 /// Perform DID resolution for a given query URI, using the "raw" resolution method, which only does
@@ -13,10 +13,8 @@ pub struct DIDResolveRaw {
     /// `did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ?selfHash=EgqvDOcj4HItWDVij-yHj0GtBPnEofatHT2xuoVD7tMY&versionId=1`.
     /// Note that the & character typically must be within a quoted string in a shell command.
     pub did_query: String,
-    // /// Specify the scheme to use for the VDR in the DID resolution request.  Must either be "http" or "https".
-    // // TODO: Validation in clap derive for this constraint.
-    // #[arg(short, long, value_name = "SCHEME", default_value = "https")]
-    // pub vdr_scheme: String,
+    #[command(flatten)]
+    pub http_scheme_args: HTTPSchemeArgs,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
@@ -26,7 +24,7 @@ impl DIDResolveRaw {
         tracing::debug!("{:?}", self);
 
         let did_resolver = did_webplus_resolver::DIDResolverRaw {
-            http_scheme: determine_http_scheme(),
+            http_scheme: self.http_scheme_args.determine_http_scheme(),
         };
         use did_webplus_resolver::DIDResolver;
         let (did_document_string, _did_doc_metadata) = did_resolver
