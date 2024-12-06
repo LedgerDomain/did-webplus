@@ -1,28 +1,14 @@
-use crate::{DIDDocStoreArgs, HTTPSchemeArgs, Result};
+use crate::{DIDResolverArgs, HTTPSchemeArgs, Result};
 use did_webplus::DIDKeyResourceFullyQualifiedStr;
 use std::io::Read;
 
 /// Verify a JWS signed by a did:webplus DID, using the "full" resolver with the specified DID doc store.
 #[derive(clap::Parser)]
 pub struct JWSVerify {
-    // TODO: Actually this should be arguments for the resolver to use.
     #[command(flatten)]
-    pub did_doc_store_args: DIDDocStoreArgs,
+    pub did_resolver_args: DIDResolverArgs,
     #[command(flatten)]
     pub http_scheme_args: HTTPSchemeArgs,
-    // TODO: Implement this
-    // /// Optionally specify the URL of the "resolve" endpoint of the VDG to use for DID resolution
-    // /// during this verify operation.  The URL can omit the scheme (i.e. the "https://" portion).
-    // /// The URL must not contain a query string or fragment.
-    // #[arg(
-    //     name = "vdg",
-    //     env = "DID_WEBPLUS_VDG",
-    //     short,
-    //     long,
-    //     value_name = "URL",
-    //     value_parser = parse_url_o(s),
-    // )]
-    // pub vdg_resolve_endpoint_o: Option<url::Url>,
     /// Specify the JWS detached payload directly on the command line.  This is only suitable for small
     /// payloads that don't contain sensitive information, since typically the commandline that invoked
     /// a process is visible in the process list on a Unix system.  This argument is mutually exclusive
@@ -66,13 +52,10 @@ impl JWSVerify {
             let did_key_resource_fully_qualified =
                 DIDKeyResourceFullyQualifiedStr::new_ref(&jws.header().kid)?;
 
-            // Use "full" DID resolver to resolve the key specified in the JWS header.
-            let did_resolver = did_webplus_resolver::DIDResolverFull {
-                did_doc_store: self.did_doc_store_args.get_did_doc_store().await?,
-                http_scheme: self.http_scheme_args.determine_http_scheme(),
-            };
-            use did_webplus_resolver::DIDResolver;
-            let (_did_document, _did_doc_metadata) = did_resolver
+            // Use DID resolver to resolve the key specified in the JWS header.
+            let http_scheme = self.http_scheme_args.determine_http_scheme();
+            let did_resolver_b = self.did_resolver_args.get_did_resolver(http_scheme).await?;
+            let (_did_document, _did_doc_metadata) = did_resolver_b
                 .resolve_did_document(
                     did_key_resource_fully_qualified.without_fragment().as_str(),
                     did_webplus::RequestedDIDDocumentMetadata::none(),

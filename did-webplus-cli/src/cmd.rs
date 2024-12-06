@@ -1,7 +1,8 @@
 use crate::{
-    DIDResolveFull, DIDResolveRaw, DIDResolveThin, JWSVerify, VJSONDefaultSchema, VJSONSelfHash,
-    VJSONStoreGet, VJSONVerify, WalletDIDCreate, WalletDIDList, WalletDIDSignJWS,
-    WalletDIDSignVJSON, WalletDIDUpdate, WalletList,
+    DIDKeyFromPrivate, DIDKeyGenerate, DIDKeySignJWS, DIDKeySignVJSON, DIDList, DIDResolve,
+    JWSVerify, Result, VJSONDefaultSchema, VJSONSelfHash, VJSONStoreGet, VJSONVerify,
+    WalletDIDCreate, WalletDIDList, WalletDIDSignJWS, WalletDIDSignVJSON, WalletDIDUpdate,
+    WalletList,
 };
 
 /// did:webplus CLI tool for all client-side operations and related utility operations.  Note that some subcommands
@@ -33,14 +34,11 @@ impl Root {
     }
 }
 
-use crate::{DIDKeyFromPrivate, DIDKeyGenerate, DIDKeySignJWS, DIDKeySignVJSON, DIDList, Result};
-
 /// DID operations that don't require a wallet.  These are operations typically associated
 /// with verifying parties that don't necessarily control a DID.
 #[derive(clap::Subcommand)]
 pub enum DID {
     List(DIDList),
-    #[command(subcommand)]
     Resolve(DIDResolve),
 }
 
@@ -84,24 +82,6 @@ impl DIDKeySign {
         match self {
             Self::JWS(x) => x.handle(),
             Self::VJSON(x) => x.handle().await,
-        }
-    }
-}
-
-/// DID resolution operations.
-#[derive(clap::Subcommand)]
-pub enum DIDResolve {
-    Full(DIDResolveFull),
-    Thin(DIDResolveThin),
-    Raw(DIDResolveRaw),
-}
-
-impl DIDResolve {
-    pub async fn handle(self) -> Result<()> {
-        match self {
-            Self::Full(x) => x.handle().await,
-            Self::Thin(x) => x.handle().await,
-            Self::Raw(x) => x.handle().await,
         }
     }
 }

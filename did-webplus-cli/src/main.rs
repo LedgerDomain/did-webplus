@@ -5,9 +5,8 @@ mod did_key_generate;
 mod did_key_sign_jws;
 mod did_key_sign_vjson;
 mod did_list;
-mod did_resolve_full;
-mod did_resolve_raw;
-mod did_resolve_thin;
+mod did_resolve;
+mod did_resolver_args;
 mod http_scheme_args;
 mod jws_verify;
 mod newline_args;
@@ -28,12 +27,11 @@ mod wallet_did_sign_vjson;
 mod wallet_did_update;
 mod wallet_list;
 
-pub use crate::did_resolve_full::DIDResolveFull;
 pub use crate::{
     did_doc_store_args::DIDDocStoreArgs, did_key_from_private::DIDKeyFromPrivate,
     did_key_generate::DIDKeyGenerate, did_key_sign_jws::DIDKeySignJWS,
-    did_key_sign_vjson::DIDKeySignVJSON, did_list::DIDList, did_resolve_raw::DIDResolveRaw,
-    did_resolve_thin::DIDResolveThin, http_scheme_args::HTTPSchemeArgs, jws_verify::JWSVerify,
+    did_key_sign_vjson::DIDKeySignVJSON, did_list::DIDList, did_resolve::DIDResolve,
+    did_resolver_args::DIDResolverArgs, http_scheme_args::HTTPSchemeArgs, jws_verify::JWSVerify,
     newline_args::NewlineArgs, private_key_file_args::PrivateKeyFileArgs,
     self_hash_args::SelfHashArgs, verification_method_args::VerificationMethodArgs,
     vjson_default_schema::VJSONDefaultSchema, vjson_self_hash::VJSONSelfHash,

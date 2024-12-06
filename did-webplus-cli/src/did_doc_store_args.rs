@@ -7,12 +7,12 @@ pub struct DIDDocStoreArgs {
     // TODO: Figure out how not to print the env var value, since if it ever were a general postgres
     // url, it could contain a password.
     #[arg(
-        name = "doc-store",
-        env = "DID_WEBPLUS_DOC_STORE",
+        name = "did-doc-store",
+        env = "DID_WEBPLUS_DID_DOC_STORE",
         short,
         long,
         value_name = "URL",
-        default_value = "sqlite://~/.did-webplus/doc-store.db"
+        default_value = "sqlite://~/.did-webplus/did-doc-store.db"
     )]
     pub did_doc_store_db_url: String,
 }

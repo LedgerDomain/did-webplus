@@ -3,6 +3,8 @@ use std::io::Write;
 
 /// List all DID documents in the specified DID doc store.  These are the DID documents that have
 /// been fetched, validated, and stored in that DID doc store.
+// TODO: This should actually list DIDs in the DID doc store, and there should be a separate
+// command to list DID documents
 #[derive(Debug, clap::Parser)]
 pub struct DIDList {
     #[command(flatten)]

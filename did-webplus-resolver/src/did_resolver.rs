@@ -1,7 +1,7 @@
 use crate::{Error, Result};
 
 #[async_trait::async_trait]
-pub trait DIDResolver {
+pub trait DIDResolver: Sync {
     /// This resolves the given DID, returning the DID document and its metadata.  The metadata
     /// is needed for determining the validity duration of a DID document so as to be able to
     /// determine if a signing key was active at a given time.  Only the metadata requested in

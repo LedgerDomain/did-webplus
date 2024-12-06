@@ -1,5 +1,5 @@
 use crate::{
-    DIDDocStoreArgs, HTTPSchemeArgs, NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs,
+    DIDResolverArgs, HTTPSchemeArgs, NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs,
 };
 use did_webplus::DIDKeyResourceFullyQualifiedStr;
 use selfhash::{HashFunction, SelfHashable};
@@ -14,26 +14,13 @@ use selfhash::{HashFunction, SelfHashable};
 #[derive(clap::Parser)]
 pub struct VJSONVerify {
     #[command(flatten)]
-    pub did_doc_store_args: DIDDocStoreArgs,
+    pub did_resolver_args: DIDResolverArgs,
     #[command(flatten)]
     pub http_scheme_args: HTTPSchemeArgs,
     #[command(flatten)]
     pub vjson_store_args: VJSONStoreArgs,
     #[command(flatten)]
     pub vjson_storage_behavior_args: VJSONStorageBehaviorArgs,
-    // TODO: Implement this
-    // /// Optionally specify the URL of the "resolve" endpoint of the VDG to use for DID resolution
-    // /// during this verify operation.  The URL can omit the scheme (i.e. the "https://" portion).
-    // /// The URL must not contain a query string or fragment.
-    // #[arg(
-    //     name = "vdg",
-    //     env = "DID_WEBPLUS_VDG",
-    //     short,
-    //     long,
-    //     value_name = "URL",
-    //     value_parser = parse_url_o(s),
-    // )]
-    // pub vdg_resolve_endpoint_o: Option<url::Url>,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
@@ -105,7 +92,7 @@ impl VJSONVerify {
                 );
 
                 let http_scheme = self.http_scheme_args.determine_http_scheme();
-                let did_doc_store = self.did_doc_store_args.get_did_doc_store().await?;
+                let did_resolver_b = self.did_resolver_args.get_did_resolver(http_scheme).await?;
 
                 // Validate the self-hash now that the "proofs" field is removed.  Then form the detached payload that is the
                 // message that is supposed to be signed by each proof.
@@ -138,13 +125,8 @@ impl VJSONVerify {
                             let did_key_resource_fully_qualified =
                                 DIDKeyResourceFullyQualifiedStr::new_ref(&jws.header().kid)?;
 
-                            // Use "full" DID resolver to resolve the key specified in the JWS header.
-                            let did_resolver = did_webplus_resolver::DIDResolverFull {
-                                did_doc_store: did_doc_store.clone(),
-                                http_scheme,
-                            };
-                            use did_webplus_resolver::DIDResolver;
-                            let (_did_document, _did_doc_metadata) = did_resolver
+                            // Use DID resolver to resolve the key specified in the JWS header.
+                            let (_did_document, _did_doc_metadata) = did_resolver_b
                                 .resolve_did_document(
                                     did_key_resource_fully_qualified.without_fragment().as_str(),
                                     did_webplus::RequestedDIDDocumentMetadata::none(),

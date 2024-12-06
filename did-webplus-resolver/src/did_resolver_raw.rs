@@ -19,7 +19,7 @@ impl DIDResolver for DIDResolverRaw {
             || requested_did_document_metadata.idempotent
             || requested_did_document_metadata.currency
         {
-            panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverThin");
+            panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverRaw");
         }
 
         let did_resolution_url = if let Ok(did_fully_qualified) =

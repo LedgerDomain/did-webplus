@@ -34,7 +34,7 @@ impl<Storage: did_webplus_doc_store::DIDDocStorage> DIDResolver for DIDResolverF
             || requested_did_document_metadata.idempotent
             || requested_did_document_metadata.currency
         {
-            panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverThin");
+            panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverFull");
         }
 
         let mut transaction = self.did_doc_store.begin_transaction(None).await?;
