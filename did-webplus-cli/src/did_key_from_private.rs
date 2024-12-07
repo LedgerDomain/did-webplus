@@ -18,7 +18,7 @@ impl DIDKeyFromPrivate {
         let did = did_key::DID::try_from(&signer_b.verifier().to_verifier_bytes())?;
 
         // Print the did:key value (i.e. pub key) of the read priv key.
-        std::io::stdout().write(did.as_bytes()).unwrap();
+        std::io::stdout().write_all(did.as_bytes()).unwrap();
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;
 

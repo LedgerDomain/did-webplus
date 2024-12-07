@@ -56,7 +56,7 @@ impl DIDKeyGenerate {
         };
 
         // Print the did:key representation of the public key corresponding to the generated priv key.
-        std::io::stdout().write(did.as_bytes()).unwrap();
+        std::io::stdout().write_all(did.as_bytes()).unwrap();
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;
 

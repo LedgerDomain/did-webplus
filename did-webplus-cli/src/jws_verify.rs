@@ -1,8 +1,8 @@
-use crate::{Result, VerifierResolverArgs};
-use std::io::Read;
+use crate::{NewlineArgs, Result, VerifierResolverArgs};
+use std::io::{Read, Write};
 use verifier_resolver::VerifierResolver;
 
-/// Verify a JWS signed by a did:webplus DID, using the "full" resolver with the specified DID doc store.
+/// Verify a JWS signed by a did:webplus DID.  If the JWS is valid, then the JWS is written to stdout.
 #[derive(clap::Parser)]
 pub struct JWSVerify {
     #[command(flatten)]
@@ -22,6 +22,8 @@ pub struct JWSVerify {
     /// case the JWS must not have an attached payload.
     #[arg(name = "detached-payload-file", short = 'f', long, value_name = "FILE")]
     pub detached_payload_file_o: Option<std::path::PathBuf>,
+    #[command(flatten)]
+    pub newline_args: NewlineArgs,
 }
 
 impl JWSVerify {
@@ -66,6 +68,10 @@ impl JWSVerify {
             jws.verify(verifier_b.as_ref(), None)?;
         }
         log::info!("Input JWS was successfully validated.");
+
+        std::io::stdout().write_all(jws_str.as_bytes())?;
+        self.newline_args
+            .print_newline_if_necessary(&mut std::io::stdout())?;
 
         Ok(())
     }
