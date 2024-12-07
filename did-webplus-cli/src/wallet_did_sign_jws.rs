@@ -10,6 +10,9 @@ use std::io::Write;
 pub struct WalletDIDSignJWS {
     #[command(flatten)]
     pub wallet_args: WalletArgs,
+    // TODO: The default behavior should be to fetch the latest DID document for the DID being used to
+    // sign before signing, so that the latest version is used, and there should be an argument to disable
+    // this behavior.
     #[command(flatten)]
     pub verification_method_args: VerificationMethodArgs,
     /// Specify if the payload is "attached" (meaning included in the JWS itself) or "detached" (meaning

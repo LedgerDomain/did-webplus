@@ -9,7 +9,6 @@ pub struct DIDDocStoreArgs {
     #[arg(
         name = "did-doc-store",
         env = "DID_WEBPLUS_DID_DOC_STORE",
-        short,
         long,
         value_name = "URL",
         default_value = "sqlite://~/.did-webplus/did-doc-store.db"

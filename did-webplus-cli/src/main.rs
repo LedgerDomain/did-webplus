@@ -7,12 +7,14 @@ mod did_key_sign_vjson;
 mod did_list;
 mod did_resolve;
 mod did_resolver_args;
+mod did_resolver_factory;
 mod http_scheme_args;
 mod jws_verify;
 mod newline_args;
 mod private_key_file_args;
 mod self_hash_args;
 mod verification_method_args;
+mod verifier_resolver_args;
 mod vjson_default_schema;
 mod vjson_self_hash;
 mod vjson_storage_behavior_args;
@@ -31,9 +33,10 @@ pub use crate::{
     did_doc_store_args::DIDDocStoreArgs, did_key_from_private::DIDKeyFromPrivate,
     did_key_generate::DIDKeyGenerate, did_key_sign_jws::DIDKeySignJWS,
     did_key_sign_vjson::DIDKeySignVJSON, did_list::DIDList, did_resolve::DIDResolve,
-    did_resolver_args::DIDResolverArgs, http_scheme_args::HTTPSchemeArgs, jws_verify::JWSVerify,
-    newline_args::NewlineArgs, private_key_file_args::PrivateKeyFileArgs,
-    self_hash_args::SelfHashArgs, verification_method_args::VerificationMethodArgs,
+    did_resolver_args::DIDResolverArgs, did_resolver_factory::DIDResolverFactory,
+    http_scheme_args::HTTPSchemeArgs, jws_verify::JWSVerify, newline_args::NewlineArgs,
+    private_key_file_args::PrivateKeyFileArgs, self_hash_args::SelfHashArgs,
+    verification_method_args::VerificationMethodArgs, verifier_resolver_args::VerifierResolverArgs,
     vjson_default_schema::VJSONDefaultSchema, vjson_self_hash::VJSONSelfHash,
     vjson_storage_behavior_args::VJSONStorageBehaviorArgs, vjson_store_args::VJSONStoreArgs,
     vjson_store_get::VJSONStoreGet, vjson_verify::VJSONVerify, wallet_args::WalletArgs,

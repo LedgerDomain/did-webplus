@@ -1,6 +1,6 @@
 use crate::{
     NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs, VerificationMethodArgs,
-    WalletArgs,
+    VerifierResolverArgs, WalletArgs,
 };
 use did_webplus_wallet_storage::LocallyControlledVerificationMethodFilter;
 use selfhash::{HashFunction, SelfHashable};
@@ -16,12 +16,17 @@ use std::io::Read;
 pub struct WalletDIDSignVJSON {
     #[command(flatten)]
     pub wallet_args: WalletArgs,
+    // TODO: The default behavior should be to fetch the latest DID document for the DID being used to
+    // sign before signing, so that the latest version is used, and there should be an argument to disable
+    // this behavior.
     #[command(flatten)]
     pub verification_method_args: VerificationMethodArgs,
     #[command(flatten)]
     pub vjson_store_args: VJSONStoreArgs,
     #[command(flatten)]
     pub vjson_storage_behavior_args: VJSONStorageBehaviorArgs,
+    #[command(flatten)]
+    pub verifier_resolver_args: VerifierResolverArgs,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
@@ -41,6 +46,8 @@ impl WalletDIDSignVJSON {
         let controlled_did = wallet
             .get_controlled_did(self.verification_method_args.did_o.as_deref())
             .await?;
+
+        let verifier_resolver_map = self.verifier_resolver_args.get_verifier_resolver_map();
 
         // Get the specified signing key.
         let (verification_method_record, priv_key_record) = {
@@ -138,7 +145,11 @@ impl WalletDIDSignVJSON {
             .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         self.vjson_storage_behavior_args
-            .store_if_requested(&vjson_store, self_hashable_json.value())
+            .store_if_requested(
+                &vjson_store,
+                self_hashable_json.value(),
+                &verifier_resolver_map,
+            )
             .await?;
 
         // Print the signed-and-self-hashed JSON and optional newline.

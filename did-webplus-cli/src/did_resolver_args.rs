@@ -1,6 +1,6 @@
 use crate::{parse_url, DIDDocStoreArgs, Result};
 
-#[derive(clap::Args, Debug)]
+#[derive(clap::Args, Clone, Debug)]
 pub struct DIDResolverArgs {
     /// Specify which type of DID resolver to use.  The options are "full", "thin", and "raw".  The
     /// "full" resolver fetches, validates, and stores DID docs to the local DID doc store.  The
@@ -24,7 +24,6 @@ pub struct DIDResolverArgs {
     #[arg(
         name = "did-doc-store",
         env = "DID_WEBPLUS_DID_DOC_STORE",
-        short,
         long,
         value_name = "URL",
         default_value = "sqlite://~/.did-webplus/did-doc-store.db"

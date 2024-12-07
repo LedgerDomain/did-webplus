@@ -8,7 +8,7 @@ edition = "2021"
 sqlx = ["dep:sqlx"]
 
 [dependencies]
-anyhow = "1.0.83"
+anyhow = "1.0.94"
 async-trait = "0.1.80"
 did-key = { path = "../did-key" }
 did-webplus-jws = { path = "../did-webplus-jws" }
@@ -25,6 +25,7 @@ serde_json_canonicalizer = "0.3.0"
 sqlx = { version = "0.8.2", default-features = false, optional = true }
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }
+verifier-resolver = { path = "../verifier-resolver" }
 
 [dev-dependencies]
 ctor = "0.2.8"

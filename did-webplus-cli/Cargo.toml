@@ -10,7 +10,8 @@ name = "did-webplus"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = { version = "1.0.83", features = ["backtrace"] }
+anyhow = { version = "1.0.94", features = ["backtrace"] }
+async-trait = "0.1.80"
 clap = { version = "4.5.4", features = ["derive", "env"] }
 did-key = { path = "../did-key", features = ["ed25519-dalek", "k256"] }
 did-webplus = { path = ".." }
@@ -58,5 +59,9 @@ tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 url = "2.5.0"
 uuid = { version = "1.9.1", features = ["v4"] }
+verifier-resolver = { path = "../verifier-resolver", features = [
+    "did-key-verifier-resolver",
+    "did-webplus-verifier-resolver",
+] }
 vjson-storage-sqlite = { path = "../vjson-storage-sqlite" }
 vjson-store = { path = "../vjson-store" }

@@ -71,6 +71,7 @@ members = [
     "did-webplus-wallet",
     "did-webplus-wallet-storage",
     "did-webplus-wallet-storage-sqlite",
+    "verifier-resolver",
     "vjson-storage-sqlite",
     "vjson-store",
 ]

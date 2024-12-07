@@ -63,6 +63,7 @@ async fn test_vjson_store_0() {
             .add_vjson_value(
                 &mut transaction,
                 self_hashable_json.value(),
+                &verifier_resolver::VerifierResolverMap::new(),
                 AlreadyExistsPolicy::Fail,
             )
             .await

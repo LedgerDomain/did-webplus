@@ -8,7 +8,7 @@ authors = [
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.83"
+anyhow = "1.0.94"
 axum = "0.7.5"
 config = "0.14.0"
 did-webplus = { path = "..", features = ["ed25519-dalek", "k256"] }

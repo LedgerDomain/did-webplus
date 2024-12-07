@@ -21,6 +21,7 @@ impl VJSONStorageBehaviorArgs {
         &self,
         vjson_store: &vjson_store::VJSONStore<vjson_storage_sqlite::VJSONStorageSQLite>,
         vjson_value: &serde_json::Value,
+        verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     ) -> Result<()> {
         if !self.dont_store {
             let already_exists_policy = if self.fail_if_exists {
@@ -31,7 +32,12 @@ impl VJSONStorageBehaviorArgs {
 
             let mut transaction = vjson_store.begin_transaction(None).await?;
             vjson_store
-                .add_vjson_value(&mut transaction, vjson_value, already_exists_policy)
+                .add_vjson_value(
+                    &mut transaction,
+                    vjson_value,
+                    verifier_resolver,
+                    already_exists_policy,
+                )
                 .await?;
             vjson_store.commit_transaction(transaction).await?;
         }

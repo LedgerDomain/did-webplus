@@ -1,4 +1,4 @@
-use crate::{NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs};
+use crate::{NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs, VerifierResolverArgs};
 use selfhash::{HashFunction, SelfHashable};
 use std::io::Read;
 
@@ -18,6 +18,8 @@ pub struct VJSONSelfHash {
     pub vjson_store_args: VJSONStoreArgs,
     #[command(flatten)]
     pub vjson_storage_behavior_args: VJSONStorageBehaviorArgs,
+    #[command(flatten)]
+    pub verifier_resolver_args: VerifierResolverArgs,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
@@ -50,8 +52,13 @@ impl VJSONSelfHash {
             .verify_self_hashes()
             .expect("programmer error: self-hash verification failed");
 
+        let verifier_resolver_map = self.verifier_resolver_args.get_verifier_resolver_map();
         self.vjson_storage_behavior_args
-            .store_if_requested(&vjson_store, self_hashable_json.value())
+            .store_if_requested(
+                &vjson_store,
+                self_hashable_json.value(),
+                &verifier_resolver_map,
+            )
             .await?;
 
         // Print the self-hashed JSON and optional newline.

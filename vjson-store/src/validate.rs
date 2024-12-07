@@ -14,6 +14,7 @@ pub trait Validate: selfhash::SelfHashable {
         &self,
         transaction: &mut Storage::Transaction<'_>,
         vjson_store: &VJSONStore<Storage>,
+        verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     ) -> Result<selfhash::KERIHash>;
 }
 
@@ -23,6 +24,7 @@ impl Validate for serde_json::Value {
         &self,
         transaction: &mut Storage::Transaction<'_>,
         vjson_store: &VJSONStore<Storage>,
+        verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     ) -> Result<selfhash::KERIHash> {
         log::debug!("validate_and_return_self_hash");
 
@@ -105,52 +107,8 @@ impl Validate for serde_json::Value {
                         .map_err(|e| Error::Malformed(e.to_string().into()))?;
                     log::info!("    validate_and_return_self_hash; Verifying {}th proof with JWS header: {:?}", proof_index, jws.header());
 
-                    // TODO: Abstract this into a JWS verifier trait, so that details of specific DID methods
-                    // don't appear here.
-
-                    // Depending on the DID method specified by the JWS header kid field, use different resolution methods.
-                    let verifier_b: Box<dyn selfsign::Verifier> = if jws
-                        .header()
-                        .kid
-                        .starts_with("did:key:")
-                    {
-                        log::trace!(
-                            "    validate_and_return_self_hash; JWS header \"kid\" was {:?}; verifying using did:key method",
-                            jws.header().kid
-                        );
-                        let did_resource = did_key::DIDResourceStr::new_ref(&jws.header().kid)
-                            .map_err(error_malformed)?;
-                        did_resource.did().to_verifier()
-                    } else if jws.header().kid.starts_with("did:webplus:") {
-                        todo!("did:webplus JWS verification not yet implemented");
-                        // log::trace!(
-                        //     "    validate_and_return_self_hash; JWS header \"kid\" was {:?}; verifying using did:webplus method",
-                        //     jws.header().kid
-                        // );
-                        // let did_key_resource_fully_qualified =
-                        //     DIDKeyResourceFullyQualifiedStr::new_ref(&jws.header().kid)?;
-
-                        // // Use "full" DID resolver to resolve the key specified in the JWS header.
-                        // let mut transaction = did_doc_store.begin_transaction(None).await?;
-                        // let _did_doc_record = did_webplus_resolver::resolve_did(
-                        //     &did_doc_store,
-                        //     &mut transaction,
-                        //     did_key_resource_fully_qualified.without_fragment().as_str(),
-                        //     http_scheme,
-                        // )
-                        // .await?;
-                        // transaction.commit().await?;
-
-                        // // Part of DID doc verification is ensuring that the key ID represents the same public key as
-                        // // the JsonWebKey2020 value.  So we can use the key ID KERIVerifier value as the public key.
-                        // // TODO: Assert that this is actually the case.
-                        // Box::new(did_key_resource_fully_qualified.fragment())
-                    } else {
-                        return Err(Error::Unsupported(format!(
-                                "JWS header \"kid\" field was {}, which uses an unsupported DID method",
-                                jws.header().kid
-                            ).into()));
-                    };
+                    // Determine the verifier (i.e. public key) to use to verify the JWS.
+                    let verifier_b = verifier_resolver.resolve(&jws.header().kid).await.map_err(|e| Error::InvalidVJSON(format!("JWS header \"kid\" field was not a valid verifier; error was: {}", e).into()))?;
 
                     jws.verify(
                         verifier_b.as_ref(),

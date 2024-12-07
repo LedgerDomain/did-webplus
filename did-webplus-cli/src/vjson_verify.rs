@@ -1,8 +1,6 @@
-use crate::{
-    DIDResolverArgs, HTTPSchemeArgs, NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs,
-};
-use did_webplus::DIDKeyResourceFullyQualifiedStr;
+use crate::{NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs, VerifierResolverArgs};
 use selfhash::{HashFunction, SelfHashable};
+use verifier_resolver::VerifierResolver;
 
 /// Read VJSON from stdin and verify it, using the "full" resolver with the specified DID doc store.
 /// Verification includes verifying self-hash and all signatures.  If valid, the VJSON will be written
@@ -14,13 +12,11 @@ use selfhash::{HashFunction, SelfHashable};
 #[derive(clap::Parser)]
 pub struct VJSONVerify {
     #[command(flatten)]
-    pub did_resolver_args: DIDResolverArgs,
-    #[command(flatten)]
-    pub http_scheme_args: HTTPSchemeArgs,
-    #[command(flatten)]
     pub vjson_store_args: VJSONStoreArgs,
     #[command(flatten)]
     pub vjson_storage_behavior_args: VJSONStorageBehaviorArgs,
+    #[command(flatten)]
+    pub verifier_resolver_args: VerifierResolverArgs,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
@@ -62,6 +58,8 @@ impl VJSONVerify {
 
         vjson_store::validate_against_json_schema(&schema_value, self_hashable_json.value())?;
 
+        let verifier_resolver_map = self.verifier_resolver_args.get_verifier_resolver_map();
+
         {
             // Clone self_hashable_json because it has to be mutated in order to verify the proofs.
             let mut self_hashable_json = self_hashable_json.clone();
@@ -91,11 +89,8 @@ impl VJSONVerify {
                     proof_v.len()
                 );
 
-                let http_scheme = self.http_scheme_args.determine_http_scheme();
-                let did_resolver_b = self.did_resolver_args.get_did_resolver(http_scheme).await?;
-
-                // Validate the self-hash now that the "proofs" field is removed.  Then form the detached payload that is the
-                // message that is supposed to be signed by each proof.
+                // Now that the "proofs" field is removed, form the detached payload that is the message
+                // that is supposed to be signed by each proof.
                 self_hashable_json
                     .set_self_hash_slots_to(selfhash::Blake3.placeholder_hash())
                     .map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -108,41 +103,9 @@ impl VJSONVerify {
                     let jws = did_webplus_jws::JWS::try_from(proof.as_str())?;
                     log::debug!("Verifying proof with JWS header: {:?}", jws.header());
 
-                    // Depending on the DID method specified by the JWS header kid field, use different resolution methods.
-                    let verifier_b: Box<dyn selfsign::Verifier> =
-                        if jws.header().kid.starts_with("did:key:") {
-                            log::debug!(
-                                "JWS header \"kid\" was {:?}; verifying using did:key method",
-                                jws.header().kid
-                            );
-                            let did_resource = did_key::DIDResourceStr::new_ref(&jws.header().kid)?;
-                            did_resource.did().to_verifier()
-                        } else if jws.header().kid.starts_with("did:webplus:") {
-                            log::debug!(
-                                "JWS header \"kid\" was {:?}; verifying using did:webplus method",
-                                jws.header().kid
-                            );
-                            let did_key_resource_fully_qualified =
-                                DIDKeyResourceFullyQualifiedStr::new_ref(&jws.header().kid)?;
-
-                            // Use DID resolver to resolve the key specified in the JWS header.
-                            let (_did_document, _did_doc_metadata) = did_resolver_b
-                                .resolve_did_document(
-                                    did_key_resource_fully_qualified.without_fragment().as_str(),
-                                    did_webplus::RequestedDIDDocumentMetadata::none(),
-                                )
-                                .await?;
-                            // Part of DID doc verification is ensuring that the key ID represents the same public key as
-                            // the JsonWebKey2020 value.  So we can use the key ID KERIVerifier value as the public key.
-                            // TODO: Assert that this is actually the case.
-
-                            Box::new(did_key_resource_fully_qualified.fragment())
-                        } else {
-                            anyhow::bail!(
-                            "JWS header \"kid\" field was {}, which uses an unsupported DID method",
-                            jws.header().kid
-                        );
-                        };
+                    let verifier_b = verifier_resolver_map
+                        .resolve(jws.header().kid.as_str())
+                        .await?;
 
                     jws.verify(
                         verifier_b.as_ref(),
@@ -156,7 +119,11 @@ impl VJSONVerify {
         }
 
         self.vjson_storage_behavior_args
-            .store_if_requested(&vjson_store, self_hashable_json.value())
+            .store_if_requested(
+                &vjson_store,
+                self_hashable_json.value(),
+                &verifier_resolver_map,
+            )
             .await?;
 
         // JCS-serialize the verified JSON to stdout, and add a newline if specified.

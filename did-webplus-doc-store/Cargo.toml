@@ -8,7 +8,7 @@ edition = "2021"
 sqlx = ["dep:sqlx"]
 
 [dependencies]
-anyhow = "1.0.83"
+anyhow = "1.0.94"
 async-trait = "0.1.80"
 did-webplus = { path = ".." }
 selfhash = "0.4.0"

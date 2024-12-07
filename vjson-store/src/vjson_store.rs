@@ -48,12 +48,13 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
         &self,
         transaction: &mut Storage::Transaction<'_>,
         vjson_value: &serde_json::Value,
+        verifier_resolver: &dyn verifier_resolver::VerifierResolver,
         already_exists_policy: AlreadyExistsPolicy,
         // TODO: optional expected schema
     ) -> Result<selfhash::KERIHash> {
         // This performs the full validation of VJSON against its schema.
         let self_hash = vjson_value
-            .validate_and_return_self_hash(&mut *transaction, self)
+            .validate_and_return_self_hash(&mut *transaction, self, verifier_resolver)
             .await?;
 
         // Now that it's verified, JCS-serialize it for storage.
@@ -79,6 +80,7 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
         &self,
         transaction: &mut Storage::Transaction<'_>,
         vjson_str: &str,
+        verifier_resolver: &dyn verifier_resolver::VerifierResolver,
         already_exists_policy: AlreadyExistsPolicy,
         // TODO: optional expected schema
     ) -> Result<(selfhash::KERIHash, serde_json::Value)> {
@@ -87,7 +89,12 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
         let vjson_value: serde_json::Value =
             serde_json::from_str(vjson_str).map_err(error_invalid_vjson)?;
         let self_hash = self
-            .add_vjson_value(transaction, &vjson_value, already_exists_policy)
+            .add_vjson_value(
+                transaction,
+                &vjson_value,
+                verifier_resolver,
+                already_exists_policy,
+            )
             .await?;
         Ok((self_hash, vjson_value))
     }
