@@ -20,6 +20,7 @@ members = [
     "did-webplus/software-wallet",
     "did-webplus/vdg",
     "did-webplus/vdr",
+    "did-webplus/vdr-lib",
     "did-webplus/wallet",
     "did-webplus/wallet-storage",
     "did-webplus/wallet-storage-sqlite",

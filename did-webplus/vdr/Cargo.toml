@@ -9,34 +9,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.94"
-axum = "0.7.5"
-config = "0.14.0"
-did-webplus-core = { path = "../core", features = ["ed25519-dalek", "k256"] }
-did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
-did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres" }
-http = "1"
-http-body = "1"
-hyper = "1"
-lazy_static = "1.4.0"
-reqwest = { version = "0.12.5", features = ["json"] }
-selfhash = "0.4.0"
-serde = { version = "1.0", features = ["derive"] }
-serde-inline-default = "0.2.0"
-serde_json = "1.0.107"
-serde_yaml = "0.9.33"
-sqlx = { version = "0.8.2", features = [
-    "runtime-tokio-rustls",
-    "postgres",
-    "time",
-] }
-time = { version = "0.3", features = ["macros", "serde", "serde-well-known"] }
+did-webplus-vdr-lib = { path = "../vdr-lib" }
 tokio = { version = "1.41", features = ["full"] }
-tower = "0.4.13"
-tower-http = { version = "0.5.2", features = ["full"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 
 [dev-dependencies]
 ctor = "0.2.8"
+did-webplus-core = { path = "../core" }
 did-webplus-mock = { path = "../mock" }
+reqwest = "0.12.5"
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }

@@ -1,5 +1,5 @@
 use super::AppState;
-use crate::{config::AppConfig, parse_did_document};
+use crate::config::AppConfig;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -416,4 +416,15 @@ async fn send_vdg_updates(gateways: Vec<String>, did: DID) {
             }
         });
     }
+}
+
+fn parse_did_document(
+    did_document_body: &str,
+) -> Result<did_webplus_core::DIDDocument, (axum::http::StatusCode, String)> {
+    serde_json::from_str(did_document_body).map_err(|_| {
+        (
+            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+            "malformed DID document".to_string(),
+        )
+    })
 }
