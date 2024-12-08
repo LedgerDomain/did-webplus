@@ -1,5 +1,5 @@
-use super::AppState;
-use crate::config::AppConfig;
+use super::VDRState;
+use crate::VDRConfig;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -14,10 +14,13 @@ use did_webplus_doc_storage_postgres::DIDDocStoragePostgres;
 use did_webplus_doc_store::DIDDocStore;
 use tokio::task;
 
-pub fn get_routes(did_doc_store: DIDDocStore<DIDDocStoragePostgres>, config: &AppConfig) -> Router {
-    let state = AppState {
+pub fn get_routes(
+    did_doc_store: DIDDocStore<DIDDocStoragePostgres>,
+    vdr_config: &VDRConfig,
+) -> Router {
+    let state = VDRState {
         did_doc_store,
-        config: config.clone(),
+        vdr_config: vdr_config.clone(),
     };
 
     Router::new()
@@ -33,16 +36,16 @@ pub fn get_routes(did_doc_store: DIDDocStore<DIDDocStoragePostgres>, config: &Ap
         .with_state(state)
 }
 
-#[tracing::instrument(err(Debug), skip(app_state))]
+#[tracing::instrument(err(Debug), skip(vdr_state))]
 async fn get_did_document_or_metadata(
-    State(app_state): State<AppState>,
+    State(vdr_state): State<VDRState>,
     Path(path): Path<String>,
 ) -> Result<String, (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = app_state.config.service_domain;
+    let host = vdr_state.vdr_config.service_domain;
 
-    let mut transaction = app_state
+    let mut transaction = vdr_state
         .did_doc_store
         .begin_transaction(None)
         .await
@@ -50,7 +53,7 @@ async fn get_did_document_or_metadata(
 
     // Case for retrieving the latest DID doc.
     if let Ok(did) = DID::from_resolution_url(host.as_str(), path.as_str()) {
-        let latest_did_doc_record = app_state
+        let latest_did_doc_record = vdr_state
             .did_doc_store
             .get_latest_did_doc_record(&mut transaction, &did)
             .await
@@ -67,7 +70,7 @@ async fn get_did_document_or_metadata(
     if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(host.as_str(), path.as_str()) {
         let did = did_with_query.did();
         if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
-            let did_doc_record = app_state
+            let did_doc_record = vdr_state
                 .did_doc_store
                 .get_did_doc_record_with_self_hash(&mut transaction, &did, query_self_hash)
                 .await
@@ -79,7 +82,7 @@ async fn get_did_document_or_metadata(
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             return Ok(did_doc_record.did_document_jcs);
         } else if let Some(query_version_id) = did_with_query.query_version_id_o() {
-            let did_doc_record = app_state
+            let did_doc_record = vdr_state
                 .did_doc_store
                 .get_did_doc_record_with_version_id(&mut transaction, &did, query_version_id)
                 .await
@@ -100,13 +103,13 @@ async fn get_did_document_or_metadata(
         let path = path.strip_suffix("/did/metadata.json").unwrap();
         let did = DID::from_resolution_url(host.as_str(), path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-        let latest_did_document_record = app_state
+        let latest_did_document_record = vdr_state
             .did_doc_store
             .get_latest_did_doc_record(&mut transaction, &did)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-        let first_did_document_record = app_state
+        let first_did_document_record = vdr_state
             .did_doc_store
             .get_did_doc_record_with_version_id(&mut transaction, &did, 0)
             .await
@@ -145,7 +148,7 @@ async fn get_did_document_or_metadata(
         let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
         let did = DID::from_resolution_url(host.as_str(), path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-        let first_did_document_record = app_state
+        let first_did_document_record = vdr_state
             .did_doc_store
             .get_did_doc_record_with_version_id(&mut transaction, &did, 0)
             .await
@@ -179,7 +182,7 @@ async fn get_did_document_or_metadata(
             let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
             let filename_self_hash = selfhash::KERIHashStr::new_ref(filename_self_hash_str)
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let did_document_record = app_state
+            let did_document_record = vdr_state
                 .did_doc_store
                 .get_did_doc_record_with_self_hash(&mut transaction, &did, filename_self_hash)
                 .await
@@ -194,7 +197,7 @@ async fn get_did_document_or_metadata(
             let filename_version_id: u32 = filename_version_id_str
                 .parse()
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let did_document_record = app_state
+            let did_document_record = vdr_state
                 .did_doc_store
                 .get_did_doc_record_with_version_id(&mut transaction, &did, filename_version_id)
                 .await
@@ -204,7 +207,7 @@ async fn get_did_document_or_metadata(
         } else {
             return Err((StatusCode::NOT_FOUND, "".to_string()));
         };
-        let next_did_document_record_o = app_state
+        let next_did_document_record_o = vdr_state
             .did_doc_store
             .get_did_doc_record_with_version_id(
                 &mut transaction,
@@ -213,7 +216,7 @@ async fn get_did_document_or_metadata(
             )
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        let first_did_document_record = app_state
+        let first_did_document_record = vdr_state
             .did_doc_store
             .get_did_doc_record_with_version_id(&mut transaction, &did, 0)
             .await
@@ -255,15 +258,15 @@ async fn get_did_document_or_metadata(
     Err((StatusCode::BAD_REQUEST, "".to_string()))
 }
 
-#[tracing::instrument(err(Debug), skip(app_state))]
+#[tracing::instrument(err(Debug), skip(vdr_state))]
 async fn create_did(
-    State(app_state): State<AppState>,
+    State(vdr_state): State<VDRState>,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = app_state.config.service_domain;
+    let host = vdr_state.vdr_config.service_domain;
 
     let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
         (
@@ -283,12 +286,12 @@ async fn create_did(
         ));
     }
 
-    let mut transaction = app_state
+    let mut transaction = vdr_state
         .did_doc_store
         .begin_transaction(None)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    app_state
+    vdr_state
         .did_doc_store
         .validate_and_add_did_doc(
             &mut transaction,
@@ -312,15 +315,15 @@ async fn create_did(
     Ok(())
 }
 
-#[tracing::instrument(err(Debug), skip(app_state))]
+#[tracing::instrument(err(Debug), skip(vdr_state))]
 async fn update_did(
-    State(app_state): State<AppState>,
+    State(vdr_state): State<VDRState>,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = app_state.config.service_domain.clone();
+    let host = vdr_state.vdr_config.service_domain.clone();
 
     let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
         (
@@ -329,12 +332,12 @@ async fn update_did(
         )
     })?;
 
-    let mut transaction = app_state
+    let mut transaction = vdr_state
         .did_doc_store
         .begin_transaction(None)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let latest_did_document_record_o = app_state
+    let latest_did_document_record_o = vdr_state
         .did_doc_store
         .get_latest_did_doc_record(&mut transaction, &did)
         .await
@@ -367,7 +370,7 @@ async fn update_did(
             )
         })?;
 
-    app_state
+    vdr_state
         .did_doc_store
         .validate_and_add_did_doc(
             &mut transaction,
@@ -388,7 +391,7 @@ async fn update_did(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     task::spawn(send_vdg_updates(
-        app_state.config.gateways.clone(),
+        vdr_state.vdr_config.gateways.clone(),
         did.clone(),
     ));
 

@@ -4,7 +4,7 @@ mod vdg_config;
 
 pub use crate::{spawn_vdg::spawn_vdg, vdg_config::VDGConfig};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum LogFormat {
     Compact,
     Pretty,

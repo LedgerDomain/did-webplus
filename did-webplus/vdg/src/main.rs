@@ -1,17 +1,21 @@
+use did_webplus_vdg_lib::{LogFormat, VDGConfig};
+
 /// did:webplus Verifiable Data Gateway (VDG) service.
+/// See https://github.com/LedgerDomain/did-webplus?tab=readme-ov-file#verifiable-data-gateway-vdg for details.
 #[derive(clap::Parser)]
 pub struct Root {
     #[command(flatten)]
-    pub vdg_config: did_webplus_vdg_lib::VDGConfig,
-    /// Specify the format of the logs.  Valid values are "compact" or "pretty".
+    pub vdg_config: VDGConfig,
+    /// Specify the format of the logs.
     #[arg(
         name = "log-format",
         env = "DID_WEBPLUS_VDG_LOG_FORMAT",
         long,
         value_name = "FORMAT",
-        default_value = "compact"
+        default_value = "compact",
+        value_enum
     )]
-    pub log_format: String,
+    pub log_format: LogFormat,
 }
 
 #[tokio::main]
@@ -29,16 +33,9 @@ async fn main() -> anyhow::Result<()> {
     use clap::Parser;
     let root = Root::parse();
 
-    match root.log_format.as_str() {
-        "compact" => tracing_subscriber_fmt.compact().init(),
-        "pretty" => tracing_subscriber_fmt.pretty().init(),
-        _ => {
-            tracing::warn!(
-                "DID_WEBPLUS_VDG_LOG_FORMAT {:?} unrecognized; expected 'compact' or 'pretty'.  defaulting to 'compact'",
-                root.log_format
-            );
-            tracing_subscriber_fmt.compact().init()
-        }
+    match root.log_format {
+        LogFormat::Compact => tracing_subscriber_fmt.compact().init(),
+        LogFormat::Pretty => tracing_subscriber_fmt.pretty().init(),
     }
 
     // Spawn the VDG, returning a JoinHandle to the task.

@@ -14,7 +14,6 @@ clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus-core = { path = "../core", features = ["ed25519-dalek", "k256"] }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres" }
-dotenvy = "0.15.7"
 lazy_static = "1.4.0"
 reqwest = "0.12.5"
 serde_json = "1.0.107"
@@ -29,6 +28,7 @@ tracing = "0.1.37"
 ctor = "0.2.8"
 did-webplus-mock = { path = "../mock" }
 did-webplus-vdr-lib = { path = "../vdr-lib" }
+dotenvy = "0.15.7"
 reqwest = { version = "0.12.5", features = ["json"] }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

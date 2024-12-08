@@ -9,7 +9,7 @@ use tower_http::trace::{self, TraceLayer};
 use tracing::Level;
 
 pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
-    tracing::info!("Config: {:?}", vdg_config);
+    tracing::info!("{:?}", vdg_config);
 
     let pg_pool = PgPoolOptions::new()
         .max_connections(vdg_config.database_max_connections)

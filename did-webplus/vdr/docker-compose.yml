@@ -55,6 +55,7 @@ services:
       target: runtime
     environment:
       DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@database:5432/postgres?sslmode=disable
+      DID_WEBPLUS_VDR_GATEWAYS: ''
       # Options are "compact" and "pretty" (which is very verbose)
       DID_WEBPLUS_VDR_LOG_FORMAT: compact
       DID_WEBPLUS_VDR_PORT: 80
@@ -63,8 +64,6 @@ services:
       RUST_LOG: 'hyper=warn,sqlx=info,debug'
     entrypoint:
       - /usr/local/bin/did-webplus-vdr
-    command:
-      - /etc/did-webplus-vdr/config.yml
     ports:
       - '8085:80'
     depends_on:

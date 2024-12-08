@@ -20,19 +20,19 @@ fn overall_init() {
 
 #[tokio::test]
 async fn test_vdr_operations() {
-    let config = did_webplus_vdr_lib::AppConfig {
+    let vdr_config = did_webplus_vdr_lib::VDRConfig {
         gateways: Vec::new(),
         service_domain: "localhost".to_string(),
-        log_format: did_webplus_vdr_lib::LogFormat::Compact,
+        // log_format: did_webplus_vdr_lib::LogFormat::Compact,
         database_url: "postgres:///did_webplus_vdr".to_string(),
-        max_connections: 10,
+        database_max_connections: 10,
         port: 9085,
     };
-    let vdr_handle = did_webplus_vdr_lib::spawn_vdr(config.clone())
+    let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
         .expect("pass");
 
-    let vdr_url = format!("http://{}:{}", config.service_domain, config.port);
+    let vdr_url = format!("http://{}:{}", vdr_config.service_domain, vdr_config.port);
 
     tracing::info!("Testing wallet operations; DID without path component");
     test_wallet_operations_impl(vdr_url.as_str(), false).await;

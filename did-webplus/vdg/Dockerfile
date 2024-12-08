@@ -64,5 +64,4 @@ COPY --from=builder /usr/local/bin/did-webplus-vdg /usr/local/bin/
 
 ENV RUST_BACKTRACE=1
 
-# Our standard entrypoint
 ENTRYPOINT ["/usr/local/bin/did-webplus-vdg"]

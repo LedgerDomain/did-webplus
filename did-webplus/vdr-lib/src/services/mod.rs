@@ -11,10 +11,10 @@ pub mod did;
 use did_webplus_doc_storage_postgres::DIDDocStoragePostgres;
 use did_webplus_doc_store::DIDDocStore;
 
-use crate::config::AppConfig;
+use crate::VDRConfig;
 
 #[derive(Clone)]
-struct AppState {
+struct VDRState {
     did_doc_store: DIDDocStore<DIDDocStoragePostgres>,
-    config: AppConfig,
+    vdr_config: VDRConfig,
 }

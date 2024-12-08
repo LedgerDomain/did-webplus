@@ -53,7 +53,7 @@ async fn test_vdg_operations() {
     let vdg_config = did_webplus_vdg_lib::VDGConfig {
         service_domain: "localhost".to_string(),
         port: 10086,
-        database_url: "postgres:///did_webplus_vdr".to_string(),
+        database_url: "postgres:///did_webplus_vdg".to_string(),
         database_max_connections: 10,
     };
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
@@ -61,13 +61,12 @@ async fn test_vdg_operations() {
         .expect("pass");
     let vdg_url = format!("http://{}:{}", vdg_config.service_domain, vdg_config.port);
 
-    let vdr_config = did_webplus_vdr_lib::AppConfig {
-        gateways: vec![vdg_url.clone()],
+    let vdr_config = did_webplus_vdr_lib::VDRConfig {
         service_domain: "localhost".to_string(),
-        log_format: did_webplus_vdr_lib::LogFormat::Compact,
-        database_url: "postgres:///did_webplus_vdr".to_string(),
-        max_connections: 10,
         port: 10085,
+        database_url: "postgres:///did_webplus_vdr".to_string(),
+        database_max_connections: 10,
+        gateways: vec![vdg_url.clone()],
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await

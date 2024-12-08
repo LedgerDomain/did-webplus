@@ -116,6 +116,7 @@ services:
       target: runtime
     environment:
       DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@vdr_database:5432/postgres?sslmode=disable
+      DID_WEBPLUS_VDR_GATEWAYS: http://witness.org
       DID_WEBPLUS_VDR_PORT: 80
       DID_WEBPLUS_VDR_SERVICE_DOMAIN: fancy.net
       RUST_BACKTRACE: '1'
@@ -123,8 +124,6 @@ services:
 
     entrypoint:
       - /usr/local/bin/did-webplus-vdr
-    command:
-      - /etc/did-webplus-vdr/config.yml
     ports:
       - '8085:80'
     depends_on:

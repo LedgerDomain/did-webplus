@@ -1,4 +1,4 @@
-use crate::AppConfig;
+use crate::VDRConfig;
 use anyhow::Context;
 use axum::{routing, Router};
 use sqlx::postgres::PgPoolOptions;
@@ -9,13 +9,13 @@ use tower_http::trace::{self, TraceLayer};
 use tracing::Level;
 
 /// Spawn a VDR using the given AppConfig.
-pub async fn spawn_vdr(config: AppConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
-    tracing::info!("Config: {:?}", config);
+pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
+    tracing::info!("{:?}", vdr_config);
 
     let pg_pool = PgPoolOptions::new()
-        .max_connections(config.max_connections)
+        .max_connections(vdr_config.database_max_connections)
         .acquire_timeout(std::time::Duration::from_secs(3))
-        .connect(&config.database_url)
+        .connect(&vdr_config.database_url)
         .await
         .context("can't connect to database")?;
 
@@ -35,18 +35,18 @@ pub async fn spawn_vdr(config: AppConfig) -> anyhow::Result<tokio::task::JoinHan
         .into_inner();
 
     let app = Router::new()
-        .merge(crate::services::did::get_routes(did_doc_store, &config))
+        .merge(crate::services::did::get_routes(did_doc_store, &vdr_config))
         .layer(middleware_stack)
         .route("/health", routing::get(|| async { "OK" }));
 
     tracing::info!(
         "starting did-webplus-vdr, listening on port {}",
-        config.port
+        vdr_config.port
     );
 
     // This has to be 0.0.0.0 otherwise it won't work in a docker container.
     // 127.0.0.1 is only the loopback device, and isn't available outside the host.
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.port)).await?;
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdr_config.port)).await?;
     // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
     // the task isn't good enough.
     Ok(tokio::task::spawn(async move {
