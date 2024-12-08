@@ -1,52 +1,3 @@
-[package]
-name = "did-webplus"
-version = "0.5.0"
-authors = [
-    "Victor Dods <victor.dods@ledgerdomain.com>",
-    "Ben Nichols <ben.nichols@ledgerdomain.com>",
-]
-edition = "2021"
-
-[features]
-async-traits = ["dep:async-trait"]
-ed25519-dalek = ["selfsign/ed25519-dalek"]
-k256 = ["selfsign/k256"]
-
-[dependencies]
-async-trait = { version = "0.1.80", optional = true }
-derive_more = { version = "0.99.17", default-features = false, features = [
-    "deref",
-    "display",
-    "from",
-    "into",
-] }
-enum-map = "2.7.3"
-flagset = "0.4.6"
-pneutype = "0.5.1"
-selfhash = { version = "0.4.0", features = ["serde", "blake3"] }
-selfsign = { version = "0.6.0", features = ["serde", "jcs"] }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json_canonicalizer = "0.3.0"
-serde_json = "1.0.107"
-serde_with = { version = "3.3.0", default-features = false, features = [
-    "macros",
-] }
-thiserror = { version = "1.0.60", default-features = false }
-time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
-
-[dev-dependencies]
-ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
-rand = "0.8"
-selfsign = { version = "0.6.0", features = ["ed25519-dalek"] }
-serde_json = { version = "1", default-features = false }
-serial_test = { version = "2", default-features = false }
-ssi-jwk = { version = "0.1.1", default-features = false, features = [
-    "ed25519",
-] }
-ssi-jws = { version = "0.1.0", default-features = false, features = [
-    "ed25519",
-] }
-
 [patch.crates-io]
 pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
 selfhash = { git = "https://github.com/LedgerDomain/selfhash", branch = "vjson" }
@@ -58,20 +9,21 @@ selfsign = { git = "https://github.com/LedgerDomain/selfsign", branch = "jsonpat
 resolver = "2"
 members = [
     "did-key",
-    "did-webplus-cli",
-    "did-webplus-doc-storage-postgres",
-    "did-webplus-doc-storage-sqlite",
-    "did-webplus-doc-store",
-    "did-webplus-jws",
-    "did-webplus-mock",
-    "did-webplus-resolver",
-    "did-webplus-software-wallet",
-    "did-webplus-vdg",
-    "did-webplus-vdr",
-    "did-webplus-wallet",
-    "did-webplus-wallet-storage",
-    "did-webplus-wallet-storage-sqlite",
+    "did-webplus/cli",
+    "did-webplus/core",
+    "did-webplus/doc-storage-postgres",
+    "did-webplus/doc-storage-sqlite",
+    "did-webplus/doc-store",
+    "did-webplus/jws",
+    "did-webplus/mock",
+    "did-webplus/resolver",
+    "did-webplus/software-wallet",
+    "did-webplus/vdg",
+    "did-webplus/vdr",
+    "did-webplus/wallet",
+    "did-webplus/wallet-storage",
+    "did-webplus/wallet-storage-sqlite",
     "verifier-resolver",
-    "vjson-storage-sqlite",
-    "vjson-store",
+    "vjson/storage-sqlite",
+    "vjson/store",
 ]

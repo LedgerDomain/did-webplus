@@ -19,17 +19,17 @@ sqlx-prepare: sqlx-prepare-doc-storage-postgres sqlx-prepare-doc-storage-sqlite 
 
 # Generate files for SQLX_OFFLINE build for did-webplus-doc-storage-postgres
 sqlx-prepare-doc-storage-postgres:
-	cd did-webplus-doc-storage-postgres && cargo sqlx prepare
+	cd did-webplus/doc-storage-postgres && cargo sqlx prepare
 
 # Generate files for SQLX_OFFLINE build for did-webplus-doc-storage-sqlite
 sqlx-prepare-doc-storage-sqlite:
-	cd did-webplus-doc-storage-sqlite && cargo sqlx prepare
+	cd did-webplus/doc-storage-sqlite && cargo sqlx prepare
 
 # Generate files for SQLX_OFFLINE build for did-webplus-vjson-storage-sqlite
 sqlx-prepare-vjson-storage-sqlite:
-	cd vjson-storage-sqlite && cargo sqlx prepare
+	cd vjson/storage-sqlite && cargo sqlx prepare
 
 # Generate files for SQLX_OFFLINE build for did-webplus-wallet-storage-sqlite
 sqlx-prepare-wallet-storage-sqlite:
-	cd did-webplus-wallet-storage-sqlite && cargo sqlx prepare
+	cd did-webplus/wallet-storage-sqlite && cargo sqlx prepare
 

@@ -903,30 +903,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "did-webplus"
-version = "0.5.0"
-dependencies = [
- "async-trait",
- "derive_more",
- "ed25519-dalek",
- "enum-map",
- "flagset",
- "pneutype",
- "rand",
- "selfhash",
- "selfsign",
- "serde",
- "serde_json",
- "serde_json_canonicalizer 0.3.0",
- "serde_with",
- "serial_test",
- "ssi-jwk",
- "ssi-jws",
- "thiserror",
- "time",
-]
-
-[[package]]
 name = "did-webplus-cli"
 version = "0.1.0"
 dependencies = [
@@ -934,7 +910,7 @@ dependencies = [
  "async-trait",
  "clap",
  "did-key",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-storage-sqlite",
  "did-webplus-doc-store",
  "did-webplus-jws",
@@ -970,11 +946,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "did-webplus-core"
+version = "0.5.0"
+dependencies = [
+ "async-trait",
+ "derive_more",
+ "ed25519-dalek",
+ "enum-map",
+ "flagset",
+ "pneutype",
+ "rand",
+ "selfhash",
+ "selfsign",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer 0.3.0",
+ "serde_with",
+ "serial_test",
+ "ssi-jwk",
+ "ssi-jws",
+ "thiserror",
+ "time",
+]
+
+[[package]]
 name = "did-webplus-doc-storage-postgres"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-store",
  "selfhash",
  "sqlx",
@@ -985,7 +985,7 @@ name = "did-webplus-doc-storage-sqlite"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-store",
  "selfhash",
  "sqlx",
@@ -998,7 +998,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "did-webplus",
+ "did-webplus-core",
  "selfhash",
  "selfsign",
  "serde",
@@ -1014,7 +1014,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.21.7",
  "derive_more",
- "did-webplus",
+ "did-webplus-core",
  "selfsign",
  "serde",
  "serde_json",
@@ -1026,7 +1026,7 @@ version = "0.2.0"
 dependencies = [
  "ctor",
  "derive_more",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-jws",
  "ed25519-dalek",
  "env_logger",
@@ -1049,7 +1049,7 @@ name = "did-webplus-resolver"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-storage-postgres",
  "did-webplus-doc-storage-sqlite",
  "did-webplus-doc-store",
@@ -1067,7 +1067,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "ctor",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-store",
  "did-webplus-resolver",
  "did-webplus-wallet",
@@ -1098,7 +1098,7 @@ dependencies = [
  "anyhow",
  "axum",
  "ctor",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-storage-postgres",
  "did-webplus-doc-store",
  "did-webplus-mock",
@@ -1128,7 +1128,7 @@ dependencies = [
  "axum",
  "config",
  "ctor",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-storage-postgres",
  "did-webplus-doc-store",
  "did-webplus-mock",
@@ -1157,7 +1157,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "ctor",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-store",
  "did-webplus-wallet-storage",
  "dotenvy",
@@ -1172,7 +1172,7 @@ name = "did-webplus-wallet-storage"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-store",
  "selfhash",
  "selfsign",
@@ -1188,7 +1188,7 @@ name = "did-webplus-wallet-storage-sqlite"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-doc-store",
  "did-webplus-wallet-storage",
  "selfhash",
@@ -2994,9 +2994,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.15"
+version = "0.23.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fbb44d7acc4e873d613422379f69f237a1b141928c02f6bc6ccfddddc2d7993"
+checksum = "934b404430bb06b3fae2cba809eb45a1ab1aecd64491213d7c3301b88393f8d1"
 dependencies = [
  "once_cell",
  "ring",
@@ -4274,7 +4274,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "did-key",
- "did-webplus",
+ "did-webplus-core",
  "did-webplus-resolver",
  "selfsign",
  "thiserror",

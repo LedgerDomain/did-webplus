@@ -1,0 +1,17 @@
+[package]
+name = "did-webplus-wallet-storage-sqlite"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.80"
+did-webplus-core = { path = "../core" }
+did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
+did-webplus-wallet-storage = { path = "../wallet-storage", features = ["sqlx"] }
+selfhash = "0.4.0"
+selfsign = "0.6.0"
+sqlx = { version = "0.8.2", features = ["sqlite", "time", "uuid"] }
+time = { version = "0.3", features = ["serde"] }
+tracing = "0.1.37"
+uuid = "1.9.1"

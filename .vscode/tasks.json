@@ -136,13 +136,13 @@
 			]
 		},
 		{
-			"label": "check did-webplus",
+			"label": "check did-webplus-core",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
 				"check",
 				"--package",
-				"did-webplus",
+				"did-webplus-core",
 				"--all-features",
 				"--tests"
 			],
@@ -161,13 +161,13 @@
 			]
 		},
 		{
-			"label": "test did-webplus",
+			"label": "test did-webplus-core",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
 				"test",
 				"--package",
-				"did-webplus",
+				"did-webplus-core",
 				"--all-features",
 				"--",
 				"--nocapture"
@@ -220,57 +220,6 @@
 				"--package",
 				"did-webplus-cli",
 				"--all-features"
-			],
-			"group": "build",
-			"presentation": {
-				"clear": true,
-				"revealProblems": "onProblem"
-			},
-			"problemMatcher": [
-				{
-					"base": "$rustc",
-					"fileLocation": [
-						"relative"
-					]
-				}
-			]
-		},
-		{
-			"label": "check did-webplus-doc-store",
-			"type": "shell",
-			"command": "cargo",
-			"args": [
-				"check",
-				"--package",
-				"did-webplus-doc-store",
-				"--all-features",
-				"--tests"
-			],
-			"group": "build",
-			"presentation": {
-				"clear": true,
-				"revealProblems": "onProblem"
-			},
-			"problemMatcher": [
-				{
-					"base": "$rustc",
-					"fileLocation": [
-						"relative"
-					]
-				}
-			]
-		},
-		{
-			"label": "test did-webplus-doc-store",
-			"type": "shell",
-			"command": "cargo",
-			"args": [
-				"test",
-				"--package",
-				"did-webplus-doc-store",
-				"--all-features",
-				"--",
-				"--nocapture"
 			],
 			"group": "build",
 			"presentation": {
@@ -384,6 +333,57 @@
 					"SQLX_OFFLINE": "true"
 				}
 			},
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "check did-webplus-doc-store",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-doc-store",
+				"--all-features",
+				"--tests"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "test did-webplus-doc-store",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--package",
+				"did-webplus-doc-store",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
 			"group": "build",
 			"presentation": {
 				"clear": true,

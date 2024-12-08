@@ -6,14 +6,17 @@ edition = "2021"
 
 [features]
 did-key-verifier-resolver = ["dep:did-key"]
-did-webplus-verifier-resolver = ["dep:did-webplus", "dep:did-webplus-resolver"]
+did-webplus-verifier-resolver = [
+    "dep:did-webplus-core",
+    "dep:did-webplus-resolver",
+]
 
 [dependencies]
 anyhow = "1.0.94"
 async-trait = "0.1.80"
 did-key = { path = "../did-key", optional = true }
-did-webplus = { path = "..", optional = true }
-did-webplus-resolver = { path = "../did-webplus-resolver", optional = true }
+did-webplus-core = { path = "../did-webplus/core", optional = true }
+did-webplus-resolver = { path = "../did-webplus/resolver", optional = true }
 selfsign = "0.6.0"
 thiserror = "1.0.60"
 tracing = "0.1.37"

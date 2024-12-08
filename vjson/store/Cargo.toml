@@ -1,0 +1,40 @@
+[package]
+name = "vjson-store"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[features]
+sqlx = ["dep:sqlx"]
+
+[dependencies]
+anyhow = "1.0.94"
+async-trait = "0.1.80"
+did-key = { path = "../../did-key" }
+did-webplus-jws = { path = "../../did-webplus/jws" }
+jsonpath_lib = "0.3.0"
+jsonschema = "0.18.3"
+lazy_static = "1.4.0"
+log = "0.4.21"
+pneutype = "0.5.1"
+selfhash = { version = "0.4.0", features = ["self-hashable-json", "serde"] }
+selfsign = "0.6.0"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = "1.0.107"
+serde_json_canonicalizer = "0.3.0"
+sqlx = { version = "0.8.2", default-features = false, optional = true }
+thiserror = "1.0.60"
+time = { version = "0.3", features = ["serde"] }
+verifier-resolver = { path = "../../verifier-resolver" }
+
+[dev-dependencies]
+ctor = "0.2.8"
+did-key = { path = "../../did-key", features = ["ed25519-dalek", "k256"] }
+ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
+env_logger = "0.11.3"
+rand = "0.8"
+selfhash = { version = "0.4.0", features = ["blake3", "self-hashable-json"] }
+selfsign = { version = "0.6.0", features = ["ed25519-dalek"] }
+sqlx = { version = "0.8.2", features = ["runtime-tokio"] }
+tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
+vjson-storage-sqlite = { path = "../storage-sqlite" }

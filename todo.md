@@ -1,8 +1,5 @@
 # To-dos
 
--   Restructure crate directories
-    -   Put root crate (`did_webplus`) into a `core` subdir and maybe rename it to `did_webplus_core` (it's the core data model).
-    -   Remove `did-webplus-` prefix from dirs, since it's redundant.
 -   Maybe shorten `DIDDocStore`/`DIDDocStorage` names to simply `DocStore`/`DocStorage`.
 -   Prototype a did:webplus resolver (via `ssi` crate) and incorporate that into this demo.
 -   Consider making the `id` fields of the elements of `verificationMethod` also contain the appropriate query params (`versionId`, `selfHash`, and potentially even `validFrom`), so that the DID represents the exact value of the `kid` field that should go in the header for signatures using JWS and JWT, and it doesn't need to be separately tracked by the wallet.

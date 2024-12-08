@@ -8,9 +8,9 @@ Here is a [talk](https://www.youtube.com/watch?v=Ws55MlDuUGI) Victor Dods gave a
 
 
 Component documentation:
--   [`did:webplus` Verifiable Data Registry (VDR) service](did-webplus-vdr/README.md)
--   [`did:webplus` Verifiable Data Gateway (VDG) service](did-webplus-vdg/README.md)
--   [`did-webplus` CLI tool](did-webplus-cli/README.md)
+-   [`did:webplus` Verifiable Data Registry (VDR) service](did-webplus/vdr/README.md)
+-   [`did:webplus` Verifiable Data Gateway (VDG) service](did-webplus/vdg/README.md)
+-   [`did-webplus` CLI tool](did-webplus/cli/README.md)
 
 Along with an overview and examples, this repository includes a Rust crate for prototype implementation of the `did:webplus` DID method. This repository provides initial reference implementations of the components described herein, and your feedback is welcome.
 
@@ -55,7 +55,7 @@ As outlined above, the validity duration applies to each DID document, and exten
 
 ## Verifiable Data Registry (VDR)
 
-Here are [instructions](did-webplus-vdr/README.md) on how to spin up the VDR service in a dockerized environment and run tests against it.
+Here are [instructions](did-webplus/vdr/README.md) on how to spin up the VDR service in a dockerized environment and run tests against it.
 
 A Verifiable Data Registry in the context of `did:webplus` is a web host which hosts DID documents on behalf of DID controllers.  A DID controller determines the content of each DID document, producing a self-signature over each DID document to prove valid authorship, whereas the VDR verifies DID creation and DID updates and serves DID documents to clients performing DID resolution.  Thus a DID controller is the author of a DID, but the VDR is the origin of the DID's documents.
 
@@ -69,7 +69,7 @@ To this end, a couple of "witnessing" schemes are presented.  A parallel conside
 
 ### Verifiable Data Gateway (VDG)
 
-Here are [instructions](did-webplus-vdg/README.md) on how to spin up the VDG service in a dockerized environment and run tests against it.
+Here are [instructions](did-webplus/vdg/README.md) on how to spin up the VDG service in a dockerized environment and run tests against it.
 
 A Verifiable Data Gateway is meant to be a realtime replica of potentially many VDRs.  A VDG retrieves, verifies, and stores all DID microledgers within some scope of interest.  This scope could be, for example, all VDRs operating within a certain industry subject to strict long-term audit regulations.  A VDG can also service DID resolution requests on behalf of users that choose to trust it.  A VDG serves several purposes:
 -   A VDG is a long-term backup of all DID microledgers within the scope of interest, thereby meeting the need for long-term non-repudiability and resolvability.  A VDG is meant to be a highly available and robust service, and therefore be a bulwhark against VDR service outages.
