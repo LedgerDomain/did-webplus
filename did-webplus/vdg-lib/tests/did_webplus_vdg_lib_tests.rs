@@ -55,7 +55,6 @@ async fn test_vdg_operations() {
         port: 10086,
         database_url: "postgres:///did_webplus_vdr".to_string(),
         database_max_connections: 10,
-        log_format: "compact".to_string(),
     };
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
         .await
