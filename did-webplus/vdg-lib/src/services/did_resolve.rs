@@ -1,4 +1,3 @@
-use crate::parse_did_document;
 use axum::{
     extract::{Path, State},
     http::{
@@ -373,4 +372,15 @@ async fn update_did(
     });
 
     Ok((StatusCode::OK, "DID document update initiated".to_string()))
+}
+
+fn parse_did_document(
+    did_document_body: &str,
+) -> Result<did_webplus_core::DIDDocument, (StatusCode, String)> {
+    serde_json::from_str(did_document_body).map_err(|_| {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "malformed DID document".to_string(),
+        )
+    })
 }

@@ -610,7 +610,10 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
@@ -675,6 +678,57 @@
 			]
 		},
 		{
+			"label": "check did-webplus-vdg-lib",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-vdg-lib",
+				"--all-features",
+				"--tests"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "test did-webplus-vdg-lib",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--package",
+				"did-webplus-vdg-lib",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
 			"label": "check did-webplus-vdr",
 			"type": "shell",
 			"command": "cargo",
@@ -685,10 +739,7 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"

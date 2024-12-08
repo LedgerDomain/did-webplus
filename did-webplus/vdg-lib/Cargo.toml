@@ -1,5 +1,5 @@
 [package]
-name = "did-webplus-vdr-lib"
+name = "did-webplus-vdg-lib"
 version = "0.1.0"
 authors = [
     "Ben Nichols <ben.nichols@ledgerdomain.com>",
@@ -10,18 +10,16 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.94"
 axum = "0.7.5"
-config = "0.14.0"
+clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus-core = { path = "../core", features = ["ed25519-dalek", "k256"] }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres" }
+dotenvy = "0.15.7"
 lazy_static = "1.4.0"
-reqwest = { version = "0.12.5", features = ["json"] }
-selfhash = "0.4.0"
-serde = { version = "1.0", features = ["derive"] }
-serde-inline-default = "0.2.0"
+reqwest = "0.12.5"
 serde_json = "1.0.107"
-# TODO: This will go away when spawn_vdr accepts a DocStore.
 sqlx = { version = "0.8.2", features = ["postgres"] }
+time = "0.3"
 tokio = "1.41"
 tower = "0.4.13"
 tower-http = { version = "0.5.2", features = ["full"] }
@@ -30,5 +28,7 @@ tracing = "0.1.37"
 [dev-dependencies]
 ctor = "0.2.8"
 did-webplus-mock = { path = "../mock" }
+did-webplus-vdr-lib = { path = "../vdr-lib" }
+reqwest = { version = "0.12.5", features = ["json"] }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

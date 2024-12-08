@@ -19,6 +19,7 @@ members = [
     "did-webplus/resolver",
     "did-webplus/software-wallet",
     "did-webplus/vdg",
+    "did-webplus/vdg-lib",
     "did-webplus/vdr",
     "did-webplus/vdr-lib",
     "did-webplus/wallet",
