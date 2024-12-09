@@ -8,8 +8,7 @@ use axum::{
     Router,
 };
 use did_webplus_core::{DIDStr, DIDWithQueryStr};
-use did_webplus_doc_storage_postgres::DIDDocStoragePostgres;
-use did_webplus_doc_store::DIDDocStore;
+use did_webplus_doc_store::{DIDDocStorage, DIDDocStore};
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
 
@@ -17,7 +16,7 @@ use tokio::task;
 const CACHE_DAYS: i64 = 365;
 type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
 
-pub fn get_routes(did_doc_store: DIDDocStore<DIDDocStoragePostgres>) -> Router {
+pub fn get_routes<Storage: DIDDocStorage>(did_doc_store: DIDDocStore<Storage>) -> Router {
     Router::new()
         .route("/:did_query", get(resolve_did))
         .route("/update/:did", post(update_did))
@@ -25,16 +24,16 @@ pub fn get_routes(did_doc_store: DIDDocStore<DIDDocStoragePostgres>) -> Router {
 }
 
 #[tracing::instrument(err(Debug), skip(did_doc_store))]
-async fn resolve_did(
-    State(did_doc_store): State<DIDDocStore<DIDDocStoragePostgres>>,
+async fn resolve_did<Storage: DIDDocStorage>(
+    State(did_doc_store): State<DIDDocStore<Storage>>,
     // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
     Path(did_query): Path<String>,
 ) -> DidResult {
     resolve_did_impl(&did_doc_store, did_query).await
 }
 
-async fn resolve_did_impl(
-    did_doc_store: &DIDDocStore<DIDDocStoragePostgres>,
+async fn resolve_did_impl<Storage: DIDDocStorage>(
+    did_doc_store: &DIDDocStore<Storage>,
     did_query: String,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::trace!("starting DID resolution");
@@ -119,8 +118,8 @@ async fn resolve_did_impl(
         if let Some(did_document_record) = did_document_record_o {
             // If we do have the requested DID document record,  return it.
             tracing::trace!("requested DID document already in database");
-            transaction
-                .commit()
+            did_doc_store
+                .commit_transaction(transaction)
                 .await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             return Ok((
@@ -268,8 +267,8 @@ async fn resolve_did_impl(
         }
     }
 
-    transaction
-        .commit()
+    did_doc_store
+        .commit_transaction(transaction)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -357,8 +356,8 @@ async fn vdr_fetch_did_document_body(
 }
 
 #[tracing::instrument(err(Debug), skip(did_doc_store))]
-async fn update_did(
-    State(did_doc_store): State<DIDDocStore<DIDDocStoragePostgres>>,
+async fn update_did<Storage: DIDDocStorage>(
+    State(did_doc_store): State<DIDDocStore<Storage>>,
     Path(did): Path<String>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
     // Spawn a new task to handle the update since the vdr shouldn't need to wait

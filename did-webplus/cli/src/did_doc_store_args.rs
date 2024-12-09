@@ -11,7 +11,7 @@ pub struct DIDDocStoreArgs {
         env = "DID_WEBPLUS_DID_DOC_STORE",
         long,
         value_name = "URL",
-        default_value = "sqlite://~/.did-webplus/did-doc-store.db"
+        default_value = "sqlite://~/.did-webplus/did-doc-store.db?mode=rwc"
     )]
     pub did_doc_store_db_url: String,
 }
@@ -45,21 +45,12 @@ impl DIDDocStoreArgs {
                     // TODO: Probably if the dir exists already this will return an error.
                     std::fs::create_dir_all(did_doc_db_url_parent)?;
                 }
-                log::debug!(
-                    "Creating and connecting to did_doc_store DB at {}",
-                    did_doc_store_db_path_str
-                );
-                sqlx::SqlitePool::connect(
-                    format!("{}?mode=rwc", did_doc_store_db_path_str).as_str(),
-                )
-                .await?
-            } else {
-                log::debug!(
-                    "Connecting to did_doc_store DB at {}",
-                    did_doc_store_db_path_str
-                );
-                sqlx::SqlitePool::connect(did_doc_store_db_path_str).await?
             }
+            log::debug!(
+                "Connecting to did_doc_store DB at {}",
+                did_doc_store_db_path_str
+            );
+            sqlx::SqlitePool::connect(did_doc_store_db_path_str).await?
         } else {
             unimplemented!("non-SQLite did_doc_store DBs are not yet supported.");
         };

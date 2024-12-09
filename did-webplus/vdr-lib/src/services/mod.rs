@@ -1,3 +1,4 @@
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
 pub mod did;
 // pub type Result<T, E = anyhow::Error> = ::std::result::Result<T, E>;
 
@@ -8,13 +9,9 @@ pub mod did;
 //     )
 // }
 
-use did_webplus_doc_storage_postgres::DIDDocStoragePostgres;
-use did_webplus_doc_store::DIDDocStore;
-
-use crate::VDRConfig;
-
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
 #[derive(Clone)]
-struct VDRState {
-    did_doc_store: DIDDocStore<DIDDocStoragePostgres>,
-    vdr_config: VDRConfig,
+struct VDRState<Storage: did_webplus_doc_store::DIDDocStorage> {
+    did_doc_store: did_webplus_doc_store::DIDDocStore<Storage>,
+    vdr_config: crate::VDRConfig,
 }

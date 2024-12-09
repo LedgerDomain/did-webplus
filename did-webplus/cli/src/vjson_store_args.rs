@@ -12,7 +12,7 @@ pub struct VJSONStoreArgs {
         short,
         long,
         value_name = "URL",
-        default_value = "sqlite://~/.did-webplus/vjson-store.db"
+        default_value = "sqlite://~/.did-webplus/vjson-store.db?mode=rwc"
     )]
     pub vjson_store_db_url: String,
 }
@@ -44,19 +44,12 @@ impl VJSONStoreArgs {
                     // TODO: Probably if the dir exists already this will return an error.
                     std::fs::create_dir_all(vjson_store_db_url_parent)?;
                 }
-                log::debug!(
-                    "Creating and connecting to vjson_store DB at {}",
-                    vjson_store_db_path_str
-                );
-                sqlx::SqlitePool::connect(format!("{}?mode=rwc", vjson_store_db_path_str).as_str())
-                    .await?
-            } else {
-                log::debug!(
-                    "Connecting to vjson_store DB at {}",
-                    vjson_store_db_path_str
-                );
-                sqlx::SqlitePool::connect(vjson_store_db_path_str).await?
             }
+            log::debug!(
+                "Connecting to vjson_store DB at {}",
+                vjson_store_db_path_str
+            );
+            sqlx::SqlitePool::connect(vjson_store_db_path_str).await?
         } else {
             unimplemented!("non-SQLite vjson_store DBs are not yet supported.");
         };

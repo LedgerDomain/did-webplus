@@ -11,8 +11,12 @@ pub struct VDRConfig {
         default_value = "80"
     )]
     pub port: u16,
-    /// Specify the URL of the database to connect to, e.g. "postgres:///database-name".
-    /// See https://docs.rs/sqlx/latest/sqlx/postgres/struct.PgConnectOptions.html for more details.
+    /// Specify the URL of the database to connect to, e.g. "postgres:///database-name", "sqlite://name.db",
+    /// "sqlite://name.db?mode=rwc" (read+write, create if it doesn't yet exist).
+    /// See https://docs.rs/sqlx/latest/sqlx/postgres/struct.PgConnectOptions.html and
+    /// https://docs.rs/sqlx/latest/sqlx/sqlite/struct.SqliteConnectOptions.html for more details.
+    /// Note that the `postgres` and `sqlite` cargo features must be enabled, respectively, in order
+    /// to support each database type.
     #[arg(env = "DID_WEBPLUS_VDR_DATABASE_URL", long, value_name = "URL")]
     pub database_url: String,
     /// Specify the maximum number of connections to the database.

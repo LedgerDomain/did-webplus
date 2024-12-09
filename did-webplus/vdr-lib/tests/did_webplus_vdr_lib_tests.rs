@@ -18,13 +18,13 @@ fn overall_init() {
         .init();
 }
 
+// TODO: Maybe make separate sqlite and postgres versions of this test?
 #[tokio::test]
 async fn test_vdr_operations() {
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
         gateways: Vec::new(),
         service_domain: "localhost".to_string(),
-        // log_format: did_webplus_vdr_lib::LogFormat::Compact,
-        database_url: "postgres:///did_webplus_vdr".to_string(),
+        database_url: "sqlite://tests/test_vdr_operations.vdr.db?mode=rwc".to_string(),
         database_max_connections: 10,
         port: 9085,
     };

@@ -7,15 +7,16 @@ authors = [
 ]
 edition = "2021"
 
+[features]
+postgres = ["did-webplus-vdg-lib/postgres"]
+sqlite = ["did-webplus-vdg-lib/sqlite"]
+
 [dependencies]
 anyhow = "1.0.94"
 clap = { version = "4.5.4", features = ["derive", "env"] }
-did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
-did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres" }
 did-webplus-vdg-lib = { path = "../vdg-lib" }
 dotenvy = "0.15.7"
 tokio = { version = "1.41", features = ["full"] }
-tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 
 [dev-dependencies]
@@ -25,3 +26,4 @@ did-webplus-mock = { path = "../mock" }
 reqwest = { version = "0.12.5", features = ["json"] }
 serde_json = "1.0.107"
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.37"

@@ -7,13 +7,18 @@ authors = [
 ]
 edition = "2021"
 
+[features]
+postgres = ["dep:did-webplus-doc-storage-postgres", "sqlx/postgres"]
+sqlite = ["dep:did-webplus-doc-storage-sqlite", "sqlx/sqlite"]
+
 [dependencies]
 anyhow = "1.0.94"
 axum = "0.7.5"
 clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus-core = { path = "../core", features = ["ed25519-dalek", "k256"] }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
-did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres" }
+did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional = true }
+did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }
 lazy_static = "1.4.0"
 reqwest = { version = "0.12.5", features = ["json"] }
 selfhash = "0.4.0"
@@ -21,7 +26,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde-inline-default = "0.2.0"
 serde_json = "1.0.107"
 # TODO: This will go away when spawn_vdr accepts a DocStore.
-sqlx = { version = "0.8.2", features = ["postgres"] }
+sqlx = { version = "0.8.2", optional = true }
 tokio = "1.41"
 tower = "0.4.13"
 tower-http = { version = "0.5.2", features = ["full"] }

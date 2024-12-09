@@ -10,12 +10,11 @@ use did_webplus_core::{
     DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
     DIDDocumentMetadataIdempotent, DIDWithQuery, DID,
 };
-use did_webplus_doc_storage_postgres::DIDDocStoragePostgres;
-use did_webplus_doc_store::DIDDocStore;
+use did_webplus_doc_store::{DIDDocStorage, DIDDocStore};
 use tokio::task;
 
-pub fn get_routes(
-    did_doc_store: DIDDocStore<DIDDocStoragePostgres>,
+pub fn get_routes<Storage: DIDDocStorage>(
+    did_doc_store: DIDDocStore<Storage>,
     vdr_config: &VDRConfig,
 ) -> Router {
     let state = VDRState {
@@ -37,8 +36,8 @@ pub fn get_routes(
 }
 
 #[tracing::instrument(err(Debug), skip(vdr_state))]
-async fn get_did_document_or_metadata(
-    State(vdr_state): State<VDRState>,
+async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
+    State(vdr_state): State<VDRState<Storage>>,
     Path(path): Path<String>,
 ) -> Result<String, (StatusCode, String)> {
     assert!(!path.starts_with('/'));
@@ -59,8 +58,9 @@ async fn get_did_document_or_metadata(
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-        transaction
-            .commit()
+        vdr_state
+            .did_doc_store
+            .commit_transaction(transaction)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         return Ok(latest_did_doc_record.did_document_jcs);
@@ -76,8 +76,9 @@ async fn get_did_document_or_metadata(
                 .await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
                 .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-            transaction
-                .commit()
+            vdr_state
+                .did_doc_store
+                .commit_transaction(transaction)
                 .await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             return Ok(did_doc_record.did_document_jcs);
@@ -88,8 +89,9 @@ async fn get_did_document_or_metadata(
                 .await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
                 .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-            transaction
-                .commit()
+            vdr_state
+                .did_doc_store
+                .commit_transaction(transaction)
                 .await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             return Ok(did_doc_record.did_document_jcs);
@@ -121,8 +123,9 @@ async fn get_did_document_or_metadata(
                         .to_string(),
                 )
             })?;
-        transaction
-            .commit()
+        vdr_state
+            .did_doc_store
+            .commit_transaction(transaction)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         let current_did_document_metadata = DIDDocumentMetadata {
@@ -154,8 +157,9 @@ async fn get_did_document_or_metadata(
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-        transaction
-            .commit()
+        vdr_state
+            .did_doc_store
+            .commit_transaction(transaction)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         let current_did_document_metadata = DIDDocumentMetadata {
@@ -242,8 +246,9 @@ async fn get_did_document_or_metadata(
             }),
             currency_o: None,
         };
-        transaction
-            .commit()
+        vdr_state
+            .did_doc_store
+            .commit_transaction(transaction)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         return serde_json::to_string(&current_did_document_metadata).map_err(|_| {
@@ -259,8 +264,8 @@ async fn get_did_document_or_metadata(
 }
 
 #[tracing::instrument(err(Debug), skip(vdr_state))]
-async fn create_did(
-    State(vdr_state): State<VDRState>,
+async fn create_did<Storage: DIDDocStorage>(
+    State(vdr_state): State<VDRState<Storage>>,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
@@ -307,8 +312,9 @@ async fn create_did(
             }
             _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         })?;
-    transaction
-        .commit()
+    vdr_state
+        .did_doc_store
+        .commit_transaction(transaction)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -316,8 +322,8 @@ async fn create_did(
 }
 
 #[tracing::instrument(err(Debug), skip(vdr_state))]
-async fn update_did(
-    State(vdr_state): State<VDRState>,
+async fn update_did<Storage: DIDDocStorage>(
+    State(vdr_state): State<VDRState<Storage>>,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
@@ -385,8 +391,9 @@ async fn update_did(
             }
             _ => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         })?;
-    transaction
-        .commit()
+    vdr_state
+        .did_doc_store
+        .commit_transaction(transaction)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 

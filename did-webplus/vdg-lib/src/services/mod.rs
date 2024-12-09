@@ -1,3 +1,4 @@
+#[cfg(any(feature = "postgres", feature = "sqlite"))]
 pub mod did_resolve;
 
 // pub type Result<T, E = anyhow::Error> = ::std::result::Result<T, E>;

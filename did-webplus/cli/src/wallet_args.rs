@@ -9,7 +9,7 @@ pub struct WalletArgs {
         short = 'u',
         long,
         value_name = "URL",
-        default_value = "sqlite://~/.did-webplus/wallet.db"
+        default_value = "sqlite://~/.did-webplus/wallet.db?mode=rwc"
     )]
     pub wallet_db_url: String,
     /// Optionally specify the UUID of the wallet within the database to use.
@@ -57,16 +57,9 @@ impl WalletArgs {
                     // TODO: Probably if the dir exists already this will return an error.
                     std::fs::create_dir_all(wallet_db_url_parent)?;
                 }
-                log::debug!(
-                    "Creating and connecting to wallet DB at {}",
-                    wallet_db_path_str
-                );
-                sqlx::SqlitePool::connect(format!("{}?mode=rwc", wallet_db_path_str).as_str())
-                    .await?
-            } else {
-                log::debug!("Connecting to wallet DB at {}", wallet_db_path_str);
-                sqlx::SqlitePool::connect(wallet_db_path_str).await?
             }
+            log::debug!("Connecting to wallet DB at {}", wallet_db_path_str);
+            sqlx::SqlitePool::connect(wallet_db_path_str).await?
         } else {
             unimplemented!("non-SQLite wallet DBs are not yet supported.");
         };

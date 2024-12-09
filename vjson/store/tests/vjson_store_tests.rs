@@ -10,7 +10,7 @@ fn overall_init() {
 
 #[tokio::test]
 async fn test_vjson_store_0() {
-    let sqlite_pool = sqlx::SqlitePool::connect("test_vjson_store_0.db?mode=rwc")
+    let sqlite_pool = sqlx::SqlitePool::connect("sqlite://tests/test_vjson_store_0.db?mode=rwc")
         .await
         .unwrap();
     let storage = vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool)

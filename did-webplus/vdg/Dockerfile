@@ -28,10 +28,10 @@ RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/workdir/target \
     if [ "$RELEASE_TYPE" = "release" ]; then \
-        SQLX_OFFLINE=true cargo build --package did-webplus-vdg --bin did-webplus-vdg --release; \
+        SQLX_OFFLINE=true cargo build --package did-webplus-vdg --bin did-webplus-vdg --features postgres --release; \
         mv /workdir/target/release/did-webplus-vdg /usr/local/bin/did-webplus-vdg; \
     else \
-        SQLX_OFFLINE=true cargo build --package did-webplus-vdg --bin did-webplus-vdg; \
+        SQLX_OFFLINE=true cargo build --package did-webplus-vdg --bin did-webplus-vdg --features postgres; \
         mv /workdir/target/debug/did-webplus-vdg /usr/local/bin/did-webplus-vdg; \
     fi
 

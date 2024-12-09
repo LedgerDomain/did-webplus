@@ -47,13 +47,14 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDo
 
 // TODO: This won't work until ports are supported by the VDR (e.g. did:webplus:localhost%3A<port>:<self-hash>
 // which resolves to http://localhost:<port>/<self-hash>/did.json)
+// TODO: Maybe make separate sqlite and postgres versions of this test?
 #[tokio::test]
 #[ignore]
 async fn test_vdg_operations() {
     let vdg_config = did_webplus_vdg_lib::VDGConfig {
         service_domain: "localhost".to_string(),
         port: 10086,
-        database_url: "postgres:///did_webplus_vdg".to_string(),
+        database_url: "sqlite://tests/test_vdg_operations.vdg.db?mode=rwc".to_string(),
         database_max_connections: 10,
     };
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
@@ -64,7 +65,7 @@ async fn test_vdg_operations() {
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
         service_domain: "localhost".to_string(),
         port: 10085,
-        database_url: "postgres:///did_webplus_vdr".to_string(),
+        database_url: "sqlite://tests/test_vdg_operations.vdr.db?mode=rwc".to_string(),
         database_max_connections: 10,
         gateways: vec![vdg_url.clone()],
     };

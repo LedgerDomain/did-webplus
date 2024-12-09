@@ -18,7 +18,7 @@ fn overall_init() {
 
 #[tokio::test]
 async fn test_software_wallet() {
-    let sqlite_pool = sqlx::SqlitePool::connect("did_webplus_software_wallet_tests.db?mode=rwc")
+    let sqlite_pool = sqlx::SqlitePool::connect("sqlite://tests/test_software_wallet.db?mode=rwc")
         .await
         .expect("pass");
     let storage = did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
