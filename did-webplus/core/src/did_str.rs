@@ -1,6 +1,7 @@
 use crate::{
     DIDFullyQualified, DIDResource, DIDWebplusURIComponents, DIDWithQuery, Error, Fragment,
 };
+use std::fmt::Write;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
 #[pneu_str(deserialize, serialize)]
@@ -27,6 +28,11 @@ impl DIDStr {
     pub fn host(&self) -> &str {
         self.uri_components().host
     }
+    /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
+    /// for this DID, or None if not specified.
+    pub fn port_o(&self) -> Option<u16> {
+        self.uri_components().port_o
+    }
     /// This is everything between the host and the root self_hash, not including the leading and trailing
     /// colons.  In particular, if the path is empty, this will be None.  Another example is
     /// "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ" which will have path_o
@@ -41,6 +47,7 @@ impl DIDStr {
     pub fn with_query_self_hash(&self, query_self_hash: &selfhash::KERIHashStr) -> DIDWithQuery {
         DIDWithQuery::new(
             self.host(),
+            self.port_o(),
             self.path_o(),
             self.root_self_hash(),
             Some(query_self_hash),
@@ -51,6 +58,7 @@ impl DIDStr {
     pub fn with_query_version_id(&self, query_version_id: u32) -> DIDWithQuery {
         DIDWithQuery::new(
             self.host(),
+            self.port_o(),
             self.path_o(),
             self.root_self_hash(),
             None,
@@ -65,6 +73,7 @@ impl DIDStr {
     ) -> DIDFullyQualified {
         DIDFullyQualified::new(
             self.host(),
+            self.port_o(),
             self.path_o(),
             self.root_self_hash(),
             query_self_hash,
@@ -73,12 +82,22 @@ impl DIDStr {
         .expect("programmer error")
     }
     pub fn with_fragment<F: Fragment + ?Sized>(&self, fragment: &F) -> DIDResource<F> {
-        DIDResource::new(self.host(), self.path_o(), self.root_self_hash(), fragment)
-            .expect("programmer error")
+        DIDResource::new(
+            self.host(),
+            self.port_o(),
+            self.path_o(),
+            self.root_self_hash(),
+            fragment,
+        )
+        .expect("programmer error")
     }
     /// Produce the URL that addresses the latest DID document for this DID.
     pub fn resolution_url(&self, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}/", scheme, self.host());
+        let mut url = format!("{}://{}", scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.write_fmt(format_args!(":{}", port)).unwrap();
+        }
+        url.push('/');
         if let Some(path) = self.path_o().as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -93,7 +112,11 @@ impl DIDStr {
         self_hash: &selfhash::KERIHashStr,
         scheme: &'static str,
     ) -> String {
-        let mut url = format!("{}://{}/", scheme, self.host());
+        let mut url = format!("{}://{}", scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.write_fmt(format_args!(":{}", port)).unwrap();
+        }
+        url.push('/');
         if let Some(path) = self.path_o().as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -106,7 +129,11 @@ impl DIDStr {
     }
     /// Produce the URL that addresses the DID document for this DID that has the given version ID.
     pub fn resolution_url_for_version_id(&self, version_id: u32, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}/", scheme, self.host());
+        let mut url = format!("{}://{}", scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.write_fmt(format_args!(":{}", port)).unwrap();
+        }
+        url.push('/');
         if let Some(path) = self.path_o().as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -118,7 +145,11 @@ impl DIDStr {
     }
     /// Produce the URL that addresses the current DID document metadata for this DID.
     pub fn resolution_url_for_metadata_current(&self, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}/", scheme, self.host());
+        let mut url = format!("{}://{}", scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.write_fmt(format_args!(":{}", port)).unwrap();
+        }
+        url.push('/');
         if let Some(path) = self.path_o().as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -130,7 +161,11 @@ impl DIDStr {
     /// Produce the URL that addresses the constant DID document metadata for this DID
     /// (in particular, this includes DID creation timestamp).
     pub fn resolution_url_for_metadata_constant(&self, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}/", scheme, self.host());
+        let mut url = format!("{}://{}", scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.write_fmt(format_args!(":{}", port)).unwrap();
+        }
+        url.push('/');
         if let Some(path) = self.path_o().as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -146,7 +181,11 @@ impl DIDStr {
         self_hash: &selfhash::KERIHashStr,
         scheme: &'static str,
     ) -> String {
-        let mut url = format!("{}://{}/", scheme, self.host());
+        let mut url = format!("{}://{}", scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.write_fmt(format_args!(":{}", port)).unwrap();
+        }
+        url.push('/');
         if let Some(path) = self.path_o().as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');
@@ -164,7 +203,11 @@ impl DIDStr {
         version_id: u32,
         scheme: &'static str,
     ) -> String {
-        let mut url = format!("{}://{}/", scheme, self.host());
+        let mut url = format!("{}://{}", scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.write_fmt(format_args!(":{}", port)).unwrap();
+        }
+        url.push('/');
         if let Some(path) = self.path_o().as_deref() {
             url.push_str(&path.replace(':', "/"));
             url.push('/');

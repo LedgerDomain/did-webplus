@@ -45,7 +45,7 @@ impl DIDResolver for DIDResolverThin {
         }
         tracing::debug!("VDG resolve endpoint: {}", vdg_resolve_endpoint);
         let resolution_url = {
-            let did_query_url_encoded = temp_hack_incomplete_url_encoded(did_query);
+            let did_query_url_encoded = temp_hack_incomplete_percent_encoded(did_query);
             let mut path = vdg_resolve_endpoint.path().to_string();
             assert!(path.ends_with('/'));
             path.push_str(did_query_url_encoded.as_str());
@@ -93,8 +93,10 @@ impl DIDResolver for DIDResolverThin {
 }
 
 /// INCOMPLETE, TEMP HACK
-fn temp_hack_incomplete_url_encoded(s: &str) -> String {
-    s.replace('?', "%3F")
+fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
+    // Note that the '%' -> "%25" replacement must happen first.
+    s.replace('%', "%25")
+        .replace('?', "%3F")
         .replace('=', "%3D")
         .replace('&', "%26")
 }

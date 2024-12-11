@@ -3,6 +3,7 @@ use crate::{parse_did_query_params, Error};
 #[derive(Debug)]
 pub struct DIDWebplusURIComponents<'a> {
     pub host: &'a str,
+    pub port_o: Option<u16>,
     pub path_o: Option<&'a str>,
     pub root_self_hash: &'a selfhash::KERIHashStr,
     pub query_self_hash_o: Option<&'a selfhash::KERIHashStr>,
@@ -21,6 +22,37 @@ impl<'a> DIDWebplusURIComponents<'a> {
     }
 }
 
+impl<'a> std::fmt::Display for DIDWebplusURIComponents<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "did:webplus:{}", self.host)?;
+        if let Some(port) = self.port_o {
+            write!(f, "%3A{}", port)?;
+        }
+        if let Some(path) = self.path_o {
+            write!(f, ":{}", path)?;
+        }
+        write!(f, ":{}", self.root_self_hash)?;
+        if self.has_query() {
+            write!(f, "?")?;
+        }
+        let mut query_printed = false;
+        if let Some(query_self_hash) = self.query_self_hash_o {
+            write!(f, "selfHash={}", query_self_hash)?;
+            query_printed = true;
+        }
+        if let Some(query_version_id) = self.query_version_id_o {
+            if query_printed {
+                write!(f, "&")?;
+            }
+            write!(f, "versionId={}", query_version_id)?;
+        }
+        if let Some(fragment) = self.fragment_o {
+            write!(f, "#{}", fragment)?;
+        }
+        Ok(())
+    }
+}
+
 // TODO: Consider making a version of this that assumes that checks the constraints in debug_assert
 // but otherwise assumes that the constraints are already satisfied, so it's faster to parse.
 impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
@@ -34,13 +66,27 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         // Get rid of the "did:webplus:" prefix.
         let s = s.strip_prefix("did:webplus:").unwrap();
 
-        let (host, post_host_str) = s.split_once(':').ok_or(Error::Malformed(
+        let (host_and_maybe_port, remainder) = s.split_once(':').ok_or(Error::Malformed(
             "did:webplus URI is expected to have a third ':' after the host",
         ))?;
+        let (host, port_o) = if let Some((host, after_percent_str)) =
+            host_and_maybe_port.split_once('%')
+        {
+            if !after_percent_str.starts_with("3A") {
+                return Err(Error::Malformed("did:webplus URI may only have an embedded %3A (the percent-encoding of ':'), but it had some other percent-encoded char"));
+            }
+            let port_str = after_percent_str.strip_prefix("3A").unwrap();
+            let port: u16 = port_str
+                .parse()
+                .map_err(|_| Error::Malformed("did:webplus URI port must be a valid integer"))?;
+            (host, Some(port))
+        } else {
+            (host_and_maybe_port, None)
+        };
         // TODO: Validation on host
 
         let (uri_path, query_o, relative_resource_o, fragment_o) =
-            if let Some((uri_path, query_and_maybe_fragment)) = post_host_str.split_once('?') {
+            if let Some((uri_path, query_and_maybe_fragment)) = remainder.split_once('?') {
                 if let Some((query, fragment)) = query_and_maybe_fragment.split_once('#') {
                     let relative_resource = query_and_maybe_fragment
                         .split_at(query_and_maybe_fragment.find('#').unwrap())
@@ -54,11 +100,11 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
                 } else {
                     (uri_path, Some(query_and_maybe_fragment), None, None)
                 }
-            } else if let Some((uri_path, fragment)) = post_host_str.split_once('#') {
-                let relative_resource = post_host_str.split_at(post_host_str.find('#').unwrap()).1;
+            } else if let Some((uri_path, fragment)) = remainder.split_once('#') {
+                let relative_resource = remainder.split_at(remainder.find('#').unwrap()).1;
                 (uri_path, None, Some(relative_resource), Some(fragment))
             } else {
-                (post_host_str, None, None, None)
+                (remainder, None, None, None)
             };
         // TODO: Validation on path, query_o, and fragment_o
 
@@ -94,6 +140,7 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
 
         Ok(Self {
             host,
+            port_o,
             path_o,
             root_self_hash,
             query_self_hash_o,

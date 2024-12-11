@@ -44,13 +44,14 @@ pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::Joi
 
             tracing::info!(
                 "starting did-webplus-vdr, listening on port {}",
-                vdr_config.port
+                vdr_config.listen_port
             );
 
             // This has to be 0.0.0.0 otherwise it won't work in a docker container.
             // 127.0.0.1 is only the loopback device, and isn't available outside the host.
             let listener =
-                tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdr_config.port)).await?;
+                tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdr_config.listen_port))
+                    .await?;
             // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
             // the task isn't good enough.
             Ok(tokio::task::spawn(async move {
@@ -103,13 +104,14 @@ pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::Joi
 
             tracing::info!(
                 "starting did-webplus-vdr, listening on port {}",
-                vdr_config.port
+                vdr_config.listen_port
             );
 
             // This has to be 0.0.0.0 otherwise it won't work in a docker container.
             // 127.0.0.1 is only the loopback device, and isn't available outside the host.
             let listener =
-                tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdr_config.port)).await?;
+                tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdr_config.listen_port))
+                    .await?;
             // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
             // the task isn't good enough.
             Ok(tokio::task::spawn(async move {

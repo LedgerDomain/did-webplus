@@ -1,4 +1,4 @@
-use crate::{DIDFullyQualifiedStr, Error};
+use crate::{DIDFullyQualifiedStr, DIDWebplusURIComponents, Error};
 
 /// A DIDFullyQualified is a DID that has query params selfHash and versionId specified.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
@@ -14,6 +14,7 @@ impl DIDFullyQualified {
     /// Construct a DIDFullyQualified with specified components.
     pub fn new(
         host: &str,
+        port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &selfhash::KERIHashStr,
         query_self_hash: &selfhash::KERIHashStr,
@@ -25,14 +26,18 @@ impl DIDFullyQualified {
                 "DIDFullyQualified host must not contain ':' or '/'",
             ));
         }
-        Self::try_from(format!(
-            "did:webplus:{}{}{}:{}?selfHash={}&versionId={}",
+
+        let s = DIDWebplusURIComponents {
             host,
-            if path_o.is_some() { ":" } else { "" },
-            if let Some(path) = path_o { path } else { "" },
+            port_o,
+            path_o,
             root_self_hash,
-            query_self_hash,
-            query_version_id
-        ))
+            query_self_hash_o: Some(query_self_hash),
+            query_version_id_o: Some(query_version_id),
+            relative_resource_o: None,
+            fragment_o: None,
+        }
+        .to_string();
+        Self::try_from(s)
     }
 }

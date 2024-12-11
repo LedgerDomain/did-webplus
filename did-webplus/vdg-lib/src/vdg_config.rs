@@ -11,11 +11,11 @@ pub struct VDGConfig {
     /// Specify the port on which the service will listen for HTTP requests.
     #[arg(
         name = "port",
-        env = "DID_WEBPLUS_VDG_PORT",
+        env = "DID_WEBPLUS_VDG_LISTEN_PORT",
         long,
         default_value = "80"
     )]
-    pub port: u16,
+    pub listen_port: u16,
     /// Specify the URL of the database to connect to, e.g. "postgres:///database-name", "sqlite://name.db",
     /// "sqlite://name.db?mode=rwc" (read+write, create if it doesn't yet exist).
     /// See https://docs.rs/sqlx/latest/sqlx/postgres/struct.PgConnectOptions.html and

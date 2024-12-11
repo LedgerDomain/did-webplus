@@ -74,6 +74,7 @@ impl DIDDocument {
         }
         let did = DID::new(
             did_document_create_params.did_host.as_ref(),
+            did_document_create_params.did_port_o,
             did_document_create_params
                 .did_path_o
                 .as_ref()

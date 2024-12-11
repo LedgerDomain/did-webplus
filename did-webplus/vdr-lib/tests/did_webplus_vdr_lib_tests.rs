@@ -21,37 +21,59 @@ fn overall_init() {
 // TODO: Maybe make separate sqlite and postgres versions of this test?
 #[tokio::test]
 async fn test_vdr_operations() {
+    let vdr_database_path = "tests/test_vdr_operations.vdr.db";
+
+    // Delete any existing database files so that we're starting from a consistent, blank start every time.
+    // The postgres equivalent of this would be to drop and recreate the relevant databases.
+    if std::fs::exists(vdr_database_path).expect("pass") {
+        std::fs::remove_file(vdr_database_path).expect("pass");
+    }
+
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        gateways: Vec::new(),
         service_domain: "localhost".to_string(),
-        database_url: "sqlite://tests/test_vdr_operations.vdr.db?mode=rwc".to_string(),
+        did_port_o: Some(9085),
+        listen_port: 9085,
+        database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
         database_max_connections: 10,
-        port: 9085,
+        gateways: Vec::new(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
         .expect("pass");
 
-    let vdr_url = format!("http://{}:{}", vdr_config.service_domain, vdr_config.port);
-
     tracing::info!("Testing wallet operations; DID without path component");
-    test_wallet_operations_impl(vdr_url.as_str(), false).await;
+    test_vdr_wallet_operations_impl(
+        vdr_config.service_domain.as_str(),
+        vdr_config.did_port_o,
+        false,
+    )
+    .await;
 
     tracing::info!("Testing wallet operations; DID with path component");
-    test_wallet_operations_impl(vdr_url.as_str(), true).await;
+    test_vdr_wallet_operations_impl(
+        vdr_config.service_domain.as_str(),
+        vdr_config.did_port_o,
+        true,
+    )
+    .await;
 
     tracing::info!("Shutting down VDR");
     vdr_handle.abort();
 }
 
-async fn test_wallet_operations_impl(vdr_url: &str, use_path: bool) {
-    const VDR_HOST: &str = "localhost";
-
+// NOTE: This is a very low-level test that doesn't require the wallet.  It would be much easier
+// to do this from a Wallet.  Maybe get rid of this test in favor of a Wallet-driven test (though
+// that would be testing two pieces of software at the same time).
+async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>, use_path: bool) {
     // Setup of mock services
-    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(VDR_HOST.into(), None)));
+    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
+        vdr_host.into(),
+        did_port_o,
+        None,
+    )));
     let mock_vdr_lam = {
         let mut mock_vdr_lam = HashMap::new();
-        mock_vdr_lam.insert(VDR_HOST.to_string(), mock_vdr_la.clone());
+        mock_vdr_lam.insert(vdr_host.to_string(), mock_vdr_la.clone());
         mock_vdr_lam
     };
     let mock_vdr_client_a = Arc::new(MockVDRClient::new(
@@ -67,19 +89,12 @@ async fn test_wallet_operations_impl(vdr_url: &str, use_path: bool) {
         None
     };
     let alice_did = alice_wallet
-        .create_did(VDR_HOST.to_string(), did_path_o)
+        .create_did(vdr_host.to_string(), did_port_o, did_path_o)
         .expect("pass");
-    let alice_did_url = if let Some(alice_did_path) = alice_did.path_o().as_ref() {
-        format!(
-            "{}/{}/{}/did.json",
-            vdr_url,
-            alice_did_path,
-            alice_did.root_self_hash()
-        )
-    } else {
-        format!("{}/{}/did.json", vdr_url, alice_did.root_self_hash())
-    };
-    // Hacky way to test the actual VDR, which is assumed be running in a separate process.
+    let alice_did_url = alice_did.resolution_url("http");
+    tracing::trace!("alice_did_url: {}", alice_did_url);
+
+    // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
     {
         use did_webplus_core::MicroledgerView;
@@ -119,7 +134,7 @@ async fn test_wallet_operations_impl(vdr_url: &str, use_path: bool) {
     // Have it update the DID a bunch of times
     for _ in 0..5 {
         alice_wallet.update_did(&alice_did).expect("pass");
-        // Hacky way to test the actual VDR, which is assumed be running in a separate process.
+        // Hacky way to test the VDR without using a real Wallet.
         // This uses the DID document it updated with the mock VDR and sends it to the real VDR.
         {
             use did_webplus_core::MicroledgerView;
@@ -146,24 +161,15 @@ async fn test_wallet_operations_impl(vdr_url: &str, use_path: bool) {
                 reqwest::StatusCode::OK
             );
             // Resolve the DID
-            let vdr_host_and_port = vdr_url
-                .split_once(':')
-                .expect("pass")
-                .1
-                .strip_prefix("//")
-                .expect("pass");
-            tracing::debug!("alice_did_url: {}", alice_did_url);
             let alice_did_url_self_hash = alice_did
-                .resolution_url_for_self_hash(alice_did_document.self_hash().deref(), "http")
-                .replace(VDR_HOST, vdr_host_and_port);
-            tracing::debug!(
+                .resolution_url_for_self_hash(alice_did_document.self_hash().deref(), "http");
+            tracing::trace!(
                 "alice_did_url with query self-hash: {}",
                 alice_did_url_self_hash
             );
-            let alice_did_url_version_id = alice_did
-                .resolution_url_for_version_id(alice_did_document.version_id(), "http")
-                .replace(VDR_HOST, vdr_host_and_port);
-            tracing::debug!(
+            let alice_did_url_version_id =
+                alice_did.resolution_url_for_version_id(alice_did_document.version_id(), "http");
+            tracing::trace!(
                 "alice_did_url with query version_id: {}",
                 alice_did_url_version_id
             );
@@ -198,9 +204,3 @@ async fn test_wallet_operations_impl(vdr_url: &str, use_path: bool) {
         }
     }
 }
-
-// #[tokio::test]
-// async fn test_wallet_operations() {
-//     test_wallet_operations_impl(false).await;
-//     test_wallet_operations_impl(true).await;
-// }

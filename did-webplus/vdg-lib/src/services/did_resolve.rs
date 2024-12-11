@@ -7,7 +7,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use did_webplus_core::{DIDStr, DIDWithQueryStr};
+use did_webplus_core::{DIDStr, DIDWithQueryStr, DID};
 use did_webplus_doc_store::{DIDDocStorage, DIDDocStore};
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
@@ -36,7 +36,7 @@ async fn resolve_did_impl<Storage: DIDDocStorage>(
     did_doc_store: &DIDDocStore<Storage>,
     did_query: String,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
-    tracing::trace!("starting DID resolution");
+    tracing::trace!("VDG DID resolution; did_query: {}", did_query);
 
     let mut query_self_hash_o = None;
     let mut query_version_id_o = None;
@@ -316,6 +316,7 @@ fn headers_for_did_document(
 }
 
 async fn http_get(url: &str) -> Result<String, (StatusCode, String)> {
+    tracing::trace!("VDG; http_get url: {}", url);
     // This is ridiculous.
     let response = crate::REQWEST_CLIENT
         .clone()
@@ -358,14 +359,21 @@ async fn vdr_fetch_did_document_body(
 #[tracing::instrument(err(Debug), skip(did_doc_store))]
 async fn update_did<Storage: DIDDocStorage>(
     State(did_doc_store): State<DIDDocStore<Storage>>,
-    Path(did): Path<String>,
+    Path(did_string): Path<String>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
+    tracing::trace!("VDG; update_did; did_string: {}", did_string);
+    let did = DID::try_from(did_string).map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    tracing::trace!("VDG; update_did; did: {}", did);
     // Spawn a new task to handle the update since the vdr shouldn't need to wait
     // for the response as the vdg queries back the vdr for the latest did document
     task::spawn({
         async move {
-            if let Err((_, err)) = resolve_did_impl(&did_doc_store, did).await {
-                tracing::error!("error updating DID document: {}", err);
+            if let Err((_, err)) = resolve_did_impl(&did_doc_store, did.to_string()).await {
+                tracing::error!(
+                    "error updating DID document for DID {} -- error was: {}",
+                    did,
+                    err
+                );
             }
         }
     });

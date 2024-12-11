@@ -1021,6 +1021,7 @@ dependencies = [
  "did-webplus-core",
  "did-webplus-doc-store",
  "did-webplus-resolver",
+ "did-webplus-vdr-lib",
  "did-webplus-wallet",
  "did-webplus-wallet-storage",
  "did-webplus-wallet-storage-sqlite",

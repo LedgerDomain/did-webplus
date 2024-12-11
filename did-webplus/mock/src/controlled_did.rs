@@ -16,6 +16,7 @@ pub struct ControlledDID {
 impl ControlledDID {
     pub fn create(
         did_host: String,
+        did_port_o: Option<u16>,
         did_path_o: Option<String>,
         vdr_client: &dyn VDRClient,
     ) -> Result<Self, Error> {
@@ -35,6 +36,7 @@ impl ControlledDID {
         let root_did_document = DIDDocument::create_root(
             DIDDocumentCreateParams {
                 did_host: did_host.into(),
+                did_port_o,
                 did_path_o: did_path_o.map(|did_path| did_path.into()),
                 valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {

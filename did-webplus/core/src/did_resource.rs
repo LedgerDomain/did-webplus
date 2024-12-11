@@ -1,4 +1,4 @@
-use crate::{DIDResourceStr, Error, Fragment};
+use crate::{DIDResourceStr, DIDWebplusURIComponents, Error, Fragment};
 use std::borrow::Cow;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
@@ -24,6 +24,7 @@ impl<F: 'static + Fragment + ?Sized> Clone for DIDResource<F> {
 impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
     pub fn new(
         host: &str,
+        port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &selfhash::KERIHashStr,
         fragment: &F,
@@ -34,14 +35,21 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
                 "DIDResource host must not contain ':' or '/'",
             ));
         }
-        Self::try_from(format!(
-            "did:webplus:{}{}{}:{}#{}",
+
+        let s = DIDWebplusURIComponents {
             host,
-            if path_o.is_some() { ":" } else { "" },
-            if let Some(path) = path_o { path } else { "" },
+            port_o,
+            path_o,
             root_self_hash,
-            fragment
-        ))
+            query_self_hash_o: None,
+            query_version_id_o: None,
+            // NOTE: It's not strictly correct that this is None while fragment_o is Some(_),
+            // but for the purposes of to_string, it's fine.
+            relative_resource_o: None,
+            fragment_o: Some(fragment.as_str()),
+        }
+        .to_string();
+        Self::try_from(s)
     }
     /// Set the root self-hash value to the given value.  This assumes that the new root self-hash has
     /// the same str len as the existing one, and therefore doesn't allocate.

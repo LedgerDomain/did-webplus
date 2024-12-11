@@ -29,6 +29,7 @@ url = "2.5.0"
 
 [dev-dependencies]
 ctor = "0.2.8"
+did-webplus-vdr-lib = { path = "../vdr-lib", features = ["sqlite"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 dotenvy = "0.15.7"
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite"] }

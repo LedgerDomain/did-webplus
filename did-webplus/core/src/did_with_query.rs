@@ -1,4 +1,4 @@
-use crate::{DIDWithQueryStr, Error};
+use crate::{DIDWebplusURIComponents, DIDWithQueryStr, Error};
 
 // pub enum DIDQueryParams<'a> {
 //     SelfHash(&'a selfhash::KERIHashStr),
@@ -19,6 +19,7 @@ pub struct DIDWithQuery(String);
 impl DIDWithQuery {
     pub fn new(
         host: &str,
+        port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &selfhash::KERIHashStr,
         query_self_hash_o: Option<&selfhash::KERIHashStr>,
@@ -30,47 +31,26 @@ impl DIDWithQuery {
                 "DIDFullyQualified host must not contain ':' or '/'",
             ));
         }
-        let did_with_query_string = match (query_self_hash_o, query_version_id_o) {
-            (Some(query_self_hash), Some(query_version_id)) => {
-                format!(
-                    "did:webplus:{}{}{}:{}?selfHash={}&versionId={}",
-                    host,
-                    if path_o.is_some() { ":" } else { "" },
-                    if let Some(path) = path_o { path } else { "" },
-                    root_self_hash,
-                    query_self_hash,
-                    query_version_id
-                )
-            }
-            (Some(query_self_hash), None) => {
-                format!(
-                    "did:webplus:{}{}{}:{}?selfHash={}",
-                    host,
-                    if path_o.is_some() { ":" } else { "" },
-                    if let Some(path) = path_o { path } else { "" },
-                    root_self_hash,
-                    query_self_hash
-                )
-            }
-            (None, Some(query_version_id)) => {
-                format!(
-                    "did:webplus:{}{}{}:{}?versionId={}",
-                    host,
-                    if path_o.is_some() { ":" } else { "" },
-                    if let Some(path) = path_o { path } else { "" },
-                    root_self_hash,
-                    query_version_id
-                )
-            }
-            (None, None) => {
-                return Err(Error::Malformed(
-                    "DIDWithQuery must have at least one query specified",
-                ));
-            }
-        };
-        Self::try_from(did_with_query_string)
+        if query_self_hash_o.is_none() && query_version_id_o.is_none() {
+            return Err(Error::Malformed(
+                "DIDWithQuery must have at least one query specified",
+            ));
+        }
+
+        let s = DIDWebplusURIComponents {
+            host,
+            port_o,
+            path_o,
+            root_self_hash,
+            query_self_hash_o,
+            query_version_id_o,
+            relative_resource_o: None,
+            fragment_o: None,
+        }
+        .to_string();
+        Self::try_from(s)
     }
-    pub fn from_resolution_url(host: &str, path: &str) -> Result<Self, Error> {
+    pub fn from_resolution_url(host: &str, port_o: Option<u16>, path: &str) -> Result<Self, Error> {
         if !path.ends_with(".json") {
             return Err(Error::Malformed(
                 "resolution URL path must end with '.json'",
@@ -97,6 +77,7 @@ impl DIDWithQuery {
                         })?;
                     Ok(Self::new(
                         host,
+                        port_o,
                         Some(path),
                         root_self_hash,
                         Some(query_self_hash),
@@ -109,6 +90,7 @@ impl DIDWithQuery {
                     })?;
                     Ok(Self::new(
                         host,
+                        port_o,
                         None,
                         root_self_hash,
                         Some(query_self_hash),
@@ -130,6 +112,7 @@ impl DIDWithQuery {
                         })?;
                     Ok(Self::new(
                         host,
+                        port_o,
                         Some(path),
                         root_self_hash,
                         None,
@@ -142,6 +125,7 @@ impl DIDWithQuery {
                     })?;
                     Ok(Self::new(
                         host,
+                        port_o,
                         None,
                         root_self_hash,
                         None,

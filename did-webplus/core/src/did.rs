@@ -1,34 +1,33 @@
+use crate::{DIDStr, DIDWebplusURIComponents, Error};
 use std::borrow::Cow;
-
-use crate::{DIDStr, Error};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(as_pneu_str = "as_did_str", borrow = "DIDStr", deserialize, serialize)]
 pub struct DID(String);
 
 impl DID {
-    /// Construct a DID with the given host, path, and self-hash.
+    /// Construct a DID with the given host, port, path, and self-hash.
     pub fn new(
         host: &str,
+        port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &selfhash::KERIHashStr,
     ) -> Result<Self, Error> {
-        let did_string = format!(
-            "did:webplus:{}:{}{}{}",
+        let s = DIDWebplusURIComponents {
             host,
-            path_o.unwrap_or(""),
-            if path_o.is_some() { ":" } else { "" },
-            root_self_hash
-        );
-        use pneutype::Validate;
-        debug_assert!(
-            DIDStr::validate(did_string.as_str()).is_ok(),
-            "programmer error"
-        );
-        Ok(Self(did_string))
+            port_o,
+            path_o,
+            root_self_hash,
+            query_self_hash_o: None,
+            query_version_id_o: None,
+            relative_resource_o: None,
+            fragment_o: None,
+        }
+        .to_string();
+        Self::try_from(s)
     }
     /// Parse (the equivalent of) a resolution URL to produce a DID.
-    pub fn from_resolution_url(host: &str, path: &str) -> Result<Self, Error> {
+    pub fn from_resolution_url(host: &str, port_o: Option<u16>, path: &str) -> Result<Self, Error> {
         if path.starts_with('/') {
             return Err(Error::Malformed(
                 "resolution URL path must not start with '/'",
@@ -54,7 +53,7 @@ impl DID {
             }
         };
         let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)?;
-        Self::new(host, path_o.as_deref(), root_self_hash)
+        Self::new(host, port_o, path_o.as_deref(), root_self_hash)
     }
     /// Set the root self hash value to the given value.
     pub fn set_root_self_hash(&mut self, root_self_hash: &selfhash::KERIHashStr) {

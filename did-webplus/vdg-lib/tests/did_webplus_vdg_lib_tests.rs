@@ -1,10 +1,9 @@
+use did_webplus_core::DIDDocument;
+use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
 };
-
-use did_webplus_core::DIDDocument;
-use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
 
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
@@ -45,40 +44,64 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDo
     );
 }
 
-// TODO: This won't work until ports are supported by the VDR (e.g. did:webplus:localhost%3A<port>:<self-hash>
-// which resolves to http://localhost:<port>/<self-hash>/did.json)
 // TODO: Maybe make separate sqlite and postgres versions of this test?
 #[tokio::test]
-#[ignore]
 async fn test_vdg_operations() {
+    let vdg_database_path = "tests/test_vdg_operations.vdg.db";
+    let vdr_database_path = "tests/test_vdg_operations.vdr.db";
+
+    // Delete any existing database files so that we're starting from a consistent, blank start every time.
+    // The postgres equivalent of this would be to drop and recreate the relevant databases.
+    if std::fs::exists(vdg_database_path).expect("pass") {
+        std::fs::remove_file(vdg_database_path).expect("pass");
+    }
+    if std::fs::exists(vdr_database_path).expect("pass") {
+        std::fs::remove_file(vdr_database_path).expect("pass");
+    }
+
     let vdg_config = did_webplus_vdg_lib::VDGConfig {
         service_domain: "localhost".to_string(),
-        port: 10086,
-        database_url: "sqlite://tests/test_vdg_operations.vdg.db?mode=rwc".to_string(),
+        listen_port: 10086,
+        database_url: format!("sqlite://{}?mode=rwc", vdg_database_path),
         database_max_connections: 10,
     };
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
         .await
         .expect("pass");
-    let vdg_url = format!("http://{}:{}", vdg_config.service_domain, vdg_config.port);
+    let vdg_url = format!(
+        "http://{}:{}",
+        vdg_config.service_domain, vdg_config.listen_port
+    );
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
         service_domain: "localhost".to_string(),
-        port: 10085,
-        database_url: "sqlite://tests/test_vdg_operations.vdr.db?mode=rwc".to_string(),
+        did_port_o: Some(10085),
+        listen_port: 10085,
+        database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
         database_max_connections: 10,
         gateways: vec![vdg_url.clone()],
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
         .expect("pass");
-    let vdr_url = format!("http://{}:{}", vdr_config.service_domain, vdr_config.port);
 
     tracing::info!("Testing wallet operations; DID without path component");
-    test_wallet_operations_impl(vdr_url.as_str(), vdg_url.as_str(), false).await;
+    test_vdg_wallet_operations_impl(
+        vdg_url.as_str(),
+        vdr_config.service_domain.as_str(),
+        vdr_config.did_port_o,
+        false,
+    )
+    .await;
 
     tracing::info!("Testing wallet operations; DID with path component");
-    test_wallet_operations_impl(vdr_url.as_str(), vdg_url.as_str(), true).await;
+    test_vdg_wallet_operations_impl(
+        vdg_url.as_str(),
+        vdr_config.service_domain.as_str(),
+        vdr_config.did_port_o,
+        true,
+    )
+    .await;
 
     tracing::info!("Shutting down VDG");
     vdg_handle.abort();
@@ -87,15 +110,21 @@ async fn test_vdg_operations() {
     vdr_handle.abort();
 }
 
-async fn test_wallet_operations_impl(vdr_url: &str, vdg_url: &str, use_path: bool) {
-    const VDR_HOST: &str = "localhost";
-
+async fn test_vdg_wallet_operations_impl(
+    vdg_url: &str,
+    vdr_host: &str,
+    vdr_did_port_o: Option<u16>,
+    use_path: bool,
+) {
     // Setup of mock services
-    let mock_vdr_la: Arc<RwLock<MockVDR>> =
-        Arc::new(RwLock::new(MockVDR::new_with_host(VDR_HOST.into(), None)));
+    let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_host(
+        vdr_host.into(),
+        vdr_did_port_o,
+        None,
+    )));
     let mock_vdr_lam = {
         let mut mock_vdr_lam = HashMap::new();
-        mock_vdr_lam.insert(VDR_HOST.to_string(), mock_vdr_la.clone());
+        mock_vdr_lam.insert(vdr_host.to_string(), mock_vdr_la.clone());
         mock_vdr_lam
     };
     let mock_vdr_client_a = Arc::new(MockVDRClient::new(
@@ -111,19 +140,11 @@ async fn test_wallet_operations_impl(vdr_url: &str, vdg_url: &str, use_path: boo
         None
     };
     let alice_did = alice_wallet
-        .create_did(VDR_HOST.to_string(), did_path_o)
+        .create_did(vdr_host.to_string(), vdr_did_port_o, did_path_o)
         .expect("pass");
-    let alice_did_url = if let Some(alice_did_path) = alice_did.path_o().as_ref() {
-        format!(
-            "{}/{}/{}/did.json",
-            vdr_url,
-            alice_did_path,
-            alice_did.root_self_hash()
-        )
-    } else {
-        format!("{}/{}/did.json", vdr_url, alice_did.root_self_hash())
-    };
-    // Hacky way to test the actual VDR, which is assumed be running in a separate process.
+    let alice_did_url = alice_did.resolution_url("http");
+    tracing::trace!("alice_did_url: {}", alice_did_url);
+    // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
     {
         let alice_did_document = alice_wallet
@@ -268,7 +289,7 @@ async fn update_did(
     use did_webplus_core::MicroledgerView;
 
     alice_wallet.update_did(alice_did).expect("pass");
-    // Hacky way to test the actual VDR, which is assumed be running in a separate process.
+    // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it updated with the mock VDR and sends it to the real VDR.
     {
         let alice_did_document = alice_wallet
@@ -307,26 +328,29 @@ async fn update_did(
 }
 
 async fn get_did_response(vdg_url: &str, did_query: &str) -> reqwest::Response {
+    let request_url = format!(
+        "{}/{}",
+        vdg_url,
+        temp_hack_incomplete_percent_encoded(did_query)
+    );
+    tracing::trace!(
+        "VDG-LIB tests; vdg_url: {:?}, did_query: {:?}, request_url: {}",
+        vdg_url,
+        did_query,
+        request_url
+    );
     reqwest::Client::new()
-        .get(format!(
-            "{}/{}",
-            vdg_url,
-            temp_hack_incomplete_url_encoded(did_query)
-        ))
+        .get(request_url)
         .send()
         .await
         .expect("pass")
 }
 
-// #[tokio::test]
-// async fn test_wallet_operations() {
-//     test_wallet_operations_impl(false).await;
-//     test_wallet_operations_impl(true).await;
-// }
-
 /// INCOMPLETE, TEMP HACK
-fn temp_hack_incomplete_url_encoded(s: &str) -> String {
-    s.replace('?', "%3F")
+fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
+    // Note that the '%' -> "%25" replacement must happen first.
+    s.replace('%', "%25")
+        .replace('?', "%3F")
         .replace('=', "%3D")
         .replace('&', "%26")
 }

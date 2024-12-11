@@ -103,6 +103,47 @@ fn test_root_did_document_self_sign() {
     let root_did_document = DIDDocument::create_root(
         DIDDocumentCreateParams {
             did_host: "example.com".into(),
+            did_port_o: None,
+            did_path_o: None,
+            valid_from: time::OffsetDateTime::now_utc(),
+            public_key_set: PublicKeySet {
+                authentication_v: vec![&ed25519_verifying_key_0],
+                assertion_method_v: vec![&ed25519_verifying_key_0],
+                key_agreement_v: vec![&ed25519_verifying_key_0],
+                // Note that this is the one being used to self-sign the root DIDDocument.
+                capability_invocation_v: vec![&ed25519_verifying_key_1],
+                capability_delegation_v: vec![&ed25519_verifying_key_0],
+            },
+        },
+        &selfhash::Blake3,
+        &ed25519_signing_key_1,
+    )
+    .expect("pass");
+    root_did_document
+        .verify_self_signatures_and_hashes()
+        .expect("pass");
+
+    println!(
+        "root did_document:\n{}",
+        serde_json::to_string_pretty(&root_did_document).unwrap()
+    );
+}
+
+#[test]
+#[serial_test::serial]
+fn test_root_did_document_with_port_self_sign() {
+    let ed25519_signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let ed25519_signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let ed25519_verifying_key_0 = ed25519_signing_key_0.verifying_key();
+    let ed25519_verifying_key_1 = ed25519_signing_key_1.verifying_key();
+    // To create a root DIDDocument from the controller side, we only supply:
+    // - The did:webplus value with a placeholder self-signature
+    // - The valid_from timestamp at which the DID document becomes valid.
+    // - The public keys for each key purpose
+    let root_did_document = DIDDocument::create_root(
+        DIDDocumentCreateParams {
+            did_host: "example.com".into(),
+            did_port_o: Some(3000),
             did_path_o: None,
             valid_from: time::OffsetDateTime::now_utc(),
             public_key_set: PublicKeySet {
@@ -142,6 +183,7 @@ fn test_did_document_verification() {
     let did_document_0 = DIDDocument::create_root(
         DIDDocumentCreateParams {
             did_host: "localhost".into(),
+            did_port_o: None,
             // did_path_o: Some("user".into()),
             did_path_o: None,
             valid_from: time::OffsetDateTime::now_utc(),
@@ -259,6 +301,7 @@ fn test_signature_generation_with_witness() {
         let did_document_0 = DIDDocument::create_root(
             DIDDocumentCreateParams {
                 did_host: "example.com".into(),
+                did_port_o: None,
                 did_path_o: None,
                 valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: PublicKeySet {

@@ -18,6 +18,7 @@ impl DIDFullyQualifiedStr {
     ) -> DIDResourceFullyQualified<F> {
         DIDResourceFullyQualified::new(
             self.host(),
+            self.port_o(),
             self.path_o(),
             self.root_self_hash(),
             self.query_self_hash(),
@@ -31,6 +32,11 @@ impl DIDFullyQualifiedStr {
     /// Host of the VDR that acts as the authority/origin for this DID.
     pub fn host(&self) -> &str {
         self.uri_components().host
+    }
+    /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
+    /// for this DID, or None if not specified.
+    pub fn port_o(&self) -> Option<u16> {
+        self.uri_components().port_o
     }
     /// This is everything between the host and the root self_hash, not including the leading and trailing
     /// colons.  In particular, if the path is empty, this will be None.  Another example is

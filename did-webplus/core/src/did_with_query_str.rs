@@ -1,4 +1,5 @@
 use crate::{DIDStr, DIDWebplusURIComponents, Error};
+use std::fmt::Write;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
 #[pneu_str(deserialize, serialize)]
@@ -17,6 +18,11 @@ impl DIDWithQueryStr {
     /// Host of the VDR that acts as the authority/origin for this DID.
     pub fn host(&self) -> &str {
         self.uri_components().host
+    }
+    /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
+    /// for this DID, or None if not specified.
+    pub fn port_o(&self) -> Option<u16> {
+        self.uri_components().port_o
     }
     /// This is everything between the host and the root self_hash, not including the leading and trailing
     /// colons.  In particular, if the path is empty, this will be None.  Another example is
@@ -43,11 +49,16 @@ impl DIDWithQueryStr {
     /// one query param (either selfHash or versionId).
     pub fn resolution_url(&self, scheme: &'static str) -> String {
         // Form the base URL.
-        let mut url = format!("{}://{}/", scheme, self.host());
-        if let Some(path) = self.path_o().as_deref() {
-            url.push_str(&path.replace(':', "/"));
-            url.push('/');
+        let mut url = format!("{}://{}", scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.push(':');
+            url.write_fmt(format_args!("{}", port)).unwrap();
         }
+        if let Some(path) = self.path_o().as_deref() {
+            url.push('/');
+            url.push_str(&path.replace(':', "/"));
+        }
+        url.push('/');
         url.push_str(self.root_self_hash().as_str());
         url.push_str("/did");
 

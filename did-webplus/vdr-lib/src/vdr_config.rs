@@ -1,16 +1,27 @@
 #[derive(clap::Args, Clone, Debug)]
 pub struct VDRConfig {
     /// Specify the domain of the service, e.g. "example.com".  This does not include the scheme or the port.
+    // TODO: Consider renaming this to did_host
     #[arg(env = "DID_WEBPLUS_VDR_SERVICE_DOMAIN", long, value_name = "DOMAIN")]
     pub service_domain: String,
+    /// Optionally specify a non-standard port for use in the hosted DIDs themselves.  They appear as
+    /// `did:webplus:<service.domain>%3A<port>:<...>`.  This is different than the port on which the VDR
+    /// listens for requests.
+    #[arg(
+        env = "DID_WEBPLUS_VDR_DID_PORT",
+        long,
+        value_name = "PORT",
+        default_value = "None"
+    )]
+    pub did_port_o: Option<u16>,
     /// Specify the port on which the service will listen for HTTP requests.
     #[arg(
-        env = "DID_WEBPLUS_VDR_PORT",
+        env = "DID_WEBPLUS_VDR_LISTEN_PORT",
         long,
         value_name = "PORT",
         default_value = "80"
     )]
-    pub port: u16,
+    pub listen_port: u16,
     /// Specify the URL of the database to connect to, e.g. "postgres:///database-name", "sqlite://name.db",
     /// "sqlite://name.db?mode=rwc" (read+write, create if it doesn't yet exist).
     /// See https://docs.rs/sqlx/latest/sqlx/postgres/struct.PgConnectOptions.html and

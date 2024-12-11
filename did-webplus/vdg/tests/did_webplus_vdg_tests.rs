@@ -45,10 +45,11 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDo
     );
 }
 
-async fn test_wallet_operations_impl(use_path: bool) {
+async fn test_vdg_wallet_operations_impl(use_path: bool) {
     // Setup of mock services
     let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_host(
         "fancy.net".into(),
+        None,
         None,
     )));
     let mock_vdr_lam = {
@@ -69,7 +70,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
         None
     };
     let alice_did = alice_wallet
-        .create_did("fancy.net".to_string(), did_path_o)
+        .create_did("fancy.net".to_string(), None, did_path_o)
         .expect("pass");
     let alice_did_url = if let Some(alice_did_path) = alice_did.path_o().as_ref() {
         format!(
@@ -270,22 +271,26 @@ async fn get_did_response(did_query: &str) -> reqwest::Response {
     reqwest::Client::new()
         .get(format!(
             "http://localhost:8086/{}",
-            temp_hack_incomplete_url_encoded(did_query)
+            temp_hack_incomplete_percent_encoded(did_query)
         ))
         .send()
         .await
         .expect("pass")
 }
 
+// NOTE: This test is ignored because it requires that the dockerized VDG is running.
 #[tokio::test]
-async fn test_wallet_operations() {
-    test_wallet_operations_impl(false).await;
-    test_wallet_operations_impl(true).await;
+#[ignore]
+async fn test_vdg_wallet_operations() {
+    test_vdg_wallet_operations_impl(false).await;
+    test_vdg_wallet_operations_impl(true).await;
 }
 
 /// INCOMPLETE, TEMP HACK
-fn temp_hack_incomplete_url_encoded(s: &str) -> String {
-    s.replace('?', "%3F")
+fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
+    // Note that the '%' -> "%25" replacement must happen first.
+    s.replace('%', "%25")
+        .replace('?', "%3F")
         .replace('=', "%3D")
         .replace('&', "%26")
 }

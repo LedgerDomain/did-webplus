@@ -18,9 +18,36 @@ fn overall_init() {
 
 #[tokio::test]
 async fn test_software_wallet() {
-    let sqlite_pool = sqlx::SqlitePool::connect("sqlite://tests/test_software_wallet.db?mode=rwc")
+    // TODO: Use env vars to be able to point to a "real" VDR.
+
+    let vdr_database_path = "tests/test_software_wallet.vdr.db";
+    let wallet_database_path = "tests/test_software_wallet.wallet.db";
+
+    // Delete any existing database files so that we're starting from a consistent, blank start every time.
+    // The postgres equivalent of this would be to drop and recreate the relevant databases.
+    if std::fs::exists(vdr_database_path).expect("pass") {
+        std::fs::remove_file(vdr_database_path).expect("pass");
+    }
+    if std::fs::exists(wallet_database_path).expect("pass") {
+        std::fs::remove_file(wallet_database_path).expect("pass");
+    }
+
+    let vdr_config = did_webplus_vdr_lib::VDRConfig {
+        service_domain: "localhost".to_string(),
+        did_port_o: Some(11085),
+        listen_port: 11085,
+        database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
+        database_max_connections: 10,
+        gateways: Vec::new(),
+    };
+    let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
         .expect("pass");
+
+    let sqlite_pool =
+        sqlx::SqlitePool::connect(format!("sqlite://{}?mode=rwc", wallet_database_path).as_str())
+            .await
+            .expect("pass");
     let storage = did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
         sqlite_pool,
     )
@@ -51,7 +78,10 @@ async fn test_software_wallet() {
     let software_wallet = did_webplus_software_wallet::SoftwareWallet::new(ctx, storage);
 
     let vdr_scheme = "http";
-    let vdr_did_create_endpoint = format!("{}://localhost", vdr_scheme);
+    let vdr_did_create_endpoint = format!(
+        "{}://{}:{}",
+        vdr_scheme, vdr_config.service_domain, vdr_config.listen_port
+    );
 
     use did_webplus_wallet::Wallet;
 
@@ -67,4 +97,7 @@ async fn test_software_wallet() {
         .await
         .expect("pass");
     tracing::debug!("updated DID: {}", controlled_did);
+
+    tracing::info!("Shutting down VDR");
+    vdr_handle.abort();
 }

@@ -10,6 +10,7 @@ use crate::{Microledger, VDS};
 #[derive(Debug)]
 pub struct MockVDR {
     pub host: String,
+    pub did_port_o: Option<u16>,
     microledger_m: std::collections::HashMap<DID, Microledger>,
     /// Optional simulated network latency duration.  If present, then all VDR operations will sleep
     /// for this duration before beginning their work.
@@ -17,9 +18,14 @@ pub struct MockVDR {
 }
 
 impl MockVDR {
-    pub fn new_with_host(host: String, simulated_latency_o: Option<std::time::Duration>) -> Self {
+    pub fn new_with_host(
+        host: String,
+        did_port_o: Option<u16>,
+        simulated_latency_o: Option<std::time::Duration>,
+    ) -> Self {
         Self {
             host,
+            did_port_o,
             microledger_m: std::collections::HashMap::new(),
             simulated_latency_o,
         }
@@ -38,6 +44,9 @@ impl MockVDR {
         if root_did_document.did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
         }
+        if root_did_document.did.port_o() != self.did_port_o {
+            return Err(Error::Malformed("DID port doesn't match that of VDR"));
+        }
         // This construction will fail if the root_did_document isn't valid.
         let microledger = Microledger::create(root_did_document)?;
         use did_webplus_core::MicroledgerView;
@@ -54,13 +63,16 @@ impl MockVDR {
         new_did_document: DIDDocument,
     ) -> Result<(), Error> {
         println!(
-            "VDR (host: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
-            self.host, user_agent, new_did_document.did
+            "VDR (host: {:?}, did_port_o: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
+            self.host, self.did_port_o, user_agent, new_did_document.did
         );
         self.simulate_latency_if_necessary();
 
         if new_did_document.did.host() != self.host.as_str() {
             return Err(Error::Malformed("DID host doesn't match that of VDR"));
+        }
+        if new_did_document.did.port_o() != self.did_port_o {
+            return Err(Error::Malformed("DID port doesn't match that of VDR"));
         }
         let microledger = self
             .microledger_m

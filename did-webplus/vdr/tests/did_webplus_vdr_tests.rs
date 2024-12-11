@@ -19,10 +19,11 @@ fn overall_init() {
         .init();
 }
 
-async fn test_wallet_operations_impl(use_path: bool) {
+async fn test_vdr_wallet_operations_impl(use_path: bool) {
     // Setup of mock services
     let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
         "fancy.net".into(),
+        None,
         None,
     )));
     let mock_vdr_lam = {
@@ -43,7 +44,7 @@ async fn test_wallet_operations_impl(use_path: bool) {
         None
     };
     let alice_did = alice_wallet
-        .create_did("fancy.net".to_string(), did_path_o)
+        .create_did("fancy.net".to_string(), None, did_path_o)
         .expect("pass");
     let alice_did_url = if let Some(alice_did_path) = alice_did.path_o().as_ref() {
         format!(
@@ -171,8 +172,10 @@ async fn test_wallet_operations_impl(use_path: bool) {
     }
 }
 
+// NOTE: This test is ignored because it requires that the dockerized VDR is running.
 #[tokio::test]
-async fn test_wallet_operations() {
-    test_wallet_operations_impl(false).await;
-    test_wallet_operations_impl(true).await;
+#[ignore]
+async fn test_vdr_wallet_operations() {
+    test_vdr_wallet_operations_impl(false).await;
+    test_vdr_wallet_operations_impl(true).await;
 }

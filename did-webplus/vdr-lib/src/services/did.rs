@@ -51,7 +51,11 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Case for retrieving the latest DID doc.
-    if let Ok(did) = DID::from_resolution_url(host.as_str(), path.as_str()) {
+    if let Ok(did) = DID::from_resolution_url(
+        host.as_str(),
+        vdr_state.vdr_config.did_port_o,
+        path.as_str(),
+    ) {
         let latest_did_doc_record = vdr_state
             .did_doc_store
             .get_latest_did_doc_record(&mut transaction, &did)
@@ -67,7 +71,11 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
     }
 
     // Cases for retrieving a specific DID doc based on selfHash or versionId
-    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(host.as_str(), path.as_str()) {
+    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(
+        host.as_str(),
+        vdr_state.vdr_config.did_port_o,
+        path.as_str(),
+    ) {
         let did = did_with_query.did();
         if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
             let did_doc_record = vdr_state
@@ -103,7 +111,7 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
     // Cases for metadata
     if path.ends_with("/did/metadata.json") {
         let path = path.strip_suffix("/did/metadata.json").unwrap();
-        let did = DID::from_resolution_url(host.as_str(), path)
+        let did = DID::from_resolution_url(host.as_str(), vdr_state.vdr_config.did_port_o, path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
         let latest_did_document_record = vdr_state
             .did_doc_store
@@ -149,7 +157,7 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
         });
     } else if path.ends_with("/did/metadata/constant.json") {
         let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
-        let did = DID::from_resolution_url(host.as_str(), path)
+        let did = DID::from_resolution_url(host.as_str(), vdr_state.vdr_config.did_port_o, path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
         let first_did_document_record = vdr_state
             .did_doc_store
@@ -181,8 +189,9 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
         }
         let (did, did_document_record) = if path.ends_with("/did/metadata/selfHash") {
             let path = path.strip_suffix("/did/metadata/selfHash").unwrap();
-            let did = DID::from_resolution_url(host.as_str(), path)
-                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+            let did =
+                DID::from_resolution_url(host.as_str(), vdr_state.vdr_config.did_port_o, path)
+                    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
             let filename_self_hash = selfhash::KERIHashStr::new_ref(filename_self_hash_str)
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
@@ -195,8 +204,9 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
             (did, did_document_record)
         } else if path.ends_with("/did/metadata/versionId") {
             let path = path.strip_suffix("/did/metadata/versionId").unwrap();
-            let did = DID::from_resolution_url(host.as_str(), path)
-                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+            let did =
+                DID::from_resolution_url(host.as_str(), vdr_state.vdr_config.did_port_o, path)
+                    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let filename_version_id_str = filename.strip_suffix(".json").unwrap();
             let filename_version_id: u32 = filename_version_id_str
                 .parse()
@@ -273,7 +283,12 @@ async fn create_did<Storage: DIDDocStorage>(
 
     let host = vdr_state.vdr_config.service_domain;
 
-    let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
+    let did = DID::from_resolution_url(
+        host.as_str(),
+        vdr_state.vdr_config.did_port_o,
+        path.as_str(),
+    )
+    .map_err(|err| {
         (
             StatusCode::BAD_REQUEST,
             format!("malformed DID resolution URL: {}", err),
@@ -329,14 +344,18 @@ async fn update_did<Storage: DIDDocStorage>(
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = vdr_state.vdr_config.service_domain.clone();
-
-    let did = DID::from_resolution_url(host.as_str(), path.as_str()).map_err(|err| {
+    let did = DID::from_resolution_url(
+        vdr_state.vdr_config.service_domain.as_str(),
+        vdr_state.vdr_config.did_port_o,
+        path.as_str(),
+    )
+    .map_err(|err| {
         (
             StatusCode::BAD_REQUEST,
             format!("malformed DID resolution URL: {}", err),
         )
     })?;
+    tracing::trace!("update_did; path: {:?}, did: {}", path, did);
 
     let mut transaction = vdr_state
         .did_doc_store
@@ -397,10 +416,7 @@ async fn update_did<Storage: DIDDocStorage>(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    task::spawn(send_vdg_updates(
-        vdr_state.vdr_config.gateways.clone(),
-        did.clone(),
-    ));
+    task::spawn(send_vdg_updates(vdr_state.vdr_config.gateways.clone(), did));
 
     Ok(())
 }
@@ -409,16 +425,31 @@ lazy_static::lazy_static! {
     static ref VDG_CLIENT: reqwest::Client = reqwest::Client::new();
 }
 
+/// The reason this function takes its parameters by value instead of reference is because
+/// it's called via task::spawn.
 async fn send_vdg_updates(gateways: Vec<String>, did: DID) {
-    for vdg in gateways.into_iter() {
+    tracing::trace!(
+        "VDR; send_vdg_updates; gateways: {:?}, did: {}",
+        gateways,
+        did
+    );
+    // NOTE: We have to percent-encode the DID in the request, because there can be a percent
+    // character in it, which will be automatically percent-decoded by the HTTP server.
+    let percent_encoded_did = temp_hack_incomplete_percent_encoded(did.as_str());
+    tracing::trace!(
+        "VDR; send_vdg_updates; percent_encoded_did: {}",
+        percent_encoded_did
+    );
+    for vdg in gateways.iter() {
         // if vdg starts with http:// or https://, then use it as is, otherwise assume https://
         let url = if vdg.starts_with("http://") || vdg.starts_with("https://") {
-            format!("{}/update/{}", vdg, did)
+            format!("{}/update/{}", vdg, percent_encoded_did)
         } else {
-            format!("https://{}/update/{}", vdg, did)
+            format!("https://{}/update/{}", vdg, percent_encoded_did)
         };
         tracing::info!("sending update to VDG {}: {}", vdg, url);
         // There is no reason to do these sequentially, so spawn a task for each one.
+        let vdg = vdg.clone();
         task::spawn(async move {
             let response = VDG_CLIENT.post(&url).send().await;
             if let Err(err) = response {
@@ -426,6 +457,15 @@ async fn send_vdg_updates(gateways: Vec<String>, did: DID) {
             }
         });
     }
+}
+
+/// INCOMPLETE, TEMP HACK
+fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
+    // Note that the '%' -> "%25" replacement must happen first.
+    s.replace('%', "%25")
+        .replace('?', "%3F")
+        .replace('=', "%3D")
+        .replace('&', "%26")
 }
 
 fn parse_did_document(

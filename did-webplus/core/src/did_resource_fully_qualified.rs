@@ -1,4 +1,4 @@
-use crate::{DIDResourceFullyQualifiedStr, Error, Fragment};
+use crate::{DIDResourceFullyQualifiedStr, DIDWebplusURIComponents, Error, Fragment};
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(
@@ -26,6 +26,7 @@ impl<F: Fragment + ?Sized> Clone for DIDResourceFullyQualified<F> {
 impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
     pub fn new(
         host: &str,
+        port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &selfhash::KERIHashStr,
         query_self_hash: &selfhash::KERIHashStr,
@@ -44,15 +45,19 @@ impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
         }
         // TODO: Further validation of path.
 
-        Self::try_from(format!(
-            "did:webplus:{}{}{}:{}?selfHash={}&versionId={}#{}",
+        let s = DIDWebplusURIComponents {
             host,
-            if path_o.is_some() { ":" } else { "" },
-            if let Some(path) = path_o { path } else { "" },
+            port_o,
+            path_o,
             root_self_hash,
-            query_self_hash,
-            query_version_id,
-            fragment
-        ))
+            query_self_hash_o: Some(query_self_hash),
+            query_version_id_o: Some(query_version_id),
+            // NOTE: It's not strictly correct that this is None while fragment_o is Some(_),
+            // but for the purposes of to_string, it's fine.
+            relative_resource_o: None,
+            fragment_o: Some(fragment.as_str()),
+        }
+        .to_string();
+        Self::try_from(s)
     }
 }

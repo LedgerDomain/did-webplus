@@ -75,9 +75,9 @@ services:
       target: runtime
     environment:
       DID_WEBPLUS_VDG_DATABASE_URL: postgres://postgres:postgres@vdg_database:5432/postgres?sslmode=disable
+      DID_WEBPLUS_VDG_LISTEN_PORT: 80
       # Options are "compact" and "pretty" (which is very verbose)
       DID_WEBPLUS_VDG_LOG_FORMAT: compact
-      DID_WEBPLUS_VDG_PORT: 80
       DID_WEBPLUS_VDG_SERVICE_DOMAIN: witness.org
       RUST_BACKTRACE: '1'
       RUST_LOG: 'hyper=warn,sqlx=info,did_webplus_vdg=trace,debug'
@@ -117,7 +117,7 @@ services:
     environment:
       DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@vdr_database:5432/postgres?sslmode=disable
       DID_WEBPLUS_VDR_GATEWAYS: http://witness.org
-      DID_WEBPLUS_VDR_PORT: 80
+      DID_WEBPLUS_VDR_LISTEN_PORT: 80
       DID_WEBPLUS_VDR_SERVICE_DOMAIN: fancy.net
       RUST_BACKTRACE: '1'
       RUST_LOG: 'hyper=warn,sqlx=info,debug'

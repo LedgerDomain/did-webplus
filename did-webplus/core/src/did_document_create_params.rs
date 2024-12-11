@@ -6,6 +6,7 @@ use crate::PublicKeySet;
 #[derive(Debug)]
 pub struct DIDDocumentCreateParams<'a> {
     pub did_host: Cow<'a, str>,
+    pub did_port_o: Option<u16>,
     pub did_path_o: Option<Cow<'a, str>>,
     pub valid_from: time::OffsetDateTime,
     // TODO: Could have a planned expiration date for short-lived DID document durations.

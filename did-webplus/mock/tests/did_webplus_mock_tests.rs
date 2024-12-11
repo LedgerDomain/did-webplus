@@ -116,6 +116,7 @@ fn test_example_creating_and_updating_a_did() {
             DIDDocument::create_root(
                 DIDDocumentCreateParams {
                     did_host: "example.com".into(),
+                    did_port_o: None,
                     did_path_o: Some("hey".into()),
                     valid_from: time::OffsetDateTime::now_utc(),
                     public_key_set: PublicKeySet {
@@ -286,6 +287,7 @@ fn test_did_operations() {
     let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
         "example.com".into(),
         None,
+        None,
     )));
     let mock_vdr_lam = {
         let mut mock_vdr_lam = HashMap::new();
@@ -307,7 +309,7 @@ fn test_did_operations() {
     println!("----------------------------------------------------");
     let mut alice_wallet = MockWallet::new("Alice's Wallet".to_string(), mock_vdr_client_a.clone());
     let alice_did = alice_wallet
-        .create_did("example.com".to_string(), Some("user".to_string()))
+        .create_did("example.com".to_string(), None, Some("user".to_string()))
         .expect("pass");
 
     // This Resolver keeps its own local MockVerifiedCache, and talks to the VDRs directly.

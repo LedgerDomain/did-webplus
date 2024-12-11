@@ -125,6 +125,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         let did_document = DIDDocument::create_root(
             DIDDocumentCreateParams {
                 did_host: vdr_did_create_endpoint_url.host_str().unwrap().into(),
+                did_port_o: vdr_did_create_endpoint_url.port(),
                 did_path_o,
                 valid_from: time::OffsetDateTime::now_utc(),
                 public_key_set: did_webplus_core::PublicKeySet {

@@ -43,14 +43,15 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
 
             tracing::info!(
                 "starting did-webplus-vdg, listening on port {}",
-                vdg_config.port
+                vdg_config.listen_port
             );
 
             // This has to be 0.0.0.0 otherwise it won't work in a docker container.
             // 127.0.0.1 is only the loopback device, and isn't available outside the host.
-            let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdg_config.port))
-                .await
-                .unwrap();
+            let listener =
+                tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdg_config.listen_port))
+                    .await
+                    .unwrap();
             // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
             // the task isn't good enough.
             Ok(tokio::task::spawn(async move {
@@ -103,14 +104,15 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
 
             tracing::info!(
                 "starting did-webplus-vdg, listening on port {}",
-                vdg_config.port
+                vdg_config.listen_port
             );
 
             // This has to be 0.0.0.0 otherwise it won't work in a docker container.
             // 127.0.0.1 is only the loopback device, and isn't available outside the host.
-            let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdg_config.port))
-                .await
-                .unwrap();
+            let listener =
+                tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdg_config.listen_port))
+                    .await
+                    .unwrap();
             // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
             // the task isn't good enough.
             Ok(tokio::task::spawn(async move {
