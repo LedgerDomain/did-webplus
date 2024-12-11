@@ -1,10 +1,9 @@
+use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
 use std::{
     collections::HashMap,
     ops::Deref,
     sync::{Arc, RwLock},
 };
-
-use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
 
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
@@ -20,6 +19,8 @@ fn overall_init() {
 }
 
 async fn test_vdr_wallet_operations_impl(use_path: bool) {
+    test_util::wait_until_service_is_up("Dockerized VDR", "http://localhost:8085/health").await;
+
     // Setup of mock services
     let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
         "fancy.net".into(),
@@ -73,7 +74,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
             alice_did_document.serialize_canonically().expect("pass")
         );
         assert_eq!(
-            reqwest::Client::new()
+            test_util::REQWEST_CLIENT
                 .post(&alice_did_url)
                 // This is probably ok for now, because the self-sign-and-hash verification process will
                 // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
@@ -87,7 +88,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
     }
     // Resolve the DID
     assert_eq!(
-        reqwest::Client::new()
+        test_util::REQWEST_CLIENT
             .get(&alice_did_url)
             .send()
             .await
@@ -113,7 +114,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
                 alice_did_document.serialize_canonically().expect("pass")
             );
             assert_eq!(
-                reqwest::Client::new()
+                test_util::REQWEST_CLIENT
                     .put(&alice_did_url)
                     // This is probably ok for now, because the self-sign-and-hash verification process will
                     // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
@@ -141,7 +142,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
                 alice_did_url_version_id
             );
             assert_eq!(
-                reqwest::Client::new()
+                test_util::REQWEST_CLIENT
                     .get(&alice_did_url)
                     .send()
                     .await
@@ -151,7 +152,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
             );
             // Do some query-specific GETs
             assert_eq!(
-                reqwest::Client::new()
+                test_util::REQWEST_CLIENT
                     .get(&alice_did_url_self_hash)
                     .send()
                     .await
@@ -160,7 +161,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
                 reqwest::StatusCode::OK
             );
             assert_eq!(
-                reqwest::Client::new()
+                test_util::REQWEST_CLIENT
                     .get(&alice_did_url_version_id)
                     .send()
                     .await

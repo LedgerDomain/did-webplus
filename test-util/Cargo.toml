@@ -1,0 +1,11 @@
+[package]
+name = "test-util"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[dependencies]
+lazy_static = "1.4.0"
+reqwest = "0.12.5"
+tokio = "1.41.0"
+tracing = "0.1.37"

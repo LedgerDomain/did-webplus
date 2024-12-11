@@ -25,6 +25,7 @@ members = [
     "did-webplus/wallet",
     "did-webplus/wallet-storage",
     "did-webplus/wallet-storage-sqlite",
+    "test-util",
     "verifier-resolver",
     "vjson/storage-sqlite",
     "vjson/store",

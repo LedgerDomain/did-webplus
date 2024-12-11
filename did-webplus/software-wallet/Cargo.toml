@@ -34,6 +34,7 @@ did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 dotenvy = "0.15.7"
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite"] }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
+test-util = { path = "../../test-util" }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 uuid = { version = "1.9.1", features = ["v4"] }

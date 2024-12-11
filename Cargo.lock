@@ -1035,6 +1035,7 @@ dependencies = [
  "selfsign",
  "serde_json",
  "sqlx",
+ "test-util",
  "time",
  "tokio",
  "tracing",
@@ -1056,6 +1057,7 @@ dependencies = [
  "dotenvy",
  "reqwest",
  "serde_json",
+ "test-util",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1080,6 +1082,7 @@ dependencies = [
  "reqwest",
  "serde_json",
  "sqlx",
+ "test-util",
  "time",
  "tokio",
  "tower",
@@ -1100,6 +1103,7 @@ dependencies = [
  "did-webplus-vdr-lib",
  "dotenvy",
  "reqwest",
+ "test-util",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1126,6 +1130,7 @@ dependencies = [
  "serde-inline-default",
  "serde_json",
  "sqlx",
+ "test-util",
  "tokio",
  "tower",
  "tower-http",
@@ -3667,6 +3672,16 @@ dependencies = [
  "fastrand",
  "rustix",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "test-util"
+version = "0.1.0"
+dependencies = [
+ "lazy_static",
+ "reqwest",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
