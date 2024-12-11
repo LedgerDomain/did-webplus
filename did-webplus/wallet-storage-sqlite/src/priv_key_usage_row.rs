@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use did_webplus_core::{DIDKeyResourceFullyQualified, KeyPurpose};
-use did_webplus_wallet_storage::{
+use did_webplus_wallet_store::{
     Error, PrivKeyUsage, PrivKeyUsageRecord, PrivKeyUsageType, Result, WalletStorageCtx,
 };
 

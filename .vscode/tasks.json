@@ -892,13 +892,13 @@
 			]
 		},
 		{
-			"label": "check did-webplus-wallet-storage",
+			"label": "check did-webplus-wallet-store",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
 				"check",
 				"--package",
-				"did-webplus-wallet-storage",
+				"did-webplus-wallet-store",
 				"--all-features",
 				"--tests"
 			],
@@ -917,13 +917,13 @@
 			]
 		},
 		{
-			"label": "test did-webplus-wallet-storage",
+			"label": "test did-webplus-wallet-store",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
 				"test",
 				"--package",
-				"did-webplus-wallet-storage",
+				"did-webplus-wallet-store",
 				"--all-features",
 				"--",
 				"--nocapture"

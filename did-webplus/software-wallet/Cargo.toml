@@ -12,7 +12,7 @@ did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-wallet = { path = "../wallet" }
-did-webplus-wallet-storage = { path = "../wallet-storage" }
+did-webplus-wallet-store = { path = "../wallet-store" }
 # TEMP: probably abstract behind selfsign or even ssi_jwk
 ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
 enum-map = "2.7.3"
@@ -26,6 +26,7 @@ time = "0.3"
 # TEMP HACK MAYBE
 tracing = "0.1.37"
 url = "2.5.0"
+uuid = "1.9.1"
 
 [dev-dependencies]
 ctor = "0.2.8"

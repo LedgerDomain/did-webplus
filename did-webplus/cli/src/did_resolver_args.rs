@@ -26,7 +26,7 @@ pub struct DIDResolverArgs {
         env = "DID_WEBPLUS_DID_DOC_STORE",
         long,
         value_name = "URL",
-        default_value = "sqlite://~/.did-webplus/did-doc-store.db"
+        default_value = "sqlite://~/.did-webplus/did-doc-store.db?mode=rwc"
     )]
     pub did_doc_store_db_url_o: Option<String>,
     /// Specify the URL of the "resolve" endpoint of the VDG to use for DID resolution.  This is required

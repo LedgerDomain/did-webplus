@@ -1,5 +1,3 @@
-use did_webplus_wallet_storage::WalletRecord;
-
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
@@ -21,7 +19,7 @@ async fn test_software_wallet() {
     // TODO: Use env vars to be able to point to a "real" VDR.
 
     let vdr_database_path = "tests/test_software_wallet.vdr.db";
-    let wallet_database_path = "tests/test_software_wallet.wallet.db";
+    let wallet_database_path = "tests/test_software_wallet.wallet-store.db";
 
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
     // The postgres equivalent of this would be to drop and recreate the relevant databases.
@@ -48,11 +46,12 @@ async fn test_software_wallet() {
         sqlx::SqlitePool::connect(format!("sqlite://{}?mode=rwc", wallet_database_path).as_str())
             .await
             .expect("pass");
-    let storage = did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
-        sqlite_pool,
-    )
-    .await
-    .expect("pass");
+    let wallet_storage =
+        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
+            sqlite_pool,
+        )
+        .await
+        .expect("pass");
 
     test_util::wait_until_service_is_up(
         "VDR",
@@ -60,28 +59,19 @@ async fn test_software_wallet() {
     )
     .await;
 
-    // Create a new Wallet (this needs a better name -- directory? sub-wallet?)
-    let ctx = {
-        let utc_now = time::OffsetDateTime::now_utc();
-        let wallet_record = WalletRecord {
-            wallet_uuid: uuid::Uuid::new_v4(),
-            created_at: utc_now,
-            updated_at: utc_now,
-            deleted_at_o: None,
-            wallet_name_o: Some("fancy wallet".to_string()),
-        };
-        use did_webplus_doc_store::DIDDocStorage;
-        use did_webplus_wallet_storage::WalletStorage;
-        let mut transaction = storage.begin_transaction(None).await.expect("pass");
-        let ctx = storage
-            .add_wallet(&mut transaction, wallet_record)
-            .await
-            .expect("pass");
-        transaction.commit().await.expect("pass");
-        ctx
-    };
-
-    let software_wallet = did_webplus_software_wallet::SoftwareWallet::new(ctx, storage);
+    use did_webplus_doc_store::DIDDocStorage;
+    let mut transaction = wallet_storage.begin_transaction(None).await.expect("pass");
+    let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
+        &mut transaction,
+        &wallet_storage,
+        Some("fancy wallet".to_string()),
+    )
+    .await
+    .expect("pass");
+    wallet_storage
+        .commit_transaction(transaction)
+        .await
+        .expect("pass");
 
     let vdr_scheme = "http";
     let vdr_did_create_endpoint = format!(

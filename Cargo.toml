@@ -23,7 +23,7 @@ members = [
     "did-webplus/vdr",
     "did-webplus/vdr-lib",
     "did-webplus/wallet",
-    "did-webplus/wallet-storage",
+    "did-webplus/wallet-store",
     "did-webplus/wallet-storage-sqlite",
     "test-util",
     "verifier-resolver",

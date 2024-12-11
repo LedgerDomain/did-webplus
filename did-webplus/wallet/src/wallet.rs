@@ -1,10 +1,13 @@
 use crate::{Error, Result};
 use did_webplus_core::{DIDFullyQualified, DIDStr};
-use did_webplus_wallet_storage::{
-    LocallyControlledVerificationMethodFilter, PrivKeyRecord, VerificationMethodRecord,
+use did_webplus_wallet_store::{
+    LocallyControlledVerificationMethodFilter, VerificationMethodRecord,
 };
 use std::collections::HashSet;
 
+/// Generalized wallet trait that can be implemented for any wallet type, e.g. edge wallet (software or hardware)
+/// or cloud wallet.  This trait is intended to be used by higher-level code that needs to interact with a wallet
+/// without knowing the specific implementation details of the wallet.
 #[async_trait::async_trait]
 pub trait Wallet {
     /// Create a new (set of) private key(s), create a root DID document containing the corresponding public key(s),
@@ -39,7 +42,7 @@ pub trait Wallet {
             )
             .await?
             .into_iter()
-            .map(|(verification_method_record, _priv_key_record)| {
+            .map(|(verification_method_record, _signer_b)| {
                 verification_method_record
                     .did_key_resource_fully_qualified
                     .without_fragment()
@@ -65,7 +68,7 @@ pub trait Wallet {
             if let Some(did) = did_o {
                 return Err(Error::DIDNotControlledByWallet(did.to_string().into()));
             } else {
-                return Err(Error::NoUniquelyDeterminableControlledDIDFound(
+                return Err(Error::NoControlledDIDFound(
                     format!("DID filter was {:?}", did_o).into(),
                 ));
             }
@@ -76,13 +79,13 @@ pub trait Wallet {
     async fn get_locally_controlled_verification_methods(
         &self,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>>;
+    ) -> Result<Vec<(VerificationMethodRecord, Box<dyn selfsign::Signer>)>>;
     /// Calls get_locally_controlled_verification_methods and returns the single result if there is exactly one.
     /// Otherwise, returns an error.  Note that this method will ignore the result_limit_o field of the filter.
     async fn get_locally_controlled_verification_method(
         &self,
         mut locally_controlled_verification_method_filter: LocallyControlledVerificationMethodFilter,
-    ) -> Result<(VerificationMethodRecord, PrivKeyRecord)> {
+    ) -> Result<(VerificationMethodRecord, Box<dyn selfsign::Signer>)> {
         locally_controlled_verification_method_filter.result_limit_o = Some(2);
         let query_result_v = self
             .get_locally_controlled_verification_methods(

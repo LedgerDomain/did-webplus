@@ -868,8 +868,8 @@ dependencies = [
  "did-webplus-resolver",
  "did-webplus-software-wallet",
  "did-webplus-wallet",
- "did-webplus-wallet-storage",
  "did-webplus-wallet-storage-sqlite",
+ "did-webplus-wallet-store",
  "ed25519-dalek",
  "expanduser",
  "k256",
@@ -1023,8 +1023,8 @@ dependencies = [
  "did-webplus-resolver",
  "did-webplus-vdr-lib",
  "did-webplus-wallet",
- "did-webplus-wallet-storage",
  "did-webplus-wallet-storage-sqlite",
+ "did-webplus-wallet-store",
  "dotenvy",
  "ed25519-dalek",
  "enum-map",
@@ -1146,8 +1146,9 @@ dependencies = [
  "ctor",
  "did-webplus-core",
  "did-webplus-doc-store",
- "did-webplus-wallet-storage",
+ "did-webplus-wallet-store",
  "dotenvy",
+ "selfsign",
  "thiserror",
  "time",
  "tokio",
@@ -1155,7 +1156,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "did-webplus-wallet-storage"
+name = "did-webplus-wallet-storage-sqlite"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "did-webplus-core",
+ "did-webplus-doc-store",
+ "did-webplus-wallet-store",
+ "selfhash",
+ "selfsign",
+ "sqlx",
+ "time",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "did-webplus-wallet-store"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -1167,22 +1184,6 @@ dependencies = [
  "sqlx",
  "thiserror",
  "time",
- "uuid",
-]
-
-[[package]]
-name = "did-webplus-wallet-storage-sqlite"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "did-webplus-core",
- "did-webplus-doc-store",
- "did-webplus-wallet-storage",
- "selfhash",
- "selfsign",
- "sqlx",
- "time",
- "tracing",
  "uuid",
 ]
 

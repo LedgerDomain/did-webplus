@@ -4,7 +4,7 @@ use did_webplus_core::{
     KeyPurpose, KeyPurposeFlags,
 };
 use did_webplus_wallet::{Error, Result, Wallet};
-use did_webplus_wallet_storage::{
+use did_webplus_wallet_store::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyUsage, PrivKeyUsageRecord,
     VerificationMethodRecord, WalletStorage, WalletStorageCtx,
 };
@@ -18,8 +18,34 @@ pub struct SoftwareWallet<Storage: WalletStorage> {
 }
 
 impl<Storage: WalletStorage> SoftwareWallet<Storage> {
-    pub fn new(ctx: WalletStorageCtx, storage: Storage) -> Self {
-        Self { ctx, storage }
+    pub async fn create(
+        transaction: &mut Storage::Transaction<'_>,
+        wallet_storage: &Storage,
+        wallet_name_o: Option<String>,
+    ) -> Result<Self> {
+        let wallet_storage_ctx = wallet_storage
+            .create_wallet(transaction, wallet_name_o)
+            .await?;
+        Ok(Self {
+            ctx: wallet_storage_ctx,
+            storage: wallet_storage.clone(),
+        })
+    }
+    pub async fn open(
+        transaction: &mut Storage::Transaction<'_>,
+        wallet_storage: &Storage,
+        wallet_uuid: &uuid::Uuid,
+    ) -> Result<Self> {
+        let (wallet_storage_ctx, _wallet_record) = wallet_storage
+            .get_wallet(transaction, wallet_uuid)
+            .await?
+            .ok_or_else(|| {
+                Error::NotFound(format!("Wallet with wallet_uuid {}", wallet_uuid).into())
+            })?;
+        Ok(Self {
+            ctx: wallet_storage_ctx,
+            storage: wallet_storage.clone(),
+        })
     }
     async fn fetch_did_internal(
         &self,
@@ -420,7 +446,7 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
     async fn get_locally_controlled_verification_methods(
         &self,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>> {
+    ) -> Result<Vec<(VerificationMethodRecord, Box<dyn selfsign::Signer>)>> {
         let mut transaction = self.storage.begin_transaction(None).await?;
         let query_result_v = self
             .storage
@@ -431,6 +457,13 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
             )
             .await?;
         self.storage.commit_transaction(transaction).await?;
-        Ok(query_result_v)
+        Ok(query_result_v
+            .into_iter()
+            .map(|(verification_method_record, priv_key_record)| {
+                let signer_b: Box<dyn selfsign::Signer> =
+                    Box::new(priv_key_record.private_key_bytes_o.unwrap());
+                (verification_method_record, signer_b)
+            })
+            .collect())
     }
 }

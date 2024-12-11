@@ -1,7 +1,7 @@
 use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageRow};
 use did_webplus_core::{DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, DIDDocStorage};
-use did_webplus_wallet_storage::{
+use did_webplus_wallet_store::{
     Error, LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter,
     PrivKeyUsageRecord, PrivKeyUsageRecordFilter, Result, VerificationMethodRecord, WalletRecord,
     WalletRecordFilter, WalletStorage, WalletStorageCtx,

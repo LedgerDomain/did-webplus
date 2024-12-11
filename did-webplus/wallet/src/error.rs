@@ -28,6 +28,8 @@ pub enum Error {
     MultipleSuitablePrivKeysFound(Cow<'static, str>),
     #[error("Multiple controlled DIDs found: {0}")]
     MultipleControlledDIDsFound(Cow<'static, str>),
+    #[error("No controlled DID found: {0}")]
+    NoControlledDIDFound(Cow<'static, str>),
     #[error("No locally controlled verification method found: {0}")]
     NoLocallyControlledVerificationMethodFound(Cow<'static, str>),
     #[error("Not found: {0}")]
@@ -37,7 +39,7 @@ pub enum Error {
     #[error("No uniquely determinable controlled DID found: {0}")]
     NoUniquelyDeterminableControlledDIDFound(Cow<'static, str>),
     #[error(transparent)]
-    WalletStorageError(did_webplus_wallet_storage::Error),
+    WalletStorageError(did_webplus_wallet_store::Error),
 }
 
 // TODO: Probably derive these
@@ -54,8 +56,8 @@ impl From<did_webplus_doc_store::Error> for Error {
     }
 }
 
-impl From<did_webplus_wallet_storage::Error> for Error {
-    fn from(e: did_webplus_wallet_storage::Error) -> Self {
+impl From<did_webplus_wallet_store::Error> for Error {
+    fn from(e: did_webplus_wallet_store::Error) -> Self {
         Self::WalletStorageError(e)
     }
 }

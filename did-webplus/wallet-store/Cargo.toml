@@ -1,5 +1,5 @@
 [package]
-name = "did-webplus-wallet-storage"
+name = "did-webplus-wallet-store"
 version = "0.1.0"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
@@ -17,4 +17,4 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 sqlx = { version = "0.8.2", default-features = false, optional = true }
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }
-uuid = { version = "1.9.1", features = ["serde"] }
+uuid = { version = "1.9.1", features = ["serde", "v4"] }

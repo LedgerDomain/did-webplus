@@ -2,7 +2,7 @@ use crate::{
     NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs, VerificationMethodArgs,
     VerifierResolverArgs, WalletArgs,
 };
-use did_webplus_wallet_storage::LocallyControlledVerificationMethodFilter;
+use did_webplus_wallet_store::LocallyControlledVerificationMethodFilter;
 use selfhash::{HashFunction, SelfHashable};
 use std::io::Read;
 
@@ -50,7 +50,7 @@ impl WalletDIDSignVJSON {
         let verifier_resolver_map = self.verifier_resolver_args.get_verifier_resolver_map();
 
         // Get the specified signing key.
-        let (verification_method_record, priv_key_record) = {
+        let (verification_method_record, signer_b) = {
             let query_result_v = wallet
                 .get_locally_controlled_verification_methods(
                     &LocallyControlledVerificationMethodFilter {
@@ -74,8 +74,6 @@ impl WalletDIDSignVJSON {
             }
             query_result_v.into_iter().next().unwrap()
         };
-
-        let signer = priv_key_record.private_key_bytes_o.unwrap();
 
         // Read all of stdin into a String and parse it as JSON.
         let mut input = String::new();
@@ -128,7 +126,7 @@ impl WalletDIDSignVJSON {
                 &mut payload_bytes.as_slice(),
                 did_webplus_jws::JWSPayloadPresence::Detached,
                 did_webplus_jws::JWSPayloadEncoding::Base64URL,
-                &signer,
+                signer_b.as_ref(),
             )?
         };
 

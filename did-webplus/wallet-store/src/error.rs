@@ -2,6 +2,8 @@ use std::borrow::Cow;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("DID Doc store error: {0}")]
+    DIDDocStoreError(#[from] did_webplus_doc_store::Error),
     #[error("Malformed: {0}")]
     Malformed(Cow<'static, str>),
     #[error("Not found: {0}")]

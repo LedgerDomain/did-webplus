@@ -6,10 +6,32 @@ use crate::{
 };
 use did_webplus_core::DIDKeyResourceFullyQualifiedStr;
 
-/// Trait which defines the storage interface for a SoftwareWallet.
-// TODO: Should this be SoftwareWalletStorage?
+/// Trait which defines the storage interface for a WalletStore.
 #[async_trait::async_trait]
 pub trait WalletStorage: Clone + did_webplus_doc_store::DIDDocStorage {
+    async fn create_wallet(
+        &self,
+        transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
+        wallet_name_o: Option<String>,
+    ) -> Result<WalletStorageCtx> {
+        // Create a random UUID for the wallet.  The chance of collision is so low that
+        // it's more likely a programmer error if it happens.
+        let now_utc = time::OffsetDateTime::now_utc();
+        for _ in 0..5 {
+            let wallet_uuid = uuid::Uuid::new_v4();
+            if self.get_wallet(transaction, &wallet_uuid).await?.is_none() {
+                let wallet_record = WalletRecord {
+                    wallet_uuid,
+                    created_at: now_utc,
+                    updated_at: now_utc,
+                    deleted_at_o: None,
+                    wallet_name_o,
+                };
+                return self.add_wallet(transaction, wallet_record).await;
+            }
+        }
+        panic!("Failed to create a unique wallet UUID after 5 attempts; this is so unlikely that it's almost certainly a programmer error");
+    }
     async fn add_wallet(
         &self,
         transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,

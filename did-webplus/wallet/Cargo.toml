@@ -8,7 +8,8 @@ edition = "2021"
 async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
-did-webplus-wallet-storage = { path = "../wallet-storage" }
+did-webplus-wallet-store = { path = "../wallet-store" }
+selfsign = "0.6.0"
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }
 

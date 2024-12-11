@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use did_webplus_core::KeyPurposeFlags;
-use did_webplus_wallet_storage::{Error, PrivKeyRecord, Result, WalletStorageCtx};
+use did_webplus_wallet_store::{Error, PrivKeyRecord, Result, WalletStorageCtx};
 use selfsign::Verifier;
 
 pub struct PrivKeyRow {

@@ -21,7 +21,7 @@ did-webplus-jws = { path = "../jws" }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-wallet = { path = "../wallet" }
-did-webplus-wallet-storage = { path = "../wallet-storage", features = ["sqlx"] }
+did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 # TODO: Maybe make this a feature
 ed25519-dalek = { version = "2.0.0", features = ["pkcs8", "rand_core"] }

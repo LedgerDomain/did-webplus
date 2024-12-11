@@ -1,5 +1,5 @@
 use crate::{NewlineArgs, Result, VerificationMethodArgs, WalletArgs};
-use did_webplus_wallet_storage::LocallyControlledVerificationMethodFilter;
+use did_webplus_wallet_store::LocallyControlledVerificationMethodFilter;
 use std::io::Write;
 
 /// Sign a JWS using the specified DID and specified key purpose from the specified wallet.  The payload
@@ -69,7 +69,7 @@ impl WalletDIDSignJWS {
         };
 
         // Get the specified signing key.
-        let (verification_method_record, priv_key_record) = {
+        let (verification_method_record, signer_b) = {
             let query_result_v = wallet
                 .get_locally_controlled_verification_methods(
                     &LocallyControlledVerificationMethodFilter {
@@ -94,7 +94,6 @@ impl WalletDIDSignJWS {
             query_result_v.into_iter().next().unwrap()
         };
 
-        let signer = priv_key_record.private_key_bytes_o.unwrap();
         let jws = did_webplus_jws::JWS::signed(
             verification_method_record
                 .did_key_resource_fully_qualified
@@ -102,7 +101,7 @@ impl WalletDIDSignJWS {
             &mut std::io::stdin(),
             payload_presence,
             payload_encoding,
-            &signer,
+            signer_b.as_ref(),
         )?;
 
         std::io::stdout().write_all(jws.as_bytes())?;
