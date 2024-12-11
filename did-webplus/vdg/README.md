@@ -72,4 +72,4 @@ See other targets in `Makefile` for more functionality:
 
 Optionally run the test(s) against the running VDG via
 
-    RUST_LOG=debug cargo test -p did-webplus-vdg --all-features -- --nocapture
+    RUST_LOG=debug cargo test -p did-webplus-vdg --all-features -- --nocapture --ignored

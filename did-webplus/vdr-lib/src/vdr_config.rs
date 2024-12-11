@@ -8,10 +8,10 @@ pub struct VDRConfig {
     /// `did:webplus:<service.domain>%3A<port>:<...>`.  This is different than the port on which the VDR
     /// listens for requests.
     #[arg(
+        name = "did-port",
         env = "DID_WEBPLUS_VDR_DID_PORT",
         long,
-        value_name = "PORT",
-        default_value = "None"
+        value_name = "PORT"
     )]
     pub did_port_o: Option<u16>,
     /// Specify the port on which the service will listen for HTTP requests.

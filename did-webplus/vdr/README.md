@@ -70,8 +70,8 @@ See other targets in `Makefile` for more functionality:
 
 ### Testing
 
-Optionally run the test(s) against the running VDG via
+Optionally run the test(s) against the running VDR via
 
-    RUST_LOG=debug cargo test -p did-webplus-vdg --all-features -- --nocapture
+    RUST_LOG=debug cargo test -p did-webplus-vdr --all-features -- --nocapture --ignored
 
 This will create a couple of DIDs and update with a fresh set of keys several times each.
