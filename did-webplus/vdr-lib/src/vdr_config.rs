@@ -1,9 +1,9 @@
 #[derive(clap::Args, Clone, Debug)]
 pub struct VDRConfig {
-    /// Specify the domain of the service, e.g. "example.com".  This does not include the scheme or the port.
-    // TODO: Consider renaming this to did_host
-    #[arg(env = "DID_WEBPLUS_VDR_SERVICE_DOMAIN", long, value_name = "DOMAIN")]
-    pub service_domain: String,
+    /// Specify the host that appears in DIDs hosted by this VDR, i.e. host "example.com" for DIDs
+    /// `did:webplus:example.com:xyz``.  This does not include the scheme or the port.
+    #[arg(env = "DID_WEBPLUS_VDR_DID_HOST", long, value_name = "HOST")]
+    pub did_host: String,
     /// Optionally specify a non-standard port for use in the hosted DIDs themselves.  They appear as
     /// `did:webplus:<service.domain>%3A<port>:<...>`.  This is different than the port on which the VDR
     /// listens for requests.

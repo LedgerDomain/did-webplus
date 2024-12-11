@@ -42,7 +42,7 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
 ) -> Result<String, (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = vdr_state.vdr_config.service_domain;
+    let did_host = vdr_state.vdr_config.did_host.as_str();
 
     let mut transaction = vdr_state
         .did_doc_store
@@ -51,11 +51,9 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Case for retrieving the latest DID doc.
-    if let Ok(did) = DID::from_resolution_url(
-        host.as_str(),
-        vdr_state.vdr_config.did_port_o,
-        path.as_str(),
-    ) {
+    if let Ok(did) =
+        DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path.as_str())
+    {
         let latest_did_doc_record = vdr_state
             .did_doc_store
             .get_latest_did_doc_record(&mut transaction, &did)
@@ -71,11 +69,9 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
     }
 
     // Cases for retrieving a specific DID doc based on selfHash or versionId
-    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(
-        host.as_str(),
-        vdr_state.vdr_config.did_port_o,
-        path.as_str(),
-    ) {
+    if let Ok(did_with_query) =
+        DIDWithQuery::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path.as_str())
+    {
         let did = did_with_query.did();
         if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
             let did_doc_record = vdr_state
@@ -111,7 +107,7 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
     // Cases for metadata
     if path.ends_with("/did/metadata.json") {
         let path = path.strip_suffix("/did/metadata.json").unwrap();
-        let did = DID::from_resolution_url(host.as_str(), vdr_state.vdr_config.did_port_o, path)
+        let did = DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
         let latest_did_document_record = vdr_state
             .did_doc_store
@@ -157,7 +153,7 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
         });
     } else if path.ends_with("/did/metadata/constant.json") {
         let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
-        let did = DID::from_resolution_url(host.as_str(), vdr_state.vdr_config.did_port_o, path)
+        let did = DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
         let first_did_document_record = vdr_state
             .did_doc_store
@@ -189,9 +185,8 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
         }
         let (did, did_document_record) = if path.ends_with("/did/metadata/selfHash") {
             let path = path.strip_suffix("/did/metadata/selfHash").unwrap();
-            let did =
-                DID::from_resolution_url(host.as_str(), vdr_state.vdr_config.did_port_o, path)
-                    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+            let did = DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path)
+                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
             let filename_self_hash = selfhash::KERIHashStr::new_ref(filename_self_hash_str)
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
@@ -204,9 +199,8 @@ async fn get_did_document_or_metadata<Storage: DIDDocStorage>(
             (did, did_document_record)
         } else if path.ends_with("/did/metadata/versionId") {
             let path = path.strip_suffix("/did/metadata/versionId").unwrap();
-            let did =
-                DID::from_resolution_url(host.as_str(), vdr_state.vdr_config.did_port_o, path)
-                    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+            let did = DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path)
+                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let filename_version_id_str = filename.strip_suffix(".json").unwrap();
             let filename_version_id: u32 = filename_version_id_str
                 .parse()
@@ -281,10 +275,8 @@ async fn create_did<Storage: DIDDocStorage>(
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let host = vdr_state.vdr_config.service_domain;
-
     let did = DID::from_resolution_url(
-        host.as_str(),
+        vdr_state.vdr_config.did_host.as_str(),
         vdr_state.vdr_config.did_port_o,
         path.as_str(),
     )
@@ -345,7 +337,7 @@ async fn update_did<Storage: DIDDocStorage>(
     assert!(!path.starts_with('/'));
 
     let did = DID::from_resolution_url(
-        vdr_state.vdr_config.service_domain.as_str(),
+        vdr_state.vdr_config.did_host.as_str(),
         vdr_state.vdr_config.did_port_o,
         path.as_str(),
     )

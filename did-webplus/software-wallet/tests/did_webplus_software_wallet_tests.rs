@@ -1,5 +1,11 @@
 use did_webplus_wallet_storage::WalletRecord;
 
+lazy_static::lazy_static! {
+    /// Building a reqwest::Client is *incredibly* slow, so we use a global instance and then clone
+    /// it per use, as the documentation indicates.
+    static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
+}
+
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
@@ -14,6 +20,25 @@ fn overall_init() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .compact()
         .init();
+}
+
+async fn service_is_up(service_health_endpoint_url: &str) -> bool {
+    let health_response = REQWEST_CLIENT
+        .get(service_health_endpoint_url)
+        .send()
+        .await
+        .expect("pass");
+    health_response.status() == reqwest::StatusCode::OK
+}
+
+async fn wait_until_service_is_up(service_name: &str, service_health_endpoint_url: &str) {
+    loop {
+        if service_is_up(service_health_endpoint_url).await {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    tracing::info!("{} is up", service_name);
 }
 
 #[tokio::test]
@@ -33,7 +58,7 @@ async fn test_software_wallet() {
     }
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        service_domain: "localhost".to_string(),
+        did_host: "localhost".to_string(),
         did_port_o: Some(11085),
         listen_port: 11085,
         database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
@@ -53,6 +78,12 @@ async fn test_software_wallet() {
     )
     .await
     .expect("pass");
+
+    wait_until_service_is_up(
+        "VDR",
+        format!("http://localhost:{}/health", vdr_config.listen_port).as_str(),
+    )
+    .await;
 
     // Create a new Wallet (this needs a better name -- directory? sub-wallet?)
     let ctx = {
@@ -80,7 +111,7 @@ async fn test_software_wallet() {
     let vdr_scheme = "http";
     let vdr_did_create_endpoint = format!(
         "{}://{}:{}",
-        vdr_scheme, vdr_config.service_domain, vdr_config.listen_port
+        vdr_scheme, vdr_config.did_host, vdr_config.listen_port
     );
 
     use did_webplus_wallet::Wallet;

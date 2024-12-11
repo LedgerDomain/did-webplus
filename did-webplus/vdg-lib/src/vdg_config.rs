@@ -1,13 +1,5 @@
 #[derive(clap::Args, Clone, Debug)]
 pub struct VDGConfig {
-    /// Specify the domain of the service, e.g. "example.com".  This does not include the scheme or the port.
-    #[arg(
-        name = "service-domain",
-        env = "DID_WEBPLUS_VDG_SERVICE_DOMAIN",
-        long,
-        value_name = "DOMAIN"
-    )]
-    pub service_domain: String,
     /// Specify the port on which the service will listen for HTTP requests.
     #[arg(env = "DID_WEBPLUS_VDG_LISTEN_PORT", long, default_value = "80")]
     pub listen_port: u16,

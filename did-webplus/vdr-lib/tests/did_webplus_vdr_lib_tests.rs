@@ -5,6 +5,13 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+lazy_static::lazy_static! {
+    /// Building a reqwest::Client is *incredibly* slow, so we use a global instance and then clone
+    /// it per use, as the documentation indicates.  We could use did_webplus_vdr_lib::REQWEST_CLIENT,
+    /// but it seems cleaner somehow to use a separate one than the crate that we're testing.
+    static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
+}
+
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
@@ -16,6 +23,25 @@ fn overall_init() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .compact()
         .init();
+}
+
+async fn service_is_up(service_health_endpoint_url: &str) -> bool {
+    let health_response = REQWEST_CLIENT
+        .get(service_health_endpoint_url)
+        .send()
+        .await
+        .expect("pass");
+    health_response.status() == reqwest::StatusCode::OK
+}
+
+async fn wait_until_service_is_up(service_name: &str, service_health_endpoint_url: &str) {
+    loop {
+        if service_is_up(service_health_endpoint_url).await {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    tracing::info!("{} is up", service_name);
 }
 
 // TODO: Maybe make separate sqlite and postgres versions of this test?
@@ -30,7 +56,7 @@ async fn test_vdr_operations() {
     }
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        service_domain: "localhost".to_string(),
+        did_host: "localhost".to_string(),
         did_port_o: Some(9085),
         listen_port: 9085,
         database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
@@ -41,21 +67,19 @@ async fn test_vdr_operations() {
         .await
         .expect("pass");
 
-    tracing::info!("Testing wallet operations; DID without path component");
-    test_vdr_wallet_operations_impl(
-        vdr_config.service_domain.as_str(),
-        vdr_config.did_port_o,
-        false,
+    wait_until_service_is_up(
+        "VDR",
+        format!("http://localhost:{}/health", vdr_config.listen_port).as_str(),
     )
     .await;
 
+    tracing::info!("Testing wallet operations; DID without path component");
+    test_vdr_wallet_operations_impl(vdr_config.did_host.as_str(), vdr_config.did_port_o, false)
+        .await;
+
     tracing::info!("Testing wallet operations; DID with path component");
-    test_vdr_wallet_operations_impl(
-        vdr_config.service_domain.as_str(),
-        vdr_config.did_port_o,
-        true,
-    )
-    .await;
+    test_vdr_wallet_operations_impl(vdr_config.did_host.as_str(), vdr_config.did_port_o, true)
+        .await;
 
     tracing::info!("Shutting down VDR");
     vdr_handle.abort();
@@ -109,7 +133,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
             alice_did_document.serialize_canonically().expect("pass")
         );
         assert_eq!(
-            reqwest::Client::new()
+            REQWEST_CLIENT
                 .post(&alice_did_url)
                 // This is probably ok for now, because the self-sign-and-hash verification process will
                 // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
@@ -123,7 +147,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
     }
     // Resolve the DID
     assert_eq!(
-        reqwest::Client::new()
+        REQWEST_CLIENT
             .get(&alice_did_url)
             .send()
             .await
@@ -149,7 +173,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
                 alice_did_document.serialize_canonically().expect("pass")
             );
             assert_eq!(
-                reqwest::Client::new()
+                REQWEST_CLIENT
                     .put(&alice_did_url)
                     // This is probably ok for now, because the self-sign-and-hash verification process will
                     // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
@@ -174,7 +198,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
                 alice_did_url_version_id
             );
             assert_eq!(
-                reqwest::Client::new()
+                REQWEST_CLIENT
                     .get(&alice_did_url)
                     .send()
                     .await
@@ -184,7 +208,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
             );
             // Do some query-specific GETs
             assert_eq!(
-                reqwest::Client::new()
+                REQWEST_CLIENT
                     .get(&alice_did_url_self_hash)
                     .send()
                     .await
@@ -193,7 +217,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
                 reqwest::StatusCode::OK
             );
             assert_eq!(
-                reqwest::Client::new()
+                REQWEST_CLIENT
                     .get(&alice_did_url_version_id)
                     .send()
                     .await
