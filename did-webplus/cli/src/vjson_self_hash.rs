@@ -1,6 +1,4 @@
 use crate::{NewlineArgs, Result, VJSONStorageBehaviorArgs, VJSONStoreArgs, VerifierResolverArgs};
-use selfhash::{HashFunction, SelfHashable};
-use std::io::Read;
 
 /// Read JSON from stdin and write self-hashed but non-signed Verifiable JSON (VJSON) to stdout.
 ///
@@ -26,44 +24,19 @@ pub struct VJSONSelfHash {
 
 impl VJSONSelfHash {
     pub async fn handle(self) -> Result<()> {
-        // Read all of stdin into a String and parse it as JSON.
-        let mut input = String::new();
-        std::io::stdin().read_to_string(&mut input).unwrap();
-        let value = serde_json::from_str(&input).unwrap();
-
+        // Handle CLI args and input
+        let value = serde_json::from_reader(std::io::stdin())?;
         let vjson_store = self.vjson_store_args.get_vjson_store().await?;
-
-        let (mut self_hashable_json, _schema_value) = {
-            let mut transaction = vjson_store.begin_transaction(None).await?;
-            let (self_hashable_json, schema_value) =
-                vjson_store::self_hashable_json_from(value, &mut transaction, &vjson_store).await?;
-            vjson_store.commit_transaction(transaction).await?;
-            (self_hashable_json, schema_value)
-        };
-
-        // Self-hash the JSON.
-        // TODO: Arg to specify the hash function
-        self_hashable_json
-            .self_hash(selfhash::Blake3.new_hasher())
-            .expect("self-hash failed");
-
-        // Verify the self-hash.  This is mostly a sanity check.
-        self_hashable_json
-            .verify_self_hashes()
-            .expect("programmer error: self-hash verification failed");
-
         let verifier_resolver_map = self.verifier_resolver_args.get_verifier_resolver_map();
+
+        // Do the processing
+        let value = did_webplus_cli_lib::vjson_self_hash(value, &vjson_store).await?;
         self.vjson_storage_behavior_args
-            .store_if_requested(
-                &vjson_store,
-                self_hashable_json.value(),
-                &verifier_resolver_map,
-            )
+            .store_if_requested(&value, &vjson_store, &verifier_resolver_map)
             .await?;
 
         // Print the self-hashed JSON and optional newline.
-        serde_json_canonicalizer::to_writer(self_hashable_json.value(), &mut std::io::stdout())
-            .unwrap();
+        serde_json_canonicalizer::to_writer(&value, &mut std::io::stdout()).unwrap();
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;
 

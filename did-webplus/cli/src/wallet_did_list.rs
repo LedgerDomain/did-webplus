@@ -19,20 +19,26 @@ pub struct WalletDIDList {
 
 impl WalletDIDList {
     pub async fn handle(self) -> Result<()> {
+        // Handle CLI args and input
         let wallet = self.wallet_args.get_wallet().await?;
-        use did_webplus_wallet::Wallet;
-        let controlled_did_v = wallet.get_controlled_dids(self.did_o.as_deref()).await?;
+
+        // Do the processing
+        let controlled_did_v =
+            did_webplus_cli_lib::wallet_did_list(&wallet, self.did_o.as_deref()).await?;
+
+        // Print the DIDs as JSON (either in fully-qualified form or as base DIDs), then optional newline.
         if self.fully_qualified {
             serde_json::to_writer(std::io::stdout(), &controlled_did_v)?;
         } else {
-            let controlled_did_v = controlled_did_v
+            let did_v = controlled_did_v
                 .iter()
                 .map(|controlled_did| controlled_did.did())
                 .collect::<Vec<_>>();
-            serde_json::to_writer(std::io::stdout(), &controlled_did_v)?;
+            serde_json::to_writer(std::io::stdout(), &did_v)?;
         }
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;
+
         Ok(())
     }
 }

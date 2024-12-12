@@ -1,6 +1,6 @@
 use crate::{
     error_invalid_vjson, error_malformed, self_hashable_json_from, validate_against_json_schema,
-    DirectDependencies, Error, Result, VJSONSchema, VJSONStorage, VJSONStore,
+    DirectDependencies, Error, Result, VJSONResolver, VJSONSchema,
 };
 use selfhash::{HashFunction, SelfHashable};
 
@@ -10,29 +10,27 @@ pub trait Validate: selfhash::SelfHashable {
     /// by any other type-specific validation checks.  This should return the self-hash of the validated
     /// object.
     // TEMP HACK -- this should take a &dyn Trait for some Resolver trait or something.
-    async fn validate_and_return_self_hash<Storage: VJSONStorage>(
+    async fn validate_and_return_self_hash(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
-        vjson_store: &VJSONStore<Storage>,
+        vjson_resolver: &dyn VJSONResolver,
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     ) -> Result<selfhash::KERIHash>;
 }
 
 #[async_trait::async_trait]
 impl Validate for serde_json::Value {
-    async fn validate_and_return_self_hash<Storage: VJSONStorage>(
+    async fn validate_and_return_self_hash(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
-        vjson_store: &VJSONStore<Storage>,
+        vjson_resolver: &dyn VJSONResolver,
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     ) -> Result<selfhash::KERIHash> {
-        log::debug!("validate_and_return_self_hash");
+        tracing::debug!("validate_and_return_self_hash");
 
         // First, form the SelfHashableJSON object that will be used to verify the self-hashes.
         // This is what reads the $schema field, if present, and uses it to determine the self-hash
         // paths and self-hash URL paths.
         let (mut self_hashable_json, schema_value) =
-            self_hashable_json_from(self.clone(), &mut *transaction, vjson_store).await?;
+            self_hashable_json_from(self.clone(), vjson_resolver).await?;
 
         validate_against_json_schema(&schema_value, self_hashable_json.value())?;
 
@@ -44,14 +42,14 @@ impl Validate for serde_json::Value {
                     format!("VJSON schema was invalid JSON; error was: {}", e).into(),
                 )
             })?;
-            log::trace!(
+            tracing::trace!(
                 "    validate_and_return_self_hash; vjson_schema: {:?}",
                 vjson_schema
             );
 
             // Verify the self-hash with the "proofs" field still present.
 
-            log::trace!(
+            tracing::trace!(
                 "    validate_and_return_self_hash; VJSON whose self-hashes will be verified: {}",
                 self_hashable_json.value().to_string()
             );
@@ -61,7 +59,7 @@ impl Validate for serde_json::Value {
                 .to_keri_hash()
                 .map_err(error_malformed)?
                 .into_owned();
-            log::trace!("    validate_and_return_self_hash; Input VJSON's self-hashes were successfully verified.");
+            tracing::trace!("    validate_and_return_self_hash; Input VJSON's self-hashes were successfully verified.");
 
             // The "proofs" field should be an array of JWS strings over the self-hash digest of the JSON
             // without its "proofs" field.
@@ -87,7 +85,7 @@ impl Validate for serde_json::Value {
             // Verify proofs, if any are present.
             let mut valid_proof_count = 0usize;
             if let Some(proof_v) = proof_vo {
-                log::trace!(
+                tracing::trace!(
                     "    validate_and_return_self_hash; Now verifying VJSON proofs; there are {} proofs to verify",
                     proof_v.len()
                 );
@@ -105,7 +103,7 @@ impl Validate for serde_json::Value {
                 for (proof_index, proof) in proof_v.iter().enumerate() {
                     let jws = did_webplus_jws::JWS::try_from(proof.as_str())
                         .map_err(|e| Error::Malformed(e.to_string().into()))?;
-                    log::info!("    validate_and_return_self_hash; Verifying {}th proof with JWS header: {:?}", proof_index, jws.header());
+                    tracing::info!("    validate_and_return_self_hash; Verifying {}th proof with JWS header: {:?}", proof_index, jws.header());
 
                     // Determine the verifier (i.e. public key) to use to verify the JWS.
                     let verifier_b = verifier_resolver.resolve(&jws.header().kid).await.map_err(|e| Error::InvalidVJSON(format!("JWS header \"kid\" field was not a valid verifier; error was: {}", e).into()))?;
@@ -116,7 +114,7 @@ impl Validate for serde_json::Value {
                     )
                     .map_err(error_invalid_vjson)?;
                     valid_proof_count += 1;
-                    log::trace!("    validate_and_return_self_hash; Proof with JWS header {:?} was verified", jws.header());
+                    tracing::trace!("    validate_and_return_self_hash; Proof with JWS header {:?} was verified", jws.header());
                 }
             }
 
@@ -135,19 +133,20 @@ impl Validate for serde_json::Value {
             // Eventually though, the "directDependencies" property of "vjsonProperties" could actually
             // specify what schema each direct dependency is expected to adhere to.
 
-            log::trace!("    validate_and_return_self_hash; validating direct dependencies");
-            let mut transaction = vjson_store.begin_transaction(None).await?;
-            for direct_dependency in self.direct_dependency_iter(vjson_store).await? {
-                log::trace!(
+            tracing::trace!("    validate_and_return_self_hash; validating direct dependencies");
+            for direct_dependency in self.direct_dependency_iter(vjson_resolver).await? {
+                tracing::trace!(
                     "    validate_and_return_self_hash; direct dependency: {}",
                     direct_dependency
                 );
-                match vjson_store
-                    .get_vjson_str(&mut transaction, &direct_dependency)
+                match vjson_resolver
+                    .resolve_vjson_string(&direct_dependency)
                     .await
                 {
                     Ok(_) => {
-                        log::trace!("    validate_and_return_self_hash; direct dependency found");
+                        tracing::trace!(
+                            "    validate_and_return_self_hash; direct dependency found"
+                        );
                         // Good; nothing to do.
                     }
                     Err(Error::NotFound(_)) => {
@@ -161,7 +160,6 @@ impl Validate for serde_json::Value {
                     }
                 }
             }
-            vjson_store.commit_transaction(transaction).await?;
 
             // TODO: Maybe? Handle other validations which may not be representable via JSON schema.
             // This would involve acting upon the custom keywords and other fields in the schema.
@@ -169,7 +167,7 @@ impl Validate for serde_json::Value {
             self_hash
         };
 
-        log::debug!("    validate_and_return_self_hash; successfully validated");
+        tracing::debug!("    validate_and_return_self_hash; successfully validated");
 
         Ok(self_hash)
     }

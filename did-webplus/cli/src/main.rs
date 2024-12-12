@@ -9,6 +9,7 @@ mod did_resolve;
 mod did_resolver_args;
 mod did_resolver_factory;
 mod http_scheme_args;
+mod jws_payload_args;
 mod jws_verify;
 mod newline_args;
 mod private_key_file_args;
@@ -34,23 +35,17 @@ pub use crate::{
     did_key_generate::DIDKeyGenerate, did_key_sign_jws::DIDKeySignJWS,
     did_key_sign_vjson::DIDKeySignVJSON, did_list::DIDList, did_resolve::DIDResolve,
     did_resolver_args::DIDResolverArgs, did_resolver_factory::DIDResolverFactory,
-    http_scheme_args::HTTPSchemeArgs, jws_verify::JWSVerify, newline_args::NewlineArgs,
-    private_key_file_args::PrivateKeyFileArgs, self_hash_args::SelfHashArgs,
-    verification_method_args::VerificationMethodArgs, verifier_resolver_args::VerifierResolverArgs,
-    vjson_default_schema::VJSONDefaultSchema, vjson_self_hash::VJSONSelfHash,
-    vjson_storage_behavior_args::VJSONStorageBehaviorArgs, vjson_store_args::VJSONStoreArgs,
-    vjson_store_get::VJSONStoreGet, vjson_verify::VJSONVerify, wallet_args::WalletArgs,
-    wallet_did_create::WalletDIDCreate, wallet_did_list::WalletDIDList,
+    http_scheme_args::HTTPSchemeArgs, jws_payload_args::JWSPayloadArgs, jws_verify::JWSVerify,
+    newline_args::NewlineArgs, private_key_file_args::PrivateKeyFileArgs,
+    self_hash_args::SelfHashArgs, verification_method_args::VerificationMethodArgs,
+    verifier_resolver_args::VerifierResolverArgs, vjson_default_schema::VJSONDefaultSchema,
+    vjson_self_hash::VJSONSelfHash, vjson_storage_behavior_args::VJSONStorageBehaviorArgs,
+    vjson_store_args::VJSONStoreArgs, vjson_store_get::VJSONStoreGet, vjson_verify::VJSONVerify,
+    wallet_args::WalletArgs, wallet_did_create::WalletDIDCreate, wallet_did_list::WalletDIDList,
     wallet_did_sign_jws::WalletDIDSignJWS, wallet_did_sign_vjson::WalletDIDSignVJSON,
     wallet_did_update::WalletDIDUpdate, wallet_list::WalletList,
 };
 pub use anyhow::{Error, Result};
-
-lazy_static::lazy_static! {
-    /// Building a reqwest::Client is *incredibly* slow, so we use a global instance and then clone
-    /// it per use, as the documentation indicates.
-    pub static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
-}
 
 pub(crate) fn parse_url(s: &str) -> anyhow::Result<url::Url> {
     let parsed_url = if !s.contains("://") {

@@ -9,6 +9,7 @@ use std::{borrow::Cow, io::Write};
 /// or <base64url(JSON(header))>..<base64url(signature)> if detached payload,
 /// See RFC 7515 Section 7.1 https://datatracker.ietf.org/doc/html/rfc7515#section-7.1
 /// Here, base64url(x) is the base64url-no-pad encoding of x.
+// TODO: Impl Zeroize (how does this work with Cow?  Maybe it doesn't and Cow should not be used)
 #[derive(Clone, Debug)]
 pub struct JWS<'j> {
     /// String representation of the JWS Compact Serialization.

@@ -3,7 +3,7 @@ use crate::{vjson_record::VJSONRecord, AlreadyExistsPolicy, Result};
 #[async_trait::async_trait]
 pub trait VJSONStorage: Clone + Send + Sync {
     /// Defines the transaction type for this DID document storage implementation.  The transaction must rollback upon Drop.
-    type Transaction<'t>: std::ops::Drop + Send + 't;
+    type Transaction<'t>: std::ops::Drop + Send + Sync + 't;
 
     /// Begin a new transaction.  If there is an existing transaction, then this creates a nested transaction under it.
     async fn begin_transaction<'s, 't: 's, 'u: 't>(

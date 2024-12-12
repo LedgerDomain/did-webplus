@@ -16,30 +16,33 @@ pub struct VJSONStorageBehaviorArgs {
 }
 
 impl VJSONStorageBehaviorArgs {
+    /// Translate the fail_if_exists arg into the appropriate vjson_store::AlreadyExistsPolicy.
+    pub fn already_exists_policy(&self) -> vjson_store::AlreadyExistsPolicy {
+        if self.fail_if_exists {
+            vjson_store::AlreadyExistsPolicy::Fail
+        } else {
+            vjson_store::AlreadyExistsPolicy::DoNothing
+        }
+    }
+    /// Translate the dont_store arg into a positive "should store" boolean.
+    pub fn should_store(&self) -> bool {
+        !self.dont_store
+    }
     // Store the signed VJSON in the VJSON store, if requested.
     pub async fn store_if_requested(
         &self,
-        vjson_store: &vjson_store::VJSONStore<vjson_storage_sqlite::VJSONStorageSQLite>,
         vjson_value: &serde_json::Value,
+        vjson_store: &vjson_store::VJSONStore<vjson_storage_sqlite::VJSONStorageSQLite>,
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     ) -> Result<()> {
-        if !self.dont_store {
-            let already_exists_policy = if self.fail_if_exists {
-                vjson_store::AlreadyExistsPolicy::Fail
-            } else {
-                vjson_store::AlreadyExistsPolicy::DoNothing
-            };
-
-            let mut transaction = vjson_store.begin_transaction(None).await?;
-            vjson_store
-                .add_vjson_value(
-                    &mut transaction,
-                    vjson_value,
-                    verifier_resolver,
-                    already_exists_policy,
-                )
-                .await?;
-            vjson_store.commit_transaction(transaction).await?;
+        if self.should_store() {
+            did_webplus_cli_lib::vjson_store_add_value(
+                vjson_value,
+                vjson_store,
+                verifier_resolver,
+                self.already_exists_policy(),
+            )
+            .await?;
         }
         Ok(())
     }

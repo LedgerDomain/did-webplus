@@ -37,7 +37,7 @@ impl WalletArgs {
     pub async fn get_wallet_storage(
         &self,
     ) -> Result<did_webplus_wallet_storage_sqlite::WalletStorageSQLite> {
-        log::debug!(
+        tracing::debug!(
             "WalletArgs::get_wallet_storage; wallet_db_url: {}",
             self.wallet_db_url
         );
@@ -49,10 +49,10 @@ impl WalletArgs {
             // See https://stackoverflow.com/questions/37388107/how-to-convert-the-pathbuf-to-string
             // TODO: Use std::path::Diplay via Path::display method.
             let wallet_db_path_str = wallet_db_path.as_os_str().to_str().unwrap();
-            log::debug!("Tilde-expanded wallet DB path: {}", wallet_db_path_str);
+            tracing::debug!("Tilde-expanded wallet DB path: {}", wallet_db_path_str);
             if !wallet_db_path.exists() {
                 if let Some(wallet_db_url_parent) = wallet_db_path.parent() {
-                    log::debug!(
+                    tracing::debug!(
                         "Ensuring wallet DB parent directory exists: {}",
                         wallet_db_url_parent.as_os_str().to_str().unwrap()
                     );
@@ -60,7 +60,7 @@ impl WalletArgs {
                     std::fs::create_dir_all(wallet_db_url_parent)?;
                 }
             }
-            log::debug!("Connecting to wallet DB at {}", wallet_db_path_str);
+            tracing::debug!("Connecting to wallet DB at {}", wallet_db_path_str);
             sqlx::SqlitePool::connect(wallet_db_path_str).await?
         } else {
             unimplemented!("non-SQLite wallet DBs are not yet supported.");

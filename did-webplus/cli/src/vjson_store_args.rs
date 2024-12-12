@@ -19,7 +19,7 @@ pub struct VJSONStoreArgs {
 
 impl VJSONStoreArgs {
     pub async fn get_vjson_storage(&self) -> Result<vjson_storage_sqlite::VJSONStorageSQLite> {
-        log::debug!(
+        tracing::debug!(
             "get_vjson_storage; self.vjson_store_db_url: {}",
             self.vjson_store_db_url
         );
@@ -31,13 +31,13 @@ impl VJSONStoreArgs {
             // See https://stackoverflow.com/questions/37388107/how-to-convert-the-pathbuf-to-string
             // TODO: Use std::path::Diplay via Path::display method.
             let vjson_store_db_path_str = vjson_store_db_path.as_os_str().to_str().unwrap();
-            log::debug!(
+            tracing::debug!(
                 "Tilde-expanded vjson_store DB path: {}",
                 vjson_store_db_path_str
             );
             if !vjson_store_db_path.exists() {
                 if let Some(vjson_store_db_url_parent) = vjson_store_db_path.parent() {
-                    log::debug!(
+                    tracing::debug!(
                         "Ensuring vjson_store DB parent directory exists: {}",
                         vjson_store_db_url_parent.as_os_str().to_str().unwrap()
                     );
@@ -45,7 +45,7 @@ impl VJSONStoreArgs {
                     std::fs::create_dir_all(vjson_store_db_url_parent)?;
                 }
             }
-            log::debug!(
+            tracing::debug!(
                 "Connecting to vjson_store DB at {}",
                 vjson_store_db_path_str
             );
@@ -59,6 +59,6 @@ impl VJSONStoreArgs {
         &self,
     ) -> Result<vjson_store::VJSONStore<vjson_storage_sqlite::VJSONStorageSQLite>> {
         let storage = self.get_vjson_storage().await?;
-        Ok(vjson_store::VJSONStore::new(storage))
+        Ok(vjson_store::VJSONStore::new(storage).await?)
     }
 }

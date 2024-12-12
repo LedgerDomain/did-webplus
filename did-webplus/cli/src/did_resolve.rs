@@ -22,18 +22,17 @@ pub struct DIDResolve {
 
 impl DIDResolve {
     pub async fn handle(self) -> Result<()> {
-        tracing::debug!("{:?}", self);
-
+        // Handle CLI args and input
         let http_scheme = self.http_scheme_args.determine_http_scheme();
         let did_resolver_b = self.did_resolver_args.get_did_resolver(http_scheme).await?;
-        // TODO: Handle metadata
-        let (did_document_string, _did_doc_metadata) = did_resolver_b
-            .resolve_did_document_string(
-                self.did_query.as_str(),
-                did_webplus_core::RequestedDIDDocumentMetadata::none(),
-            )
-            .await?;
 
+        // Do the processing
+        // TODO: Handle metadata
+        let did_document_string =
+            did_webplus_cli_lib::did_resolve_string(&self.did_query, did_resolver_b.as_ref())
+                .await?;
+
+        // Print the DID document string, then optional newline.
         std::io::stdout().write_all(did_document_string.as_bytes())?;
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;

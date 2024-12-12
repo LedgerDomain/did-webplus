@@ -1,4 +1,4 @@
-use crate::{Error, Result, VJSONSchema, VJSONStorage, VJSONStore};
+use crate::{Error, Result, VJSONResolver, VJSONSchema};
 
 /// A type implementing DirectDependencies has a set of direct dependencies that can be enumerated via iterator.
 #[async_trait::async_trait]
@@ -8,18 +8,18 @@ pub trait DirectDependencies {
     // TODO: Should this actually produce &selfhash::SelfHashURLStr?
     // TODO: I had simplified the types here to quickly get things to compile, but it added allocations,
     // so try to improve it again later.
-    async fn direct_dependency_iter<Storage: VJSONStorage>(
+    async fn direct_dependency_iter(
         &self,
-        vjson_store: &VJSONStore<Storage>,
+        vjson_resolver: &dyn VJSONResolver,
     ) -> Result<Vec<selfhash::KERIHash>>;
 }
 
 #[async_trait::async_trait]
 impl DirectDependencies for serde_json::Value {
     // TODO: Maybe also return the JSONPath that produced each direct dependency.
-    async fn direct_dependency_iter<Storage: VJSONStorage>(
+    async fn direct_dependency_iter(
         &self,
-        vjson_store: &VJSONStore<Storage>,
+        vjson_resolver: &dyn VJSONResolver,
     ) -> Result<Vec<selfhash::KERIHash>> {
         // log::trace!("serde_json::Value::direct_dependency_iter; self: {:?}", self);
 
@@ -56,17 +56,9 @@ impl DirectDependencies for serde_json::Value {
                 "VJSON \"$schema\" URL must be a valid VJSONURL".into(),
             ));
         }
-        let schema_value = {
-            let mut transaction = vjson_store.begin_transaction(None).await?;
-            let schema_value = vjson_store
-                .get_vjson_value(
-                    &mut transaction,
-                    schema_self_hash_url.keri_hash_o().unwrap(),
-                )
-                .await?;
-            vjson_store.commit_transaction(transaction).await?;
-            schema_value
-        };
+        let schema_value = vjson_resolver
+            .resolve_vjson_value(schema_self_hash_url.keri_hash_o().unwrap())
+            .await?;
         // log::debug!("serde_json::Value::direct_dependency_iter; schema_json:\n{}", serde_json::to_string_pretty(&schema_json).unwrap());
         // Validate this JSON against its schema just to be safe.
         {

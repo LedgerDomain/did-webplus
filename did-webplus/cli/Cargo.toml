@@ -13,28 +13,23 @@ path = "src/main.rs"
 anyhow = { version = "1.0.94", features = ["backtrace"] }
 async-trait = "0.1.80"
 clap = { version = "4.5.4", features = ["derive", "env"] }
-did-key = { path = "../../did-key", features = ["ed25519-dalek", "k256"] }
-did-webplus-core = { path = "../core" }
+did-webplus-cli-lib = { path = "../cli-lib", features = [
+    "ed25519-dalek",
+    "k256",
+] }
+did-webplus-core = { path = "../core", features = ["clap"] }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
-did-webplus-jws = { path = "../jws" }
+did-webplus-jws = { path = "../jws", features = ["clap"] }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
-# TODO: Maybe make this a feature
 ed25519-dalek = { version = "2.0.0", features = ["pkcs8", "rand_core"] }
 expanduser = "1.2.2"
-# NOTE: This is only used by did_key.rs for now, though it will be used in general.
 k256 = { version = "0.13.1", features = ["pkcs8"] }
-lazy_static = "1.4.0"
-log = "0.4.21"
-# NOTE: This is used by did:key stuff.
 pkcs8 = { version = "0.10.2", features = ["pem", "std"] }
-# NOTE: This is only used by ed25519-dalek
-rand = "0.8"
-reqwest = "0.12.5"
 # Enable all the hash function features to support them all.
 selfhash = { version = "0.4.0", features = [
     "blake3",
@@ -43,15 +38,10 @@ selfhash = { version = "0.4.0", features = [
     "sha-512",
 ] }
 # Enable all the cryptographic key type features to support them all.
-selfsign = { version = "0.6.0", features = ["ed25519-dalek", "k256"] }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+selfsign = { version = "0.6.0", features = ["clap", "ed25519-dalek", "k256"] }
 serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite"] }
-ssi-jwk = { version = "0.1.1", default-features = false, features = [
-    "ed25519",
-] }
-time = "0.3"
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
@@ -61,5 +51,6 @@ verifier-resolver = { path = "../../verifier-resolver", features = [
     "did-key-verifier-resolver",
     "did-webplus-verifier-resolver",
 ] }
+vjson-core = { path = "../../vjson/core" }
 vjson-storage-sqlite = { path = "../../vjson/storage-sqlite" }
 vjson-store = { path = "../../vjson/store" }

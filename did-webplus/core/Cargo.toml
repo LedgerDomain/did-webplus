@@ -9,11 +9,13 @@ edition = "2021"
 
 [features]
 async-traits = ["dep:async-trait"]
+clap = ["dep:clap"]
 ed25519-dalek = ["selfsign/ed25519-dalek"]
 k256 = ["selfsign/k256"]
 
 [dependencies]
 async-trait = { version = "0.1.80", optional = true }
+clap = { version = "4.5.4", optional = true, features = ["derive"] }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
     "display",

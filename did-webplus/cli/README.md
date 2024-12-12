@@ -90,7 +90,7 @@ It will print the updated, fully-qualified DID; notice the versionId value:
 
 Now produce a JWS that is signed by the DID:
 
-    echo '{"blah": 123}' | did-webplus wallet did sign jws --key-purpose assertionMethod
+    echo '{"blah": 123}' | did-webplus wallet did sign jws --key-purpose assertion-method
 
 This will output the JWS:
 
@@ -141,7 +141,7 @@ Signed VJSON can be produced either from an plain JSON blob or an existing VJSON
 
 Using the same JSON blob as the previous example:
 
-    echo '{"some": [true, "fancy", "data"]}' | did-webplus wallet did sign vjson --key-purpose assertionMethod
+    echo '{"some": [true, "fancy", "data"]}' | did-webplus wallet did sign vjson --key-purpose assertion-method
 
 The output is the signed, self-hashed VJSON.
 

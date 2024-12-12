@@ -12,26 +12,19 @@ pub struct WalletList {
 
 impl WalletList {
     pub async fn handle(self) -> Result<()> {
+        // Handle CLI args and input
         let wallet_uuid_o = self.wallet_args.get_wallet_uuid_o()?;
         let wallet_storage = self.wallet_args.get_wallet_storage().await?;
+        let wallet_record_filter = did_webplus_wallet_store::WalletRecordFilter {
+            wallet_uuid_o,
+            ..Default::default()
+        };
 
-        use did_webplus_doc_store::DIDDocStorage;
-        use did_webplus_wallet_store::WalletStorage;
-        let mut transaction = wallet_storage.begin_transaction(None).await?;
-        let wallet_record_v = wallet_storage
-            .get_wallets(
-                &mut transaction,
-                &did_webplus_wallet_store::WalletRecordFilter {
-                    wallet_uuid_o,
-                    ..Default::default()
-                },
-            )
-            .await?
-            .into_iter()
-            .map(|(_ctx, wallet_record)| wallet_record)
-            .collect::<Vec<_>>();
-        wallet_storage.commit_transaction(transaction).await?;
+        // Do the processing
+        let wallet_record_v =
+            did_webplus_cli_lib::wallet_list(wallet_storage, &wallet_record_filter).await?;
 
+        // Print the wallet records as JSON, then optional newline.
         serde_json::to_writer(std::io::stdout(), &wallet_record_v)?;
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;

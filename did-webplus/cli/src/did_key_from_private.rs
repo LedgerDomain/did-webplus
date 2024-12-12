@@ -12,10 +12,12 @@ pub struct DIDKeyFromPrivate {
 
 impl DIDKeyFromPrivate {
     pub fn handle(self) -> Result<()> {
+        // Handle CLI args and input
         self.private_key_file_args.ensure_file_exists()?;
-
         let signer_b = self.private_key_file_args.read_private_key_file()?;
-        let did = did_key::DID::try_from(&signer_b.verifier().to_verifier_bytes())?;
+
+        // Do the processing
+        let did = did_webplus_cli_lib::did_key_from_private(signer_b.as_ref())?;
 
         // Print the did:key value (i.e. pub key) of the read priv key.
         std::io::stdout().write_all(did.as_bytes()).unwrap();

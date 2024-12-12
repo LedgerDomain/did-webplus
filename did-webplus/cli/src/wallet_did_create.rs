@@ -1,4 +1,5 @@
-use crate::{Result, WalletArgs};
+use crate::{NewlineArgs, Result, WalletArgs};
+use std::io::Write;
 
 /// Create a DID hosted by the specified VDR, which is then controlled by the specified wallet.  If no --wallet-uuid
 /// argument is specified, then either the only wallet in the database will be used, or a new wallet will be
@@ -11,16 +12,25 @@ pub struct WalletDIDCreate {
     /// A scheme of "http" is only allowed if the host is "localhost".  The URL must not contain a query string or fragment.
     #[arg(name = "vdr", env = "DID_WEBPLUS_VDR", short, long, value_name = "URL")]
     pub vdr_did_create_endpoint: url::Url,
+    #[command(flatten)]
+    pub newline_args: NewlineArgs,
 }
 
 impl WalletDIDCreate {
     pub async fn handle(self) -> Result<()> {
+        // Handle CLI args and input
         let wallet = self.wallet_args.get_wallet().await?;
-        use did_webplus_wallet::Wallet;
-        let created_did = wallet
-            .create_did(self.vdr_did_create_endpoint.as_str())
-            .await?;
-        println!("{}", created_did);
+
+        // Do the processing
+        let created_did =
+            did_webplus_cli_lib::wallet_did_create(&wallet, self.vdr_did_create_endpoint.as_str())
+                .await?;
+
+        // Print the created DID and optional newline.
+        std::io::stdout().write_all(created_did.as_bytes())?;
+        self.newline_args
+            .print_newline_if_necessary(&mut std::io::stdout())?;
+
         Ok(())
     }
 }

@@ -2,14 +2,13 @@
 pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
 selfhash = { git = "https://github.com/LedgerDomain/selfhash", branch = "vjson" }
 selfsign = { git = "https://github.com/LedgerDomain/selfsign", branch = "jsonpath" }
-# selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.3.0" }
-# selfsign = { git = "https://github.com/LedgerDomain/selfsign", rev = "selfsign-v0.5.0" }
 
 [workspace]
 resolver = "2"
 members = [
     "did-key",
     "did-webplus/cli",
+    "did-webplus/cli-lib",
     "did-webplus/core",
     "did-webplus/doc-storage-postgres",
     "did-webplus/doc-storage-sqlite",
@@ -27,6 +26,7 @@ members = [
     "did-webplus/wallet-storage-sqlite",
     "test-util",
     "verifier-resolver",
+    "vjson/core",
     "vjson/storage-sqlite",
     "vjson/store",
 ]

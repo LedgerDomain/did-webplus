@@ -5,19 +5,19 @@ pub struct VerificationMethodArgs {
     /// controlled by the wallet, then that DID will be used -- it is uniquely determinable.  If not
     /// specified and there is no uniquely determinable DID, then an error will be returned.
     #[arg(name = "did", env = "DID_WEBPLUS_DID", short, long, value_name = "DID")]
-    pub did_o: Option<did_webplus_core::DID>,
-    /// Specify which key purpose to use when selecting the key for in this operation.  Valid values
-    /// are "authentication", "assertionMethod", "keyAgreement", "capabilityInvocation", and
-    /// "capabilityDelegation".
+    pub controlled_did_o: Option<did_webplus_core::DID>,
+    /// Specify which key purpose to use when selecting the key for in this operation.
     #[arg(
         env = "DID_WEBPLUS_KEY_PURPOSE",
         short = 'p',
         long,
-        value_name = "PURPOSE"
+        value_name = "PURPOSE",
+        value_enum
     )]
     pub key_purpose: did_webplus_core::KeyPurpose,
     /// If specified, then use key with the given public key in this operation.  If not specified,
     /// then use the uniquely determinable key if there is one.  Otherwise return error.
+    // TODO: Use a specific type here
     #[arg(
         name = "key-id",
         env = "DID_WEBPLUS_KEY_ID",

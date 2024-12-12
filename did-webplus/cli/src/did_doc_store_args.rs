@@ -20,7 +20,7 @@ impl DIDDocStoreArgs {
     pub async fn get_did_doc_storage(
         &self,
     ) -> Result<did_webplus_doc_storage_sqlite::DIDDocStorageSQLite> {
-        log::debug!(
+        tracing::debug!(
             "get_did_doc_storage; self.did_doc_store_db_url: {}",
             self.did_doc_store_db_url
         );
@@ -32,13 +32,13 @@ impl DIDDocStoreArgs {
             // See https://stackoverflow.com/questions/37388107/how-to-convert-the-pathbuf-to-string
             // TODO: Use std::path::Diplay via Path::display method.
             let did_doc_store_db_path_str = did_doc_store_db_path.as_os_str().to_str().unwrap();
-            log::debug!(
+            tracing::debug!(
                 "Tilde-expanded did_doc_store DB path: {}",
                 did_doc_store_db_path_str
             );
             if !did_doc_store_db_path.exists() {
                 if let Some(did_doc_db_url_parent) = did_doc_store_db_path.parent() {
-                    log::debug!(
+                    tracing::debug!(
                         "Ensuring did_doc_store DB parent directory exists: {}",
                         did_doc_db_url_parent.as_os_str().to_str().unwrap()
                     );
@@ -46,7 +46,7 @@ impl DIDDocStoreArgs {
                     std::fs::create_dir_all(did_doc_db_url_parent)?;
                 }
             }
-            log::debug!(
+            tracing::debug!(
                 "Connecting to did_doc_store DB at {}",
                 did_doc_store_db_path_str
             );

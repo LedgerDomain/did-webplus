@@ -13,25 +13,25 @@ pub struct VJSONStoreGet {
 }
 
 impl VJSONStoreGet {
-    pub async fn handle(self) -> Result<()> {
-        // Parse the vjson_specifier.
-        let self_hash = if let Ok(self_hash) = selfhash::KERIHashStr::new_ref(&self.vjson_specifier)
-        {
-            self_hash
+    pub fn vjson_specifier_self_hash(&self) -> Result<&selfhash::KERIHashStr> {
+        if let Ok(self_hash) = selfhash::KERIHashStr::new_ref(&self.vjson_specifier) {
+            Ok(self_hash)
         } else if let Ok(self_hash_url) = selfhash::SelfHashURLStr::new_ref(&self.vjson_specifier) {
             self_hash_url.keri_hash_o().ok_or_else(|| {
                 anyhow::anyhow!("Self-hash URL must have a well-formed self-hash component")
-            })?
+            })
         } else {
             anyhow::bail!("VJSON specifier must be a valid self-hash or self-hash URL")
-        };
-
-        // Retrieve the specified Add the VJSON to the VJSON store.  This validates it before adding it.
+        }
+    }
+    pub async fn handle(self) -> Result<()> {
+        // Handle CLI args and input
+        let self_hash = self.vjson_specifier_self_hash()?;
         let vjson_store = self.vjson_store_args.get_vjson_store().await?;
-        let mut transaction = vjson_store.begin_transaction(None).await?;
-        let vjson_record = vjson_store
-            .get_vjson_str(&mut transaction, &self_hash)
-            .await?;
+
+        // Do the processing
+        let vjson_record =
+            did_webplus_cli_lib::vjson_store_get_record(self_hash, &vjson_store).await?;
 
         // Print the VJSON and optional newline.
         std::io::stdout()

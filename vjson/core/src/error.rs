@@ -12,21 +12,10 @@ pub enum Error {
     Malformed(Cow<'static, str>),
     #[error("Not found: {0}")]
     NotFound(Cow<'static, str>),
-    #[error("Record corruption detected: {0}")]
-    RecordCorruption(Cow<'static, str>),
     #[error("Storage error: {0}")]
     StorageError(Cow<'static, str>),
     #[error("Unsupported: {0}")]
     Unsupported(Cow<'static, str>),
-    #[error(transparent)]
-    VJSONCoreError(#[from] vjson_core::Error),
-}
-
-#[cfg(feature = "sqlx")]
-impl From<sqlx::Error> for Error {
-    fn from(err: sqlx::Error) -> Self {
-        Self::StorageError(err.to_string().into())
-    }
 }
 
 pub fn error_already_exists<E: std::fmt::Display>(e: E) -> Error {
@@ -47,10 +36,6 @@ pub fn error_malformed<E: std::fmt::Display>(e: E) -> Error {
 
 pub fn error_not_found<E: std::fmt::Display>(e: E) -> Error {
     Error::NotFound(e.to_string().into())
-}
-
-pub fn error_record_corruption<E: std::fmt::Display>(e: E) -> Error {
-    Error::RecordCorruption(e.to_string().into())
 }
 
 pub fn error_storage_error<E: std::fmt::Display>(e: E) -> Error {

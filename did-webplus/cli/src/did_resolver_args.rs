@@ -54,7 +54,7 @@ impl DIDResolverArgs {
             );
             // TODO: Implement usage of VDG for "full" resolver.
             if self.vdg_resolve_endpoint_o.is_some() {
-                log::warn!(
+                tracing::warn!(
                     "Ignoring \"--vdg\" argument since the resolver is set to \"full\", and its usage of VDG is not yet implemented"
                 );
             }
@@ -72,7 +72,7 @@ impl DIDResolverArgs {
                 "When using the \"thin\" resolver, the \"--vdg\" argument is required"
             );
             if self.did_doc_store_db_url_o.is_some() {
-                log::warn!(
+                tracing::warn!(
                     "Ignoring \"--did-doc-store\" argument since the resolver is set to \"thin\", which doesn't use a DID doc store"
                 );
             }
