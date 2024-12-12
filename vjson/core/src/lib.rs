@@ -166,18 +166,35 @@ pub fn validate_against_json_schema(
     Ok(())
 }
 
+/// The kid field should give the fully-qualified DID resource of the signer.  For did:key this would look like
+/// "did:key:<base58enc>#<base58enc>" (see did_key::DIDResource).  For did:webplus this would look like
+/// "did:webplus:<host>:<path>:<root-self-hash>?selfHash=<query-self-hash>&versionId=<version-id>#<key-id>"
+/// (see did_webplus::DIDKeyResourceFullyQualified).  If verifier_resolver_o is Some(_), then the
+/// signed-and-self-hashed VJSON will be verified before returning.  This is not strictly necessary,
+/// but will be done as a sanity check for now.
 pub async fn sign_and_self_hash_vjson(
     value: &mut serde_json::Value,
+    kid: String,
     signer: &dyn selfsign::Signer,
     vjson_resolver: &dyn VJSONResolver,
+    verifier_resolver_o: Option<&dyn verifier_resolver::VerifierResolver>,
 ) -> Result<()> {
+    if !kid.starts_with("did:") {
+        return Err(Error::Malformed("kid must start with \"did:\"".into()));
+    }
+    // TODO (maybe): Could resolve the DID here to ensure it's valid as a sanity check, but it's not strictly necessary.
+
     use selfhash::{HashFunction, SelfHashable};
 
+    // Swap out the value with a null value, so that we can take ownership for use in SelfHashableJSON.
+    let mut owned_value = serde_json::Value::Null;
+    std::mem::swap(value, &mut owned_value);
+
     let mut proofs = {
-        if !value.is_object() {
+        if !owned_value.is_object() {
             return Err(Error::Malformed("JSON must be an object".into()));
         }
-        let value_object = value.as_object_mut().unwrap();
+        let value_object = owned_value.as_object_mut().unwrap();
         // Extract the "proofs" field, if it exists, and if so, ensure that it's an array.  We will
         // add the proof to it, and re-add it after signing.
         match value_object.remove("proofs") {
@@ -197,11 +214,8 @@ pub async fn sign_and_self_hash_vjson(
         }
     };
 
-    let (mut self_hashable_json, _schema_value) =
-        self_hashable_json_from(value.clone(), vjson_resolver).await?;
-
-    let did_resource =
-        did_key::DIDResource::try_from(&signer.verifier().to_verifier_bytes()).unwrap();
+    let (mut self_hashable_json, schema_value) =
+        self_hashable_json_from(owned_value, vjson_resolver).await?;
 
     let jws = {
         self_hashable_json
@@ -213,7 +227,7 @@ pub async fn sign_and_self_hash_vjson(
         );
         let payload_bytes = serde_json_canonicalizer::to_vec(self_hashable_json.value()).unwrap();
         did_webplus_jws::JWS::signed(
-            did_resource.to_string(),
+            kid,
             &mut payload_bytes.as_slice(),
             did_webplus_jws::JWSPayloadPresence::Detached,
             did_webplus_jws::JWSPayloadEncoding::Base64URL,
@@ -234,7 +248,20 @@ pub async fn sign_and_self_hash_vjson(
         .self_hash(selfhash::Blake3.new_hasher())
         .map_err(error_internal_error)?;
 
-    *value = self_hashable_json.into_value();
+    owned_value = self_hashable_json.into_value();
+
+    // Validate it to ensure it's completely valid, including against its schema.
+    validate_against_json_schema(&schema_value, &owned_value)?;
+
+    // Swap the value back in.
+    std::mem::swap(value, &mut owned_value);
+
+    // If a verifier_resolver was provided, then verify the signed-and-self-hashed VJSON.
+    if let Some(verifier_resolver) = verifier_resolver_o {
+        value
+            .validate_and_return_self_hash(vjson_resolver, verifier_resolver)
+            .await?;
+    }
 
     Ok(())
 }

@@ -31,7 +31,7 @@ pub struct WalletDIDSignVJSON {
 impl WalletDIDSignVJSON {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let value = serde_json::from_reader(std::io::stdin())?;
+        let mut value: serde_json::Value = serde_json::from_reader(std::io::stdin())?;
         // TODO: Use ref if possible
         let key_id_o = self
             .verification_method_args
@@ -45,8 +45,8 @@ impl WalletDIDSignVJSON {
         let verifier_resolver = self.verifier_resolver_args.get_verifier_resolver_map();
 
         // Do the processing
-        let vjson_value = did_webplus_cli_lib::wallet_did_sign_vjson(
-            value,
+        did_webplus_cli_lib::wallet_did_sign_vjson(
+            &mut value,
             &wallet,
             controlled_did_o,
             key_id_o,
@@ -56,11 +56,11 @@ impl WalletDIDSignVJSON {
         )
         .await?;
         self.vjson_storage_behavior_args
-            .store_if_requested(&vjson_value, &vjson_store, &verifier_resolver)
+            .store_if_requested(&value, &vjson_store, &verifier_resolver)
             .await?;
 
         // Print the signed-and-self-hashed JSON and optional newline.
-        serde_json_canonicalizer::to_writer(&vjson_value, &mut std::io::stdout())?;
+        serde_json_canonicalizer::to_writer(&value, &mut std::io::stdout())?;
         self.newline_args
             .print_newline_if_necessary(&mut std::io::stdout())?;
 

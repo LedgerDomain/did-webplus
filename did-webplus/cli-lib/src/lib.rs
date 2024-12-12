@@ -142,71 +142,23 @@ pub fn did_key_sign_jws(
     Ok(jws)
 }
 
-// TODO: Maybe make this take &mut serde_json::Value
 pub async fn did_key_sign_vjson(
-    mut value: serde_json::Value,
+    value: &mut serde_json::Value,
     signer: &dyn selfsign::Signer,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
-) -> Result<serde_json::Value> {
-    use selfhash::{HashFunction, SelfHashable};
-
-    let mut proofs = {
-        anyhow::ensure!(value.is_object(), "JSON must be an object");
-        let value_object = value.as_object_mut().unwrap();
-        // Extract the "proofs" field, if it exists, and if so, ensure that it's an array.  We will
-        // add the proof to it, and re-add it after signing.
-        match value_object.remove("proofs") {
-            None => {
-                // No existing "proofs" field, this is fine.  Create an empty array to be populated later.
-                Vec::new()
-            }
-            Some(serde_json::Value::Array(proofs)) => {
-                // Existing "proofs" field that is an array, as expected.  Use it.
-                proofs
-            }
-            Some(_) => {
-                anyhow::bail!("\"proofs\" field, if it exists, must be an array");
-            }
-        }
-    };
-
-    let (mut self_hashable_json, schema_value) =
-        vjson_core::self_hashable_json_from(value, vjson_resolver).await?;
-
-    let jws = {
-        self_hashable_json
-            .set_self_hash_slots_to(selfhash::Blake3.placeholder_hash())
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
-        tracing::debug!(
-            "json that will be signed: {}",
-            self_hashable_json.value().to_string()
-        );
-        // TODO: This could be better if it used a pipe writer, instead of serializing the whole thing into memory.
-        let payload_bytes = serde_json_canonicalizer::to_vec(self_hashable_json.value())?;
-        did_key_sign_jws(
-            &mut payload_bytes.as_slice(),
-            did_webplus_jws::JWSPayloadPresence::Detached,
-            did_webplus_jws::JWSPayloadEncoding::Base64URL,
-            signer,
-        )?
-    };
-
-    // Attach the JWS to the "proofs" array.
-    proofs.push(serde_json::Value::String(jws.into_string()));
-
-    // Re-add the "proofs" field to the json.
-    let value_object = self_hashable_json.value_mut().as_object_mut().unwrap();
-    value_object.insert("proofs".to_owned(), serde_json::Value::Array(proofs));
-
-    // Self-hash the JSON with the "proofs" field populated.
-    self_hashable_json
-        .self_hash(selfhash::Blake3.new_hasher())
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
-
-    // This probably belongs here.
-    vjson_core::validate_against_json_schema(&schema_value, self_hashable_json.value())?;
-
-    Ok(self_hashable_json.into_value())
+) -> Result<()> {
+    let did_resource = did_key::DIDResource::try_from(&signer.verifier().to_verifier_bytes())?;
+    let kid = did_resource.to_string();
+    let verifier_resolver = verifier_resolver::VerifierResolverDIDKey;
+    vjson_core::sign_and_self_hash_vjson(
+        value,
+        kid,
+        signer,
+        vjson_resolver,
+        Some(&verifier_resolver),
+    )
+    .await?;
+    Ok(())
 }
 
 // TODO: Rename this function to something more appropriate
@@ -444,111 +396,61 @@ pub async fn wallet_did_sign_jws(
 // a signing key that is actually valid.  But maybe that should be a separate step, and this
 // is naturally decomposed.
 pub async fn wallet_did_sign_vjson(
-    mut value: serde_json::Value,
+    value: &mut serde_json::Value,
     wallet: &dyn did_webplus_wallet::Wallet,
     controlled_did_o: Option<&did_webplus_core::DIDStr>,
     key_id_o: Option<selfsign::KERIVerifier>,
     key_purpose: did_webplus_core::KeyPurpose,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-) -> Result<serde_json::Value> {
-    use selfhash::{HashFunction, SelfHashable};
+) -> Result<()> {
+    // Determine the signer and corresponding kid (key ID).
+    let (signer_b, kid) = {
+        let controlled_did = wallet.get_controlled_did(controlled_did_o).await?;
 
-    let controlled_did = wallet.get_controlled_did(controlled_did_o).await?;
+        // Get the specified signing key.
+        let (verification_method_record, signer_b) = {
+            let query_result_v = wallet
+                .get_locally_controlled_verification_methods(
+                    &did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
+                        did_o: Some(controlled_did.did().to_owned()),
+                        key_purpose_o: Some(key_purpose),
+                        version_id_o: None,
+                        key_id_o,
+                        result_limit_o: Some(2),
+                    },
+                )
+                .await?;
+            if query_result_v.is_empty() {
+                anyhow::bail!(
+                    "No locally controlled verification method found for KeyPurpose \"{}\" and {}",
+                    key_purpose,
+                    controlled_did
+                );
+            }
+            if query_result_v.len() > 1 {
+                anyhow::bail!("Multiple locally controlled verification methods found for KeyPurpose \"{}\" and {}; use --key-id to select a single key", key_purpose, controlled_did);
+            }
+            query_result_v.into_iter().next().unwrap()
+        };
 
-    // Get the specified signing key.
-    let (verification_method_record, signer_b) = {
-        let query_result_v = wallet
-            .get_locally_controlled_verification_methods(
-                &did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
-                    did_o: Some(controlled_did.did().to_owned()),
-                    key_purpose_o: Some(key_purpose),
-                    version_id_o: None,
-                    key_id_o,
-                    result_limit_o: Some(2),
-                },
-            )
-            .await?;
-        if query_result_v.is_empty() {
-            anyhow::bail!(
-                "No locally controlled verification method found for KeyPurpose \"{}\" and {}",
-                key_purpose,
-                controlled_did
-            );
-        }
-        if query_result_v.len() > 1 {
-            anyhow::bail!("Multiple locally controlled verification methods found for KeyPurpose \"{}\" and {}; use --key-id to select a single key", key_purpose, controlled_did);
-        }
-        query_result_v.into_iter().next().unwrap()
+        let kid = verification_method_record
+            .did_key_resource_fully_qualified
+            .to_string();
+
+        (signer_b, kid)
     };
 
-    // TODO: Factor this signing operation out and put it into vjson_core.
+    vjson_core::sign_and_self_hash_vjson(
+        value,
+        kid,
+        signer_b.as_ref(),
+        vjson_resolver,
+        Some(verifier_resolver),
+    )
+    .await?;
 
-    let mut proofs = {
-        anyhow::ensure!(value.is_object(), "JSON must be an object");
-        let value_object = value.as_object_mut().unwrap();
-        // Extract the "proofs" field, if it exists, and if so, ensure that it's an array.  We will
-        // add the proof to it, and re-add it after signing.
-        match value_object.remove("proofs") {
-            None => {
-                // No existing "proofs" field, this is fine.  Create an empty array to be populated later.
-                Vec::new()
-            }
-            Some(serde_json::Value::Array(proofs)) => {
-                // Existing "proofs" field that is an array, as expected.  Use it.
-                proofs
-            }
-            Some(_) => {
-                anyhow::bail!("\"proofs\" field, if it exists, must be an array");
-            }
-        }
-    };
-
-    let (mut self_hashable_json, _schema_value) =
-        vjson_core::self_hashable_json_from(value, vjson_resolver).await?;
-
-    let jws = {
-        self_hashable_json
-            .set_self_hash_slots_to(selfhash::Blake3.placeholder_hash())
-            .map_err(|e| anyhow::anyhow!("{}", e))?;
-        tracing::debug!(
-            "json that will be signed: {}",
-            self_hashable_json.value().to_string()
-        );
-        // TODO: Use a writer here instead of serializing the whole thing into memory.
-        let payload_bytes = serde_json_canonicalizer::to_vec(self_hashable_json.value())?;
-        did_webplus_jws::JWS::signed(
-            verification_method_record
-                .did_key_resource_fully_qualified
-                .to_string(),
-            &mut payload_bytes.as_slice(),
-            did_webplus_jws::JWSPayloadPresence::Detached,
-            did_webplus_jws::JWSPayloadEncoding::Base64URL,
-            signer_b.as_ref(),
-        )?
-    };
-
-    // Attach the JWS to the "proofs" array.
-    proofs.push(serde_json::Value::String(jws.into_string()));
-
-    // Re-add the "proofs" field to the json.
-    let value_object = self_hashable_json.value_mut().as_object_mut().unwrap();
-    value_object.insert("proofs".to_owned(), serde_json::Value::Array(proofs));
-
-    // Self-hash the JSON with the "proofs" field populated.
-    self_hashable_json
-        .self_hash(selfhash::Blake3.new_hasher())
-        .map_err(|e| anyhow::anyhow!("{}", e))?;
-
-    let vjson_value = self_hashable_json.into_value();
-
-    // Sanity check: Verify the VJSON -- note that this takes extra time, and shouldn't
-    // be required, but we'll do it for now for testing purposes.
-    vjson_verify(&vjson_value, vjson_resolver, verifier_resolver)
-        .await
-        .expect("programmer error: VJSON should be valid by construction");
-
-    Ok(vjson_value)
+    Ok(())
 }
 
 pub async fn wallet_list<Storage: did_webplus_wallet_store::WalletStorage>(

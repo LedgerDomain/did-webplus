@@ -24,15 +24,15 @@ pub struct DIDKeySignVJSON {
 impl DIDKeySignVJSON {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let value = serde_json::from_reader(std::io::stdin())?;
+        let mut value: serde_json::Value = serde_json::from_reader(std::io::stdin())?;
         let vjson_store = self.vjson_store_args.get_vjson_store().await?;
         self.private_key_file_args.ensure_file_exists()?;
         let signer_b = self.private_key_file_args.read_private_key_file()?;
         let verifier_resolver_map = self.verifier_resolver_args.get_verifier_resolver_map();
 
         // Do the processing
-        let value =
-            did_webplus_cli_lib::did_key_sign_vjson(value, signer_b.as_ref(), &vjson_store).await?;
+        did_webplus_cli_lib::did_key_sign_vjson(&mut value, signer_b.as_ref(), &vjson_store)
+            .await?;
         self.vjson_storage_behavior_args
             .store_if_requested(&value, &vjson_store, &verifier_resolver_map)
             .await?;
