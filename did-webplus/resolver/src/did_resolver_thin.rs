@@ -7,7 +7,7 @@ pub struct DIDResolverThin {
     /// Specifies the URL of the "resolve" endpoint of the VDG to use for DID resolution.  The URL can
     /// omit the scheme (i.e. the "https://" portion), in which case, "https://" will be used.  The URL
     /// must not contain a query string or fragment.
-    pub vdg_resolve_endpoint: url::Url,
+    pub vdg_resolve_endpoint_url: url::Url,
 }
 
 #[async_trait::async_trait]
@@ -26,30 +26,30 @@ impl DIDResolver for DIDResolverThin {
         }
 
         // Set the HTTP scheme is not specified.
-        let vdg_resolve_endpoint = if self.vdg_resolve_endpoint.scheme().is_empty() {
-            let mut vdg_resolve_endpoint = self.vdg_resolve_endpoint.clone();
-            vdg_resolve_endpoint.set_scheme("https").unwrap();
-            vdg_resolve_endpoint
+        let vdg_resolve_endpoint_url = if self.vdg_resolve_endpoint_url.scheme().is_empty() {
+            let mut vdg_resolve_endpoint_url = self.vdg_resolve_endpoint_url.clone();
+            vdg_resolve_endpoint_url.set_scheme("https").unwrap();
+            vdg_resolve_endpoint_url
         } else {
-            self.vdg_resolve_endpoint.clone()
+            self.vdg_resolve_endpoint_url.clone()
         };
 
-        if !vdg_resolve_endpoint.path().ends_with('/') {
+        if !vdg_resolve_endpoint_url.path().ends_with('/') {
             panic!("VDG resolve endpoint must end with a slash");
         }
-        if vdg_resolve_endpoint.query().is_some() {
+        if vdg_resolve_endpoint_url.query().is_some() {
             panic!("VDG resolve endpoint must not contain a query string");
         }
-        if vdg_resolve_endpoint.fragment().is_some() {
+        if vdg_resolve_endpoint_url.fragment().is_some() {
             panic!("VDG resolve endpoint must not contain a fragment");
         }
-        tracing::debug!("VDG resolve endpoint: {}", vdg_resolve_endpoint);
+        tracing::debug!("VDG resolve endpoint: {}", vdg_resolve_endpoint_url);
         let resolution_url = {
             let did_query_url_encoded = temp_hack_incomplete_percent_encoded(did_query);
-            let mut path = vdg_resolve_endpoint.path().to_string();
+            let mut path = vdg_resolve_endpoint_url.path().to_string();
             assert!(path.ends_with('/'));
             path.push_str(did_query_url_encoded.as_str());
-            let mut resolution_url = vdg_resolve_endpoint.clone();
+            let mut resolution_url = vdg_resolve_endpoint_url.clone();
             resolution_url.set_path(path.as_str());
             tracing::debug!("DID resolution URL: {}", resolution_url);
             resolution_url

@@ -13,7 +13,7 @@ pub struct WalletList {
 impl WalletList {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let wallet_uuid_o = self.wallet_args.get_wallet_uuid_o()?;
+        let wallet_uuid_o = self.wallet_args.wallet_uuid_o;
         let wallet_storage = self.wallet_args.get_wallet_storage().await?;
         let wallet_record_filter = did_webplus_wallet_store::WalletRecordFilter {
             wallet_uuid_o,

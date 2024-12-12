@@ -1,6 +1,5 @@
-use did_webplus_software_wallet::SoftwareWallet;
-
 use crate::Result;
+use did_webplus_software_wallet::SoftwareWallet;
 
 /// Args common to wallet-specifying CLI commands.
 #[derive(clap::Args)]
@@ -15,25 +14,22 @@ pub struct WalletArgs {
     )]
     pub wallet_db_url: String,
     /// Optionally specify the UUID of the wallet within the database to use.
-    // TODO: Parse into hypenated UUID
     #[arg(
         name = "wallet-uuid",
         env = "DID_WEBPLUS_WALLET_UUID",
         short = 'w',
         long,
-        value_name = "UUID"
+        value_name = "UUID",
+        value_parser = parse_hyphenated_uuid
     )]
-    pub wallet_uuid_o: Option<String>,
+    pub wallet_uuid_o: Option<uuid::Uuid>,
+}
+
+fn parse_hyphenated_uuid(s: &str) -> Result<uuid::Uuid> {
+    Ok(uuid::Uuid::parse_str(s)?)
 }
 
 impl WalletArgs {
-    pub fn get_wallet_uuid_o(&self) -> Result<Option<uuid::Uuid>> {
-        Ok(self
-            .wallet_uuid_o
-            .as_deref()
-            .map(|wallet_uuid_str| uuid::Uuid::parse_str(wallet_uuid_str))
-            .transpose()?)
-    }
     pub async fn get_wallet_storage(
         &self,
     ) -> Result<did_webplus_wallet_storage_sqlite::WalletStorageSQLite> {
@@ -79,13 +75,12 @@ impl WalletArgs {
             did_webplus_wallet_storage_sqlite::WalletStorageSQLite,
         >,
     > {
-        let wallet_uuid_o = self.get_wallet_uuid_o()?;
         let wallet_storage = self.get_wallet_storage().await?;
-        if let Some(wallet_uuid) = wallet_uuid_o {
+        if let Some(wallet_uuid) = self.wallet_uuid_o.as_ref() {
             use did_webplus_doc_store::DIDDocStorage;
             let mut transaction = wallet_storage.begin_transaction(None).await?;
             let wallet =
-                SoftwareWallet::open(&mut transaction, &wallet_storage, &wallet_uuid).await?;
+                SoftwareWallet::open(&mut transaction, &wallet_storage, wallet_uuid).await?;
             wallet_storage.commit_transaction(transaction).await?;
             Ok(wallet)
         } else {

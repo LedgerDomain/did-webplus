@@ -11,7 +11,6 @@ pub struct PrivateKeyFileArgs {
         value_name = "PATH",
         default_value = "~/.did-webplus/privkey.pem"
     )]
-    // pub private_key_path: std::path::PathBuf,
     private_key_path: String,
 }
 
