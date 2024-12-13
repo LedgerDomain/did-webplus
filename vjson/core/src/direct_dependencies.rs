@@ -1,7 +1,8 @@
 use crate::{Error, Result, VJSONResolver, VJSONSchema};
 
 /// A type implementing DirectDependencies has a set of direct dependencies that can be enumerated via iterator.
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait DirectDependencies {
     /// Produce an iterator of the direct dependencies of self.
     // TODO: Need this to return Result, since it could incur errors during resolution.
@@ -14,7 +15,8 @@ pub trait DirectDependencies {
     ) -> Result<Vec<selfhash::KERIHash>>;
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl DirectDependencies for serde_json::Value {
     // TODO: Maybe also return the JSONPath that produced each direct dependency.
     async fn direct_dependency_iter(

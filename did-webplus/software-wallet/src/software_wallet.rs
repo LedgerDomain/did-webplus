@@ -73,7 +73,8 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
     }
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
     async fn create_did(&self, vdr_did_create_endpoint: &str) -> Result<DIDFullyQualified> {
         // Parse the vdr_did_create_endpoint as a URL.

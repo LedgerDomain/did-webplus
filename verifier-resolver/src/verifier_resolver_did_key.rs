@@ -3,7 +3,8 @@ use crate::{Error, Result, VerifierResolver};
 /// This will turn a did:key DIDResource into a Box<dyn selfsign::Verifier>.
 pub struct VerifierResolverDIDKey;
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl VerifierResolver for VerifierResolverDIDKey {
     async fn resolve(&self, verifier_str: &str) -> Result<Box<dyn selfsign::Verifier>> {
         if !verifier_str.starts_with("did:key:") {

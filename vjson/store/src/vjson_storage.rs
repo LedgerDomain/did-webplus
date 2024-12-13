@@ -1,6 +1,7 @@
 use crate::{vjson_record::VJSONRecord, AlreadyExistsPolicy, Result};
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait VJSONStorage: Clone + Send + Sync {
     /// Defines the transaction type for this DID document storage implementation.  The transaction must rollback upon Drop.
     type Transaction<'t>: std::ops::Drop + Send + Sync + 't;

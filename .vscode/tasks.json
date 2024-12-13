@@ -32,10 +32,7 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"options": {
 				"env": {
 					"SQLX_OFFLINE": "true"
@@ -1261,6 +1258,85 @@
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "check did-webplus-wasm",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-wasm",
+				"--target",
+				"wasm32-unknown-unknown",
+				"--all-features",
+				"--tests"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "wasm-pack test did-webplus-wasm",
+			"type": "shell",
+			"command": "wasm-pack",
+			"args": [
+				"test",
+				"--node"
+			],
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/did-webplus/wasm"
+			},
+			"presentation": {
+				"clear": true
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "wasm-pack build did-webplus-wasm",
+			"type": "shell",
+			"command": "wasm-pack",
+			"args": [
+				"build",
+				"--target",
+				"web"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"options": {
+				"cwd": "${workspaceFolder}/did-webplus/wasm"
+			},
+			"presentation": {
+				"clear": true
 			},
 			"problemMatcher": [
 				{

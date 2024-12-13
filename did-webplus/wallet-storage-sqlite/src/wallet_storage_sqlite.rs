@@ -29,7 +29,8 @@ impl WalletStorageSQLite {
     }
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl DIDDocStorage for WalletStorageSQLite {
     type Transaction<'t> = sqlx::Transaction<'t, sqlx::Sqlite>;
     async fn begin_transaction<'s, 't: 's, 'u: 't>(
@@ -223,7 +224,8 @@ impl DIDDocStorage for WalletStorageSQLite {
     }
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl WalletStorage for WalletStorageSQLite {
     async fn add_wallet(
         &self,

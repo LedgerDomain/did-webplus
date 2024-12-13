@@ -1,6 +1,7 @@
 use crate::{Error, Result};
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait VJSONResolver: Send + Sync {
     /// This resolves the given VJSON document.
     async fn resolve_vjson_string(&self, self_hash: &selfhash::KERIHashStr) -> Result<String>;

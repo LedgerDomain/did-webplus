@@ -8,7 +8,8 @@ pub struct DIDResolverRaw {
     pub http_scheme: &'static str,
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl DIDResolver for DIDResolverRaw {
     async fn resolve_did_document_string(
         &self,

@@ -1,6 +1,7 @@
 use crate::{Error, Result};
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait DIDResolver: Send + Sync {
     /// This resolves the given DID, returning the DID document and its metadata.  The metadata
     /// is needed for determining the validity duration of a DID document so as to be able to
@@ -22,12 +23,16 @@ pub trait DIDResolver: Send + Sync {
         &self,
         did_query: &str,
         requested_did_document_metadata: did_webplus_core::RequestedDIDDocumentMetadata,
-    ) -> Result<(did_webplus_core::DIDDocument, did_webplus_core::DIDDocumentMetadata)> {
+    ) -> Result<(
+        did_webplus_core::DIDDocument,
+        did_webplus_core::DIDDocumentMetadata,
+    )> {
         let (did_document_string, did_document_metadata) = self
             .resolve_did_document_string(did_query, requested_did_document_metadata)
             .await?;
-        let did_document: did_webplus_core::DIDDocument = serde_json::from_str(&did_document_string)
-            .map_err(|e| Error::MalformedDIDDocument(e.to_string().into()))?;
+        let did_document: did_webplus_core::DIDDocument =
+            serde_json::from_str(&did_document_string)
+                .map_err(|e| Error::MalformedDIDDocument(e.to_string().into()))?;
         Ok((did_document, did_document_metadata))
     }
 }

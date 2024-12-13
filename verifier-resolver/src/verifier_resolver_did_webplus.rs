@@ -5,7 +5,8 @@ pub struct VerifierResolverDIDWebplus {
     pub did_resolver_factory_b: Box<dyn did_webplus_resolver::DIDResolverFactory>,
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl VerifierResolver for VerifierResolverDIDWebplus {
     async fn resolve(&self, verifier_str: &str) -> Result<Box<dyn selfsign::Verifier>> {
         if !verifier_str.starts_with("did:webplus:") {

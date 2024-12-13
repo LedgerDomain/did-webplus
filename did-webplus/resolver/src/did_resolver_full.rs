@@ -23,7 +23,8 @@ pub struct DIDResolverFull<Storage: did_webplus_doc_store::DIDDocStorage> {
     pub http_scheme: &'static str,
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl<Storage: did_webplus_doc_store::DIDDocStorage> DIDResolver for DIDResolverFull<Storage> {
     async fn resolve_did_document_string(
         &self,

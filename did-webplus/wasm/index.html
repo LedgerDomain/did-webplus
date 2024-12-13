@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>did:webplus wasm test</title>
+</head>
+<script type="module">
+    import init, { Signer, jws_sign, jws_verify_temphack, JWSPayloadPresence, JWSPayloadEncoding } from './pkg/did_webplus_wasm.js';
+
+    async function run() {
+        // Initialize the Wasm module
+        await init();
+
+        // Generate the signer and store it in the global context
+        window.signer = Signer.did_key_generate_temp();
+
+        // Display the result
+        document.getElementById("key_id").textContent = window.signer.key_id();
+    }
+
+    window.sign_jws_input = function () {
+        const jws_input = document.getElementById("jws_input").value;
+        const jws = jws_sign(jws_input, JWSPayloadPresence.Attached, JWSPayloadEncoding.Base64, window.signer);
+        document.getElementById("jws_output").textContent = jws;
+        // window.alert(jws);
+    }
+
+    window.verify_jws_output = async function () {
+        const jws_output = document.getElementById("jws_output").textContent;
+        const result = await jws_verify_temphack(jws_output);
+        document.getElementById("jws_verification").textContent = result;
+    }
+
+    run().catch(console.error);
+</script>
+
+<body>
+    <h1>did:webplus wasm test</h1>
+    <div>Key ID: <div id="key_id"></div>
+    </div>
+    <div>JWS Input: <textarea id="jws_input">{"blah": 123}</textarea></div>
+    <div><button id="sign" onclick="sign_jws_input()">Sign</button></div>
+    <div>JWS Output: <div id="jws_output"></div>
+    </div>
+    <div><button id="verify" onclick="verify_jws_output()">Verify</button></div>
+    <div>JWS Verify Result: <div id="jws_verification"></div>
+    </div>
+</body>
+
+</html>

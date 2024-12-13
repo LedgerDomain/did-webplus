@@ -1,0 +1,42 @@
+[package]
+name = "did-webplus-wasm"
+version = "0.1.0"
+authors = [
+    "Ben Nichols <ben.nichols@ledgerdomain.com>",
+    "Victor Dods <victor.dods@ledgerdomain.com>",
+]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Optimize for code size, not speed.  See https://rustwasm.github.io/book/reference/code-size.html
+[profile.release]
+# See https://github.com/rust-lang/rust/issues/72758 and https://doc.rust-lang.org/cargo/reference/profiles.html
+lto = true
+opt-level = 's'
+
+[dependencies]
+anyhow = "1.0.94"
+console_error_panic_hook = "0.1.7"
+did-key = { path = "../../did-key" }
+did-webplus-cli-lib = { path = "../cli-lib", features = [
+    "ed25519-dalek",
+    "k256",
+] }
+did-webplus-jws = { path = "../jws", features = ["wasm-bindgen"] }
+js-sys = "0.3.76"
+selfhash = "0.4.0"
+selfsign = { version = "0.6.0", features = [
+    "ed25519-dalek",
+    "k256",
+    "wasm-bindgen",
+] }
+verifier-resolver = { path = "../../verifier-resolver", features = [
+    "did-key-verifier-resolver",
+] }
+wasm-bindgen = "0.2.99"
+wasm-bindgen-futures = "0.4.49"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.49"

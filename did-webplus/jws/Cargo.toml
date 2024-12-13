@@ -6,6 +6,7 @@ edition = "2021"
 
 [features]
 clap = ["dep:clap"]
+wasm-bindgen = ["dep:wasm-bindgen"]
 
 [dependencies]
 base64 = { version = "0.21.4" }
@@ -20,3 +21,4 @@ did-webplus-core = { path = "../core" }
 selfsign = "0.6.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false }
+wasm-bindgen = { version = "0.2.99", optional = true }

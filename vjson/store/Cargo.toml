@@ -13,7 +13,7 @@ async-trait = "0.1.80"
 did-key = { path = "../../did-key" }
 did-webplus-jws = { path = "../../did-webplus/jws" }
 jsonpath_lib = "0.3.0"
-jsonschema = "0.18.3"
+jsonschema = { version = "0.18.3", default-features = false }
 lazy_static = "1.4.0"
 pneutype = "0.5.1"
 selfhash = { version = "0.4.0", features = ["self-hashable-json", "serde"] }

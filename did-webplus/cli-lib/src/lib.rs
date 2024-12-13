@@ -6,31 +6,6 @@ pub fn did_key_from_private(signer: &dyn selfsign::Signer) -> Result<did_key::DI
     )?)
 }
 
-// pub fn did_key_generate(key_type: selfsign::KeyType) -> Box<dyn selfsign::Signer> {
-//     match key_type {
-//         selfsign::KeyType::Ed25519 => {
-//             #[cfg(feature = "ed25519-dalek")]
-//             {
-//                 Box::new(ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng))
-//             }
-//             #[cfg(not(feature = "ed25519-dalek"))]
-//             {
-//                 panic!("Must enable the `ed25519-dalek` feature to generate Ed25519 keys");
-//             }
-//         }
-//         selfsign::KeyType::Secp256k1 => {
-//             #[cfg(feature = "k256")]
-//             {
-//                 Box::new(k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng))
-//             }
-//             #[cfg(not(feature = "k256"))]
-//             {
-//                 panic!("Must enable the `k256` feature to generate Secp256k1 keys");
-//             }
-//         }
-//     }
-// }
-
 /// PEM is a common format for representing cryptographic keys, e.g. for storing in a file.
 // TODO: Make a browser-specific version of this that writes to some appropriate kind of browser storage.
 pub fn did_key_generate_to_pkcs8_pem_file(
@@ -218,6 +193,31 @@ pub async fn jws_verify(
     jws.verify(verifier_b.as_ref(), detached_payload_bytes_o)?;
 
     Ok(())
+}
+
+pub fn priv_key_generate(key_type: selfsign::KeyType) -> Box<dyn selfsign::Signer> {
+    match key_type {
+        selfsign::KeyType::Ed25519 => {
+            #[cfg(feature = "ed25519-dalek")]
+            {
+                Box::new(ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng))
+            }
+            #[cfg(not(feature = "ed25519-dalek"))]
+            {
+                panic!("Must enable the `ed25519-dalek` feature to generate Ed25519 keys");
+            }
+        }
+        selfsign::KeyType::Secp256k1 => {
+            #[cfg(feature = "k256")]
+            {
+                Box::new(k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng))
+            }
+            #[cfg(not(feature = "k256"))]
+            {
+                panic!("Must enable the `k256` feature to generate Secp256k1 keys");
+            }
+        }
+    }
 }
 
 // TODO: Move part of this into vjson_core.

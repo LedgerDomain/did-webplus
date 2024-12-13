@@ -11,7 +11,8 @@ use crate::{
 /// are returning copies of the data, and there isn't a persistent in-memory copy of that data.
 /// Whereas if the microledger is backed by an in-memory data structure, then the lifetime parameter
 /// would be the lifetime of that in-memory structure.
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait MicroledgerViewAsync<'v> {
     /// This is the DID that controls this microledger and that all DID documents in this microledger share.
     async fn did(&self) -> &'v DIDStr;
@@ -140,7 +141,8 @@ pub trait MicroledgerViewAsync<'v> {
 /// Default implementation for MicroledgerViewAsync for any type that implements MicroledgerView
 /// and Sync.  Thus it's preferred to implement the sync version of the trait if at all possible,
 /// and then the async version will be automatically derived.
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl<'v, V: MicroledgerView<'v> + Sync> MicroledgerViewAsync<'v> for V {
     async fn did(&self) -> &'v DIDStr {
         MicroledgerView::did(self)

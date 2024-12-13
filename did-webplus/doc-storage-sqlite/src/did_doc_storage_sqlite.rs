@@ -22,7 +22,8 @@ impl DIDDocStorageSQLite {
     }
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
     type Transaction<'t> = sqlx::Transaction<'t, sqlx::Sqlite>;
     async fn begin_transaction<'s, 't: 's, 'u: 't>(

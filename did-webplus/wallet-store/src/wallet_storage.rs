@@ -7,7 +7,8 @@ use crate::{
 use did_webplus_core::DIDKeyResourceFullyQualifiedStr;
 
 /// Trait which defines the storage interface for a WalletStore.
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait WalletStorage: Clone + did_webplus_doc_store::DIDDocStorage {
     async fn create_wallet(
         &self,

@@ -153,7 +153,8 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
 
 /// Note that this impl requires that no transaction for the VJSONStore be active when this resolver is called,
 /// otherwise the DB could lock (e.g. SQLite).
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl<Storage: VJSONStorage> VJSONResolver for VJSONStore<Storage> {
     async fn resolve_vjson_string(
         &self,

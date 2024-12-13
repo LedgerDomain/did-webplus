@@ -4,12 +4,12 @@ use crate::{
 };
 use selfhash::{HashFunction, SelfHashable};
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait Validate: selfhash::SelfHashable {
     /// Validation must include self-hash validation or self-signature-and-hash validation, followed
     /// by any other type-specific validation checks.  This should return the self-hash of the validated
     /// object.
-    // TEMP HACK -- this should take a &dyn Trait for some Resolver trait or something.
     async fn validate_and_return_self_hash(
         &self,
         vjson_resolver: &dyn VJSONResolver,
@@ -17,7 +17,8 @@ pub trait Validate: selfhash::SelfHashable {
     ) -> Result<selfhash::KERIHash>;
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl Validate for serde_json::Value {
     async fn validate_and_return_self_hash(
         &self,

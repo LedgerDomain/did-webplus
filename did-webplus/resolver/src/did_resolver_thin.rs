@@ -10,7 +10,8 @@ pub struct DIDResolverThin {
     pub vdg_resolve_endpoint_url: url::Url,
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl DIDResolver for DIDResolverThin {
     // TODO: Maybe specify HTTP client via trait here?
     async fn resolve_did_document_string(

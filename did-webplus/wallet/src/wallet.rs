@@ -8,7 +8,8 @@ use std::collections::HashSet;
 /// Generalized wallet trait that can be implemented for any wallet type, e.g. edge wallet (software or hardware)
 /// or cloud wallet.  This trait is intended to be used by higher-level code that needs to interact with a wallet
 /// without knowing the specific implementation details of the wallet.
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait Wallet: Send + Sync {
     /// Create a new (set of) private key(s), create a root DID document containing the corresponding public key(s),
     /// and send the DID document to the specified VDR.  This DID is now a locally-controlled DID.  Returns the
