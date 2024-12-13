@@ -32,13 +32,6 @@ impl WalletDIDSignVJSON {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
         let mut value: serde_json::Value = serde_json::from_reader(std::io::stdin())?;
-        // TODO: Use ref if possible
-        let key_id_o = self
-            .verification_method_args
-            .key_id_o
-            .map(|key_id| selfsign::KERIVerifier::try_from(key_id))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("Parse error in --key-id argument; error was: {}", e))?;
         let controlled_did_o = self.verification_method_args.controlled_did_o.as_deref();
         let wallet = self.wallet_args.get_wallet().await?;
         let vjson_store = self.vjson_store_args.get_vjson_store().await?;
@@ -49,8 +42,8 @@ impl WalletDIDSignVJSON {
             &mut value,
             &wallet,
             controlled_did_o,
-            key_id_o,
-            self.verification_method_args.key_purpose,
+            Some(self.verification_method_args.key_purpose),
+            self.verification_method_args.key_id_o.as_deref(),
             &vjson_store,
             &verifier_resolver,
         )

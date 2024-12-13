@@ -4,5 +4,5 @@ pub enum JWSPayloadEncoding {
     /// No encoding.
     None,
     /// This really means base64url-no-pad encoding.
-    Base64URL,
+    Base64,
 }

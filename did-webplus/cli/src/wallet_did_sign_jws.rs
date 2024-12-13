@@ -23,12 +23,6 @@ pub struct WalletDIDSignJWS {
 impl WalletDIDSignJWS {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let key_id_o = self
-            .verification_method_args
-            .key_id_o
-            .map(|key_id| selfsign::KERIVerifier::try_from(key_id))
-            .transpose()
-            .map_err(|e| anyhow::anyhow!("Parse error in --key-id argument; error was: {}", e))?;
         let wallet = self.wallet_args.get_wallet().await?;
 
         // Do the processing
@@ -38,8 +32,8 @@ impl WalletDIDSignJWS {
             self.jws_payload_args.payload_encoding,
             &wallet,
             self.verification_method_args.controlled_did_o.as_deref(),
-            key_id_o,
-            self.verification_method_args.key_purpose,
+            Some(self.verification_method_args.key_purpose),
+            self.verification_method_args.key_id_o.as_deref(),
         )
         .await?;
 

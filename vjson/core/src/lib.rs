@@ -230,7 +230,7 @@ pub async fn sign_and_self_hash_vjson(
             kid,
             &mut payload_bytes.as_slice(),
             did_webplus_jws::JWSPayloadPresence::Detached,
-            did_webplus_jws::JWSPayloadEncoding::Base64URL,
+            did_webplus_jws::JWSPayloadEncoding::Base64,
             signer,
         )
         .map_err(|e| Error::InternalError(format!("Failed to sign JWS; error was: {}", e).into()))?

@@ -337,7 +337,7 @@ fn test_did_operations() {
             kid.to_string(),
             &mut message.as_bytes(),
             JWSPayloadPresence::Attached,
-            JWSPayloadEncoding::Base64URL,
+            JWSPayloadEncoding::Base64,
             signer,
         )
         .expect("pass");

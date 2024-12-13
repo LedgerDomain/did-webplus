@@ -163,7 +163,7 @@ impl<'j> JWS<'j> {
             .as_jws_alg()
             .to_string();
 
-        let (crit, b64) = if payload_encoding == JWSPayloadEncoding::Base64URL {
+        let (crit, b64) = if payload_encoding == JWSPayloadEncoding::Base64 {
             (None, None)
         } else {
             (Some(vec![String::from("b64")]), Some(false))
@@ -215,7 +215,7 @@ impl<'j> JWS<'j> {
             // Apply an encoder, if necessary.
             let mut writer_b = match payload_encoding {
                 JWSPayloadEncoding::None => writer_b,
-                JWSPayloadEncoding::Base64URL => Box::new(base64::write::EncoderWriter::new(
+                JWSPayloadEncoding::Base64 => Box::new(base64::write::EncoderWriter::new(
                     writer_b,
                     &base64::engine::general_purpose::URL_SAFE_NO_PAD,
                 )),

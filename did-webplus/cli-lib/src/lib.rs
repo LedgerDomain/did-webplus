@@ -341,48 +341,80 @@ pub async fn wallet_did_list(
     Ok(wallet.get_controlled_dids(did_o).await?)
 }
 
+/// Select a unique key from the wallet using the given filters.
 // TODO: Document precisely how the signing method filter vars work.
+async fn wallet_did_select_key(
+    wallet: &dyn did_webplus_wallet::Wallet,
+    controlled_did_o: Option<&did_webplus_core::DIDStr>,
+    key_purpose_o: Option<did_webplus_core::KeyPurpose>,
+    key_id_o: Option<&selfsign::KERIVerifierStr>,
+) -> Result<(
+    did_webplus_wallet_store::VerificationMethodRecord,
+    Box<dyn selfsign::Signer>,
+)> {
+    let query_result_v = wallet
+        .get_locally_controlled_verification_methods(
+            &did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
+                // did_o: Some(controlled_did.did().to_owned()),
+                did_o: controlled_did_o.map(|did| did.to_owned()),
+                key_purpose_o,
+                version_id_o: None,
+                key_id_o: key_id_o.map(|key_id| key_id.to_owned()),
+                result_limit_o: Some(2),
+            },
+        )
+        .await?;
+    if query_result_v.len() != 1 {
+        let multiplicity = if query_result_v.len() > 1 {
+            "Multiple"
+        } else {
+            "No"
+        };
+        anyhow::bail!(
+            "{} locally controlled verification method(s) found for filter arguments{}{}{} -- Must specify appropriate filter arguments to select a unique key.",
+            multiplicity,
+            if let Some(controlled_did) = controlled_did_o {
+                format!(" DID \"{}\"", controlled_did)
+            } else {
+                "".to_string()
+            },
+            if let Some(key_purpose) = key_purpose_o {
+                format!(" KeyPurpose \"{}\"", key_purpose)
+            } else {
+                "".to_string()
+            },
+            if let Some(key_id) = key_id_o {
+                format!(" KeyID \"{}\"", key_id)
+            } else {
+                "".to_string()
+            }
+        );
+    }
+    Ok(query_result_v.into_iter().next().unwrap())
+}
+
+// TODO: Technically it's necessary to fetch all DID updates from the VDR to ensure that we use
+// a signing key that is actually valid.  But maybe that should be a separate step, and this
+// is naturally decomposed.
 pub async fn wallet_did_sign_jws(
     payload_bytes: &mut dyn std::io::Read,
     payload_presence: did_webplus_jws::JWSPayloadPresence,
     payload_encoding: did_webplus_jws::JWSPayloadEncoding,
     wallet: &dyn did_webplus_wallet::Wallet,
     controlled_did_o: Option<&did_webplus_core::DIDStr>,
-    key_id_o: Option<selfsign::KERIVerifier>,
-    key_purpose: did_webplus_core::KeyPurpose,
+    key_purpose_o: Option<did_webplus_core::KeyPurpose>,
+    key_id_o: Option<&selfsign::KERIVerifierStr>,
 ) -> Result<did_webplus_jws::JWS<'static>> {
-    let controlled_did = wallet.get_controlled_did(controlled_did_o).await?;
-
     // Get the specified signing key.
-    let (verification_method_record, signer_b) = {
-        let query_result_v = wallet
-            .get_locally_controlled_verification_methods(
-                &did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
-                    did_o: Some(controlled_did.did().to_owned()),
-                    key_purpose_o: Some(key_purpose),
-                    version_id_o: None,
-                    key_id_o,
-                    result_limit_o: Some(2),
-                },
-            )
-            .await?;
-        if query_result_v.is_empty() {
-            anyhow::bail!(
-                "No locally controlled verification method found for KeyPurpose \"{}\" and {}",
-                key_purpose,
-                controlled_did
-            );
-        }
-        if query_result_v.len() > 1 {
-            anyhow::bail!("Multiple locally controlled verification methods found for KeyPurpose \"{}\" and {}; use --key-id to select a single key", key_purpose, controlled_did);
-        }
-        query_result_v.into_iter().next().unwrap()
-    };
+    let (verification_method_record, signer_b) =
+        wallet_did_select_key(wallet, controlled_did_o, key_purpose_o, key_id_o).await?;
+    // Form the kid (key ID).
+    let kid = verification_method_record
+        .did_key_resource_fully_qualified
+        .to_string();
 
     let jws = did_webplus_jws::JWS::signed(
-        verification_method_record
-            .did_key_resource_fully_qualified
-            .to_string(),
+        kid,
         payload_bytes,
         payload_presence,
         payload_encoding,
@@ -399,47 +431,18 @@ pub async fn wallet_did_sign_vjson(
     value: &mut serde_json::Value,
     wallet: &dyn did_webplus_wallet::Wallet,
     controlled_did_o: Option<&did_webplus_core::DIDStr>,
-    key_id_o: Option<selfsign::KERIVerifier>,
-    key_purpose: did_webplus_core::KeyPurpose,
+    key_purpose_o: Option<did_webplus_core::KeyPurpose>,
+    key_id_o: Option<&selfsign::KERIVerifierStr>,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
 ) -> Result<()> {
-    // Determine the signer and corresponding kid (key ID).
-    let (signer_b, kid) = {
-        let controlled_did = wallet.get_controlled_did(controlled_did_o).await?;
-
-        // Get the specified signing key.
-        let (verification_method_record, signer_b) = {
-            let query_result_v = wallet
-                .get_locally_controlled_verification_methods(
-                    &did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
-                        did_o: Some(controlled_did.did().to_owned()),
-                        key_purpose_o: Some(key_purpose),
-                        version_id_o: None,
-                        key_id_o,
-                        result_limit_o: Some(2),
-                    },
-                )
-                .await?;
-            if query_result_v.is_empty() {
-                anyhow::bail!(
-                    "No locally controlled verification method found for KeyPurpose \"{}\" and {}",
-                    key_purpose,
-                    controlled_did
-                );
-            }
-            if query_result_v.len() > 1 {
-                anyhow::bail!("Multiple locally controlled verification methods found for KeyPurpose \"{}\" and {}; use --key-id to select a single key", key_purpose, controlled_did);
-            }
-            query_result_v.into_iter().next().unwrap()
-        };
-
-        let kid = verification_method_record
-            .did_key_resource_fully_qualified
-            .to_string();
-
-        (signer_b, kid)
-    };
+    // Get the specified signing key.
+    let (verification_method_record, signer_b) =
+        wallet_did_select_key(wallet, controlled_did_o, key_purpose_o, key_id_o).await?;
+    // Form the kid (key ID).
+    let kid = verification_method_record
+        .did_key_resource_fully_qualified
+        .to_string();
 
     vjson_core::sign_and_self_hash_vjson(
         value,

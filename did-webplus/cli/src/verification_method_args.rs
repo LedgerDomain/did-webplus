@@ -1,3 +1,5 @@
+use crate::Result;
+
 /// Arguments for specifying a verification method associated with a controlled DID in a wallet.
 #[derive(clap::Args)]
 pub struct VerificationMethodArgs {
@@ -6,7 +8,7 @@ pub struct VerificationMethodArgs {
     /// specified and there is no uniquely determinable DID, then an error will be returned.
     #[arg(name = "did", env = "DID_WEBPLUS_DID", short, long, value_name = "DID")]
     pub controlled_did_o: Option<did_webplus_core::DID>,
-    /// Specify which key purpose to use when selecting the key for in this operation.
+    /// Specifies which key purpose to use when selecting the key in this operation.
     #[arg(
         env = "DID_WEBPLUS_KEY_PURPOSE",
         short = 'p',
@@ -23,7 +25,13 @@ pub struct VerificationMethodArgs {
         env = "DID_WEBPLUS_KEY_ID",
         short = 'k',
         long,
-        value_name = "KEY_ID"
+        value_name = "KEY_ID",
+        value_parser = parse_keri_verifier
     )]
-    pub key_id_o: Option<String>,
+    pub key_id_o: Option<selfsign::KERIVerifier>,
+}
+
+fn parse_keri_verifier(s: &str) -> Result<selfsign::KERIVerifier> {
+    selfsign::KERIVerifier::try_from(s)
+        .map_err(|e| anyhow::anyhow!("Parse error in --key-id argument; error was: {}", e))
 }
