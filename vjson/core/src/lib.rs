@@ -178,7 +178,7 @@ pub async fn sign_and_self_hash_vjson(
     signer: &dyn selfsign::Signer,
     vjson_resolver: &dyn VJSONResolver,
     verifier_resolver_o: Option<&dyn verifier_resolver::VerifierResolver>,
-) -> Result<()> {
+) -> Result<selfhash::KERIHash> {
     if !kid.starts_with("did:") {
         return Err(Error::Malformed("kid must start with \"did:\"".into()));
     }
@@ -244,9 +244,12 @@ pub async fn sign_and_self_hash_vjson(
     value_object.insert("proofs".to_owned(), serde_json::Value::Array(proofs));
 
     // Self-hash the JSON with the "proofs" field populated.
-    self_hashable_json
+    let self_hash = self_hashable_json
         .self_hash(selfhash::Blake3.new_hasher())
-        .map_err(error_internal_error)?;
+        .map_err(error_internal_error)?
+        .to_keri_hash()
+        .map_err(error_internal_error)?
+        .into_owned();
 
     owned_value = self_hashable_json.into_value();
 
@@ -263,5 +266,5 @@ pub async fn sign_and_self_hash_vjson(
             .await?;
     }
 
-    Ok(())
+    Ok(self_hash)
 }

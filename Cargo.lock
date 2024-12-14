@@ -842,15 +842,17 @@ name = "did-key"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "ctor",
  "ed25519-dalek",
  "env_logger",
  "k256",
- "log",
  "multibase",
  "pneutype",
  "selfsign",
  "serde",
+ "tracing",
+ "verifier-resolver",
 ]
 
 [[package]]
@@ -860,6 +862,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "clap",
+ "did-key",
  "did-webplus-cli-lib",
  "did-webplus-core",
  "did-webplus-doc-storage-sqlite",
@@ -873,7 +876,6 @@ dependencies = [
  "ed25519-dalek",
  "expanduser",
  "k256",
- "pkcs8 0.10.2",
  "selfhash",
  "selfsign",
  "serde_json",
@@ -895,13 +897,20 @@ name = "did-webplus-cli-lib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
+ "ctor",
  "did-key",
  "did-webplus-core",
+ "did-webplus-doc-storage-sqlite",
  "did-webplus-doc-store",
  "did-webplus-jws",
  "did-webplus-resolver",
+ "did-webplus-software-wallet",
+ "did-webplus-vdr-lib",
  "did-webplus-wallet",
+ "did-webplus-wallet-storage-sqlite",
  "did-webplus-wallet-store",
+ "dotenvy",
  "ed25519-dalek",
  "k256",
  "rand",
@@ -909,9 +918,14 @@ dependencies = [
  "selfsign",
  "serde_json",
  "serde_json_canonicalizer 0.3.0",
+ "sqlx",
+ "test-util",
+ "tokio",
  "tracing",
+ "tracing-subscriber",
  "verifier-resolver",
  "vjson-core",
+ "vjson-storage-sqlite",
  "vjson-store",
  "zeroize",
 ]
@@ -1028,10 +1042,12 @@ dependencies = [
  "did-webplus-doc-store",
  "lazy_static",
  "reqwest",
+ "selfsign",
  "serde_json",
  "thiserror",
  "tracing",
  "url",
+ "verifier-resolver",
 ]
 
 [[package]]
@@ -3026,7 +3042,7 @@ dependencies = [
 [[package]]
 name = "selfsign"
 version = "0.6.0"
-source = "git+https://github.com/LedgerDomain/selfsign?branch=jsonpath#1ea549ba6fd09aea80982b3b1daeba1c92cb6387"
+source = "git+https://github.com/LedgerDomain/selfsign?branch=jsonpath#a069cea9f9b5c770581a97a8e7924e8ca199d69a"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -3034,6 +3050,7 @@ dependencies = [
  "digest 0.10.7",
  "ed25519-dalek",
  "k256",
+ "pkcs8 0.10.2",
  "pneutype",
  "selfhash",
  "serde",
@@ -4105,9 +4122,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "did-key",
- "did-webplus-core",
- "did-webplus-resolver",
  "selfsign",
  "thiserror",
  "tracing",

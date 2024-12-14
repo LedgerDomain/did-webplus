@@ -19,15 +19,15 @@ async fn test_software_wallet() {
     // TODO: Use env vars to be able to point to a "real" VDR.
 
     let vdr_database_path = "tests/test_software_wallet.vdr.db";
-    let wallet_database_path = "tests/test_software_wallet.wallet-store.db";
+    let wallet_store_database_path = "tests/test_software_wallet.wallet-store.db";
 
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
     // The postgres equivalent of this would be to drop and recreate the relevant databases.
     if std::fs::exists(vdr_database_path).expect("pass") {
         std::fs::remove_file(vdr_database_path).expect("pass");
     }
-    if std::fs::exists(wallet_database_path).expect("pass") {
-        std::fs::remove_file(wallet_database_path).expect("pass");
+    if std::fs::exists(wallet_store_database_path).expect("pass") {
+        std::fs::remove_file(wallet_store_database_path).expect("pass");
     }
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
@@ -42,10 +42,11 @@ async fn test_software_wallet() {
         .await
         .expect("pass");
 
-    let sqlite_pool =
-        sqlx::SqlitePool::connect(format!("sqlite://{}?mode=rwc", wallet_database_path).as_str())
-            .await
-            .expect("pass");
+    let sqlite_pool = sqlx::SqlitePool::connect(
+        format!("sqlite://{}?mode=rwc", wallet_store_database_path).as_str(),
+    )
+    .await
+    .expect("pass");
     let wallet_storage =
         did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
             sqlite_pool,

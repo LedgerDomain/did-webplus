@@ -45,7 +45,7 @@ fn test_known_did_key_values() {
     ];
 
     for known_did_key in known_did_key_v {
-        log::debug!("validating {}", known_did_key);
+        tracing::debug!("validating {}", known_did_key);
         DIDStr::validate(known_did_key).expect("pass");
     }
 }

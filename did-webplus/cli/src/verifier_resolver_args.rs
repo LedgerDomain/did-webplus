@@ -1,4 +1,4 @@
-use crate::{DIDResolverArgs, DIDResolverFactory, HTTPSchemeArgs};
+use crate::{DIDResolverArgs, DIDResolverFactory, DIDWebplusVerifierResolver, HTTPSchemeArgs};
 
 /// Arguments for specifying how to resolve a public key (aka verifier) from a string.
 // TODO: This always supports did:key and did:webplus -- should it be configurable?
@@ -13,13 +13,10 @@ pub struct VerifierResolverArgs {
 impl VerifierResolverArgs {
     pub fn get_verifier_resolver_map(self) -> verifier_resolver::VerifierResolverMap {
         verifier_resolver::VerifierResolverMap::new()
-            .with(
-                "did:key:",
-                Box::new(verifier_resolver::VerifierResolverDIDKey),
-            )
+            .with("did:key:", Box::new(did_key::DIDKeyVerifierResolver))
             .with(
                 "did:webplus:",
-                Box::new(verifier_resolver::VerifierResolverDIDWebplus {
+                Box::new(DIDWebplusVerifierResolver {
                     did_resolver_factory_b: Box::new(DIDResolverFactory::new(
                         self.did_resolver_args,
                         self.http_scheme_args,

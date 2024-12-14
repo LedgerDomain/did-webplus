@@ -1,5 +1,6 @@
 use crate::{
-    vdr_fetch_did_document_body, vdr_fetch_latest_did_document_body, DIDResolver, Error, Result,
+    vdr_fetch_did_document_body, vdr_fetch_latest_did_document_body, verifier_resolver_impl,
+    DIDResolver, Error, Result,
 };
 use did_webplus_core::{DIDStr, DIDWebplusURIComponents, DIDWithQueryStr};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStorage, DIDDocStore};
@@ -10,6 +11,7 @@ use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStorage, DID
 /// A VDG can optionally be specified to forward resolution requests through, though DID documents will
 /// still be locally verified and stored.  The reason for this is to ensure a broader scope-of-truth
 /// for which DID updates are considered valid (all resolvers which trust the specified VDG will agree).
+#[derive(Clone)]
 pub struct DIDResolverFull<Storage: did_webplus_doc_store::DIDDocStorage> {
     // TODO: Ideally this wouldn't be generic.
     pub did_doc_store: did_webplus_doc_store::DIDDocStore<Storage>,
@@ -55,6 +57,18 @@ impl<Storage: did_webplus_doc_store::DIDDocStorage> DIDResolver for DIDResolverF
         };
 
         Ok((did_doc_record.did_document_jcs, did_document_metadata))
+    }
+}
+
+#[async_trait::async_trait]
+impl<Storage: did_webplus_doc_store::DIDDocStorage> verifier_resolver::VerifierResolver
+    for DIDResolverFull<Storage>
+{
+    async fn resolve(
+        &self,
+        verifier_str: &str,
+    ) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
+        verifier_resolver_impl(verifier_str, self).await
     }
 }
 

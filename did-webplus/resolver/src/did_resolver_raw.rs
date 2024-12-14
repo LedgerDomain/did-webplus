@@ -1,7 +1,8 @@
-use crate::{DIDResolver, Error, HTTPError, Result, REQWEST_CLIENT};
+use crate::{verifier_resolver_impl, DIDResolver, Error, HTTPError, Result, REQWEST_CLIENT};
 
 /// Performs "raw" DID resolution, which only does a limited subset of verification, so should not
 /// be used for any production purposes.  THIS IS INTENDED ONLY FOR DEVELOPMENT AND TESTING PURPOSES.
+#[derive(Clone)]
 pub struct DIDResolverRaw {
     /// TEMP HACK: Specify the scheme used for HTTP requests.  Must be either "https" or "http".  This is
     /// only useful for testing and potentially for VPC-like situations.
@@ -64,5 +65,15 @@ impl DIDResolver for DIDResolverRaw {
         };
 
         Ok((did_document_string, did_document_metadata))
+    }
+}
+
+#[async_trait::async_trait]
+impl verifier_resolver::VerifierResolver for DIDResolverRaw {
+    async fn resolve(
+        &self,
+        verifier_str: &str,
+    ) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
+        verifier_resolver_impl(verifier_str, self).await
     }
 }

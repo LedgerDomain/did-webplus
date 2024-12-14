@@ -13,9 +13,11 @@ path = "src/main.rs"
 anyhow = { version = "1.0.94", features = ["backtrace"] }
 async-trait = "0.1.80"
 clap = { version = "4.5.4", features = ["derive", "env"] }
+did-key = { path = "../../did-key", features = ["verifier-resolver"] }
 did-webplus-cli-lib = { path = "../cli-lib", features = [
     "ed25519-dalek",
     "k256",
+    "pkcs8",
 ] }
 did-webplus-core = { path = "../core", features = ["clap"] }
 did-webplus-doc-store = { path = "../doc-store" }
@@ -26,10 +28,9 @@ did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
-ed25519-dalek = { version = "2.0.0", features = ["pkcs8", "rand_core"] }
+ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
 expanduser = "1.2.2"
-k256 = { version = "0.13.1", features = ["pkcs8"] }
-pkcs8 = { version = "0.10.2", features = ["pem", "std"] }
+k256 = "0.13.1"
 # Enable all the hash function features to support them all.
 selfhash = { version = "0.4.0", features = [
     "blake3",
@@ -47,10 +48,7 @@ tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 url = "2.5.0"
 uuid = { version = "1.9.1", features = ["v4"] }
-verifier-resolver = { path = "../../verifier-resolver", features = [
-    "did-key-verifier-resolver",
-    "did-webplus-verifier-resolver",
-] }
+verifier-resolver = { path = "../../verifier-resolver" }
 vjson-core = { path = "../../vjson/core" }
 vjson-storage-sqlite = { path = "../../vjson/storage-sqlite" }
 vjson-store = { path = "../../vjson/store" }
