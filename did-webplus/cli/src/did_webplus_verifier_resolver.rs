@@ -1,22 +1,27 @@
-use crate::{Error, Result, VerifierResolver};
-
+/// DIDWebplusVerifierResolver provides an implementation of VerifierResolver that loads the
+/// DIDResolver lazily, which matters if loading the resolver involves opening a connection to
+/// a database.
+///
 /// This will turn a did:webplus DIDResource[FullyQualified] into a Box<dyn selfsign::Verifier>.
-pub struct VerifierResolverDIDWebplus {
+pub struct DIDWebplusVerifierResolver {
     pub did_resolver_factory_b: Box<dyn did_webplus_resolver::DIDResolverFactory>,
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl VerifierResolver for VerifierResolverDIDWebplus {
-    async fn resolve(&self, verifier_str: &str) -> Result<Box<dyn selfsign::Verifier>> {
+impl verifier_resolver::VerifierResolver for DIDWebplusVerifierResolver {
+    async fn resolve(
+        &self,
+        verifier_str: &str,
+    ) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
         if !verifier_str.starts_with("did:webplus:") {
-            anyhow::bail!(Error::InvalidVerifier(
+            Err(verifier_resolver::Error::InvalidVerifier(
                 format!(
                     "expected verifier to begin with \"did:webplus:\", but verifier was {:?}",
                     verifier_str
                 )
                 .into(),
-            ));
+            ))?;
         }
 
         tracing::debug!(
@@ -24,7 +29,7 @@ impl VerifierResolver for VerifierResolverDIDWebplus {
             verifier_str
         );
         let did_key_resource_fully_qualified =
-            did_webplus_core::DIDKeyResourceFullyQualifiedStr::new_ref(verifier_str).map_err(|_| did_webplus_resolver::Error::InvalidVerifier(format!("if did:webplus DID is used as verifier, it must be fully qualified, i.e. it must contain the selfHash and versionId query parameters and a fragment specifying the key ID, but it was {:?}", verifier_str).into()))?;
+            did_webplus_core::DIDKeyResourceFullyQualifiedStr::new_ref(verifier_str).map_err(|_| verifier_resolver::Error::InvalidVerifier(format!("if did:webplus DID is used as verifier, it must be fully qualified, i.e. it must contain the selfHash and versionId query parameters and a fragment specifying the key ID, but it was {:?}", verifier_str).into()))?;
 
         let did_resolver_b = self.did_resolver_factory_b.did_resolver().await?;
         let (_did_document, _did_doc_metadata) = did_resolver_b
@@ -43,5 +48,5 @@ impl VerifierResolver for VerifierResolverDIDWebplus {
     }
 }
 
-unsafe impl Send for VerifierResolverDIDWebplus {}
-unsafe impl Sync for VerifierResolverDIDWebplus {}
+unsafe impl Send for DIDWebplusVerifierResolver {}
+unsafe impl Sync for DIDWebplusVerifierResolver {}

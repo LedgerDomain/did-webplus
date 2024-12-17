@@ -165,7 +165,7 @@ impl pneutype::Validate for DIDStr {
         let (base, byte_v) = multibase::decode(method_specific_id).map_err(|e| {
             anyhow::anyhow!("malformed did:key value: multibase decode failed: {}", e)
         })?;
-        log::debug!("DIDKeyStr::validate; multibase decode used base {:?}", base);
+        tracing::debug!("DIDKeyStr::validate; multibase decode used base {:?}", base);
         anyhow::ensure!(
             byte_v.len() >= 2,
             "malformed did:key value: too short to be valid"

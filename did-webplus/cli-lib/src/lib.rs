@@ -1,104 +1,84 @@
 pub use anyhow::Result;
 
-pub fn did_key_from_private(signer: &dyn selfsign::Signer) -> Result<did_key::DID> {
-    Ok(did_key::DID::try_from(
-        &signer.verifier().to_verifier_bytes(),
-    )?)
-}
-
-/// PEM is a common format for representing cryptographic keys, e.g. for storing in a file.
-// TODO: Make a browser-specific version of this that writes to some appropriate kind of browser storage.
-pub fn did_key_generate_to_pkcs8_pem_file(
-    key_type: selfsign::KeyType,
-    private_key_path: &std::path::Path,
-) -> Result<did_key::DID> {
+pub fn private_key_generate(key_type: selfsign::KeyType) -> Box<dyn selfsign::Signer> {
     match key_type {
         selfsign::KeyType::Ed25519 => {
             #[cfg(feature = "ed25519-dalek")]
             {
-                let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-                use selfsign::Signer;
-                let did = did_key::DID::try_from(&signing_key.verifier().to_verifier_bytes())?;
-                use ed25519_dalek::pkcs8::EncodePrivateKey;
-                signing_key
-                    .write_pkcs8_pem_file(private_key_path, Default::default())
-                    .map_err(|e| {
-                        anyhow::anyhow!("failed to write generated key; error was: {}", e)
-                    })?;
-                Ok(did)
+                Box::new(ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng))
             }
-
             #[cfg(not(feature = "ed25519-dalek"))]
             {
-                let _ = private_key_path;
                 panic!("Must enable the `ed25519-dalek` feature to generate Ed25519 keys");
             }
         }
         selfsign::KeyType::Secp256k1 => {
             #[cfg(feature = "k256")]
             {
-                let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
-                use selfsign::Signer;
-                let did = did_key::DID::try_from(&signing_key.verifier().to_verifier_bytes())?;
-                let secret_key = k256::elliptic_curve::SecretKey::from(signing_key);
-                use k256::pkcs8::EncodePrivateKey;
-                secret_key
-                    .write_pkcs8_pem_file(private_key_path, Default::default())
-                    .map_err(|e| {
-                        anyhow::anyhow!("failed to write generated key; error was: {}", e)
-                    })?;
-                Ok(did)
+                Box::new(k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng))
             }
-
             #[cfg(not(feature = "k256"))]
             {
-                let _ = private_key_path;
                 panic!("Must enable the `k256` feature to generate Secp256k1 keys");
             }
         }
     }
 }
 
-// /// PEM is a common format for representing cryptographic keys, e.g. for storing in a file.
-// pub fn did_key_generate_to_pkcs8_pem(
-//     key_type: selfsign::KeyType,
-// ) -> Result<(did_key::DID, Zeroizing<String>)> {
-//     match key_type {
-//         selfsign::KeyType::Ed25519 => {
-//             #[cfg(feature = "ed25519-dalek")]
-//             {
-//                 let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-//                 use selfsign::Signer;
-//                 let did = did_key::DID::try_from(&signing_key.verifier().to_verifier_bytes())?;
-//                 use ed25519_dalek::pkcs8::EncodePrivateKey;
-//                 Ok((
-//                     did,
-//                     signing_key
-//                         .to_pkcs8_pem(ed25519_dalek::pkcs8::spki::der::pem::LineEnding::LF)?,
-//                 ))
-//             }
-//             #[cfg(not(feature = "ed25519-dalek"))]
-//             {
-//                 panic!("Must enable the `ed25519-dalek` feature to generate Ed25519 keys");
-//             }
-//         }
-//         selfsign::KeyType::Secp256k1 => {
-//             #[cfg(feature = "k256")]
-//             {
-//                 let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
-//                 use selfsign::Signer;
-//                 let did = did_key::DID::try_from(&signing_key.verifier().to_verifier_bytes())?;
-//                 let secret_key = k256::elliptic_curve::SecretKey::from(signing_key);
-//                 use k256::pkcs8::EncodePrivateKey;
-//                 Ok((did, secret_key.to_pkcs8_pem(k256::pkcs8::LineEnding::LF)?))
-//             }
-//             #[cfg(not(feature = "k256"))]
-//             {
-//                 panic!("Must enable the `k256` feature to generate Secp256k1 keys");
-//             }
-//         }
-//     }
-// }
+/// Determine the did:key representation of the public key corresponding to this private key.
+pub fn did_key_from_private(signer: &dyn selfsign::Signer) -> Result<did_key::DID> {
+    Ok(did_key::DID::try_from(
+        &signer.verifier().to_verifier_bytes(),
+    )?)
+}
+
+/// PKCS8 is a standard format for representing cryptographic keys, e.g. for storing in a file.
+// TODO: Make a browser-specific version of this that writes to some appropriate kind of browser storage.
+pub fn private_key_write_to_pkcs8_pem_file(
+    signer: &dyn selfsign::Signer,
+    private_key_path: &std::path::Path,
+) -> Result<()> {
+    signer
+        .write_to_pkcs8_pem_file(private_key_path)
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "failed to write private key to {:?}; error was: {}",
+                private_key_path,
+                e
+            )
+        })?;
+    Ok(())
+}
+
+/// PKCS8 is a standard format for representing cryptographic keys, e.g. for storing in a file.
+// TODO: Make a browser-specific version of this that writes to some appropriate kind of browser storage.
+pub fn private_key_read_from_pkcs8_pem_file(
+    private_key_path: &std::path::Path,
+) -> Result<Box<dyn selfsign::Signer>> {
+    use selfsign::Signer;
+    for &key_type in selfsign::KEY_TYPE_V {
+        match key_type {
+            selfsign::KeyType::Ed25519 => {
+                if let Ok(signing_key) =
+                    ed25519_dalek::SigningKey::read_from_pkcs8_pem_file(&private_key_path)
+                {
+                    return Ok(Box::new(signing_key));
+                }
+            }
+            selfsign::KeyType::Secp256k1 => {
+                if let Ok(signing_key) =
+                    k256::ecdsa::SigningKey::read_from_pkcs8_pem_file(&private_key_path)
+                {
+                    return Ok(Box::new(signing_key));
+                }
+            }
+        }
+    }
+    anyhow::bail!(
+        "Private key at path {:?} was not in a recognized format.",
+        private_key_path.to_str().unwrap()
+    );
+}
 
 pub fn did_key_sign_jws(
     payload_bytes: &mut dyn std::io::Read,
@@ -121,19 +101,18 @@ pub async fn did_key_sign_vjson(
     value: &mut serde_json::Value,
     signer: &dyn selfsign::Signer,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
-) -> Result<()> {
+) -> Result<selfhash::KERIHash> {
     let did_resource = did_key::DIDResource::try_from(&signer.verifier().to_verifier_bytes())?;
     let kid = did_resource.to_string();
-    let verifier_resolver = verifier_resolver::VerifierResolverDIDKey;
-    vjson_core::sign_and_self_hash_vjson(
+    let verifier_resolver = did_key::DIDKeyVerifierResolver;
+    Ok(vjson_core::sign_and_self_hash_vjson(
         value,
         kid,
         signer,
         vjson_resolver,
         Some(&verifier_resolver),
     )
-    .await?;
-    Ok(())
+    .await?)
 }
 
 // TODO: Rename this function to something more appropriate
@@ -435,7 +414,7 @@ pub async fn wallet_did_sign_vjson(
     key_id_o: Option<&selfsign::KERIVerifierStr>,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-) -> Result<()> {
+) -> Result<selfhash::KERIHash> {
     // Get the specified signing key.
     let (verification_method_record, signer_b) =
         wallet_did_select_key(wallet, controlled_did_o, key_purpose_o, key_id_o).await?;
@@ -444,16 +423,14 @@ pub async fn wallet_did_sign_vjson(
         .did_key_resource_fully_qualified
         .to_string();
 
-    vjson_core::sign_and_self_hash_vjson(
+    Ok(vjson_core::sign_and_self_hash_vjson(
         value,
         kid,
         signer_b.as_ref(),
         vjson_resolver,
         Some(verifier_resolver),
     )
-    .await?;
-
-    Ok(())
+    .await?)
 }
 
 pub async fn wallet_list<Storage: did_webplus_wallet_store::WalletStorage>(

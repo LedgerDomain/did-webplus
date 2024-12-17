@@ -1,8 +1,9 @@
 use crate::{Error, Result};
 
+/// Note that a DIDResolver is a VerifierResolver for prefix "did:webplus:"
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-pub trait DIDResolver: Send + Sync {
+pub trait DIDResolver: Send + Sync + verifier_resolver::VerifierResolver {
     /// This resolves the given DID, returning the DID document and its metadata.  The metadata
     /// is needed for determining the validity duration of a DID document so as to be able to
     /// determine if a signing key was active at a given time.  Only the metadata requested in
@@ -35,4 +36,42 @@ pub trait DIDResolver: Send + Sync {
                 .map_err(|e| Error::MalformedDIDDocument(e.to_string().into()))?;
         Ok((did_document, did_document_metadata))
     }
+}
+
+/// Implementations of DIDResolver can use this to provide the guts to the implementation
+/// of verifier_resolver::VerifierResolver.
+pub async fn verifier_resolver_impl(
+    verifier_str: &str,
+    did_resolver: &dyn DIDResolver,
+) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
+    if !verifier_str.starts_with("did:webplus:") {
+        Err(verifier_resolver::Error::InvalidVerifier(
+            format!(
+                "expected verifier to begin with \"did:webplus:\", but verifier was {:?}",
+                verifier_str
+            )
+            .into(),
+        ))?;
+    }
+
+    tracing::debug!(
+        "verifier was {:?}; verifying using did:webplus method",
+        verifier_str
+    );
+    let did_key_resource_fully_qualified =
+        did_webplus_core::DIDKeyResourceFullyQualifiedStr::new_ref(verifier_str).map_err(|_| verifier_resolver::Error::InvalidVerifier(format!("if did:webplus DID is used as verifier, it must be fully qualified, i.e. it must contain the selfHash and versionId query parameters and a fragment specifying the key ID, but it was {:?}", verifier_str).into()))?;
+
+    let (_did_document, _did_doc_metadata) = did_resolver
+        .resolve_did_document(
+            did_key_resource_fully_qualified.without_fragment().as_str(),
+            did_webplus_core::RequestedDIDDocumentMetadata::none(),
+        )
+        .await?;
+    // Part of DID doc verification is ensuring that the key ID represents the same public key as
+    // the JsonWebKey2020 value.  So we can use the key ID KERIVerifier value as the public key.
+    // TODO: Assert that this is actually the case.
+
+    Ok(Box::new(
+        did_key_resource_fully_qualified.fragment().to_owned(),
+    ))
 }

@@ -1,8 +1,9 @@
-use crate::{DIDResolver, Error, HTTPError, Result, REQWEST_CLIENT};
+use crate::{verifier_resolver_impl, DIDResolver, Error, HTTPError, Result, REQWEST_CLIENT};
 
 /// Use a trusted VDG to resolve a DID.  This amounts to completely outsourcing fetching and verification
 /// of DID documents to the VDG.  This is useful for many reasons, and in particular for clients that can't
 /// or do not want to implement the full DID resolution logic themselves.
+#[derive(Clone)]
 pub struct DIDResolverThin {
     /// Specifies the URL of the "resolve" endpoint of the VDG to use for DID resolution.  The URL can
     /// omit the scheme (i.e. the "https://" portion), in which case, "https://" will be used.  The URL
@@ -90,6 +91,16 @@ impl DIDResolver for DIDResolverThin {
                 currency_o: None,
             },
         ))
+    }
+}
+
+#[async_trait::async_trait]
+impl verifier_resolver::VerifierResolver for DIDResolverThin {
+    async fn resolve(
+        &self,
+        verifier_str: &str,
+    ) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
+        verifier_resolver_impl(verifier_str, self).await
     }
 }
 
