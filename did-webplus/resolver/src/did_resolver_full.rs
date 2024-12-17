@@ -61,7 +61,8 @@ impl<Storage: did_webplus_doc_store::DIDDocStorage> DIDResolver for DIDResolverF
     }
 }
 
-#[async_trait::async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl<Storage: did_webplus_doc_store::DIDDocStorage> verifier_resolver::VerifierResolver
     for DIDResolverFull<Storage>
 {

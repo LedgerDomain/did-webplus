@@ -938,6 +938,57 @@
 			]
 		},
 		{
+			"label": "check did-webplus-wallet-storage-sqlite",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-wallet-storage-sqlite",
+				"--all-features",
+				"--tests"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "test did-webplus-wallet-storage-sqlite",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--package",
+				"did-webplus-wallet-storage-sqlite",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
 			"label": "check did-webplus-wallet-store",
 			"type": "shell",
 			"command": "cargo",
@@ -989,13 +1040,15 @@
 			]
 		},
 		{
-			"label": "check did-webplus-wallet-storage-sqlite",
+			"label": "check did-webplus-wasm",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
 				"check",
 				"--package",
-				"did-webplus-wallet-storage-sqlite",
+				"did-webplus-wasm",
+				"--target",
+				"wasm32-unknown-unknown",
 				"--all-features",
 				"--tests"
 			],
@@ -1014,21 +1067,47 @@
 			]
 		},
 		{
-			"label": "test did-webplus-wallet-storage-sqlite",
+			"label": "wasm-pack test did-webplus-wasm",
 			"type": "shell",
-			"command": "cargo",
+			"command": "wasm-pack",
 			"args": [
 				"test",
-				"--package",
-				"did-webplus-wallet-storage-sqlite",
-				"--all-features",
-				"--",
-				"--nocapture"
+				"--node"
 			],
 			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/did-webplus/wasm"
+			},
 			"presentation": {
-				"clear": true,
-				"revealProblems": "onProblem"
+				"clear": true
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "wasm-pack build did-webplus-wasm",
+			"type": "shell",
+			"command": "wasm-pack",
+			"args": [
+				"build",
+				"--target",
+				"web"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"options": {
+				"cwd": "${workspaceFolder}/did-webplus/wasm"
+			},
+			"presentation": {
+				"clear": true
 			},
 			"problemMatcher": [
 				{
@@ -1258,85 +1337,6 @@
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
-			},
-			"problemMatcher": [
-				{
-					"base": "$rustc",
-					"fileLocation": [
-						"relative"
-					]
-				}
-			]
-		},
-		{
-			"label": "check did-webplus-wasm",
-			"type": "shell",
-			"command": "cargo",
-			"args": [
-				"check",
-				"--package",
-				"did-webplus-wasm",
-				"--target",
-				"wasm32-unknown-unknown",
-				"--all-features",
-				"--tests"
-			],
-			"group": "build",
-			"presentation": {
-				"clear": true,
-				"revealProblems": "onProblem"
-			},
-			"problemMatcher": [
-				{
-					"base": "$rustc",
-					"fileLocation": [
-						"relative"
-					]
-				}
-			]
-		},
-		{
-			"label": "wasm-pack test did-webplus-wasm",
-			"type": "shell",
-			"command": "wasm-pack",
-			"args": [
-				"test",
-				"--node"
-			],
-			"group": "build",
-			"options": {
-				"cwd": "${workspaceFolder}/did-webplus/wasm"
-			},
-			"presentation": {
-				"clear": true
-			},
-			"problemMatcher": [
-				{
-					"base": "$rustc",
-					"fileLocation": [
-						"relative"
-					]
-				}
-			]
-		},
-		{
-			"label": "wasm-pack build did-webplus-wasm",
-			"type": "shell",
-			"command": "wasm-pack",
-			"args": [
-				"build",
-				"--target",
-				"web"
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"options": {
-				"cwd": "${workspaceFolder}/did-webplus/wasm"
-			},
-			"presentation": {
-				"clear": true
 			},
 			"problemMatcher": [
 				{

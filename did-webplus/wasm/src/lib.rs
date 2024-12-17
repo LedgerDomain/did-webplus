@@ -98,7 +98,7 @@ pub struct VerifierResolver {
 impl VerifierResolver {
     pub fn for_did_key() -> Self {
         Self {
-            verifier_resolver_l: Arc::new(RwLock::new(verifier_resolver::VerifierResolverDIDKey)),
+            verifier_resolver_l: Arc::new(RwLock::new(did_key::DIDKeyVerifierResolver)),
         }
     }
 }
@@ -130,7 +130,7 @@ pub fn jws_verify(jws: String, verifier_resolver: &VerifierResolver) -> js_sys::
 pub fn jws_verify_temphack(jws: String) -> js_sys::Promise {
     wasm_bindgen_futures::future_to_promise(async move {
         let jws = did_webplus_jws::JWS::try_from(jws).map_err(into_js_value)?;
-        did_webplus_cli_lib::jws_verify(&jws, None, &verifier_resolver::VerifierResolverDIDKey)
+        did_webplus_cli_lib::jws_verify(&jws, None, &did_key::DIDKeyVerifierResolver)
             .await
             .map_err(into_js_value)?;
         Ok(JsValue::from("VALID"))

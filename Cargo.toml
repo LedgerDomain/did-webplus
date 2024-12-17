@@ -1,8 +1,7 @@
 [patch.crates-io]
 pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
 selfhash = { git = "https://github.com/LedgerDomain/selfhash", branch = "vjson" }
-selfsign = { path = "../selfsign" }
-# selfsign = { git = "https://github.com/LedgerDomain/selfsign", branch = "jsonpath" }
+selfsign = { git = "https://github.com/LedgerDomain/selfsign", branch = "jsonpath" }
 
 [workspace]
 resolver = "2"

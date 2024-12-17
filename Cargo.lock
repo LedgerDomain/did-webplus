@@ -3094,7 +3094,7 @@ dependencies = [
 [[package]]
 name = "selfsign"
 version = "0.6.0"
-source = "git+https://github.com/LedgerDomain/selfsign?branch=jsonpath#a069cea9f9b5c770581a97a8e7924e8ca199d69a"
+source = "git+https://github.com/LedgerDomain/selfsign?branch=jsonpath#50414c9a6ff39dbd64efa3b4d834e110cd757247"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -4434,7 +4434,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
