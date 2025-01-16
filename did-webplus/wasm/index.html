@@ -7,7 +7,10 @@
     <title>did:webplus wasm test</title>
 </head>
 <script type="module">
-    import init, { Signer, jws_sign, jws_verify_temphack, JWSPayloadPresence, JWSPayloadEncoding } from './pkg/did_webplus_wasm.js';
+    import init, { 
+        Signer, jws_sign, jws_verify_temphack, JWSPayloadPresence, JWSPayloadEncoding, 
+        VJSONStore, vjson_default_schema, vjson_self_hash_temphack
+    } from './pkg/did_webplus_wasm.js';
 
     async function run() {
         // Initialize the Wasm module
@@ -15,9 +18,12 @@
 
         // Generate the signer and store it in the global context
         window.signer = Signer.did_key_generate_temp();
+        // // Generate a VJSONStore and store it in the global context
+        // window.vjson_store = await VJSONStore.new_mock();
 
-        // Display the result
+        // Do some more setup
         document.getElementById("key_id").textContent = window.signer.key_id();
+        document.getElementById("vjson_default_schema").textContent = vjson_default_schema();
     }
 
     window.sign_jws_input = function () {
@@ -31,6 +37,20 @@
         const jws_output = document.getElementById("jws_output").textContent;
         const result = await jws_verify_temphack(jws_output);
         document.getElementById("jws_verification").textContent = result;
+    }
+
+    window.vjson_self_hash = async function () {
+        const vjson_input = document.getElementById("vjson_input").textContent;
+        const result = await vjson_self_hash_temphack(vjson_input);
+        document.getElementById("vjson_input").textContent = result;
+    }
+
+    window.vjson_verify = async function () {
+        const vjson_input = document.getElementById("vjson_input").textContent;
+        const vjson_resolver = window.vjson_store.as_resolver();
+        const verifier_resolver = VerifierResolver.for_did_key();
+        const result = await vjson_verify(vjson_input, vjson_resolver, verifier_resolver);
+        document.getElementById("vjson_verification").textContent = result;
     }
 
     run().catch(console.error);
@@ -47,6 +67,12 @@
     <div><button id="verify" onclick="verify_jws_output()">Verify</button></div>
     <div>JWS Verify Result: <div id="jws_verification"></div>
     </div>
+    <div>VJSON Default Schema:</div>
+    <div id="vjson_default_schema"></div>
+    <div>VJSON Input: <textarea id="vjson_input">{"blah": 123, "$id": "vjson:///"}</textarea></div>
+    <div><button id="vjson_self_hash" onclick="vjson_self_hash()">Self-Hash VJSON</button></div>
+    <div><button id="vjson_verify" onclick="vjson_verify()">Verify VJSON</button></div>
+    <div>VJSON Verify Result: <div id="vjson_verification"></div>
 </body>
 
 </html>

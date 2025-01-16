@@ -221,68 +221,48 @@ pub async fn vjson_self_hash(
     Ok(self_hashable_json.into_value())
 }
 
-pub async fn vjson_store_add_str<Storage: vjson_store::VJSONStorage>(
+// NOTE: There's almost no point to this function except to make it known in the same place as the others.
+pub async fn vjson_store_add_str(
     vjson_str: &str,
-    vjson_store: &vjson_store::VJSONStore<Storage>,
+    vjson_store: &dyn vjson_store::VJSONStoreT,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     already_exists_policy: vjson_store::AlreadyExistsPolicy,
 ) -> Result<()> {
-    let mut transaction = vjson_store.begin_transaction(None).await?;
     vjson_store
-        .add_vjson_str(
-            &mut transaction,
-            vjson_str,
-            verifier_resolver,
-            already_exists_policy,
-        )
+        .add_vjson_str(vjson_str, verifier_resolver, already_exists_policy)
         .await?;
-    vjson_store.commit_transaction(transaction).await?;
     Ok(())
 }
 
-pub async fn vjson_store_add_value<Storage: vjson_store::VJSONStorage>(
+// NOTE: There's almost no point to this function except to make it known in the same place as the others.
+pub async fn vjson_store_add_value(
     vjson_value: &serde_json::Value,
-    vjson_store: &vjson_store::VJSONStore<Storage>,
+    vjson_store: &dyn vjson_store::VJSONStoreT,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     already_exists_policy: vjson_store::AlreadyExistsPolicy,
 ) -> Result<()> {
-    let mut transaction = vjson_store.begin_transaction(None).await?;
     vjson_store
-        .add_vjson_value(
-            &mut transaction,
-            vjson_value,
-            verifier_resolver,
-            already_exists_policy,
-        )
+        .add_vjson_value(vjson_value, verifier_resolver, already_exists_policy)
         .await?;
-    vjson_store.commit_transaction(transaction).await?;
     Ok(())
 }
 
-pub async fn vjson_store_get_value<Storage: vjson_store::VJSONStorage>(
+// NOTE: There's almost no point to this function except to make it known in the same place as the others.
+pub async fn vjson_store_get_value(
     self_hash: &selfhash::KERIHashStr,
-    vjson_store: &vjson_store::VJSONStore<Storage>,
+    vjson_store: &dyn vjson_store::VJSONStoreT,
 ) -> Result<serde_json::Value> {
     // Retrieve the specified VJSON value from the VJSON store.  This guarantees it's valid.
-    let mut transaction = vjson_store.begin_transaction(None).await?;
-    let vjson_value = vjson_store
-        .get_vjson_value(&mut transaction, &self_hash)
-        .await?;
-    vjson_store.commit_transaction(transaction).await?;
-    Ok(vjson_value)
+    Ok(vjson_store.get_vjson_value(self_hash).await?)
 }
 
-pub async fn vjson_store_get_record<Storage: vjson_store::VJSONStorage>(
+// NOTE: There's almost no point to this function except to make it known in the same place as the others.
+pub async fn vjson_store_get_record(
     self_hash: &selfhash::KERIHashStr,
-    vjson_store: &vjson_store::VJSONStore<Storage>,
+    vjson_store: &dyn vjson_store::VJSONStoreT,
 ) -> Result<vjson_store::VJSONRecord> {
     // Retrieve the specified VJSONRecord from the VJSON store.  This guarantees the VJSON is valid.
-    let mut transaction = vjson_store.begin_transaction(None).await?;
-    let vjson_record = vjson_store
-        .get_vjson_record(&mut transaction, &self_hash)
-        .await?;
-    vjson_store.commit_transaction(transaction).await?;
-    Ok(vjson_record)
+    Ok(vjson_store.get_vjson_record(&self_hash).await?)
 }
 
 pub async fn vjson_verify(

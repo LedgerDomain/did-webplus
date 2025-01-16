@@ -1246,12 +1246,19 @@ dependencies = [
  "did-webplus-cli-lib",
  "did-webplus-jws",
  "js-sys",
+ "log",
  "selfhash",
  "selfsign",
+ "serde_json",
+ "tracing",
  "verifier-resolver",
+ "vjson-core",
+ "vjson-storage-mock",
+ "vjson-store",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
+ "wasm-logger",
 ]
 
 [[package]]
@@ -3673,6 +3680,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "storage-traits"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "sqlx",
+]
+
+[[package]]
 name = "stringprep"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4212,6 +4227,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "vjson-storage-mock"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "selfhash",
+ "vjson-store",
+]
+
+[[package]]
 name = "vjson-storage-sqlite"
 version = "0.1.0"
 dependencies = [
@@ -4384,6 +4408,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-logger"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "074649a66bb306c8f2068c9016395fa65d8e08d2affcbf95acf3c24c3ab19718"
+dependencies = [
+ "log",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "web-sys"
 version = "0.3.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4434,7 +4469,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

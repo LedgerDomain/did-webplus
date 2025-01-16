@@ -1,0 +1,13 @@
+[package]
+name = "storage-traits"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2021"
+
+[features]
+sqlx-postgres = ["sqlx/postgres"]
+sqlx-sqlite = ["sqlx/sqlite"]
+
+[dependencies]
+async-trait = "0.1.80"
+sqlx = { version = "0.8.2", optional = true, default-features = false }

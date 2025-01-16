@@ -11,10 +11,12 @@ pub fn into_js_value<T: std::fmt::Display>(t: T) -> JsValue {
     JsValue::from(t.to_string())
 }
 
-// #[wasm_bindgen(start)]
-// fn main() {
-//     console_error_panic_hook::set_once();
-// }
+#[wasm_bindgen(start)]
+pub fn main() -> Result<()> {
+    console_error_panic_hook::set_once();
+    wasm_logger::init(wasm_logger::Config::new(log::Level::Debug));
+    Ok(())
+}
 
 /*
 TODO
@@ -88,7 +90,7 @@ pub fn jws_sign(
 }
 
 /// A VerifierResolver that can resolve did:key values.  TODO: did:webplus values.
-// TODO: Because this only contains an Arc, this should implement Clone, and even Copy.
+// TODO: Because this only contains an Arc, this should implement Clone.
 #[wasm_bindgen]
 pub struct VerifierResolver {
     verifier_resolver_l: Arc<RwLock<dyn verifier_resolver::VerifierResolver>>,
@@ -111,6 +113,7 @@ impl VerifierResolver {
 
 /// Note that the return value will be null, but will throw an error if the verification fails.
 // TODO: Support detached payload later.
+// TODO: Figure out if #[wasm_bindgen] works directly on an async fn without the need for js_sys::Promise
 #[wasm_bindgen]
 pub fn jws_verify(jws: String, verifier_resolver: &VerifierResolver) -> js_sys::Promise {
     let verifier_resolver_l = verifier_resolver.verifier_resolver_l().clone();
@@ -126,6 +129,7 @@ pub fn jws_verify(jws: String, verifier_resolver: &VerifierResolver) -> js_sys::
 
 /// Note that the return value will be null, but will throw an error if the verification fails.
 // TODO: Support detached payload later.
+// TEMP HACK: Just hardcode the did:key VerifierResolver for now.
 #[wasm_bindgen]
 pub fn jws_verify_temphack(jws: String) -> js_sys::Promise {
     wasm_bindgen_futures::future_to_promise(async move {
@@ -135,4 +139,117 @@ pub fn jws_verify_temphack(jws: String) -> js_sys::Promise {
             .map_err(into_js_value)?;
         Ok(JsValue::from("VALID"))
     })
+}
+
+#[wasm_bindgen]
+pub fn vjson_default_schema() -> String {
+    vjson_core::DEFAULT_SCHEMA.jcs.clone()
+}
+
+// TODO: Should this accept and return JsValue?  Or &str?
+#[wasm_bindgen]
+pub fn vjson_self_hash_temphack(json_string: String) -> js_sys::Promise {
+    tracing::debug!("hippo 1; json_string: {}", json_string);
+    wasm_bindgen_futures::future_to_promise(async move {
+        let json_value: serde_json::Value =
+            serde_json::from_str(&json_string).map_err(into_js_value)?;
+        tracing::debug!("hippo 2");
+        let vjson_store = VJSONStore::new_mock().await?;
+        tracing::debug!("hippo 3");
+        let vjson_resolver = vjson_store.as_resolver();
+        tracing::debug!("hippo 4");
+        let vjson_value = did_webplus_cli_lib::vjson_self_hash(
+            json_value,
+            vjson_resolver.vjson_resolver_l.read().unwrap().deref(),
+        )
+        .await
+        .map_err(into_js_value)?;
+        tracing::debug!("hippo 5");
+        // TODO: Probably use JCS here
+        Ok(JsValue::from(vjson_value.to_string()))
+    })
+}
+
+// TODO: Should this accept and return JsValue?  Or &str?
+#[wasm_bindgen]
+pub async fn vjson_self_hash(json_string: String, vjson_store: &VJSONStore) -> Result<String> {
+    let json_value: serde_json::Value =
+        serde_json::from_str(&json_string).map_err(into_js_value)?;
+    let vjson_resolver = vjson_store.as_resolver();
+    let vjson_value = did_webplus_cli_lib::vjson_self_hash(
+        json_value,
+        vjson_resolver.vjson_resolver_l.read().unwrap().deref(),
+    )
+    .await
+    .map_err(into_js_value)?;
+    // TODO: Probably use JCS here
+    Ok(vjson_value.to_string())
+}
+
+// TODO: Should this accept and return JsValue?  Or &str?
+#[wasm_bindgen]
+pub async fn vjson_verify(
+    json_string: String,
+    vjson_resolver: &VJSONResolver,
+    verifier_resolver: &VerifierResolver,
+) -> Result<JsValue> {
+    // TODO: Using JsValue will presumably be more efficient.
+    let json_value: serde_json::Value =
+        serde_json::from_str(&json_string).map_err(into_js_value)?;
+    let self_hash = did_webplus_cli_lib::vjson_verify(
+        &json_value,
+        vjson_resolver.vjson_resolver_l.read().unwrap().deref(),
+        verifier_resolver
+            .verifier_resolver_l
+            .read()
+            .unwrap()
+            .deref(),
+    )
+    .await
+    .map_err(into_js_value)?;
+    Ok(JsValue::from(self_hash.into_string()))
+}
+
+// TODO: Because this only contains an Arc, this should implement Clone.
+#[wasm_bindgen]
+pub struct VJSONStore {
+    vjson_store_l: Arc<RwLock<dyn vjson_store::VJSONStoreT>>,
+    // vjson_resolver: vjson_store::VJSONStoreAsResolver,
+}
+
+#[wasm_bindgen]
+impl VJSONStore {
+    pub async fn new_mock() -> Result<Self> {
+        let vjson_storage_mock = vjson_storage_mock::VJSONStorageMock::new();
+        let vjson_store = vjson_store::VJSONStore::new(vjson_storage_mock)
+            .await
+            .map_err(into_js_value)?;
+        let vjson_store_l = Arc::new(RwLock::new(vjson_store));
+        // let vjson_resolver = vjson_store::VJSONStoreAsResolver {
+        //     vjson_store_l: vjson_store_l.clone(),
+        // };
+        Ok(Self {
+            vjson_store_l,
+            // vjson_resolver,
+        })
+    }
+}
+
+impl VJSONStore {
+    //     pub fn vjson_resolver(&self) -> &dyn vjson_core::VJSONResolver {
+    //         &self.vjson_store_l
+    //     }
+    pub fn as_resolver(&self) -> VJSONResolver {
+        let vjson_store_as_resolver = vjson_store::VJSONStoreAsResolver {
+            vjson_store_l: self.vjson_store_l.clone(),
+        };
+        VJSONResolver {
+            vjson_resolver_l: Arc::new(RwLock::new(vjson_store_as_resolver)),
+        }
+    }
+}
+
+#[wasm_bindgen]
+pub struct VJSONResolver {
+    vjson_resolver_l: Arc<RwLock<dyn vjson_core::VJSONResolver>>,
 }

@@ -3,7 +3,7 @@ use std::ops::Deref;
 use crate::{error_invalid_vjson, Error, Result};
 use selfhash::SelfHashable;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct VJSONRecord {
     pub self_hash: selfhash::KERIHash,
     pub added_at: time::OffsetDateTime,
