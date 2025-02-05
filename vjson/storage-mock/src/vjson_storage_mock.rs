@@ -83,7 +83,7 @@ impl vjson_store::VJSONStorage for VJSONStorageMock {
 // it would be a rollback (which would mean that it would have to panic because rollback
 // is not currently supported).
 #[derive(Clone, Debug)]
-pub struct VJSONStorageMockTransaction;
+struct VJSONStorageMockTransaction;
 
 impl std::ops::Drop for VJSONStorageMockTransaction {
     fn drop(&mut self) {

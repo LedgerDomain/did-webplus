@@ -2,7 +2,7 @@ use crate::{Error, Result};
 use did_webplus_core::DIDDocument;
 use time::OffsetDateTime;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DIDDocRecord {
     pub self_hash: String,
     pub did: String,

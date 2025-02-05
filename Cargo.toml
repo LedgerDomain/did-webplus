@@ -10,6 +10,7 @@ members = [
     "did-webplus/cli",
     "did-webplus/cli-lib",
     "did-webplus/core",
+    "did-webplus/doc-storage-mock",
     "did-webplus/doc-storage-postgres",
     "did-webplus/doc-storage-sqlite",
     "did-webplus/doc-store",

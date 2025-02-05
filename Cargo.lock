@@ -968,6 +968,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "did-webplus-doc-storage-mock"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "did-webplus-core",
+ "did-webplus-doc-store",
+ "selfhash",
+ "storage-traits",
+ "time",
+]
+
+[[package]]
 name = "did-webplus-doc-storage-postgres"
 version = "0.1.0"
 dependencies = [
@@ -1255,6 +1267,8 @@ dependencies = [
  "console_error_panic_hook",
  "did-key",
  "did-webplus-cli-lib",
+ "did-webplus-doc-storage-mock",
+ "did-webplus-doc-store",
  "did-webplus-jws",
  "js-sys",
  "log",
