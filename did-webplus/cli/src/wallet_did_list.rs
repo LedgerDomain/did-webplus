@@ -20,7 +20,7 @@ pub struct WalletDIDList {
 impl WalletDIDList {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let wallet = self.wallet_args.get_wallet().await?;
+        let wallet = self.wallet_args.open_wallet().await?;
 
         // Do the processing
         let controlled_did_v =

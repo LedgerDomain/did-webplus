@@ -35,7 +35,7 @@ fn parse_keri_hash_from_string(s: &str) -> Result<selfhash::KERIHash> {
 impl DIDList {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let did_doc_storage = self.did_doc_store_args.get_did_doc_storage().await?;
+        let did_doc_storage_a = self.did_doc_store_args.open_did_doc_storage().await?;
         let did_doc_record_filter = did_webplus_doc_store::DIDDocRecordFilter {
             did_o: self.did_o.map(|did| did.to_string()),
             self_hash_o: self.self_hash_o.map(|self_hash| self_hash.to_string()),
@@ -44,7 +44,8 @@ impl DIDList {
 
         // Do the processing
         let did_doc_record_v =
-            did_webplus_cli_lib::did_list(&did_doc_storage, &did_doc_record_filter).await?;
+            did_webplus_cli_lib::did_list(did_doc_storage_a.as_ref(), &did_doc_record_filter)
+                .await?;
 
         let mut did_string_s = BTreeSet::new();
         for did_doc_record in did_doc_record_v.into_iter() {

@@ -15,6 +15,7 @@ selfhash = "0.4.0"
 selfsign = "0.6.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 sqlx = { version = "0.8.2", default-features = false, optional = true }
+storage-traits = { path = "../../storage-traits" }
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }
 uuid = { version = "1.9.1", features = ["serde", "v4"] }

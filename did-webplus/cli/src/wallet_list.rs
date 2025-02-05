@@ -14,7 +14,7 @@ impl WalletList {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
         let wallet_uuid_o = self.wallet_args.wallet_uuid_o;
-        let wallet_storage = self.wallet_args.get_wallet_storage().await?;
+        let wallet_storage_a = self.wallet_args.open_wallet_storage().await?;
         let wallet_record_filter = did_webplus_wallet_store::WalletRecordFilter {
             wallet_uuid_o,
             ..Default::default()
@@ -22,7 +22,8 @@ impl WalletList {
 
         // Do the processing
         let wallet_record_v =
-            did_webplus_cli_lib::wallet_list(wallet_storage, &wallet_record_filter).await?;
+            did_webplus_cli_lib::wallet_list(wallet_storage_a.as_ref(), &wallet_record_filter)
+                .await?;
 
         // Print the wallet records as JSON, then optional newline.
         serde_json::to_writer(std::io::stdout(), &wallet_record_v)?;

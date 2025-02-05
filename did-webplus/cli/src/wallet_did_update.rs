@@ -23,7 +23,7 @@ pub struct WalletDIDUpdate {
 impl WalletDIDUpdate {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let wallet = self.wallet_args.get_wallet().await?;
+        let wallet = self.wallet_args.open_wallet().await?;
         let did = get_uniquely_determinable_did(&wallet, self.did_o).await?;
         let vdr_scheme = self.http_scheme_args.determine_http_scheme();
 

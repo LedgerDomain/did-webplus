@@ -32,35 +32,9 @@ impl WalletStorageSQLite {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl DIDDocStorage for WalletStorageSQLite {
-    type Transaction<'t> = sqlx::Transaction<'t, sqlx::Sqlite>;
-    async fn begin_transaction<'s, 't: 's, 'u: 't>(
-        &self,
-        existing_transaction_o: Option<&'u mut Self::Transaction<'t>>,
-    ) -> did_webplus_doc_store::Result<Self::Transaction<'s>> {
-        if let Some(existing_transaction) = existing_transaction_o {
-            use sqlx::Acquire;
-            Ok(existing_transaction.begin().await?)
-        } else {
-            Ok(self.sqlite_pool.begin().await?)
-        }
-    }
-    async fn commit_transaction(
-        &self,
-        transaction: Self::Transaction<'_>,
-    ) -> did_webplus_doc_store::Result<()> {
-        transaction.commit().await?;
-        Ok(())
-    }
-    async fn rollback_transaction(
-        &self,
-        transaction: Self::Transaction<'_>,
-    ) -> did_webplus_doc_store::Result<()> {
-        transaction.rollback().await?;
-        Ok(())
-    }
     async fn add_did_document(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        mut transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did_document: &DIDDocument,
         did_document_jcs: &str,
     ) -> did_webplus_doc_store::Result<()> {
@@ -72,7 +46,7 @@ impl DIDDocStorage for WalletStorageSQLite {
         let version_id = did_document.version_id() as i64;
         let valid_from = did_document.valid_from();
         let self_hash_str = did_document.self_hash().as_str();
-        let did_documents_rowid = sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 INSERT INTO did_documents(did, version_id, valid_from, self_hash, did_document_jcs)
                 VALUES ($1, $2, $3, $4, $5)
@@ -83,10 +57,21 @@ impl DIDDocStorage for WalletStorageSQLite {
             valid_from,
             self_hash_str,
             did_document_jcs,
-        )
-        .fetch_one(transaction.as_mut())
-        .await?
-        .rowid;
+        );
+        let did_documents_rowid = if let Some(transaction) = transaction_o.as_mut() {
+            query
+                .fetch_one(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+                .rowid
+        } else {
+            query.fetch_one(&self.sqlite_pool).await?.rowid
+        };
 
         // Also ingest the verification methods into the verification_methods table
         for verification_method in did_document
@@ -102,7 +87,7 @@ impl DIDDocStorage for WalletStorageSQLite {
                 .public_key_material
                 .key_purpose_flags_for_key_id_fragment(verification_method.id.fragment());
             let key_purpose_flags_integer = key_purpose_flags.integer_value() as i32;
-            sqlx::query!(
+            let query = sqlx::query!(
                 r#"
                     INSERT INTO verification_methods(did_documents_rowid, key_id_fragment, controller, pub_key, key_purpose_flags)
                     VALUES ($1, $2, $3, $4, $5)
@@ -112,21 +97,32 @@ impl DIDDocStorage for WalletStorageSQLite {
                 controller,
                 pub_key,
                 key_purpose_flags_integer,
-            )
-            .execute(transaction.as_mut())
-            .await?;
+            );
+            if let Some(transaction) = transaction_o.as_mut() {
+                query
+                    .execute(
+                        transaction
+                            .as_any_mut()
+                            .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                            .unwrap()
+                            .as_mut(),
+                    )
+                    .await?;
+            } else {
+                query.execute(&self.sqlite_pool).await?;
+            }
         }
         Ok(())
     }
     async fn get_did_doc_record_with_self_hash(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
         self_hash: &selfhash::KERIHashStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
         let self_hash_str = self_hash.as_str();
-        let did_doc_record_o = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
                 SELECT did, version_id, valid_from, self_hash, did_document_jcs
@@ -135,22 +131,33 @@ impl DIDDocStorage for WalletStorageSQLite {
             "#,
             did_str,
             self_hash_str,
-        )
-        .fetch_optional(transaction.as_mut())
-        .await?
+        );
+        let did_doc_record_o = if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        }
         .map(|did_document_row_sqlite| did_document_row_sqlite.try_into())
         .transpose()?;
         Ok(did_doc_record_o)
     }
     async fn get_did_doc_record_with_version_id(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
         version_id: u32,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
         let version_id = version_id as i64;
-        let did_doc_record_o = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
                 SELECT did, version_id, valid_from, self_hash, did_document_jcs
@@ -159,20 +166,31 @@ impl DIDDocStorage for WalletStorageSQLite {
             "#,
             did_str,
             version_id,
-        )
-        .fetch_optional(transaction.as_mut())
-        .await?
+        );
+        let did_doc_record_o = if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        }
         .map(|did_document_row_sqlite| did_document_row_sqlite.try_into())
         .transpose()?;
         Ok(did_doc_record_o)
     }
     async fn get_latest_did_doc_record(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
-        let did_doc_record_o = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
                 SELECT did, version_id, valid_from, self_hash, did_document_jcs
@@ -182,16 +200,27 @@ impl DIDDocStorage for WalletStorageSQLite {
                 LIMIT 1
             "#,
             did_str,
-        )
-        .fetch_optional(transaction.as_mut())
-        .await?
+        );
+        let did_doc_record_o = if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        }
         .map(|did_document_row_sqlite| did_document_row_sqlite.try_into())
         .transpose()?;
         Ok(did_doc_record_o)
     }
     async fn get_did_doc_records(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did_doc_record_filter: &DIDDocRecordFilter,
     ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
         let filter_on_did = did_doc_record_filter.did_o.is_some();
@@ -199,7 +228,7 @@ impl DIDDocStorage for WalletStorageSQLite {
         let filter_on_version_id = did_doc_record_filter.version_id_o.is_some();
         // TODO: SQL-based filtering on valid_at
         // let filter_on_valid_at = did_doc_record_filter.valid_at_o.is_some();
-        let did_doc_record_v = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
                 select did, version_id, valid_from, self_hash, did_document_jcs
@@ -214,9 +243,20 @@ impl DIDDocStorage for WalletStorageSQLite {
             did_doc_record_filter.self_hash_o,
             filter_on_version_id,
             did_doc_record_filter.version_id_o,
-        )
-        .fetch_all(transaction.as_mut())
-        .await?
+        );
+        let did_doc_record_v = if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.sqlite_pool).await?
+        }
         .into_iter()
         .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
         .collect::<did_webplus_doc_store::Result<Vec<_>>>()?;
@@ -226,14 +266,24 @@ impl DIDDocStorage for WalletStorageSQLite {
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl storage_traits::StorageDynT for WalletStorageSQLite {
+    async fn begin_transaction(
+        &self,
+    ) -> storage_traits::Result<Box<dyn storage_traits::TransactionDynT>> {
+        Ok(Box::new(self.sqlite_pool.begin().await?))
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl WalletStorage for WalletStorageSQLite {
     async fn add_wallet(
         &self,
-        transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         wallet_record: WalletRecord,
     ) -> Result<WalletStorageCtx> {
         let wallet_uuid_string = wallet_record.wallet_uuid.as_hyphenated();
-        let query_result = sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 INSERT INTO wallets(wallet_uuid, created_at, updated_at, deleted_at_o, wallet_name_o)
                 VALUES ($1, $2, $3, $4, $5)
@@ -244,29 +294,51 @@ impl WalletStorage for WalletStorageSQLite {
             wallet_record.updated_at,
             wallet_record.deleted_at_o,
             wallet_record.wallet_name_o,
-        )
-        .fetch_one(transaction.as_mut())
-        .await?;
+        );
+        let query_result = if let Some(transaction) = transaction_o {
+            query
+                .fetch_one(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_one(&self.sqlite_pool).await?
+        };
         Ok(WalletStorageCtx {
             wallets_rowid: query_result.rowid,
         })
     }
     async fn get_wallet(
         &self,
-        transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         wallet_uuid: &uuid::Uuid,
     ) -> Result<Option<(WalletStorageCtx, WalletRecord)>> {
         let wallet_uuid_string = wallet_uuid.as_hyphenated();
-        let query_result_o = sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 SELECT rowid, wallet_uuid, created_at, updated_at, deleted_at_o, wallet_name_o
                 FROM wallets
                 WHERE wallet_uuid = $1
             "#,
             wallet_uuid_string,
-        )
-        .fetch_optional(transaction.as_mut())
-        .await?;
+        );
+        let query_result_o = if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        };
         if let Some(query_result) = query_result_o {
             let wallet_storage_ctx = WalletStorageCtx {
                 wallets_rowid: query_result.rowid,
@@ -295,7 +367,7 @@ impl WalletStorage for WalletStorageSQLite {
     }
     async fn get_wallets(
         &self,
-        transaction: &mut <Self as did_webplus_doc_store::DIDDocStorage>::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         wallet_record_filter: &WalletRecordFilter,
     ) -> Result<Vec<(WalletStorageCtx, WalletRecord)>> {
         let filter_on_wallet_uuid = wallet_record_filter.wallet_uuid_o.is_some();
@@ -304,7 +376,7 @@ impl WalletStorage for WalletStorageSQLite {
             .as_ref()
             .map(|wallet_uuid| wallet_uuid.as_hyphenated());
         let filter_on_wallet_name = wallet_record_filter.wallet_name_o.is_some();
-        sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 SELECT rowid, wallet_uuid, created_at, updated_at, deleted_at_o, wallet_name_o
                 FROM wallets
@@ -316,9 +388,20 @@ impl WalletStorage for WalletStorageSQLite {
             wallet_uuid_string_o,
             filter_on_wallet_name,
             wallet_record_filter.wallet_name_o,
-        )
-        .fetch_all(transaction.as_mut())
-        .await?
+        );
+        if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.sqlite_pool).await?
+        }
         .into_iter()
         .map(|query_result| -> Result<(WalletStorageCtx, WalletRecord)> {
             let wallet_storage_ctx = WalletStorageCtx {
@@ -348,12 +431,12 @@ impl WalletStorage for WalletStorageSQLite {
 
     async fn add_priv_key(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         priv_key_record: PrivKeyRecord,
     ) -> Result<()> {
         let priv_key_row = PrivKeyRow::try_from_priv_key_record(ctx, priv_key_record)?;
-        sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 INSERT INTO priv_keys(wallets_rowid, pub_key, key_type, key_purpose_restriction_o, created_at, last_used_at_o, usage_count, deleted_at_o, priv_key_format_o, priv_key_bytes_o)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -368,19 +451,32 @@ impl WalletStorage for WalletStorageSQLite {
             priv_key_row.deleted_at_o,
             priv_key_row.priv_key_format_o,
             priv_key_row.priv_key_bytes_o,
-        ).execute(transaction.as_mut()).await?;
+        );
+        if let Some(transaction) = transaction_o {
+            query
+                .execute(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?;
+        } else {
+            query.execute(&self.sqlite_pool).await?;
+        }
         Ok(())
     }
     async fn delete_priv_key(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         pub_key: &selfsign::KERIVerifierStr,
     ) -> Result<()> {
         // This will only update if the priv key is not already deleted.
         let deleted_at_o = Some(time::OffsetDateTime::now_utc());
         let pub_key_str = pub_key.as_str();
-        sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 UPDATE priv_keys
                 SET deleted_at_o = $1, priv_key_format_o = NULL, priv_key_bytes_o = NULL
@@ -389,19 +485,30 @@ impl WalletStorage for WalletStorageSQLite {
             deleted_at_o,
             ctx.wallets_rowid,
             pub_key_str,
-        )
-        .execute(transaction.as_mut())
-        .await?;
+        );
+        if let Some(transaction) = transaction_o {
+            query
+                .execute(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?;
+        } else {
+            query.execute(&self.sqlite_pool).await?;
+        }
         Ok(())
     }
     async fn get_priv_key(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         pub_key: &selfsign::KERIVerifierStr,
     ) -> Result<Option<PrivKeyRecord>> {
         let pub_key_str = pub_key.as_str();
-        sqlx::query_as!(
+        let query = sqlx::query_as!(
             PrivKeyRow,
             r#"
                 SELECT wallets_rowid, pub_key, key_type, key_purpose_restriction_o, created_at, last_used_at_o, usage_count, deleted_at_o, priv_key_format_o, priv_key_bytes_o
@@ -410,13 +517,26 @@ impl WalletStorage for WalletStorageSQLite {
             "#,
             ctx.wallets_rowid,
             pub_key_str,
-        ).fetch_optional(transaction.as_mut()).await?
+        );
+        if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        }
         .map(PrivKeyRow::try_into_priv_key_record)
         .transpose()
     }
     async fn get_priv_keys(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         priv_key_record_filter: &PrivKeyRecordFilter,
     ) -> Result<Vec<PrivKeyRecord>> {
@@ -431,7 +551,7 @@ impl WalletStorage for WalletStorageSQLite {
             .as_ref()
             .map(|key_purpose| key_purpose.as_str());
         let filter_on_is_not_deleted = priv_key_record_filter.is_not_deleted_o.is_some();
-        let priv_key_row_v = sqlx::query_as!(
+        let query = sqlx::query_as!(
             PrivKeyRow,
             r#"
                 SELECT wallets_rowid, pub_key, key_type, key_purpose_restriction_o, created_at, last_used_at_o, usage_count, deleted_at_o, priv_key_format_o, priv_key_bytes_o
@@ -448,7 +568,20 @@ impl WalletStorage for WalletStorageSQLite {
             key_purpose_str_o,
             filter_on_is_not_deleted,
             priv_key_record_filter.is_not_deleted_o,
-        ).fetch_all(transaction.as_mut()).await?;
+        );
+        let priv_key_row_v = if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.sqlite_pool).await?
+        };
         let priv_key_record_v = priv_key_row_v
             .into_iter()
             .map(|row| row.try_into_priv_key_record())
@@ -458,13 +591,13 @@ impl WalletStorage for WalletStorageSQLite {
 
     async fn add_priv_key_usage(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         priv_key_usage_record: &PrivKeyUsageRecord,
     ) -> Result<()> {
         let priv_key_usage_row =
             PrivKeyUsageRow::try_from_priv_key_usage_record(ctx, priv_key_usage_record)?;
-        sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 INSERT INTO priv_key_usages(wallets_rowid, pub_key, used_at, usage_type, usage_spec_o, did_resource_fully_qualified_o, key_purpose_o)
                 VALUES ($1, $2, $3, $4, $5, $6, $7);
@@ -483,14 +616,25 @@ impl WalletStorage for WalletStorageSQLite {
             priv_key_usage_row.used_at,
             priv_key_usage_row.wallets_rowid,
             priv_key_usage_row.pub_key,
-        )
-        .execute(transaction.as_mut())
-        .await?;
+        );
+        if let Some(transaction) = transaction_o {
+            query
+                .execute(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?;
+        } else {
+            query.execute(&self.sqlite_pool).await?;
+        }
         Ok(())
     }
     async fn get_priv_key_usages(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         priv_key_usage_record_filter: &PrivKeyUsageRecordFilter,
     ) -> Result<Vec<PrivKeyUsageRecord>> {
@@ -507,7 +651,7 @@ impl WalletStorage for WalletStorageSQLite {
         let filter_on_used_at_or_after = priv_key_usage_record_filter.used_at_or_after_o.is_some();
         let filter_on_used_at_or_before =
             priv_key_usage_record_filter.used_at_or_before_o.is_some();
-        let priv_key_usage_row_v = sqlx::query_as!(
+        let query = sqlx::query_as!(
             PrivKeyUsageRow,
             r#"
                 SELECT wallets_rowid, pub_key, used_at, usage_type, usage_spec_o, did_resource_fully_qualified_o, key_purpose_o
@@ -527,7 +671,20 @@ impl WalletStorage for WalletStorageSQLite {
             priv_key_usage_record_filter.used_at_or_after_o,
             filter_on_used_at_or_before,
             priv_key_usage_record_filter.used_at_or_before_o,
-        ).fetch_all(transaction.as_mut()).await?;
+        );
+        let priv_key_usage_row_v = if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.sqlite_pool).await?
+        };
         let mut priv_key_usage_record_v = Vec::with_capacity(priv_key_usage_row_v.len());
         for priv_key_usage_row in priv_key_usage_row_v.into_iter() {
             let priv_key_usage_record = priv_key_usage_row.try_into_priv_key_usage_record(ctx)?;
@@ -538,7 +695,7 @@ impl WalletStorage for WalletStorageSQLite {
 
     async fn get_verification_method(
         &self,
-        _transaction: &mut Self::Transaction<'_>,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         _ctx: &WalletStorageCtx,
         _did_key_resource_fully_qualified: &DIDKeyResourceFullyQualifiedStr,
     ) -> Result<VerificationMethodRecord> {
@@ -547,7 +704,7 @@ impl WalletStorage for WalletStorageSQLite {
 
     async fn get_locally_controlled_verification_methods(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
     ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>> {
@@ -568,7 +725,7 @@ impl WalletStorage for WalletStorageSQLite {
             .key_purpose_o
             .map(|key_purpose| key_purpose.as_key_purpose_flags().integer_value() as i64);
 
-        let query_result_v = sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 SELECT
                     verification_methods.did_documents_rowid,
@@ -606,9 +763,20 @@ impl WalletStorage for WalletStorageSQLite {
             locally_controlled_verification_method_filter.version_id_o,
             filter_on_key_purpose,
             key_purpose_integer_o,
-        )
-        .fetch_all(transaction.as_mut())
-        .await?;
+        );
+        let query_result_v = if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.sqlite_pool).await?
+        };
 
         let mut locally_controlled_verification_method_v = Vec::with_capacity(query_result_v.len());
         for query_result in query_result_v.into_iter() {

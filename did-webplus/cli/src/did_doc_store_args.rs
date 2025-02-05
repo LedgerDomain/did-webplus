@@ -1,4 +1,5 @@
 use crate::Result;
+use std::sync::Arc;
 
 #[derive(clap::Args, Debug)]
 pub struct DIDDocStoreArgs {
@@ -17,9 +18,9 @@ pub struct DIDDocStoreArgs {
 }
 
 impl DIDDocStoreArgs {
-    pub async fn get_did_doc_storage(
+    pub async fn open_did_doc_storage(
         &self,
-    ) -> Result<did_webplus_doc_storage_sqlite::DIDDocStorageSQLite> {
+    ) -> Result<Arc<dyn did_webplus_doc_store::DIDDocStorage>> {
         tracing::debug!(
             "get_did_doc_storage; self.did_doc_store_db_url: {}",
             self.did_doc_store_db_url
@@ -54,19 +55,15 @@ impl DIDDocStoreArgs {
         } else {
             unimplemented!("non-SQLite did_doc_store DBs are not yet supported.");
         };
-        Ok(
+        let did_doc_storage =
             did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
                 sqlite_pool,
             )
-            .await?,
-        )
+            .await?;
+        Ok(Arc::new(did_doc_storage))
     }
-    pub async fn get_did_doc_store(
-        &self,
-    ) -> Result<
-        did_webplus_doc_store::DIDDocStore<did_webplus_doc_storage_sqlite::DIDDocStorageSQLite>,
-    > {
-        let storage = self.get_did_doc_storage().await?;
-        Ok(did_webplus_doc_store::DIDDocStore::new(storage))
+    pub async fn open_did_doc_store(&self) -> Result<did_webplus_doc_store::DIDDocStore> {
+        let did_doc_storage_a = self.open_did_doc_storage().await?;
+        Ok(did_webplus_doc_store::DIDDocStore::new(did_doc_storage_a))
     }
 }

@@ -11,7 +11,7 @@ pub mod did;
 
 #[cfg(any(feature = "postgres", feature = "sqlite"))]
 #[derive(Clone)]
-struct VDRState<Storage: did_webplus_doc_store::DIDDocStorage> {
-    did_doc_store: did_webplus_doc_store::DIDDocStore<Storage>,
+struct VDRState {
+    did_doc_store: did_webplus_doc_store::DIDDocStore,
     vdr_config: crate::VDRConfig,
 }

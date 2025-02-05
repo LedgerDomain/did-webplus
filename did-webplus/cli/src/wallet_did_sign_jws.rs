@@ -23,7 +23,7 @@ pub struct WalletDIDSignJWS {
 impl WalletDIDSignJWS {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let wallet = self.wallet_args.get_wallet().await?;
+        let wallet = self.wallet_args.open_wallet().await?;
 
         // Do the processing
         let jws = did_webplus_cli_lib::wallet_did_sign_jws(

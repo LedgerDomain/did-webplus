@@ -12,12 +12,12 @@ pub enum AlreadyExistsPolicy {
 
 #[derive(Clone)]
 pub struct VJSONStore {
-    storage: Arc<dyn VJSONStorage>,
+    vjson_storage_a: Arc<dyn VJSONStorage>,
 }
 
 impl VJSONStore {
     /// Create a new VJSONStore using the given VJSONStorage implementation.
-    pub async fn new(storage: Arc<dyn VJSONStorage>) -> Result<Self> {
+    pub async fn new(vjson_storage_a: Arc<dyn VJSONStorage>) -> Result<Self> {
         // TEMP HACK: Sanity check that the default schema is valid.
         // TODO: Need a VJSONResolver that's just the default schema, and an empty VerifierResolver.
         // use vjson_core::Validate;
@@ -32,13 +32,13 @@ impl VJSONStore {
             "Ensuring Default schema {} is present in storage.",
             vjson_core::DEFAULT_SCHEMA.vjson_url
         );
-        let mut transaction_b = storage.begin_transaction().await?;
+        let mut transaction_b = vjson_storage_a.begin_transaction().await?;
         let vjson_record = VJSONRecord {
             self_hash: DEFAULT_SCHEMA.self_hash.clone(),
             added_at: time::OffsetDateTime::now_utc(),
             vjson_jcs: DEFAULT_SCHEMA.jcs.clone(),
         };
-        storage
+        vjson_storage_a
             .add_vjson_str(
                 Some(transaction_b.as_mut()),
                 vjson_record,
@@ -47,7 +47,7 @@ impl VJSONStore {
             .await?;
         transaction_b.commit().await?;
 
-        Ok(Self { storage })
+        Ok(Self { vjson_storage_a })
     }
 
     // TODO: For convenience, make a typed version of this that takes a serde::Serialize type.
@@ -79,7 +79,7 @@ impl VJSONStore {
             "VJSONStore::add_vjson_value: vjson_record.vjson_jcs: {}",
             vjson_record.vjson_jcs
         );
-        self.storage
+        self.vjson_storage_a
             .add_vjson_str(transaction_o, vjson_record, already_exists_policy)
             .await?;
 
@@ -130,7 +130,9 @@ impl VJSONStore {
         self_hash: &selfhash::KERIHashStr,
         // TODO: optional expected schema
     ) -> Result<VJSONRecord> {
-        self.storage.get_vjson_str(transaction_o, self_hash).await
+        self.vjson_storage_a
+            .get_vjson_str(transaction_o, self_hash)
+            .await
     }
 }
 
@@ -140,7 +142,7 @@ impl storage_traits::StorageDynT for VJSONStore {
     async fn begin_transaction(
         &self,
     ) -> storage_traits::Result<Box<dyn storage_traits::TransactionDynT>> {
-        Ok(self.storage.begin_transaction().await?)
+        Ok(self.vjson_storage_a.begin_transaction().await?)
     }
 }
 

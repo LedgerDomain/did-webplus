@@ -116,15 +116,15 @@ pub async fn did_key_sign_vjson(
 }
 
 // TODO: Rename this function to something more appropriate
-pub async fn did_list<Storage: did_webplus_doc_store::DIDDocStorage>(
-    did_doc_storage: &Storage,
+pub async fn did_list(
+    did_doc_storage: &dyn did_webplus_doc_store::DIDDocStorage,
     did_doc_record_filter: &did_webplus_doc_store::DIDDocRecordFilter,
 ) -> Result<Vec<did_webplus_doc_store::DIDDocRecord>> {
-    let mut transaction = did_doc_storage.begin_transaction(None).await?;
+    let mut transaction_b = did_doc_storage.begin_transaction().await?;
     let did_doc_record_v = did_doc_storage
-        .get_did_doc_records(&mut transaction, &did_doc_record_filter)
+        .get_did_doc_records(Some(transaction_b.as_mut()), &did_doc_record_filter)
         .await?;
-    did_doc_storage.commit_transaction(transaction).await?;
+    transaction_b.commit().await?;
     Ok(did_doc_record_v)
 }
 
@@ -413,17 +413,17 @@ pub async fn wallet_did_sign_vjson(
     .await?)
 }
 
-pub async fn wallet_list<Storage: did_webplus_wallet_store::WalletStorage>(
-    wallet_storage: Storage,
+pub async fn wallet_list(
+    wallet_storage: &dyn did_webplus_wallet_store::WalletStorage,
     wallet_record_filter: &did_webplus_wallet_store::WalletRecordFilter,
 ) -> Result<Vec<did_webplus_wallet_store::WalletRecord>> {
-    let mut transaction = wallet_storage.begin_transaction(None).await?;
+    let mut transaction_b = wallet_storage.begin_transaction().await?;
     let wallet_record_v = wallet_storage
-        .get_wallets(&mut transaction, wallet_record_filter)
+        .get_wallets(Some(transaction_b.as_mut()), wallet_record_filter)
         .await?
         .into_iter()
         .map(|(_ctx, wallet_record)| wallet_record)
         .collect::<Vec<_>>();
-    wallet_storage.commit_transaction(transaction).await?;
+    transaction_b.commit().await?;
     Ok(wallet_record_v)
 }

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
@@ -18,14 +20,11 @@ fn overall_init() {
 async fn test_software_wallet() {
     // TODO: Use env vars to be able to point to a "real" VDR.
 
-    let vdr_database_path = "tests/test_software_wallet.vdr.db";
     let wallet_store_database_path = "tests/test_software_wallet.wallet-store.db";
 
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
-    // The postgres equivalent of this would be to drop and recreate the relevant databases.
-    if std::fs::exists(vdr_database_path).expect("pass") {
-        std::fs::remove_file(vdr_database_path).expect("pass");
-    }
+    // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
+    // TODO: postgres drop schema
     if std::fs::exists(wallet_store_database_path).expect("pass") {
         std::fs::remove_file(wallet_store_database_path).expect("pass");
     }
@@ -34,7 +33,7 @@ async fn test_software_wallet() {
         did_host: "localhost".to_string(),
         did_port_o: Some(11085),
         listen_port: 11085,
-        database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
+        database_url: "postgres:///test_software_wallet_vdr".to_string(),
         database_max_connections: 10,
         gateways: Vec::new(),
     };
@@ -53,6 +52,7 @@ async fn test_software_wallet() {
         )
         .await
         .expect("pass");
+    let wallet_storage_a = Arc::new(wallet_storage);
 
     test_util::wait_until_service_is_up(
         "VDR",
@@ -60,19 +60,16 @@ async fn test_software_wallet() {
     )
     .await;
 
-    use did_webplus_doc_store::DIDDocStorage;
-    let mut transaction = wallet_storage.begin_transaction(None).await.expect("pass");
+    use storage_traits::StorageDynT;
+    let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
     let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
-        &mut transaction,
-        &wallet_storage,
+        transaction_b.as_mut(),
+        wallet_storage_a,
         Some("fancy wallet".to_string()),
     )
     .await
     .expect("pass");
-    wallet_storage
-        .commit_transaction(transaction)
-        .await
-        .expect("pass");
+    transaction_b.commit().await.expect("pass");
 
     let vdr_scheme = "http";
     let vdr_did_create_endpoint = format!(

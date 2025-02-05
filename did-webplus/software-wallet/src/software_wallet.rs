@@ -9,42 +9,42 @@ use did_webplus_wallet_store::{
     VerificationMethodRecord, WalletStorage, WalletStorageCtx,
 };
 use selfsign::Signer;
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
 #[derive(Clone)]
-pub struct SoftwareWallet<Storage: WalletStorage> {
+pub struct SoftwareWallet {
     ctx: WalletStorageCtx,
-    storage: Storage,
+    wallet_storage_a: Arc<dyn WalletStorage>,
 }
 
-impl<Storage: WalletStorage> SoftwareWallet<Storage> {
+impl SoftwareWallet {
     pub async fn create(
-        transaction: &mut Storage::Transaction<'_>,
-        wallet_storage: &Storage,
+        transaction: &mut dyn storage_traits::TransactionDynT,
+        wallet_storage_a: Arc<dyn WalletStorage>,
         wallet_name_o: Option<String>,
     ) -> Result<Self> {
-        let wallet_storage_ctx = wallet_storage
-            .create_wallet(transaction, wallet_name_o)
+        let wallet_storage_ctx = wallet_storage_a
+            .create_wallet(Some(transaction), wallet_name_o)
             .await?;
         Ok(Self {
             ctx: wallet_storage_ctx,
-            storage: wallet_storage.clone(),
+            wallet_storage_a,
         })
     }
     pub async fn open(
-        transaction: &mut Storage::Transaction<'_>,
-        wallet_storage: &Storage,
+        transaction: &mut dyn storage_traits::TransactionDynT,
+        wallet_storage_a: Arc<dyn WalletStorage>,
         wallet_uuid: &uuid::Uuid,
     ) -> Result<Self> {
-        let (wallet_storage_ctx, _wallet_record) = wallet_storage
-            .get_wallet(transaction, wallet_uuid)
+        let (wallet_storage_ctx, _wallet_record) = wallet_storage_a
+            .get_wallet(Some(transaction), wallet_uuid)
             .await?
             .ok_or_else(|| {
                 Error::NotFound(format!("Wallet with wallet_uuid {}", wallet_uuid).into())
             })?;
         Ok(Self {
             ctx: wallet_storage_ctx,
-            storage: wallet_storage.clone(),
+            wallet_storage_a,
         })
     }
     async fn fetch_did_internal(
@@ -57,7 +57,11 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
 
         // Retrieve any unfetched updates to the DID.
         let did_resolver = did_webplus_resolver::DIDResolverFull {
-            did_doc_store: did_webplus_doc_store::DIDDocStore::new(self.storage.clone()),
+            did_doc_store: did_webplus_doc_store::DIDDocStore::new(Arc::new(
+                did_webplus_wallet_store::WalletStorageAsDIDDocStorage {
+                    wallet_storage_a: self.wallet_storage_a.clone(),
+                },
+            )),
             http_scheme: vdr_scheme,
         };
         use did_webplus_resolver::DIDResolver;
@@ -75,7 +79,7 @@ impl<Storage: WalletStorage> SoftwareWallet<Storage> {
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
+impl Wallet for SoftwareWallet {
     async fn create_did(&self, vdr_did_create_endpoint: &str) -> Result<DIDFullyQualified> {
         // Parse the vdr_did_create_endpoint as a URL.
         let vdr_did_create_endpoint_url =
@@ -171,7 +175,11 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         assert!(did_document.self_signature_verifier_o.is_some());
         let did = did_document.did.as_did_str();
 
-        let mut transaction = self.storage.begin_transaction(None).await?;
+        let mut transaction_b = self
+            .wallet_storage_a
+            .begin_transaction()
+            .await
+            .map_err(|e| Error::WalletStorageError(e.into()))?;
 
         // Serialize DID doc as JCS (JSON Canonicalization Scheme), then
         // POST the DID document to the VDR to create the DID.
@@ -182,8 +190,12 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
                 .expect("this shouldn't happen");
             // Store the DID doc.  Note that this will also ingest the verification methods from the DID doc,
             // which represents the control of the versioned DID.
-            self.storage
-                .add_did_document(&mut transaction, &did_document, did_document_jcs.as_str())
+            self.wallet_storage_a
+                .add_did_document(
+                    Some(transaction_b.as_mut()),
+                    &did_document,
+                    did_document_jcs.as_str(),
+                )
                 .await?;
 
             // HTTP POST is for DID create operation.
@@ -201,9 +213,9 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         // Store the priv keys
         for key_purpose in KeyPurpose::VARIANTS {
             use selfsign::Verifier;
-            self.storage
+            self.wallet_storage_a
                 .add_priv_key(
-                    &mut transaction,
+                    Some(transaction_b.as_mut()),
                     &self.ctx,
                     PrivKeyRecord {
                         pub_key: priv_key_m[key_purpose]
@@ -227,9 +239,9 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         let controlled_did = did.with_queries(did_document.self_hash(), 0);
         let controlled_did_with_key_id = controlled_did
             .with_fragment(did_document.self_signature_verifier_o.as_deref().unwrap());
-        self.storage
+        self.wallet_storage_a
             .add_priv_key_usage(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &self.ctx,
                 &PrivKeyUsageRecord {
                     pub_key: did_document
@@ -249,7 +261,10 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
             )
             .await?;
 
-        self.storage.commit_transaction(transaction).await?;
+        transaction_b
+            .commit()
+            .await
+            .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
 
         Ok(controlled_did)
     }
@@ -289,13 +304,17 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
             KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key().to_keri_verifier().into_owned(),
         };
 
-        let mut transaction = self.storage.begin_transaction(None).await?;
+        let mut transaction_b = self
+            .wallet_storage_a
+            .begin_transaction()
+            .await
+            .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
         // Select all the locally-stored keys that are in the latest DID document, so that they can be
         // retired, the CapabilityInvocation key selected for signing the update, and the new keys stored.
         let locally_controlled_verification_method_v = self
-            .storage
+            .wallet_storage_a
             .get_locally_controlled_verification_methods(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &self.ctx,
                 &LocallyControlledVerificationMethodFilter {
                     did_o: Some(did.to_owned()),
@@ -354,9 +373,9 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
             tracing::debug!("updated_did_document_jcs: {}", updated_did_document_jcs);
             // Store the DID doc.  Note that this will also ingest the verification methods from the DID doc,
             // which represents the control of the versioned DID.
-            self.storage
+            self.wallet_storage_a
                 .add_did_document(
-                    &mut transaction,
+                    Some(transaction_b.as_mut()),
                     &updated_did_document,
                     updated_did_document_jcs.as_str(),
                 )
@@ -376,9 +395,9 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
 
         // Store the priv keys
         for key_purpose in KeyPurpose::VARIANTS {
-            self.storage
+            self.wallet_storage_a
                 .add_priv_key(
-                    &mut transaction,
+                    Some(transaction_b.as_mut()),
                     &self.ctx,
                     PrivKeyRecord {
                         pub_key: priv_key_m[key_purpose]
@@ -409,9 +428,9 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
                 .as_deref()
                 .unwrap(),
         );
-        self.storage
+        self.wallet_storage_a
             .add_priv_key_usage(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &self.ctx,
                 &PrivKeyUsageRecord {
                     pub_key: updated_did_document
@@ -435,12 +454,19 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         for (_verification_method_record, priv_key_record) in
             locally_controlled_verification_method_v.into_iter()
         {
-            self.storage
-                .delete_priv_key(&mut transaction, &self.ctx, &priv_key_record.pub_key)
+            self.wallet_storage_a
+                .delete_priv_key(
+                    Some(transaction_b.as_mut()),
+                    &self.ctx,
+                    &priv_key_record.pub_key,
+                )
                 .await?;
         }
 
-        self.storage.commit_transaction(transaction).await?;
+        transaction_b
+            .commit()
+            .await
+            .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
 
         Ok(controlled_did)
     }
@@ -448,16 +474,23 @@ impl<Storage: WalletStorage> Wallet for SoftwareWallet<Storage> {
         &self,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
     ) -> Result<Vec<(VerificationMethodRecord, Box<dyn selfsign::Signer>)>> {
-        let mut transaction = self.storage.begin_transaction(None).await?;
+        let mut transaction_b = self
+            .wallet_storage_a
+            .begin_transaction()
+            .await
+            .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
         let query_result_v = self
-            .storage
+            .wallet_storage_a
             .get_locally_controlled_verification_methods(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &self.ctx,
                 locally_controlled_verification_method_filter,
             )
             .await?;
-        self.storage.commit_transaction(transaction).await?;
+        transaction_b
+            .commit()
+            .await
+            .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
         Ok(query_result_v
             .into_iter()
             .map(|(verification_method_record, priv_key_record)| {

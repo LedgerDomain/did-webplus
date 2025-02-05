@@ -25,27 +25,9 @@ impl DIDDocStorageSQLite {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
-    type Transaction<'t> = sqlx::Transaction<'t, sqlx::Sqlite>;
-    async fn begin_transaction<'s, 't: 's, 'u: 't>(
-        &self,
-        existing_transaction_o: Option<&'u mut Self::Transaction<'t>>,
-    ) -> Result<Self::Transaction<'s>> {
-        if let Some(existing_transaction) = existing_transaction_o {
-            use sqlx::Acquire;
-            Ok(existing_transaction.begin().await?)
-        } else {
-            Ok(self.sqlite_pool.begin().await?)
-        }
-    }
-    async fn commit_transaction(&self, transaction: Self::Transaction<'_>) -> Result<()> {
-        Ok(transaction.commit().await?)
-    }
-    async fn rollback_transaction(&self, transaction: Self::Transaction<'_>) -> Result<()> {
-        Ok(transaction.rollback().await?)
-    }
     async fn add_did_document(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did_document: &DIDDocument,
         did_document_jcs: &str,
     ) -> Result<()> {
@@ -57,7 +39,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         let version_id = did_document.version_id() as i64;
         let valid_from = did_document.valid_from();
         let self_hash_str = did_document.self_hash().as_str();
-        sqlx::query!(
+        let query = sqlx::query!(
             r#"
                 insert into did_document_records(did, version_id, valid_from, self_hash, did_document)
                 values ($1, $2, $3, $4, $5)
@@ -67,20 +49,31 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
             valid_from,
             self_hash_str,
             did_document_jcs,
-        )
-        .execute(transaction.as_mut())
-        .await?;
+        );
+        if let Some(transaction) = transaction_o {
+            query
+                .execute(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?;
+        } else {
+            query.execute(&self.sqlite_pool).await?;
+        }
         Ok(())
     }
     async fn get_did_doc_record_with_self_hash(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
         self_hash: &selfhash::KERIHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
         let self_hash_str = self_hash.as_str();
-        let did_doc_record_o = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
                 select did, version_id, valid_from, self_hash, did_document
@@ -89,22 +82,33 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
             "#,
             did_str,
             self_hash_str
-        )
-        .fetch_optional(transaction.as_mut())
-        .await?
+        );
+        let did_doc_record_o = if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        }
         .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
         .transpose()?;
         Ok(did_doc_record_o)
     }
     async fn get_did_doc_record_with_version_id(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
         version_id: u32,
     ) -> Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
         let version_id = version_id as i64;
-        let did_doc_record_o = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
                 select did, version_id, valid_from, self_hash, did_document
@@ -113,20 +117,31 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
             "#,
             did_str,
             version_id,
-        )
-        .fetch_optional(transaction.as_mut())
-        .await?
+        );
+        let did_doc_record_o = if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        }
         .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
         .transpose()?;
         Ok(did_doc_record_o)
     }
     async fn get_latest_did_doc_record(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
-        let did_doc_record_o = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
                 select did, version_id, valid_from, self_hash, did_document
@@ -136,16 +151,27 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
                 limit 1
             "#,
             did_str,
-        )
-        .fetch_optional(transaction.as_mut())
-        .await?
+        );
+        let did_doc_record_o = if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        }
         .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
         .transpose()?;
         Ok(did_doc_record_o)
     }
     async fn get_did_doc_records(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did_doc_record_filter: &DIDDocRecordFilter,
     ) -> Result<Vec<DIDDocRecord>> {
         let filter_on_did = did_doc_record_filter.did_o.is_some();
@@ -153,7 +179,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         let filter_on_version_id = did_doc_record_filter.version_id_o.is_some();
         // TODO: SQL-based filtering on valid_at
         // let filter_on_valid_at = did_doc_record_filter.valid_at_o.is_some();
-        let did_doc_record_v = sqlx::query_as!(
+        let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
                 select did, version_id, valid_from, self_hash, did_document
@@ -168,13 +194,34 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
             did_doc_record_filter.self_hash_o,
             filter_on_version_id,
             did_doc_record_filter.version_id_o,
-        )
-        .fetch_all(transaction.as_mut())
-        .await?
+        );
+        let did_doc_record_v = if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.sqlite_pool).await?
+        }
         .into_iter()
         .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
         .collect::<Result<Vec<_>>>()?;
         Ok(did_doc_record_v)
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl storage_traits::StorageDynT for DIDDocStorageSQLite {
+    async fn begin_transaction(
+        &self,
+    ) -> storage_traits::Result<Box<dyn storage_traits::TransactionDynT>> {
+        Ok(Box::new(self.sqlite_pool.begin().await?))
     }
 }
 

@@ -8,7 +8,7 @@ use axum::{
     Router,
 };
 use did_webplus_core::{DIDStr, DIDWithQueryStr, DID};
-use did_webplus_doc_store::{DIDDocStorage, DIDDocStore};
+use did_webplus_doc_store::DIDDocStore;
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
 
@@ -16,7 +16,7 @@ use tokio::task;
 const CACHE_DAYS: i64 = 365;
 type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
 
-pub fn get_routes<Storage: DIDDocStorage>(did_doc_store: DIDDocStore<Storage>) -> Router {
+pub fn get_routes(did_doc_store: DIDDocStore) -> Router {
     Router::new()
         .route("/:did_query", get(resolve_did))
         .route("/update/:did", post(update_did))
@@ -24,16 +24,16 @@ pub fn get_routes<Storage: DIDDocStorage>(did_doc_store: DIDDocStore<Storage>) -
 }
 
 #[tracing::instrument(err(Debug), skip(did_doc_store))]
-async fn resolve_did<Storage: DIDDocStorage>(
-    State(did_doc_store): State<DIDDocStore<Storage>>,
+async fn resolve_did(
+    State(did_doc_store): State<DIDDocStore>,
     // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
     Path(did_query): Path<String>,
 ) -> DidResult {
     resolve_did_impl(&did_doc_store, did_query).await
 }
 
-async fn resolve_did_impl<Storage: DIDDocStorage>(
-    did_doc_store: &DIDDocStore<Storage>,
+async fn resolve_did_impl(
+    did_doc_store: &DIDDocStore,
     did_query: String,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::trace!("VDG DID resolution; did_query: {}", did_query);
@@ -53,8 +53,9 @@ async fn resolve_did_impl<Storage: DIDDocStorage>(
         return Err((StatusCode::BAD_REQUEST, "malformed DID query".to_string()));
     };
 
-    let mut transaction = did_doc_store
-        .begin_transaction(None)
+    use storage_traits::StorageDynT;
+    let mut transaction_b = did_doc_store
+        .begin_transaction()
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -77,14 +78,22 @@ async fn resolve_did_impl<Storage: DIDDocStorage>(
             (Some(query_self_hash), None) => {
                 // If only a selfHash is present, then we simply use it to select the DID document.
                 did_doc_store
-                    .get_did_doc_record_with_self_hash(&mut transaction, &did, query_self_hash)
+                    .get_did_doc_record_with_self_hash(
+                        Some(transaction_b.as_mut()),
+                        &did,
+                        query_self_hash,
+                    )
                     .await
                     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             }
             (query_self_hash_o, Some(query_version_id)) => {
                 // If a versionId is present, then we can use it to select the DID document.
                 let did_document_record_o = did_doc_store
-                    .get_did_doc_record_with_version_id(&mut transaction, &did, query_version_id)
+                    .get_did_doc_record_with_version_id(
+                        Some(transaction_b.as_mut()),
+                        &did,
+                        query_version_id,
+                    )
                     .await
                     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
                 if let Some(query_self_hash) = query_self_hash_o {
@@ -118,8 +127,8 @@ async fn resolve_did_impl<Storage: DIDDocStorage>(
         if let Some(did_document_record) = did_document_record_o {
             // If we do have the requested DID document record,  return it.
             tracing::trace!("requested DID document already in database");
-            did_doc_store
-                .commit_transaction(transaction)
+            transaction_b
+                .commit()
                 .await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             return Ok((
@@ -138,7 +147,7 @@ async fn resolve_did_impl<Storage: DIDDocStorage>(
     // Check what the latest version we do have is.
     tracing::trace!("checking latest DID document version in database");
     let latest_did_document_record_o = did_doc_store
-        .get_latest_did_doc_record(&mut transaction, &did)
+        .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     if let Some(latest_did_document_record) = latest_did_document_record_o.as_ref() {
@@ -211,7 +220,7 @@ async fn resolve_did_impl<Storage: DIDDocStorage>(
         let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
         did_doc_store
             .validate_and_add_did_doc(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &predecessor_did_document,
                 prev_did_document_o.as_ref(),
                 predecessor_did_document_body.as_str(),
@@ -230,7 +239,7 @@ async fn resolve_did_impl<Storage: DIDDocStorage>(
         tracing::trace!("validating and storing target DID document");
         did_doc_store
             .validate_and_add_did_doc(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &target_did_document,
                 prev_did_document_o.as_ref(),
                 &target_did_document_body,
@@ -267,8 +276,8 @@ async fn resolve_did_impl<Storage: DIDDocStorage>(
         }
     }
 
-    did_doc_store
-        .commit_transaction(transaction)
+    transaction_b
+        .commit()
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -357,8 +366,8 @@ async fn vdr_fetch_did_document_body(
 }
 
 #[tracing::instrument(err(Debug), skip(did_doc_store))]
-async fn update_did<Storage: DIDDocStorage>(
-    State(did_doc_store): State<DIDDocStore<Storage>>,
+async fn update_did(
+    State(did_doc_store): State<DIDDocStore>,
     Path(did_string): Path<String>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
     tracing::trace!("VDG; update_did; did_string: {}", did_string);

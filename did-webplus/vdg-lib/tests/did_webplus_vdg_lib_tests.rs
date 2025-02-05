@@ -47,21 +47,16 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDo
 // TODO: Maybe make separate sqlite and postgres versions of this test?
 #[tokio::test]
 async fn test_vdg_operations() {
-    let vdg_database_path = "tests/test_vdg_operations.vdg.db";
-    let vdr_database_path = "tests/test_vdg_operations.vdr.db";
-
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
-    // The postgres equivalent of this would be to drop and recreate the relevant databases.
-    if std::fs::exists(vdg_database_path).expect("pass") {
-        std::fs::remove_file(vdg_database_path).expect("pass");
-    }
-    if std::fs::exists(vdr_database_path).expect("pass") {
-        std::fs::remove_file(vdr_database_path).expect("pass");
-    }
+    // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
+    // TODO: postgres drop schema
 
+    // NOTE: We don't use a SQLite DB for the VDG because SQLite can't handle concurrent writes,
+    // and the VDG is likely to attempt concurrent writes.  The main motivation for wanting a
+    // disk-backed SQLite DB is so that its contents can be inspected for debugging purposes.
     let vdg_config = did_webplus_vdg_lib::VDGConfig {
         listen_port: 10086,
-        database_url: format!("sqlite://{}?mode=rwc", vdg_database_path),
+        database_url: "postgres:///test_vdg_operations_vdg".to_string(),
         database_max_connections: 10,
     };
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
@@ -73,7 +68,7 @@ async fn test_vdg_operations() {
         did_host: "localhost".to_string(),
         did_port_o: Some(10085),
         listen_port: 10085,
-        database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
+        database_url: "postgres:///test_vdg_operations_vdr".to_string(),
         database_max_connections: 10,
         gateways: vec![vdg_url.clone()],
     };

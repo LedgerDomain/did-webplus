@@ -1,5 +1,6 @@
 use crate::Result;
 use did_webplus_software_wallet::SoftwareWallet;
+use std::sync::Arc;
 
 /// Args common to wallet-specifying CLI commands.
 #[derive(clap::Args)]
@@ -30,9 +31,9 @@ fn parse_hyphenated_uuid(s: &str) -> Result<uuid::Uuid> {
 }
 
 impl WalletArgs {
-    pub async fn get_wallet_storage(
+    pub async fn open_wallet_storage(
         &self,
-    ) -> Result<did_webplus_wallet_storage_sqlite::WalletStorageSQLite> {
+    ) -> Result<Arc<dyn did_webplus_wallet_store::WalletStorage>> {
         tracing::debug!(
             "WalletArgs::get_wallet_storage; wallet_db_url: {}",
             self.wallet_db_url
@@ -61,51 +62,38 @@ impl WalletArgs {
         } else {
             unimplemented!("non-SQLite wallet DBs are not yet supported.");
         };
-        Ok(
+        let wallet_storage =
             did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
                 sqlite_pool,
             )
-            .await?,
-        )
+            .await?;
+        Ok(Arc::new(wallet_storage))
     }
-    pub async fn get_wallet(
-        &self,
-    ) -> Result<
-        did_webplus_software_wallet::SoftwareWallet<
-            did_webplus_wallet_storage_sqlite::WalletStorageSQLite,
-        >,
-    > {
-        let wallet_storage = self.get_wallet_storage().await?;
+    pub async fn open_wallet(&self) -> Result<did_webplus_software_wallet::SoftwareWallet> {
+        let wallet_storage_a = self.open_wallet_storage().await?;
         if let Some(wallet_uuid) = self.wallet_uuid_o.as_ref() {
-            use did_webplus_doc_store::DIDDocStorage;
-            let mut transaction = wallet_storage.begin_transaction(None).await?;
+            let mut transaction_b = wallet_storage_a.begin_transaction().await?;
             let wallet =
-                SoftwareWallet::open(&mut transaction, &wallet_storage, wallet_uuid).await?;
-            wallet_storage.commit_transaction(transaction).await?;
+                SoftwareWallet::open(transaction_b.as_mut(), wallet_storage_a, wallet_uuid).await?;
+            transaction_b.commit().await?;
             Ok(wallet)
         } else {
-            get_or_create_wallet(&wallet_storage).await
+            open_or_create_wallet(wallet_storage_a).await
         }
     }
 }
 
-async fn get_or_create_wallet(
-    wallet_storage: &did_webplus_wallet_storage_sqlite::WalletStorageSQLite,
-) -> Result<
-    did_webplus_software_wallet::SoftwareWallet<
-        did_webplus_wallet_storage_sqlite::WalletStorageSQLite,
-    >,
-> {
+async fn open_or_create_wallet(
+    wallet_storage_a: Arc<dyn did_webplus_wallet_store::WalletStorage>,
+) -> Result<did_webplus_software_wallet::SoftwareWallet> {
     // If there are no wallets in the DB, then create one, and use it.
     // If there is exactly one wallet in the DB, then use it.
     // Otherwise there is more than wallet in the DB, and that's an error with respect to this function.
 
-    use did_webplus_doc_store::DIDDocStorage;
-    use did_webplus_wallet_store::WalletStorage;
-    let mut transaction = wallet_storage.begin_transaction(None).await?;
-    let wallet_v = wallet_storage
+    let mut transaction_b = wallet_storage_a.begin_transaction().await?;
+    let wallet_v = wallet_storage_a
         .get_wallets(
-            &mut transaction,
+            Some(transaction_b.as_mut()),
             &did_webplus_wallet_store::WalletRecordFilter::default(),
         )
         .await?;
@@ -115,15 +103,15 @@ async fn get_or_create_wallet(
     );
     let software_wallet = if wallet_v.is_empty() {
         SoftwareWallet::create(
-            &mut transaction,
-            wallet_storage,
+            transaction_b.as_mut(),
+            wallet_storage_a,
             Some("Default Wallet".to_string()),
         )
         .await?
     } else {
         let wallet_uuid = wallet_v.into_iter().next().unwrap().1.wallet_uuid;
-        SoftwareWallet::open(&mut transaction, wallet_storage, &wallet_uuid).await?
+        SoftwareWallet::open(transaction_b.as_mut(), wallet_storage_a, &wallet_uuid).await?
     };
-    wallet_storage.commit_transaction(transaction).await?;
+    transaction_b.commit().await?;
     Ok(software_wallet)
 }

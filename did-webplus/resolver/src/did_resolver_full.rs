@@ -3,7 +3,7 @@ use crate::{
     DIDResolver, Error, Result,
 };
 use did_webplus_core::{DIDStr, DIDWebplusURIComponents, DIDWithQueryStr};
-use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStorage, DIDDocStore};
+use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStore};
 
 /// This is the "full" implementation of a DID resolver, which which keeps a local copy of all DID
 /// documents it has fetched and verified.  This is in contrast to the "thin" implementation, which
@@ -12,9 +12,9 @@ use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStorage, DID
 /// still be locally verified and stored.  The reason for this is to ensure a broader scope-of-truth
 /// for which DID updates are considered valid (all resolvers which trust the specified VDG will agree).
 #[derive(Clone)]
-pub struct DIDResolverFull<Storage: did_webplus_doc_store::DIDDocStorage> {
+pub struct DIDResolverFull {
     // TODO: Ideally this wouldn't be generic.
-    pub did_doc_store: did_webplus_doc_store::DIDDocStore<Storage>,
+    pub did_doc_store: did_webplus_doc_store::DIDDocStore,
     /// Optionally specifies the URL of the "resolve" endpoint of a VDG to use for DID resolution.  The URL
     /// can omit the scheme (i.e. the "https://" portion), in which case, "https://" will be used.  The URL
     /// must not contain a query string or fragment.
@@ -27,7 +27,7 @@ pub struct DIDResolverFull<Storage: did_webplus_doc_store::DIDDocStorage> {
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl<Storage: did_webplus_doc_store::DIDDocStorage> DIDResolver for DIDResolverFull<Storage> {
+impl DIDResolver for DIDResolverFull {
     async fn resolve_did_document_string(
         &self,
         did_query: &str,
@@ -40,15 +40,16 @@ impl<Storage: did_webplus_doc_store::DIDDocStorage> DIDResolver for DIDResolverF
             panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverFull");
         }
 
-        let mut transaction = self.did_doc_store.begin_transaction(None).await?;
+        use storage_traits::StorageDynT;
+        let mut transaction_b = self.did_doc_store.begin_transaction().await?;
         let did_doc_record = resolve_did(
             &self.did_doc_store,
-            &mut transaction,
+            transaction_b.as_mut(),
             did_query,
             self.http_scheme,
         )
         .await?;
-        self.did_doc_store.commit_transaction(transaction).await?;
+        transaction_b.commit().await?;
 
         // TODO: Implement metadata
         let did_document_metadata = did_webplus_core::DIDDocumentMetadata {
@@ -63,9 +64,7 @@ impl<Storage: did_webplus_doc_store::DIDDocStorage> DIDResolver for DIDResolverF
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl<Storage: did_webplus_doc_store::DIDDocStorage> verifier_resolver::VerifierResolver
-    for DIDResolverFull<Storage>
-{
+impl verifier_resolver::VerifierResolver for DIDResolverFull {
     async fn resolve(
         &self,
         verifier_str: &str,
@@ -76,9 +75,11 @@ impl<Storage: did_webplus_doc_store::DIDDocStorage> verifier_resolver::VerifierR
 
 // TODO: Probably add params for what metadata is desired
 // TODO: Move this into did_resolver_full.rs
-async fn resolve_did<Storage: DIDDocStorage>(
-    did_doc_store: &DIDDocStore<Storage>,
-    transaction: &mut Storage::Transaction<'_>,
+async fn resolve_did(
+    did_doc_store: &DIDDocStore,
+    // TODO: Use Option
+    // transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+    transaction: &mut dyn storage_traits::TransactionDynT,
     did_query: &str,
     http_scheme: &'static str,
 ) -> Result<DIDDocRecord> {
@@ -132,13 +133,13 @@ async fn resolve_did<Storage: DIDDocStorage>(
             (Some(self_hash_str), None) => {
                 // If only a selfHash is present, then we simply use it to select the DID document.
                 did_doc_store
-                    .get_did_doc_record_with_self_hash(transaction, &did, self_hash_str)
+                    .get_did_doc_record_with_self_hash(Some(&mut *transaction), &did, self_hash_str)
                     .await?
             }
             (self_hash_str_o, Some(version_id)) => {
                 // If a versionId is present, then we can use it to select the DID document.
                 let did_doc_record_o = did_doc_store
-                    .get_did_doc_record_with_version_id(transaction, &did, version_id)
+                    .get_did_doc_record_with_version_id(Some(&mut *transaction), &did, version_id)
                     .await?;
                 if let Some(self_hash_str) = self_hash_str_o {
                     if let Some(did_doc_record) = did_doc_record_o.as_ref() {
@@ -182,7 +183,7 @@ async fn resolve_did<Storage: DIDDocStorage>(
     // Check what the latest version we do have is.
     tracing::trace!("checking latest DID document version in database");
     let latest_did_doc_record_o = did_doc_store
-        .get_latest_did_doc_record(transaction, &did)
+        .get_latest_did_doc_record(Some(&mut *transaction), &did)
         .await?;
     if let Some(latest_did_doc_record) = latest_did_doc_record_o.as_ref() {
         tracing::trace!(
@@ -252,7 +253,7 @@ async fn resolve_did<Storage: DIDDocStorage>(
         let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
         did_doc_store
             .validate_and_add_did_doc(
-                transaction,
+                Some(&mut *transaction),
                 &predecessor_did_document,
                 prev_did_document_o.as_ref(),
                 predecessor_did_document_body.as_str(),
@@ -270,7 +271,7 @@ async fn resolve_did<Storage: DIDDocStorage>(
         tracing::trace!("validating and storing target DID document");
         did_doc_store
             .validate_and_add_did_doc(
-                transaction,
+                Some(&mut *transaction),
                 &target_did_document,
                 prev_did_document_o.as_ref(),
                 &target_did_doc_body.as_str(),

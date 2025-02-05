@@ -17,3 +17,4 @@ sqlx = { version = "0.8.2", features = [
     "postgres",
     "time",
 ] }
+storage-traits = { path = "../../storage-traits", features = ["sqlx-postgres"] }

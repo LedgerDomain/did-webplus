@@ -78,9 +78,7 @@ pub(crate) fn parse_url(s: &str) -> anyhow::Result<url::Url> {
 }
 
 async fn get_uniquely_determinable_did(
-    wallet: &did_webplus_software_wallet::SoftwareWallet<
-        did_webplus_wallet_storage_sqlite::WalletStorageSQLite,
-    >,
+    wallet: &did_webplus_software_wallet::SoftwareWallet,
     did_o: Option<did_webplus_core::DID>,
 ) -> Result<did_webplus_core::DID> {
     use did_webplus_wallet::Wallet;

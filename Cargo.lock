@@ -891,6 +891,7 @@ dependencies = [
  "serde_json",
  "serde_json_canonicalizer 0.3.0",
  "sqlx",
+ "storage-traits",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -975,6 +976,7 @@ dependencies = [
  "did-webplus-doc-store",
  "selfhash",
  "sqlx",
+ "storage-traits",
 ]
 
 [[package]]
@@ -986,6 +988,7 @@ dependencies = [
  "did-webplus-doc-store",
  "selfhash",
  "sqlx",
+ "storage-traits",
  "time",
 ]
 
@@ -1001,6 +1004,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "storage-traits",
  "thiserror",
  "time",
 ]
@@ -1056,6 +1060,7 @@ dependencies = [
  "reqwest",
  "selfsign",
  "serde_json",
+ "storage-traits",
  "thiserror",
  "tracing",
  "url",
@@ -1085,6 +1090,7 @@ dependencies = [
  "selfsign",
  "serde_json",
  "sqlx",
+ "storage-traits",
  "test-util",
  "time",
  "tokio",
@@ -1132,6 +1138,7 @@ dependencies = [
  "reqwest",
  "serde_json",
  "sqlx",
+ "storage-traits",
  "test-util",
  "time",
  "tokio",
@@ -1180,6 +1187,7 @@ dependencies = [
  "serde-inline-default",
  "serde_json",
  "sqlx",
+ "storage-traits",
  "test-util",
  "tokio",
  "tower",
@@ -1216,6 +1224,7 @@ dependencies = [
  "selfhash",
  "selfsign",
  "sqlx",
+ "storage-traits",
  "time",
  "tracing",
  "uuid",
@@ -1232,6 +1241,7 @@ dependencies = [
  "selfsign",
  "serde",
  "sqlx",
+ "storage-traits",
  "thiserror",
  "time",
  "uuid",

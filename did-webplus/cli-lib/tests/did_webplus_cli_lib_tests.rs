@@ -269,17 +269,14 @@ fn price_quote(
 async fn test_wallet_did_create_update_sign_jws_verify() {
     // TODO: Use env vars to be able to point to a "real" VDR.
 
-    let vdr_database_path = "tests/test_wallet_did_create_update_sign_jws_verify.vdr.db";
     let wallet_store_database_path =
         "tests/test_wallet_did_create_update_sign_jws_verify.wallet-store.db";
     let did_doc_store_database_path =
         "tests/test_wallet_did_create_update_sign_jws_verify.did-doc-store.db";
 
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
-    // The postgres equivalent of this would be to drop and recreate the relevant databases.
-    if std::fs::exists(vdr_database_path).expect("pass") {
-        std::fs::remove_file(vdr_database_path).expect("pass");
-    }
+    // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
+    // TODO: postgres drop schema
     if std::fs::exists(wallet_store_database_path).expect("pass") {
         std::fs::remove_file(wallet_store_database_path).expect("pass");
     }
@@ -291,7 +288,8 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
         did_host: "localhost".to_string(),
         did_port_o: Some(12085),
         listen_port: 12085,
-        database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
+        // database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
+        database_url: "postgres:///test_wallet_did_create_update_sign_jws_verify_vdr".to_string(),
         database_max_connections: 10,
         gateways: Vec::new(),
     };
@@ -315,6 +313,7 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
             .await
             .expect("pass")
     };
+    let wallet_storage_a = Arc::new(wallet_storage);
 
     let did_resolver_full = {
         let sqlite_pool = sqlx::SqlitePool::connect(
@@ -328,26 +327,23 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
             )
             .await
             .expect("pass");
-        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(did_doc_storage);
+        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
         did_webplus_resolver::DIDResolverFull {
             did_doc_store,
             http_scheme: vdr_scheme,
         }
     };
 
-    use did_webplus_doc_store::DIDDocStorage;
-    let mut transaction = wallet_storage.begin_transaction(None).await.expect("pass");
+    use storage_traits::StorageDynT;
+    let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
     let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
-        &mut transaction,
-        &wallet_storage,
+        transaction_b.as_mut(),
+        wallet_storage_a,
         Some("created by test_wallet_did_create_update_sign_jws_verify".to_string()),
     )
     .await
     .expect("pass");
-    wallet_storage
-        .commit_transaction(transaction)
-        .await
-        .expect("pass");
+    transaction_b.commit().await.expect("pass");
 
     test_util::wait_until_service_is_up(
         "VDR",
@@ -411,16 +407,13 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
 async fn test_wallet_did_sign_vjson_verify() {
     // TODO: Use env vars to be able to point to a "real" VDR.
 
-    let vdr_database_path = "tests/test_wallet_did_sign_vjson_verify.vdr.db";
     let wallet_store_database_path = "tests/test_wallet_did_sign_vjson_verify.wallet-store.db";
     let did_doc_store_database_path = "tests/test_wallet_did_sign_vjson_verify.did-doc-store.db";
     let vjson_store_database_path = "tests/test_wallet_did_sign_vjson_verify.vjson-store.db";
 
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
-    // The postgres equivalent of this would be to drop and recreate the relevant databases.
-    if std::fs::exists(vdr_database_path).expect("pass") {
-        std::fs::remove_file(vdr_database_path).expect("pass");
-    }
+    // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
+    // TODO: postgres drop schema
     if std::fs::exists(wallet_store_database_path).expect("pass") {
         std::fs::remove_file(wallet_store_database_path).expect("pass");
     }
@@ -435,7 +428,7 @@ async fn test_wallet_did_sign_vjson_verify() {
         did_host: "localhost".to_string(),
         did_port_o: Some(13085),
         listen_port: 13085,
-        database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
+        database_url: "postgres:///test_wallet_did_sign_vjson_verify_vdr".to_string(),
         database_max_connections: 10,
         gateways: Vec::new(),
     };
@@ -459,6 +452,7 @@ async fn test_wallet_did_sign_vjson_verify() {
             .await
             .expect("pass")
     };
+    let wallet_storage_a = Arc::new(wallet_storage);
 
     let did_resolver_full = {
         let sqlite_pool = sqlx::SqlitePool::connect(
@@ -472,26 +466,23 @@ async fn test_wallet_did_sign_vjson_verify() {
             )
             .await
             .expect("pass");
-        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(did_doc_storage);
+        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
         did_webplus_resolver::DIDResolverFull {
             did_doc_store,
             http_scheme: vdr_scheme,
         }
     };
 
-    use did_webplus_doc_store::DIDDocStorage;
-    let mut transaction = wallet_storage.begin_transaction(None).await.expect("pass");
+    use storage_traits::StorageDynT;
+    let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
     let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
-        &mut transaction,
-        &wallet_storage,
+        transaction_b.as_mut(),
+        wallet_storage_a,
         Some("created by test_wallet_did_sign_vjson_verify".to_string()),
     )
     .await
     .expect("pass");
-    wallet_storage
-        .commit_transaction(transaction)
-        .await
-        .expect("pass");
+    transaction_b.commit().await.expect("pass");
 
     test_util::wait_until_service_is_up(
         "VDR",

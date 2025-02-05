@@ -19,7 +19,7 @@ pub struct VJSONStoreArgs {
 }
 
 impl VJSONStoreArgs {
-    pub async fn get_vjson_storage(&self) -> Result<vjson_storage_sqlite::VJSONStorageSQLite> {
+    pub async fn open_vjson_storage(&self) -> Result<Arc<dyn vjson_store::VJSONStorage>> {
         tracing::debug!(
             "get_vjson_storage; self.vjson_store_db_url: {}",
             self.vjson_store_db_url
@@ -54,10 +54,12 @@ impl VJSONStoreArgs {
         } else {
             unimplemented!("non-SQLite vjson_store DBs are not yet supported.");
         };
-        Ok(vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool).await?)
+        let vjson_storage =
+            vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool).await?;
+        Ok(Arc::new(vjson_storage))
     }
     pub async fn get_vjson_store(&self) -> Result<vjson_store::VJSONStore> {
-        let storage = self.get_vjson_storage().await?;
-        Ok(vjson_store::VJSONStore::new(Arc::new(storage)).await?)
+        let vjson_storage_a = self.open_vjson_storage().await?;
+        Ok(vjson_store::VJSONStore::new(vjson_storage_a).await?)
     }
 }

@@ -1,6 +1,7 @@
 use wasm_bindgen_test::wasm_bindgen_test;
 
 #[wasm_bindgen_test]
+#[allow(unused)]
 async fn test_vjson() {
     console_error_panic_hook::set_once();
 

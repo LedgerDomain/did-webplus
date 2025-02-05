@@ -21,19 +21,16 @@ fn overall_init() {
 // TODO: Maybe make separate sqlite and postgres versions of this test?
 #[tokio::test]
 async fn test_vdr_operations() {
-    let vdr_database_path = "tests/test_vdr_operations.vdr.db";
-
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
-    // The postgres equivalent of this would be to drop and recreate the relevant databases.
-    if std::fs::exists(vdr_database_path).expect("pass") {
-        std::fs::remove_file(vdr_database_path).expect("pass");
-    }
+    // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
+    // TODO: postgres drop schema
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
         did_host: "localhost".to_string(),
         did_port_o: Some(9085),
         listen_port: 9085,
-        database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
+        // database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
+        database_url: "postgres:///test_vdr_operations_vdr".to_string(),
         database_max_connections: 10,
         gateways: Vec::new(),
     };

@@ -20,3 +20,9 @@ impl From<sqlx::Error> for Error {
         Self::StorageError(err.to_string().into())
     }
 }
+
+impl From<storage_traits::Error> for Error {
+    fn from(err: storage_traits::Error) -> Self {
+        Self::StorageError(err.to_string().into())
+    }
+}

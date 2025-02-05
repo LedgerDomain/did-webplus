@@ -1,38 +1,21 @@
 use crate::{parse_did_document, DIDDocRecord, DIDDocStorage, Result};
 use did_webplus_core::{DIDDocument, DIDStr};
+use std::sync::Arc;
 
 #[derive(Clone)]
-pub struct DIDDocStore<Storage: DIDDocStorage> {
-    storage: Storage,
+pub struct DIDDocStore {
+    did_doc_storage_a: Arc<dyn DIDDocStorage>,
 }
 
-impl<Storage: DIDDocStorage> DIDDocStore<Storage> {
+impl DIDDocStore {
     /// Create a new DIDDocStore using the given DIDDocStorage implementation.
-    pub fn new(storage: Storage) -> Self {
-        Self { storage }
-    }
-    /// Begin a transaction for the underlying storage, creating a nested transaction if there is
-    /// a transaction already in existence.  This is needed for all storage operations.
-    pub async fn begin_transaction<'s, 't: 's, 'u: 't>(
-        &self,
-        existing_transaction_o: Option<&'u mut Storage::Transaction<'t>>,
-    ) -> Result<Storage::Transaction<'s>> {
-        self.storage.begin_transaction(existing_transaction_o).await
-    }
-    /// Commit a transaction for the underlying storage.  This should be done after all storage operations,
-    /// even if they're read-only (principle of least-surprise).
-    pub async fn commit_transaction(&self, transaction: Storage::Transaction<'_>) -> Result<()> {
-        self.storage.commit_transaction(transaction).await
-    }
-    /// Rollback a transaction for the underlying storage.  This should be done if an error occurs during
-    /// storage operations.
-    pub async fn rollback_transaction(&self, transaction: Storage::Transaction<'_>) -> Result<()> {
-        self.storage.rollback_transaction(transaction).await
+    pub fn new(did_doc_storage_a: Arc<dyn DIDDocStorage>) -> Self {
+        Self { did_doc_storage_a }
     }
     // NOTE: did_document and did_document_jcs are redundant, and this assumes that they're consistent.
     pub async fn validate_and_add_did_doc(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did_document: &DIDDocument,
         prev_did_document: Option<&DIDDocument>,
         did_document_jcs: &str,
@@ -44,47 +27,48 @@ impl<Storage: DIDDocStorage> DIDDocStore<Storage> {
         );
         // This assumes that all stored DID documents have been validated inductively from the root!
         did_document.verify_nonrecursive(prev_did_document)?;
-        self.storage
-            .add_did_document(transaction, did_document, did_document_jcs)
+        self.did_doc_storage_a
+            .add_did_document(transaction_o, did_document, did_document_jcs)
             .await?;
         Ok(())
     }
     pub async fn get_did_doc_record_with_self_hash(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
         self_hash: &selfhash::KERIHashStr,
     ) -> Result<Option<DIDDocRecord>> {
-        self.storage
-            .get_did_doc_record_with_self_hash(transaction, did, self_hash)
+        self.did_doc_storage_a
+            .get_did_doc_record_with_self_hash(transaction_o, did, self_hash)
             .await
     }
     pub async fn get_did_doc_record_with_version_id(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
         version_id: u32,
     ) -> Result<Option<DIDDocRecord>> {
-        self.storage
-            .get_did_doc_record_with_version_id(transaction, did, version_id)
+        self.did_doc_storage_a
+            .get_did_doc_record_with_version_id(transaction_o, did, version_id)
             .await
     }
     pub async fn get_latest_did_doc_record(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>> {
-        self.storage
-            .get_latest_did_doc_record(transaction, did)
+        self.did_doc_storage_a
+            .get_latest_did_doc_record(transaction_o, did)
             .await
     }
-    // pub async fn did_exists(&self, did: &DIDStr) -> Result<bool> {
-    //     let mut transaction = self.storage.begin_transaction().await?;
-    //     let did_doc_record_o = self
-    //         .storage
-    //         .get_latest_did_document(&mut transaction, did)
-    //         .await?;
-    //     transaction.commit().await?;
-    //     Ok(did_doc_record_o.is_some())
-    // }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl storage_traits::StorageDynT for DIDDocStore {
+    async fn begin_transaction(
+        &self,
+    ) -> storage_traits::Result<Box<dyn storage_traits::TransactionDynT>> {
+        self.did_doc_storage_a.begin_transaction().await
+    }
 }

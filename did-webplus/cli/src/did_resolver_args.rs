@@ -67,7 +67,7 @@ impl DIDResolverArgs {
                 let did_doc_store_args = DIDDocStoreArgs {
                     did_doc_store_db_url: self.did_doc_store_db_url_o.unwrap(),
                 };
-                let did_doc_store = did_doc_store_args.get_did_doc_store().await?;
+                let did_doc_store = did_doc_store_args.open_did_doc_store().await?;
                 Ok(Box::new(did_webplus_resolver::DIDResolverFull {
                     did_doc_store,
                     http_scheme,

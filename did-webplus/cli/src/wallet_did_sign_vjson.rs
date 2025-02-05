@@ -33,7 +33,7 @@ impl WalletDIDSignVJSON {
         // Handle CLI args and input
         let mut value: serde_json::Value = serde_json::from_reader(std::io::stdin())?;
         let controlled_did_o = self.verification_method_args.controlled_did_o.as_deref();
-        let wallet = self.wallet_args.get_wallet().await?;
+        let wallet = self.wallet_args.open_wallet().await?;
         let vjson_store = self.vjson_store_args.get_vjson_store().await?;
         let verifier_resolver = self.verifier_resolver_args.get_verifier_resolver_map();
 
