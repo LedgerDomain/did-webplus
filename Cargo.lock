@@ -929,6 +929,7 @@ dependencies = [
  "serde_json",
  "serde_json_canonicalizer 0.3.0",
  "sqlx",
+ "storage-traits",
  "test-util",
  "tokio",
  "tracing",
@@ -4232,6 +4233,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "selfhash",
+ "storage-traits",
  "vjson-store",
 ]
 
@@ -4243,6 +4245,7 @@ dependencies = [
  "log",
  "selfhash",
  "sqlx",
+ "storage-traits",
  "time",
  "vjson-store",
 ]
@@ -4269,6 +4272,7 @@ dependencies = [
  "serde_json",
  "serde_json_canonicalizer 0.3.0",
  "sqlx",
+ "storage-traits",
  "thiserror",
  "time",
  "tokio",

@@ -1,4 +1,5 @@
 use crate::Result;
+use std::sync::Arc;
 
 #[derive(clap::Args, Debug)]
 pub struct VJSONStoreArgs {
@@ -55,10 +56,8 @@ impl VJSONStoreArgs {
         };
         Ok(vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool).await?)
     }
-    pub async fn get_vjson_store(
-        &self,
-    ) -> Result<vjson_store::VJSONStore<vjson_storage_sqlite::VJSONStorageSQLite>> {
+    pub async fn get_vjson_store(&self) -> Result<vjson_store::VJSONStore> {
         let storage = self.get_vjson_storage().await?;
-        Ok(vjson_store::VJSONStore::new(storage).await?)
+        Ok(vjson_store::VJSONStore::new(Arc::new(storage)).await?)
     }
 }

@@ -3,7 +3,6 @@ mod vjson_record;
 mod vjson_storage;
 mod vjson_store;
 mod vjson_store_as_resolver;
-mod vjson_store_t;
 
 pub use crate::{
     error::{
@@ -14,6 +13,5 @@ pub use crate::{
     vjson_storage::VJSONStorage,
     vjson_store::{AlreadyExistsPolicy, VJSONStore},
     vjson_store_as_resolver::VJSONStoreAsResolver,
-    vjson_store_t::VJSONStoreT,
 };
 pub type Result<T> = std::result::Result<T, Error>;

@@ -7,5 +7,6 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.80"
 selfhash = "0.4.0"
+storage-traits = { path = "../../storage-traits" }
 # tracing = "0.1.37"
 vjson-store = { path = "../store" }

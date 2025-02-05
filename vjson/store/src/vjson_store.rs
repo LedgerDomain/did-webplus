@@ -1,7 +1,7 @@
 use crate::{
     error_invalid_vjson, error_record_corruption, vjson_record::VJSONRecord, Result, VJSONStorage,
-    VJSONStoreT,
 };
+use std::sync::Arc;
 use vjson_core::{VJSONResolver, Validate, DEFAULT_SCHEMA};
 
 #[derive(Clone, Copy, Debug)]
@@ -11,13 +11,13 @@ pub enum AlreadyExistsPolicy {
 }
 
 #[derive(Clone)]
-pub struct VJSONStore<Storage: VJSONStorage> {
-    storage: Storage,
+pub struct VJSONStore {
+    storage: Arc<dyn VJSONStorage>,
 }
 
-impl<Storage: VJSONStorage> VJSONStore<Storage> {
+impl VJSONStore {
     /// Create a new VJSONStore using the given VJSONStorage implementation.
-    pub async fn new(storage: Storage) -> Result<Self> {
+    pub async fn new(storage: Arc<dyn VJSONStorage>) -> Result<Self> {
         // TEMP HACK: Sanity check that the default schema is valid.
         // TODO: Need a VJSONResolver that's just the default schema, and an empty VerifierResolver.
         // use vjson_core::Validate;
@@ -32,7 +32,7 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
             "Ensuring Default schema {} is present in storage.",
             vjson_core::DEFAULT_SCHEMA.vjson_url
         );
-        let mut transaction = storage.begin_transaction(None).await?;
+        let mut transaction_b = storage.begin_transaction().await?;
         let vjson_record = VJSONRecord {
             self_hash: DEFAULT_SCHEMA.self_hash.clone(),
             added_at: time::OffsetDateTime::now_utc(),
@@ -40,32 +40,14 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
         };
         storage
             .add_vjson_str(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 vjson_record,
                 AlreadyExistsPolicy::DoNothing,
             )
             .await?;
-        storage.commit_transaction(transaction).await?;
+        transaction_b.commit().await?;
 
         Ok(Self { storage })
-    }
-    /// Begin a transaction for the underlying storage, creating a nested transaction if there is
-    /// a transaction already in existence.  This is needed for all storage operations.
-    pub async fn begin_transaction<'s, 't: 's, 'u: 't>(
-        &self,
-        existing_transaction_o: Option<&'u mut Storage::Transaction<'t>>,
-    ) -> Result<Storage::Transaction<'s>> {
-        self.storage.begin_transaction(existing_transaction_o).await
-    }
-    /// Commit a transaction for the underlying storage.  This should be done after all storage operations,
-    /// even if they're read-only (principle of least-surprise).
-    pub async fn commit_transaction(&self, transaction: Storage::Transaction<'_>) -> Result<()> {
-        self.storage.commit_transaction(transaction).await
-    }
-    /// Rollback a transaction for the underlying storage.  This should be done if an error occurs during
-    /// storage operations.
-    pub async fn rollback_transaction(&self, transaction: Storage::Transaction<'_>) -> Result<()> {
-        self.storage.rollback_transaction(transaction).await
     }
 
     // TODO: For convenience, make a typed version of this that takes a serde::Serialize type.
@@ -76,7 +58,7 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
     /// Note that what is stored is the JCS-serialization of the VJSON value.  Its self-hash is returned.
     pub async fn add_vjson_value(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         vjson_value: &serde_json::Value,
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
         already_exists_policy: AlreadyExistsPolicy,
@@ -98,7 +80,7 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
             vjson_record.vjson_jcs
         );
         self.storage
-            .add_vjson_str(transaction, vjson_record, already_exists_policy)
+            .add_vjson_str(transaction_o, vjson_record, already_exists_policy)
             .await?;
 
         Ok(self_hash)
@@ -108,7 +90,7 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
     /// JCS-serialization of the VJSON value, regardless of the input format.  
     pub async fn add_vjson_str(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         vjson_str: &str,
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
         already_exists_policy: AlreadyExistsPolicy,
@@ -120,7 +102,7 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
             serde_json::from_str(vjson_str).map_err(error_invalid_vjson)?;
         let self_hash = self
             .add_vjson_value(
-                transaction,
+                transaction_o,
                 &vjson_value,
                 verifier_resolver,
                 already_exists_policy,
@@ -132,11 +114,11 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
     /// Attempt to query the specified VJSON from the store, returning its parsed serde_json::Value upon success.
     pub async fn get_vjson_value(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         self_hash: &selfhash::KERIHashStr,
         // TODO: optional expected schema
     ) -> Result<serde_json::Value> {
-        let vjson_record = self.get_vjson_record(transaction, self_hash).await?;
+        let vjson_record = self.get_vjson_record(transaction_o, self_hash).await?;
         let vjson_value: serde_json::Value = serde_json::from_str(vjson_record.vjson_jcs.as_str())
             .map_err(error_record_corruption)?;
         Ok(vjson_value)
@@ -144,11 +126,21 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
     /// Attempt to query the specified VJSONRecord from the store.
     pub async fn get_vjson_record(
         &self,
-        transaction: &mut Storage::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         self_hash: &selfhash::KERIHashStr,
         // TODO: optional expected schema
     ) -> Result<VJSONRecord> {
-        self.storage.get_vjson_str(transaction, self_hash).await
+        self.storage.get_vjson_str(transaction_o, self_hash).await
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl storage_traits::StorageDynT for VJSONStore {
+    async fn begin_transaction(
+        &self,
+    ) -> storage_traits::Result<Box<dyn storage_traits::TransactionDynT>> {
+        Ok(self.storage.begin_transaction().await?)
     }
 }
 
@@ -156,78 +148,15 @@ impl<Storage: VJSONStorage> VJSONStore<Storage> {
 /// otherwise the DB could lock (e.g. SQLite).
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl<Storage: VJSONStorage> VJSONResolver for VJSONStore<Storage> {
+impl VJSONResolver for VJSONStore {
     async fn resolve_vjson_string(
         &self,
         self_hash: &selfhash::KERIHashStr,
     ) -> vjson_core::Result<String> {
-        let mut transaction = self
-            .begin_transaction(None)
-            .await
-            .map_err(vjson_core::error_storage_error)?;
         let vjson_record = self
-            .get_vjson_record(&mut transaction, self_hash)
-            .await
-            .map_err(vjson_core::error_storage_error)?;
-        self.commit_transaction(transaction)
+            .get_vjson_record(None, self_hash)
             .await
             .map_err(vjson_core::error_storage_error)?;
         Ok(vjson_record.vjson_jcs)
-    }
-}
-
-#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl<Storage: VJSONStorage> VJSONStoreT for VJSONStore<Storage> {
-    async fn add_vjson_value(
-        &self,
-        vjson_value: &serde_json::Value,
-        verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-        already_exists_policy: AlreadyExistsPolicy,
-    ) -> Result<selfhash::KERIHash> {
-        let mut transaction = self.begin_transaction(None).await?;
-        let self_hash = self
-            .add_vjson_value(
-                &mut transaction,
-                vjson_value,
-                verifier_resolver,
-                already_exists_policy,
-            )
-            .await?;
-        self.commit_transaction(transaction).await?;
-        Ok(self_hash)
-    }
-    async fn add_vjson_str(
-        &self,
-        vjson_str: &str,
-        verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-        already_exists_policy: AlreadyExistsPolicy,
-    ) -> Result<(selfhash::KERIHash, serde_json::Value)> {
-        let mut transaction = self.begin_transaction(None).await?;
-        let (self_hash, vjson_value) = self
-            .add_vjson_str(
-                &mut transaction,
-                vjson_str,
-                verifier_resolver,
-                already_exists_policy,
-            )
-            .await?;
-        self.commit_transaction(transaction).await?;
-        Ok((self_hash, vjson_value))
-    }
-    async fn get_vjson_value(
-        &self,
-        self_hash: &selfhash::KERIHashStr,
-    ) -> Result<serde_json::Value> {
-        let mut transaction = self.begin_transaction(None).await?;
-        let vjson_value = self.get_vjson_value(&mut transaction, self_hash).await?;
-        self.commit_transaction(transaction).await?;
-        Ok(vjson_value)
-    }
-    async fn get_vjson_record(&self, self_hash: &selfhash::KERIHashStr) -> Result<VJSONRecord> {
-        let mut transaction = self.begin_transaction(None).await?;
-        let vjson_record = self.get_vjson_record(&mut transaction, self_hash).await?;
-        self.commit_transaction(transaction).await?;
-        Ok(vjson_record)
     }
 }

@@ -224,12 +224,12 @@ pub async fn vjson_self_hash(
 // NOTE: There's almost no point to this function except to make it known in the same place as the others.
 pub async fn vjson_store_add_str(
     vjson_str: &str,
-    vjson_store: &dyn vjson_store::VJSONStoreT,
+    vjson_store: &vjson_store::VJSONStore,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     already_exists_policy: vjson_store::AlreadyExistsPolicy,
 ) -> Result<()> {
     vjson_store
-        .add_vjson_str(vjson_str, verifier_resolver, already_exists_policy)
+        .add_vjson_str(None, vjson_str, verifier_resolver, already_exists_policy)
         .await?;
     Ok(())
 }
@@ -237,12 +237,12 @@ pub async fn vjson_store_add_str(
 // NOTE: There's almost no point to this function except to make it known in the same place as the others.
 pub async fn vjson_store_add_value(
     vjson_value: &serde_json::Value,
-    vjson_store: &dyn vjson_store::VJSONStoreT,
+    vjson_store: &vjson_store::VJSONStore,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     already_exists_policy: vjson_store::AlreadyExistsPolicy,
 ) -> Result<()> {
     vjson_store
-        .add_vjson_value(vjson_value, verifier_resolver, already_exists_policy)
+        .add_vjson_value(None, vjson_value, verifier_resolver, already_exists_policy)
         .await?;
     Ok(())
 }
@@ -250,19 +250,19 @@ pub async fn vjson_store_add_value(
 // NOTE: There's almost no point to this function except to make it known in the same place as the others.
 pub async fn vjson_store_get_value(
     self_hash: &selfhash::KERIHashStr,
-    vjson_store: &dyn vjson_store::VJSONStoreT,
+    vjson_store: &vjson_store::VJSONStore,
 ) -> Result<serde_json::Value> {
     // Retrieve the specified VJSON value from the VJSON store.  This guarantees it's valid.
-    Ok(vjson_store.get_vjson_value(self_hash).await?)
+    Ok(vjson_store.get_vjson_value(None, self_hash).await?)
 }
 
 // NOTE: There's almost no point to this function except to make it known in the same place as the others.
 pub async fn vjson_store_get_record(
     self_hash: &selfhash::KERIHashStr,
-    vjson_store: &dyn vjson_store::VJSONStoreT,
+    vjson_store: &vjson_store::VJSONStore,
 ) -> Result<vjson_store::VJSONRecord> {
     // Retrieve the specified VJSONRecord from the VJSON store.  This guarantees the VJSON is valid.
-    Ok(vjson_store.get_vjson_record(&self_hash).await?)
+    Ok(vjson_store.get_vjson_record(None, &self_hash).await?)
 }
 
 pub async fn vjson_verify(

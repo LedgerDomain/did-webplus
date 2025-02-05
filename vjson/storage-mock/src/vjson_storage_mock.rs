@@ -17,37 +17,22 @@ impl VJSONStorageMock {
     }
 }
 
-// TODO: Maybe track if this has been committed or not, so that Drop can determine if
-// it would be a rollback (which would mean that it would have to panic because rollback
-// is not currently supported).
-#[derive(Clone, Debug)]
-pub struct VJSONStorageMockTransaction;
-
-impl std::ops::Drop for VJSONStorageMockTransaction {
-    fn drop(&mut self) {
-        // Nothing to do
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl storage_traits::StorageDynT for VJSONStorageMock {
+    async fn begin_transaction(
+        &self,
+    ) -> storage_traits::Result<Box<dyn storage_traits::TransactionDynT>> {
+        Ok(Box::new(VJSONStorageMockTransaction))
     }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl vjson_store::VJSONStorage for VJSONStorageMock {
-    type Transaction<'t> = VJSONStorageMockTransaction;
-    async fn begin_transaction<'s, 't: 's, 'u: 't>(
-        &self,
-        _existing_transaction_o: Option<&'u mut Self::Transaction<'t>>,
-    ) -> Result<Self::Transaction<'s>> {
-        Ok(VJSONStorageMockTransaction)
-    }
-    async fn commit_transaction(&self, _transaction: Self::Transaction<'_>) -> Result<()> {
-        Ok(())
-    }
-    async fn rollback_transaction(&self, _transaction: Self::Transaction<'_>) -> Result<()> {
-        panic!("Transaction rollback is not supported by VJSONStorageMock");
-    }
     async fn add_vjson_str(
         &self,
-        _transaction: &mut Self::Transaction<'_>,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         vjson_record: VJSONRecord,
         already_exists_policy: AlreadyExistsPolicy,
     ) -> Result<()> {
@@ -83,7 +68,7 @@ impl vjson_store::VJSONStorage for VJSONStorageMock {
     }
     async fn get_vjson_str(
         &self,
-        _transaction: &mut Self::Transaction<'_>,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         self_hash: &selfhash::KERIHashStr,
     ) -> Result<VJSONRecord> {
         let vjson_record_mg = self.vjson_record_ml.read().unwrap();
@@ -91,5 +76,31 @@ impl vjson_store::VJSONStorage for VJSONStorageMock {
             .get(self_hash)
             .ok_or_else(|| Error::NotFound(self_hash.to_string().into()))?
             .clone())
+    }
+}
+
+// TODO: Maybe track if this has been committed or not, so that Drop can determine if
+// it would be a rollback (which would mean that it would have to panic because rollback
+// is not currently supported).
+#[derive(Clone, Debug)]
+pub struct VJSONStorageMockTransaction;
+
+impl std::ops::Drop for VJSONStorageMockTransaction {
+    fn drop(&mut self) {
+        // Nothing to do
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl storage_traits::TransactionDynT for VJSONStorageMockTransaction {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    async fn commit(self: Box<Self>) -> storage_traits::Result<()> {
+        Ok(())
+    }
+    async fn rollback(self: Box<Self>) -> storage_traits::Result<()> {
+        panic!("Transaction rollback is not supported by VJSONStorageMock");
     }
 }

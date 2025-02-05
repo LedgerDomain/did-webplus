@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
@@ -116,7 +118,7 @@ async fn test_did_key_sign_vjson_verify_impl(key_type: selfsign::KeyType) {
             vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool)
                 .await
                 .expect("pass");
-        vjson_store::VJSONStore::new(vjson_storage)
+        vjson_store::VJSONStore::new(Arc::new(vjson_storage))
             .await
             .expect("pass")
     };
@@ -142,20 +144,18 @@ async fn test_did_key_sign_vjson_verify_impl(key_type: selfsign::KeyType) {
         .expect("pass");
     // Store
     {
-        let mut transaction = vjson_store.begin_transaction(None).await.expect("pass");
+        use storage_traits::StorageDynT;
+        let mut transaction_b = vjson_store.begin_transaction().await.expect("pass");
         vjson_store
             .add_vjson_value(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &price_quote_schema,
                 verifier_resolver,
                 vjson_store::AlreadyExistsPolicy::Fail,
             )
             .await
             .expect("pass");
-        vjson_store
-            .commit_transaction(transaction)
-            .await
-            .expect("pass");
+        transaction_b.commit().await.expect("pass");
     }
 
     let mut price_quote = price_quote(
@@ -177,20 +177,18 @@ async fn test_did_key_sign_vjson_verify_impl(key_type: selfsign::KeyType) {
         .expect("pass");
     // Store
     {
-        let mut transaction = vjson_store.begin_transaction(None).await.expect("pass");
+        use storage_traits::StorageDynT;
+        let mut transaction_b = vjson_store.begin_transaction().await.expect("pass");
         vjson_store
             .add_vjson_value(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &price_quote,
                 verifier_resolver,
                 vjson_store::AlreadyExistsPolicy::Fail,
             )
             .await
             .expect("pass");
-        vjson_store
-            .commit_transaction(transaction)
-            .await
-            .expect("pass");
+        transaction_b.commit().await.expect("pass");
     }
 }
 
@@ -518,7 +516,7 @@ async fn test_wallet_did_sign_vjson_verify() {
             vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool)
                 .await
                 .expect("pass");
-        vjson_store::VJSONStore::new(vjson_storage)
+        vjson_store::VJSONStore::new(Arc::new(vjson_storage))
             .await
             .expect("pass")
     };
@@ -546,20 +544,18 @@ async fn test_wallet_did_sign_vjson_verify() {
         .expect("pass");
     // Store
     {
-        let mut transaction = vjson_store.begin_transaction(None).await.expect("pass");
+        use storage_traits::StorageDynT;
+        let mut transaction_b = vjson_store.begin_transaction().await.expect("pass");
         vjson_store
             .add_vjson_value(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &price_quote_schema,
                 &did_resolver_full,
                 vjson_store::AlreadyExistsPolicy::Fail,
             )
             .await
             .expect("pass");
-        vjson_store
-            .commit_transaction(transaction)
-            .await
-            .expect("pass");
+        transaction_b.commit().await.expect("pass");
     }
 
     let mut price_quote = price_quote(
@@ -588,20 +584,18 @@ async fn test_wallet_did_sign_vjson_verify() {
         .expect("pass");
     // Store
     {
-        let mut transaction = vjson_store.begin_transaction(None).await.expect("pass");
+        use storage_traits::StorageDynT;
+        let mut transaction_b = vjson_store.begin_transaction().await.expect("pass");
         vjson_store
             .add_vjson_value(
-                &mut transaction,
+                Some(transaction_b.as_mut()),
                 &price_quote,
                 &did_resolver_full,
                 vjson_store::AlreadyExistsPolicy::Fail,
             )
             .await
             .expect("pass");
-        vjson_store
-            .commit_transaction(transaction)
-            .await
-            .expect("pass");
+        transaction_b.commit().await.expect("pass");
     }
 
     tracing::info!("Shutting down VDR");

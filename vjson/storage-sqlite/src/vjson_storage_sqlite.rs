@@ -23,28 +23,20 @@ impl VJSONStorageSQLite {
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-impl vjson_store::VJSONStorage for VJSONStorageSQLite {
-    type Transaction<'t> = sqlx::Transaction<'t, sqlx::Sqlite>;
-    async fn begin_transaction<'s, 't: 's, 'u: 't>(
+impl storage_traits::StorageDynT for VJSONStorageSQLite {
+    async fn begin_transaction(
         &self,
-        existing_transaction_o: Option<&'u mut Self::Transaction<'t>>,
-    ) -> Result<Self::Transaction<'s>> {
-        if let Some(existing_transaction) = existing_transaction_o {
-            use sqlx::Acquire;
-            Ok(existing_transaction.begin().await?)
-        } else {
-            Ok(self.sqlite_pool.begin().await?)
-        }
+    ) -> storage_traits::Result<Box<dyn storage_traits::TransactionDynT>> {
+        Ok(Box::new(self.sqlite_pool.begin().await?))
     }
-    async fn commit_transaction(&self, transaction: Self::Transaction<'_>) -> Result<()> {
-        Ok(transaction.commit().await?)
-    }
-    async fn rollback_transaction(&self, transaction: Self::Transaction<'_>) -> Result<()> {
-        Ok(transaction.rollback().await?)
-    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl vjson_store::VJSONStorage for VJSONStorageSQLite {
     async fn add_vjson_str(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         vjson_record: VJSONRecord,
         already_exists_policy: AlreadyExistsPolicy,
     ) -> Result<()> {
@@ -56,7 +48,7 @@ impl vjson_store::VJSONStorage for VJSONStorageSQLite {
         );
         match already_exists_policy {
             AlreadyExistsPolicy::DoNothing => {
-                sqlx::query!(
+                let query = sqlx::query!(
                     r#"
                         INSERT INTO vjson_records(self_hash, added_at, vjson_jcs)
                         VALUES ($1, $2, $3)
@@ -65,12 +57,23 @@ impl vjson_store::VJSONStorage for VJSONStorageSQLite {
                     self_hash_str,
                     vjson_record.added_at,
                     vjson_record.vjson_jcs,
-                )
-                .execute(transaction.as_mut())
-                .await?;
+                );
+                if let Some(transaction) = transaction_o {
+                    query
+                        .execute(
+                            transaction
+                                .as_any_mut()
+                                .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                                .unwrap()
+                                .as_mut(),
+                        )
+                        .await?;
+                } else {
+                    query.execute(&self.sqlite_pool).await?;
+                }
             }
             AlreadyExistsPolicy::Fail => {
-                sqlx::query!(
+                let query = sqlx::query!(
                     r#"
                         INSERT INTO vjson_records(self_hash, added_at, vjson_jcs)
                         VALUES ($1, $2, $3)
@@ -78,9 +81,20 @@ impl vjson_store::VJSONStorage for VJSONStorageSQLite {
                     self_hash_str,
                     vjson_record.added_at,
                     vjson_record.vjson_jcs,
-                )
-                .execute(transaction.as_mut())
-                .await?;
+                );
+                if let Some(transaction) = transaction_o {
+                    query
+                        .execute(
+                            transaction
+                                .as_any_mut()
+                                .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                                .unwrap()
+                                .as_mut(),
+                        )
+                        .await?;
+                } else {
+                    query.execute(&self.sqlite_pool).await?;
+                }
             }
         }
         log::trace!(
@@ -91,11 +105,11 @@ impl vjson_store::VJSONStorage for VJSONStorageSQLite {
     }
     async fn get_vjson_str(
         &self,
-        transaction: &mut Self::Transaction<'_>,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         self_hash: &selfhash::KERIHashStr,
     ) -> Result<VJSONRecord> {
         let self_hash_str = self_hash.as_str();
-        Ok(sqlx::query_as!(
+        let query = sqlx::query_as!(
             VJSONRecordRowSQLite,
             r#"
                 SELECT self_hash, added_at, vjson_jcs
@@ -103,13 +117,26 @@ impl vjson_store::VJSONStorage for VJSONStorageSQLite {
                 WHERE self_hash = $1
             "#,
             self_hash_str
-        )
-        .fetch_optional(transaction.as_mut())
-        .await?
-        .ok_or_else(|| {
-            Error::NotFound(format!("VJSONRecord with self-hash {}", self_hash_str).into())
-        })?
-        .try_into()?)
+        );
+        let query_result = if let Some(transaction) = transaction_o {
+            query
+                .fetch_optional(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_optional(&self.sqlite_pool).await?
+        };
+        let vjson_record = query_result
+            .ok_or_else(|| {
+                Error::NotFound(format!("VJSONRecord with self-hash {}", self_hash_str).into())
+            })?
+            .try_into()?;
+        Ok(vjson_record)
     }
 }
 

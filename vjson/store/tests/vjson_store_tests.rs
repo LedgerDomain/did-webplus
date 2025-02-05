@@ -1,5 +1,6 @@
 use rand::Rng;
 use selfhash::{HashFunction, SelfHashable};
+use std::sync::Arc;
 use vjson_store::AlreadyExistsPolicy;
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -25,14 +26,15 @@ async fn test_vjson_store_0() {
         .expect("pass");
 
     // Note that this adds the Default schema to the VJSONStorage, so it's not necessary to do so explicitly.
-    let vjson_store = vjson_store::VJSONStore::new(storage).await.expect("pass");
+    let vjson_store = vjson_store::VJSONStore::new(Arc::new(storage))
+        .await
+        .expect("pass");
 
     // Create an arbitrary VJSON doc, implicitly using the Default schema.
     {
         let value =
             serde_json::json!({ "blah": rand::thread_rng().gen::<f64>(), "$id": "vjson:///" });
 
-        // let mut transaction = vjson_store.begin_transaction(None).await.expect("pass");
         let (mut self_hashable_json, _schema_value) =
             vjson_core::self_hashable_json_from(value, &vjson_store)
                 .await
@@ -43,17 +45,15 @@ async fn test_vjson_store_0() {
             .to_keri_hash()
             .expect("pass")
             .into_owned();
-        let mut transaction = vjson_store.begin_transaction(None).await.expect("pass");
         vjson_store
             .add_vjson_value(
-                &mut transaction,
+                None,
                 self_hashable_json.value(),
                 &verifier_resolver::VerifierResolverMap::new(),
                 AlreadyExistsPolicy::Fail,
             )
             .await
             .expect("pass");
-        transaction.commit().await.expect("pass");
         let vjson_url = format!("vjson:///{}", self_hash);
         tracing::info!("Added VJSON doc {}", vjson_url);
     }

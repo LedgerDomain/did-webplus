@@ -211,9 +211,10 @@ pub async fn vjson_verify(
 }
 
 // TODO: Because this only contains an Arc, this should implement Clone.
+// TODO: Maybe this type is unnecessary, and the VJSONStore should just be used directly.
 #[wasm_bindgen]
 pub struct VJSONStore {
-    vjson_store_l: Arc<RwLock<dyn vjson_store::VJSONStoreT>>,
+    vjson_store: vjson_store::VJSONStore,
     // vjson_resolver: vjson_store::VJSONStoreAsResolver,
 }
 
@@ -221,15 +222,15 @@ pub struct VJSONStore {
 impl VJSONStore {
     pub async fn new_mock() -> Result<Self> {
         let vjson_storage_mock = vjson_storage_mock::VJSONStorageMock::new();
-        let vjson_store = vjson_store::VJSONStore::new(vjson_storage_mock)
+        let vjson_store = vjson_store::VJSONStore::new(Arc::new(vjson_storage_mock))
             .await
             .map_err(into_js_value)?;
-        let vjson_store_l = Arc::new(RwLock::new(vjson_store));
+        // let vjson_store_l = Arc::new(RwLock::new(vjson_store));
         // let vjson_resolver = vjson_store::VJSONStoreAsResolver {
         //     vjson_store_l: vjson_store_l.clone(),
         // };
         Ok(Self {
-            vjson_store_l,
+            vjson_store,
             // vjson_resolver,
         })
     }
@@ -241,7 +242,7 @@ impl VJSONStore {
     //     }
     pub fn as_resolver(&self) -> VJSONResolver {
         let vjson_store_as_resolver = vjson_store::VJSONStoreAsResolver {
-            vjson_store_l: self.vjson_store_l.clone(),
+            vjson_store: self.vjson_store.clone(),
         };
         VJSONResolver {
             vjson_resolver_l: Arc::new(RwLock::new(vjson_store_as_resolver)),

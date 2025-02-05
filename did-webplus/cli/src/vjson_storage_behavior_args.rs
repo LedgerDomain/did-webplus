@@ -32,7 +32,7 @@ impl VJSONStorageBehaviorArgs {
     pub async fn store_if_requested(
         &self,
         vjson_value: &serde_json::Value,
-        vjson_store: &vjson_store::VJSONStore<vjson_storage_sqlite::VJSONStorageSQLite>,
+        vjson_store: &vjson_store::VJSONStore,
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
     ) -> Result<()> {
         if self.should_store() {

@@ -13,16 +13,18 @@ pkcs8 = ["selfsign/pkcs8"]
 [dependencies]
 anyhow = "1.0.94"
 clap = { version = "4.5.4", optional = true, features = ["derive", "env"] }
-did-key = { path = "../../did-key", features = ["ed25519-dalek", "k256", "verifier-resolver"] }
+did-key = { path = "../../did-key", features = [
+    "ed25519-dalek",
+    "k256",
+    "verifier-resolver",
+] }
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-jws = { path = "../jws" }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store" }
-ed25519-dalek = { version = "2.0.0", optional = true, features = [
-    "rand_core",
-] }
+ed25519-dalek = { version = "2.0.0", optional = true, features = ["rand_core"] }
 k256 = { version = "0.13.1", optional = true }
 rand = "0.8"
 selfhash = { version = "0.4.0", features = ["blake3", "self-hashable-json"] }
@@ -44,9 +46,8 @@ did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-vdr-lib = { path = "../vdr-lib", features = ["sqlite"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 dotenvy = "0.15.7"
-sqlx = { version = "0.8.2", features = [
-    "runtime-tokio-rustls",
-] }
+sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls"] }
+storage-traits = { path = "../../storage-traits" }
 test-util = { path = "../../test-util" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

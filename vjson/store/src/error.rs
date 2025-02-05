@@ -29,6 +29,12 @@ impl From<sqlx::Error> for Error {
     }
 }
 
+impl From<storage_traits::Error> for Error {
+    fn from(err: storage_traits::Error) -> Self {
+        Self::StorageError(err.to_string().into())
+    }
+}
+
 pub fn error_already_exists<E: std::fmt::Display>(e: E) -> Error {
     Error::AlreadyExists(e.to_string().into())
 }
