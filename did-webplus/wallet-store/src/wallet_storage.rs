@@ -5,6 +5,7 @@ use crate::{
     WalletStorageCtx,
 };
 use did_webplus_core::DIDKeyResourceFullyQualifiedStr;
+use std::sync::Arc;
 
 /// Trait which defines the storage interface for a WalletStore.
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -120,4 +121,9 @@ pub trait WalletStorage:
         ctx: &WalletStorageCtx,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
     ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>>;
+
+    /// Upcast to &dyn did_webplus_doc_store::DIDDocStorage.
+    fn as_did_doc_storage(&self) -> &dyn did_webplus_doc_store::DIDDocStorage;
+    /// Upcast to Arc<dyn did_webplus_doc_store::DIDDocStorage> by cloning.
+    fn as_did_doc_storage_a(self: Arc<Self>) -> Arc<dyn did_webplus_doc_store::DIDDocStorage>;
 }

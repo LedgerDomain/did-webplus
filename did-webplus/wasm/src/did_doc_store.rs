@@ -5,6 +5,12 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[derive(Clone)]
 pub struct DIDDocStore(did_webplus_doc_store::DIDDocStore);
 
+impl DIDDocStore {
+    pub fn into_inner(self) -> did_webplus_doc_store::DIDDocStore {
+        self.0
+    }
+}
+
 #[wasm_bindgen]
 impl DIDDocStore {
     pub async fn new_mock() -> Self {

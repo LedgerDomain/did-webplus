@@ -1,4 +1,5 @@
 use crate::{verifier_resolver_impl, DIDResolver, Error, HTTPError, Result, REQWEST_CLIENT};
+use std::sync::Arc;
 
 /// Performs "raw" DID resolution, which only does a limited subset of verification, so should not
 /// be used for any production purposes.  THIS IS INTENDED ONLY FOR DEVELOPMENT AND TESTING PURPOSES.
@@ -66,6 +67,12 @@ impl DIDResolver for DIDResolverRaw {
         };
 
         Ok((did_document_string, did_document_metadata))
+    }
+    fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {
+        self
+    }
+    fn as_verifier_resolver_a(self: Arc<Self>) -> Arc<dyn verifier_resolver::VerifierResolver> {
+        self
     }
 }
 

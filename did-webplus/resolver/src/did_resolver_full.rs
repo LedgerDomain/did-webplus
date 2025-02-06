@@ -4,6 +4,7 @@ use crate::{
 };
 use did_webplus_core::{DIDStr, DIDWebplusURIComponents, DIDWithQueryStr};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStore};
+use std::sync::Arc;
 
 /// This is the "full" implementation of a DID resolver, which which keeps a local copy of all DID
 /// documents it has fetched and verified.  This is in contrast to the "thin" implementation, which
@@ -59,6 +60,12 @@ impl DIDResolver for DIDResolverFull {
         };
 
         Ok((did_doc_record.did_document_jcs, did_document_metadata))
+    }
+    fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {
+        self
+    }
+    fn as_verifier_resolver_a(self: Arc<Self>) -> Arc<dyn verifier_resolver::VerifierResolver> {
+        self
     }
 }
 

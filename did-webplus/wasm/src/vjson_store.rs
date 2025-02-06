@@ -15,13 +15,7 @@ impl VJSONStore {
             .map_err(into_js_value)?;
         Ok(Self(vjson_store))
     }
-}
-
-impl VJSONStore {
     pub fn as_resolver(&self) -> VJSONResolver {
-        let vjson_store_as_resolver = vjson_store::VJSONStoreAsResolver {
-            vjson_store: self.0.clone(),
-        };
-        VJSONResolver::new(Arc::new(vjson_store_as_resolver))
+        VJSONResolver::new(Arc::new(self.0.clone()))
     }
 }

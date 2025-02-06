@@ -7,19 +7,23 @@
     <title>did:webplus wasm test</title>
 </head>
 <script type="module">
-    import init, { 
-        Signer, jws_sign, jws_verify_temphack, JWSPayloadPresence, JWSPayloadEncoding, 
-        VJSONStore, vjson_default_schema, vjson_self_hash_temphack
+    import init, {
+        Signer, jws_sign, jws_verify, JWSPayloadPresence, JWSPayloadEncoding,
+        VJSONStore, vjson_default_schema, vjson_self_hash, VerifierResolver, vjson_verify
     } from './pkg/did_webplus_wasm.js';
 
     async function run() {
         // Initialize the Wasm module
         await init();
 
-        // Generate the signer and store it in the global context
+        // Generate the signer and store it in the global context.
         window.signer = Signer.did_key_generate_temp();
-        // // Generate a VJSONStore and store it in the global context
-        // window.vjson_store = await VJSONStore.new_mock();
+        // Generate a VerifierResolver and store it in the global context.
+        window.verifier_resolver = VerifierResolver.new_with_did_key();
+        // Generate a VJSONStore and store it in the global context.
+        window.vjson_store = await VJSONStore.new_mock();
+        // Generate a VJSONResolver from the VJSONStore and store it in the global context.
+        window.vjson_resolver = window.vjson_store.as_resolver();
 
         // Do some more setup
         document.getElementById("key_id").textContent = window.signer.key_id();
@@ -27,29 +31,29 @@
     }
 
     window.sign_jws_input = function () {
-        const jws_input = document.getElementById("jws_input").value;
-        const jws = jws_sign(jws_input, JWSPayloadPresence.Attached, JWSPayloadEncoding.Base64, window.signer);
+        let jws_input = document.getElementById("jws_input").value;
+        let jws = jws_sign(jws_input, JWSPayloadPresence.Attached, JWSPayloadEncoding.Base64, window.signer);
         document.getElementById("jws_output").textContent = jws;
-        // window.alert(jws);
     }
 
     window.verify_jws_output = async function () {
-        const jws_output = document.getElementById("jws_output").textContent;
-        const result = await jws_verify_temphack(jws_output);
+        let jws_output = document.getElementById("jws_output").textContent;
+        // TODO: Figure out why jws_output isn't set correctly after you manually change the jws_output textarea.
+        let result = await jws_verify(jws_output, window.verifier_resolver)
+            .then((value) => "JWS is Valid")
+            .catch((value) => "JWS is INVALID");
         document.getElementById("jws_verification").textContent = result;
     }
 
     window.vjson_self_hash = async function () {
-        const vjson_input = document.getElementById("vjson_input").textContent;
-        const result = await vjson_self_hash_temphack(vjson_input);
+        let vjson_input = document.getElementById("vjson_input").textContent;
+        let result = await vjson_self_hash(vjson_input, window.vjson_resolver);
         document.getElementById("vjson_input").textContent = result;
     }
 
     window.vjson_verify = async function () {
-        const vjson_input = document.getElementById("vjson_input").textContent;
-        const vjson_resolver = window.vjson_store.as_resolver();
-        const verifier_resolver = VerifierResolver.for_did_key();
-        const result = await vjson_verify(vjson_input, vjson_resolver, verifier_resolver);
+        let vjson_input = document.getElementById("vjson_input").textContent;
+        let result = await vjson_verify(vjson_input, window.vjson_resolver, window.verifier_resolver);
         document.getElementById("vjson_verification").textContent = result;
     }
 
@@ -62,11 +66,13 @@
     </div>
     <div>JWS Input: <textarea id="jws_input">{"blah": 123}</textarea></div>
     <div><button id="sign" onclick="sign_jws_input()">Sign</button></div>
-    <div>JWS Output: <div id="jws_output"></div>
+    <div>JWS Output: <textarea id="jws_output"></textarea>
     </div>
     <div><button id="verify" onclick="verify_jws_output()">Verify</button></div>
     <div>JWS Verify Result: <div id="jws_verification"></div>
     </div>
+    <br>
+    <br>
     <div>VJSON Default Schema:</div>
     <div id="vjson_default_schema"></div>
     <div>VJSON Input: <textarea id="vjson_input">{"blah": 123, "$id": "vjson:///"}</textarea></div>

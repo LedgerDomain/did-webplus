@@ -1,4 +1,5 @@
 use crate::{Error, Result};
+use std::sync::Arc;
 
 /// Note that a DIDResolver is a VerifierResolver for prefix "did:webplus:"
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -36,6 +37,10 @@ pub trait DIDResolver: Send + Sync + verifier_resolver::VerifierResolver {
                 .map_err(|e| Error::MalformedDIDDocument(e.to_string().into()))?;
         Ok((did_document, did_document_metadata))
     }
+    /// Upcast to &dyn verifier_resolver::VerifierResolver.
+    fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver;
+    /// Upcast to Arc<dyn verifier_resolver::VerifierResolver> by cloning.
+    fn as_verifier_resolver_a(self: Arc<Self>) -> Arc<dyn verifier_resolver::VerifierResolver>;
 }
 
 /// Implementations of DIDResolver can use this to provide the guts to the implementation

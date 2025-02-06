@@ -18,9 +18,33 @@ Note that you may need to install a few things:
 
 ## Running Tests
 
+### Running Tests in `node.js`
+
 From this directory (the did-webplus-wasm crate directory), run
 
     wasm-pack test --node
+
+### Running Tests in Browser (Headless Mode)
+
+From this directory (the did-webplus-wasm crate directory), run one of the following:
+
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --chrome
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --firefox
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --safari
+
+You can even combine them if you have multiple browsers, e.g.
+
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --chrome --firefox --safari
+
+### Running Tests in Browser (Headful Mode)
+
+From this directory (the did-webplus-wasm crate directory), run one of the following:
+
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --safari
+
+It will print a URL to open in your browser, and once open, the tests will run there.
 
 ## Running Example
 

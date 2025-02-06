@@ -21,10 +21,19 @@ impl VerifierResolverMap {
         verifier_prefix: &str,
         verifier_resolver_b: Box<dyn VerifierResolver>,
     ) -> Self {
+        self.add(verifier_prefix, verifier_resolver_b);
+        self
+    }
+    pub fn add(&mut self, verifier_prefix: &str, verifier_resolver_b: Box<dyn VerifierResolver>) {
+        if self.verifier_resolver_m.contains_key(verifier_prefix) {
+            panic!(
+                "programmer error: Verifier for {:?} already exists in VerifierResolverMap",
+                verifier_prefix
+            );
+        }
         self.verifier_prefix_v.push(verifier_prefix.to_owned());
         self.verifier_resolver_m
             .insert(verifier_prefix.to_owned(), verifier_resolver_b);
-        self
     }
     pub fn classify_verifier(&self, verifier_str: &str) -> Result<&str> {
         for verifier_prefix in self.verifier_prefix_v.iter() {

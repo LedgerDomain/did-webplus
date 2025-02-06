@@ -41,7 +41,7 @@ impl vjson_store::VJSONStorage for VJSONStorageSQLite {
         already_exists_policy: AlreadyExistsPolicy,
     ) -> Result<()> {
         let self_hash_str = vjson_record.self_hash.as_str();
-        log::trace!(
+        tracing::trace!(
             "VJSONStorageSQLite attempting to add VJSONRecord with self-hash {}; already_exists_policy: {:?}",
             self_hash_str,
             already_exists_policy
@@ -97,7 +97,7 @@ impl vjson_store::VJSONStorage for VJSONStorageSQLite {
                 }
             }
         }
-        log::trace!(
+        tracing::trace!(
             "VJSONStorageSQLite successfully added VJSONRecord with self-hash {}",
             self_hash_str
         );

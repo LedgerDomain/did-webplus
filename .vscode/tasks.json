@@ -32,7 +32,10 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
 			"options": {
 				"env": {
 					"SQLX_OFFLINE": "true"
@@ -1118,7 +1121,7 @@
 			]
 		},
 		{
-			"label": "wasm-pack test did-webplus-wasm",
+			"label": "wasm-pack test did-webplus-wasm in node.js",
 			"type": "shell",
 			"command": "wasm-pack",
 			"args": [
@@ -1128,6 +1131,90 @@
 			"group": "build",
 			"options": {
 				"cwd": "${workspaceFolder}/did-webplus/wasm"
+			},
+			"presentation": {
+				"clear": true
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "wasm-pack test did-webplus-wasm in chrome",
+			"type": "shell",
+			"command": "wasm-pack",
+			"args": [
+				"test",
+				"--headless",
+				"--chrome"
+			],
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/did-webplus/wasm",
+				"env": {
+					"WASM_BINDGEN_USE_BROWSER": "1"
+				}
+			},
+			"presentation": {
+				"clear": true
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "wasm-pack test did-webplus-wasm in firefox",
+			"type": "shell",
+			"command": "wasm-pack",
+			"args": [
+				"test",
+				"--headless",
+				"--firefox"
+			],
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/did-webplus/wasm",
+				"env": {
+					"WASM_BINDGEN_USE_BROWSER": "1"
+				}
+			},
+			"presentation": {
+				"clear": true
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "wasm-pack test did-webplus-wasm in safari",
+			"type": "shell",
+			"command": "wasm-pack",
+			"args": [
+				"test",
+				"--headless",
+				"--safari"
+			],
+			"group": "build",
+			"options": {
+				"cwd": "${workspaceFolder}/did-webplus/wasm",
+				"env": {
+					"WASM_BINDGEN_USE_BROWSER": "1"
+				}
 			},
 			"presentation": {
 				"clear": true
@@ -1203,10 +1290,7 @@
 				"--",
 				"--nocapture"
 			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"

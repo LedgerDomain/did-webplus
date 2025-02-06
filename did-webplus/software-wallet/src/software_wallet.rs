@@ -57,11 +57,9 @@ impl SoftwareWallet {
 
         // Retrieve any unfetched updates to the DID.
         let did_resolver = did_webplus_resolver::DIDResolverFull {
-            did_doc_store: did_webplus_doc_store::DIDDocStore::new(Arc::new(
-                did_webplus_wallet_store::WalletStorageAsDIDDocStorage {
-                    wallet_storage_a: self.wallet_storage_a.clone(),
-                },
-            )),
+            did_doc_store: did_webplus_doc_store::DIDDocStore::new(
+                self.wallet_storage_a.clone().as_did_doc_storage_a(),
+            ),
             http_scheme: vdr_scheme,
         };
         use did_webplus_resolver::DIDResolver;

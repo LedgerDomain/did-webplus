@@ -8,6 +8,7 @@ use did_webplus_wallet_store::{
 };
 use selfsign::KERIVerifierStr;
 use sqlx::SqlitePool;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct WalletStorageSQLite {
@@ -866,5 +867,11 @@ impl WalletStorage for WalletStorageSQLite {
                 .push((verification_method_record, priv_key_record));
         }
         Ok(locally_controlled_verification_method_v)
+    }
+    fn as_did_doc_storage(&self) -> &dyn did_webplus_doc_store::DIDDocStorage {
+        self
+    }
+    fn as_did_doc_storage_a(self: Arc<Self>) -> Arc<dyn did_webplus_doc_store::DIDDocStorage> {
+        self.clone()
     }
 }

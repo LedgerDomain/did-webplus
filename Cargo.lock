@@ -1264,18 +1264,23 @@ name = "did-webplus-wasm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "console_error_panic_hook",
  "did-key",
  "did-webplus-cli-lib",
  "did-webplus-doc-storage-mock",
  "did-webplus-doc-store",
  "did-webplus-jws",
+ "did-webplus-resolver",
  "js-sys",
  "log",
  "selfhash",
  "selfsign",
  "serde_json",
+ "serde_json_canonicalizer 0.3.0",
+ "time",
  "tracing",
+ "url",
  "verifier-resolver",
  "vjson-core",
  "vjson-storage-mock",
@@ -3856,6 +3861,7 @@ checksum = "5dfd88e563464686c916c7e46e623e520ddc6d79fa6641390f2e3fa86e83e885"
 dependencies = [
  "deranged",
  "itoa",
+ "js-sys",
  "num-conv",
  "powerfmt",
  "serde",
@@ -4258,6 +4264,7 @@ dependencies = [
  "async-trait",
  "selfhash",
  "storage-traits",
+ "tracing",
  "vjson-store",
 ]
 
@@ -4266,11 +4273,11 @@ name = "vjson-storage-sqlite"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "log",
  "selfhash",
  "sqlx",
  "storage-traits",
  "time",
+ "tracing",
  "vjson-store",
 ]
 

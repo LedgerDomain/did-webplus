@@ -1,15 +1,33 @@
+use crate::DIDResolver;
 use std::sync::Arc;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-/// A VerifierResolver that can resolve did:key values.  TODO: did:webplus values.
+/// A VerifierResolver is what turns a key ID (e.g. the "kid" field of a JWS) into a verifier
+/// (i.e. public key) for use in verifying signatures.
 #[wasm_bindgen]
 #[derive(Clone)]
-pub struct VerifierResolver(Arc<dyn verifier_resolver::VerifierResolver>);
+pub struct VerifierResolver(Arc<verifier_resolver::VerifierResolverMap>);
 
 #[wasm_bindgen]
 impl VerifierResolver {
-    pub fn for_did_key() -> Self {
-        Self(Arc::new(did_key::DIDKeyVerifierResolver))
+    /// Creates a VerifierResolver capable of resolving did:key-based verifiers.
+    pub fn new_with_did_key() -> Self {
+        let verifier_resolver_map = verifier_resolver::VerifierResolverMap::new()
+            .with("did:key:", Box::new(did_key::DIDKeyVerifierResolver));
+        Self(Arc::new(verifier_resolver_map))
+    }
+    /// Creates a VerifierResolver capable of resolving did:webplus-based verifiers.
+    pub fn new_with_did_webplus(did_resolver: DIDResolver) -> Self {
+        let verifier_resolver_map = verifier_resolver::VerifierResolverMap::new()
+            .with("did:webplus:", Box::new(did_resolver));
+        Self(Arc::new(verifier_resolver_map))
+    }
+    /// Creates a VerifierResolver capable of resolving did:key-based and did:webplus-based verifiers.
+    pub fn new_with_did_key_and_did_webplus(did_resolver: DIDResolver) -> Self {
+        let verifier_resolver_map = verifier_resolver::VerifierResolverMap::new()
+            .with("did:key:", Box::new(did_key::DIDKeyVerifierResolver))
+            .with("did:webplus:", Box::new(did_resolver));
+        Self(Arc::new(verifier_resolver_map))
     }
 }
 

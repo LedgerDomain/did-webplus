@@ -4,10 +4,6 @@ version = "0.1.0"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
 
-[features]
-postgres = ["did-webplus-doc-storage-postgres"]
-sqlite = ["did-webplus-doc-storage-sqlite"]
-
 [dependencies]
 async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }

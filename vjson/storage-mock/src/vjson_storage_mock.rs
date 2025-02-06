@@ -36,11 +36,11 @@ impl vjson_store::VJSONStorage for VJSONStorageMock {
         vjson_record: VJSONRecord,
         already_exists_policy: AlreadyExistsPolicy,
     ) -> Result<()> {
-        // tracing::trace!(
-        //     "VJSONStorageMock attempting to add VJSONRecord with self-hash {}; already_exists_policy: {:?}",
-        //     vjson_record.self_hash,
-        //     already_exists_policy
-        // );
+        tracing::debug!(
+            "VJSONStorageMock::add_vjson_str(vjson_record.self_hash: {}, already_exists_policy: {:?})",
+            vjson_record.self_hash,
+            already_exists_policy
+        );
         let mut vjson_record_mg = self.vjson_record_ml.write().unwrap();
         use std::collections::hash_map::Entry;
         match vjson_record_mg.entry(vjson_record.self_hash.clone()) {
@@ -60,10 +60,6 @@ impl vjson_store::VJSONStorage for VJSONStorageMock {
                 vacant_entry.insert(vjson_record);
             }
         }
-        // tracing::trace!(
-        //     "VJSONStorageMock successfully added VJSONRecord with self-hash {}",
-        //     self_hash_str
-        // );
         Ok(())
     }
     async fn get_vjson_str(
@@ -71,11 +67,13 @@ impl vjson_store::VJSONStorage for VJSONStorageMock {
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         self_hash: &selfhash::KERIHashStr,
     ) -> Result<VJSONRecord> {
+        tracing::debug!("VJSONStorageMock::get_vjson_str({})", self_hash);
         let vjson_record_mg = self.vjson_record_ml.read().unwrap();
-        Ok(vjson_record_mg
+        let vjson_record = vjson_record_mg
             .get(self_hash)
             .ok_or_else(|| Error::NotFound(self_hash.to_string().into()))?
-            .clone())
+            .clone();
+        Ok(vjson_record)
     }
 }
 

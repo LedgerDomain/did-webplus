@@ -1,4 +1,5 @@
 use crate::{verifier_resolver_impl, DIDResolver, Error, HTTPError, Result, REQWEST_CLIENT};
+use std::sync::Arc;
 
 /// Use a trusted VDG to resolve a DID.  This amounts to completely outsourcing fetching and verification
 /// of DID documents to the VDG.  This is useful for many reasons, and in particular for clients that can't
@@ -91,6 +92,12 @@ impl DIDResolver for DIDResolverThin {
                 currency_o: None,
             },
         ))
+    }
+    fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {
+        self
+    }
+    fn as_verifier_resolver_a(self: Arc<Self>) -> Arc<dyn verifier_resolver::VerifierResolver> {
+        self
     }
 }
 
