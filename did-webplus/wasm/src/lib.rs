@@ -14,7 +14,7 @@ pub use crate::{
     did_resolver::DIDResolver,
     signer::Signer,
     verifier_resolver::VerifierResolver,
-    vjson::{vjson_default_schema, vjson_self_hash, vjson_verify},
+    vjson::{vjson_default_schema, vjson_self_hash, vjson_sign_and_self_hash, vjson_verify},
     vjson_resolver::VJSONResolver,
     vjson_store::VJSONStore,
 };

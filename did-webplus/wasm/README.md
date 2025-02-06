@@ -46,6 +46,22 @@ From this directory (the did-webplus-wasm crate directory), run one of the follo
 
 It will print a URL to open in your browser, and once open, the tests will run there.
 
+## Notes on Logging
+
+When using the SDK or running the tests in the browser, logging messages will be recorded in the usual place (see developer console) and are mapped from the `log`/`tracing` crate macros to browser console events in the following way:
+| ----- | ------- |
+| Rust  | Browser |
+| ----- | ------- |
+| error | error   |
+| warn  | warn    |
+| info  | info    |
+| debug | log     |
+| trace | debug   |
+
+When running the tests in headless browser mode, only the Rust debug level messages will be sent to stdout.  The `RUST_LOG` env var doesn't affect this (it applies to the wasm-pack process that runs the tests, but not the tests themselves).  TODO: Fix this deficiency (note that the `tracing-wasm` crate exists, but is out of date and seems to be unmaintained).
+
+It appears that no logging is sent to stdout when the tests are run within node.js.  TODO: Fix this deficiency.
+
 ## Running Example
 
 Ensure the wasm package, which appears as the `pkg` directory, has been built.  Then run a local web server, e.g.

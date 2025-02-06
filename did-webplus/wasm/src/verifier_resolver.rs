@@ -10,6 +10,12 @@ pub struct VerifierResolver(Arc<verifier_resolver::VerifierResolverMap>);
 
 #[wasm_bindgen]
 impl VerifierResolver {
+    /// Creates a VerifierResolver that handles no verifiers (this is used when you know for a fact
+    /// there will be no signatures to verify).
+    pub fn new_empty() -> Self {
+        let verifier_resolver_map = verifier_resolver::VerifierResolverMap::new();
+        Self(Arc::new(verifier_resolver_map))
+    }
     /// Creates a VerifierResolver capable of resolving did:key-based verifiers.
     pub fn new_with_did_key() -> Self {
         let verifier_resolver_map = verifier_resolver::VerifierResolverMap::new()
