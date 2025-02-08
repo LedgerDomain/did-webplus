@@ -8,22 +8,24 @@
 </head>
 <script type="module">
     import init, {
-        Signer, jws_sign, jws_verify, JWSPayloadPresence, JWSPayloadEncoding,
-        VJSONStore, vjson_default_schema, vjson_self_hash, VerifierResolver, vjson_verify
+        Signer, jws_sign, jws_verify, JWSPayloadPresence, JWSPayloadEncoding, VJSONStore, vjson_default_schema,
+        vjson_self_hash, VerifierResolver, vjson_verify, Wallet
     } from './pkg/did_webplus_wasm.js';
 
     async function run() {
         // Initialize the Wasm module
         await init();
 
-        // Generate the signer and store it in the global context.
         window.signer = Signer.did_key_generate_temp();
-        // Generate a VerifierResolver and store it in the global context.
         window.verifier_resolver = VerifierResolver.new_with_did_key();
-        // Generate a VJSONStore and store it in the global context.
         window.vjson_store = await VJSONStore.new_mock();
-        // Generate a VJSONResolver from the VJSONStore and store it in the global context.
+        // Generate a VJSONResolver from the VJSONStore.
         window.vjson_resolver = window.vjson_store.as_resolver();
+        window.wallet = await Wallet.new_mock();
+
+        // Create a DID
+        let controlled_did = await window.wallet.create_did("http://localhost:10001");
+        console.log("Created DID: " + controlled_did);
 
         // Do some more setup
         document.getElementById("key_id").textContent = window.signer.key_id();

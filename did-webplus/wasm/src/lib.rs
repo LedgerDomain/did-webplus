@@ -7,6 +7,7 @@ mod verifier_resolver;
 mod vjson;
 mod vjson_resolver;
 mod vjson_store;
+mod wallet;
 
 pub use crate::{
     did::did_resolve,
@@ -17,6 +18,7 @@ pub use crate::{
     vjson::{vjson_default_schema, vjson_self_hash, vjson_sign_and_self_hash, vjson_verify},
     vjson_resolver::VJSONResolver,
     vjson_store::VJSONStore,
+    wallet::Wallet,
 };
 pub type Error = JsValue;
 pub type Result<T> = std::result::Result<T, JsValue>;
