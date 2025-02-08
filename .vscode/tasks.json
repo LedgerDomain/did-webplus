@@ -992,6 +992,57 @@
 			]
 		},
 		{
+			"label": "check did-webplus-wallet-storage-mock",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-wallet-storage-mock",
+				"--all-features",
+				"--tests"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "test did-webplus-wallet-storage-mock",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--package",
+				"did-webplus-wallet-storage-mock",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
 			"label": "check did-webplus-wallet-storage-sqlite",
 			"type": "shell",
 			"command": "cargo",

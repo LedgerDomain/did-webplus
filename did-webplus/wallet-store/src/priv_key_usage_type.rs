@@ -1,5 +1,6 @@
 use crate::Error;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PrivKeyUsageType {
     /// Use this key as the self-signing key in a DID create operation.
     DIDCreate,

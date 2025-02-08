@@ -1,7 +1,7 @@
 use crate::{DIDStr, DIDWebplusURIComponents, Error};
 use std::borrow::Cow;
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, pneutype::PneuString)]
 #[pneu_string(as_pneu_str = "as_did_str", borrow = "DIDStr", deserialize, serialize)]
 pub struct DID(String);
 

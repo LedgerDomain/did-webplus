@@ -24,6 +24,7 @@ members = [
     "did-webplus/vdr-lib",
     "did-webplus/wallet",
     "did-webplus/wallet-store",
+    "did-webplus/wallet-storage-mock",
     "did-webplus/wallet-storage-sqlite",
     "did-webplus/wasm",
     "storage-traits",

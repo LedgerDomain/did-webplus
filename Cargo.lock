@@ -1090,6 +1090,7 @@ dependencies = [
  "did-webplus-resolver",
  "did-webplus-vdr-lib",
  "did-webplus-wallet",
+ "did-webplus-wallet-storage-mock",
  "did-webplus-wallet-storage-sqlite",
  "did-webplus-wallet-store",
  "dotenvy",
@@ -1101,6 +1102,7 @@ dependencies = [
  "selfhash",
  "selfsign",
  "serde_json",
+ "serial_test",
  "sqlx",
  "storage-traits",
  "test-util",
@@ -1223,6 +1225,23 @@ dependencies = [
  "time",
  "tokio",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "did-webplus-wallet-storage-mock"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "did-webplus-core",
+ "did-webplus-doc-store",
+ "did-webplus-wallet-store",
+ "selfhash",
+ "selfsign",
+ "serde_json",
+ "storage-traits",
+ "time",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -3112,7 +3131,7 @@ dependencies = [
 [[package]]
 name = "selfhash"
 version = "0.4.0"
-source = "git+https://github.com/LedgerDomain/selfhash?branch=vjson#8600e3b4b89a90e69c968b06fb65cc369f62e3a0"
+source = "git+https://github.com/LedgerDomain/selfhash?branch=vjson#46d47555a336308d5ede634db1fa5ca90a330cb5"
 dependencies = [
  "base64 0.21.7",
  "blake3",
@@ -3131,7 +3150,7 @@ dependencies = [
 [[package]]
 name = "selfsign"
 version = "0.6.0"
-source = "git+https://github.com/LedgerDomain/selfsign?branch=jsonpath#50414c9a6ff39dbd64efa3b4d834e110cd757247"
+source = "git+https://github.com/LedgerDomain/selfsign?branch=jsonpath#8e24f5076b6d67461e394e13f9dc0f9661845e91"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -4504,7 +4523,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

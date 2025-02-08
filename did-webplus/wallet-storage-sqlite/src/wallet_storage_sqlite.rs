@@ -376,7 +376,13 @@ impl WalletStorage for WalletStorageSQLite {
             .wallet_uuid_o
             .as_ref()
             .map(|wallet_uuid| wallet_uuid.as_hyphenated());
-        let filter_on_wallet_name = wallet_record_filter.wallet_name_o.is_some();
+        let filter_on_wallet_name_o = wallet_record_filter.wallet_name_oo.is_some();
+        let wallet_name_o =
+            if let Some(wallet_name_o) = wallet_record_filter.wallet_name_oo.as_ref() {
+                wallet_name_o.as_deref()
+            } else {
+                None
+            };
         let query = sqlx::query!(
             r#"
                 SELECT rowid, wallet_uuid, created_at, updated_at, deleted_at_o, wallet_name_o
@@ -387,8 +393,8 @@ impl WalletStorage for WalletStorageSQLite {
             "#,
             filter_on_wallet_uuid,
             wallet_uuid_string_o,
-            filter_on_wallet_name,
-            wallet_record_filter.wallet_name_o,
+            filter_on_wallet_name_o,
+            wallet_name_o,
         );
         if let Some(transaction) = transaction_o {
             query

@@ -31,9 +31,11 @@ uuid = "1.9.1"
 
 [dev-dependencies]
 ctor = "0.2.8"
-did-webplus-vdr-lib = { path = "../vdr-lib", features = ["sqlite"] }
+did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
+did-webplus-wallet-storage-mock = { path = "../wallet-storage-mock" }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 dotenvy = "0.15.7"
+serial_test = { version = "2", default-features = false }
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite"] }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 test-util = { path = "../../test-util" }

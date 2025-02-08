@@ -1,5 +1,4 @@
 use crate::VDRConfig;
-use std::sync::Arc;
 
 /// Spawn a VDR using the given VDRConfig.
 pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
@@ -9,6 +8,7 @@ pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::Joi
         #[cfg(feature = "postgres")]
         {
             use anyhow::Context;
+            use std::sync::Arc;
 
             let pg_pool = sqlx::postgres::PgPoolOptions::new()
                 .max_connections(vdr_config.database_max_connections)
@@ -70,6 +70,7 @@ pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::Joi
         // #[cfg(feature = "sqlite")]
         // {
         //     use anyhow::Context;
+        //     use std::sync::Arc;
 
         //     let sqlite_pool = sqlx::sqlite::SqlitePoolOptions::new()
         //         .max_connections(vdr_config.database_max_connections)

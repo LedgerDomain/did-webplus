@@ -3,6 +3,7 @@ use did_webplus_core::{DIDFullyQualified, DIDKeyResourceFullyQualified, DID};
 
 /// Specific usages for a private key, along with type-specific data that does NOT include signature data.
 // TODO: Figure out if the other pub key in a key exchange is a risk to store.
+#[derive(Clone, Debug)]
 pub enum PrivKeyUsage {
     /// Optionally contains the DID that was created.
     DIDCreate { created_did_o: Option<DID> },

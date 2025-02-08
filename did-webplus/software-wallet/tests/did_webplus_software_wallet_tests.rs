@@ -16,18 +16,12 @@ fn overall_init() {
         .init();
 }
 
-#[tokio::test]
-async fn test_software_wallet() {
+async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet::SoftwareWallet) {
     // TODO: Use env vars to be able to point to a "real" VDR.
-
-    let wallet_store_database_path = "tests/test_software_wallet.wallet-store.db";
 
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
     // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
     // TODO: postgres drop schema
-    if std::fs::exists(wallet_store_database_path).expect("pass") {
-        std::fs::remove_file(wallet_store_database_path).expect("pass");
-    }
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
         did_host: "localhost".to_string(),
@@ -41,35 +35,11 @@ async fn test_software_wallet() {
         .await
         .expect("pass");
 
-    let sqlite_pool = sqlx::SqlitePool::connect(
-        format!("sqlite://{}?mode=rwc", wallet_store_database_path).as_str(),
-    )
-    .await
-    .expect("pass");
-    let wallet_storage =
-        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
-            sqlite_pool,
-        )
-        .await
-        .expect("pass");
-    let wallet_storage_a = Arc::new(wallet_storage);
-
     test_util::wait_until_service_is_up(
         "VDR",
         format!("http://localhost:{}/health", vdr_config.listen_port).as_str(),
     )
     .await;
-
-    use storage_traits::StorageDynT;
-    let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
-    let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
-        transaction_b.as_mut(),
-        wallet_storage_a,
-        Some("fancy wallet".to_string()),
-    )
-    .await
-    .expect("pass");
-    transaction_b.commit().await.expect("pass");
 
     let vdr_scheme = "http";
     let vdr_did_create_endpoint = format!(
@@ -94,4 +64,63 @@ async fn test_software_wallet() {
 
     tracing::info!("Shutting down VDR");
     vdr_handle.abort();
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn test_software_wallet_with_storage_sqlite() {
+    // TODO: Use env vars to be able to point to a "real" VDR.
+
+    let wallet_store_database_path = "tests/test_software_wallet.wallet-store.db";
+
+    // Delete any existing database files so that we're starting from a consistent, blank start every time.
+    // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
+    if std::fs::exists(wallet_store_database_path).expect("pass") {
+        std::fs::remove_file(wallet_store_database_path).expect("pass");
+    }
+
+    let sqlite_pool = sqlx::SqlitePool::connect(
+        format!("sqlite://{}?mode=rwc", wallet_store_database_path).as_str(),
+    )
+    .await
+    .expect("pass");
+    let wallet_storage =
+        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
+            sqlite_pool,
+        )
+        .await
+        .expect("pass");
+    let wallet_storage_a = Arc::new(wallet_storage);
+
+    use storage_traits::StorageDynT;
+    let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
+    let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
+        transaction_b.as_mut(),
+        wallet_storage_a,
+        Some("fancy wallet".to_string()),
+    )
+    .await
+    .expect("pass");
+    transaction_b.commit().await.expect("pass");
+
+    test_software_wallet_impl(&software_wallet).await;
+}
+
+#[tokio::test]
+#[serial_test::serial]
+async fn test_software_wallet_with_storage_mock() {
+    let wallet_storage = did_webplus_wallet_storage_mock::WalletStorageMock::new();
+    let wallet_storage_a = Arc::new(wallet_storage);
+    use storage_traits::StorageDynT;
+    let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
+    let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
+        transaction_b.as_mut(),
+        wallet_storage_a.clone(),
+        Some("fancy wallet".to_string()),
+    )
+    .await
+    .expect("pass");
+    transaction_b.commit().await.expect("pass");
+
+    test_software_wallet_impl(&software_wallet).await;
 }

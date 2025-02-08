@@ -64,23 +64,9 @@ impl DIDDocStorageMockState {
     fn get(&self, did_doc_record_filter: &DIDDocRecordFilter) -> Vec<DIDDocRecord> {
         let mut did_doc_record_v = Vec::new();
         for did_doc_record in self.did_doc_record_m.values() {
-            if let Some(did) = did_doc_record_filter.did_o.as_deref() {
-                if did_doc_record.did.as_str() != did {
-                    continue;
-                }
+            if did_doc_record_filter.matches(did_doc_record) {
+                did_doc_record_v.push(did_doc_record.clone())
             }
-            if let Some(self_hash) = did_doc_record_filter.self_hash_o.as_deref() {
-                if did_doc_record.self_hash.as_str() != self_hash {
-                    continue;
-                }
-            }
-            if let Some(version_id) = did_doc_record_filter.version_id_o {
-                if did_doc_record.version_id != version_id as i64 {
-                    continue;
-                }
-            }
-            // If it passed all filter parameters, then add it.
-            did_doc_record_v.push(did_doc_record.clone())
         }
         did_doc_record_v
     }
