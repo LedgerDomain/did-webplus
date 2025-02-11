@@ -6,13 +6,10 @@ The `did:web` method makes straightforward use of familiar tools across a wide r
 
 Here is a [talk](https://www.youtube.com/watch?v=Ws55MlDuUGI) Victor Dods gave at LedgerPalooza 2024 (this is a yearly event hosted by LedgerPalooza for our colleagues and business friendlies) presenting `did:webplus`.  Here is the [slide deck](https://docs.google.com/presentation/d/1oZc4WABaG3zhw7gHclSIaQCgnchdWRJvqUDQLq4L-Ig/edit?usp=sharing) from that talk.
 
-
 Component documentation:
--   [`did:webplus` Verifiable Data Registry (VDR) service](did-webplus/vdr/README.md)
--   [`did:webplus` Verifiable Data Gateway (VDG) service](did-webplus/vdg/README.md)
--   [`did-webplus` CLI tool](did-webplus/cli/README.md)
-
-Along with an overview and examples, this repository includes a Rust crate for prototype implementation of the `did:webplus` DID method. This repository provides initial reference implementations of the components described herein, and your feedback is welcome.
+-   [`did:webplus` Verifiable Data Registry (VDR) service (reference implementation)](did-webplus/vdr/README.md)
+-   [`did:webplus` Verifiable Data Gateway (VDG) service (reference implementation)](did-webplus/vdg/README.md)
+-   [`did-webplus` CLI tool (reference implementation for client-side operations)](did-webplus/cli/README.md)
 
 If you want to see concrete examples, skip to the Examples section.
 
