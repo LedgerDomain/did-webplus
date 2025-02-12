@@ -64,7 +64,21 @@ It appears that no logging is sent to stdout when the tests are run within node.
 
 ## Running Example
 
-Ensure the wasm package, which appears as the `pkg` directory, has been built.  Then run a local web server, e.g.
+Ensure the wasm package has been built:
+
+    wasm-pack build --target web
+
+This should populate the `pkg` directory with various files, including:
+
+    did_webplus_wasm_bg.wasm
+    did_webplus_wasm_bg.wasm.d.ts
+    did_webplus_wasm.d.ts
+    did_webplus_wasm.js
+    .gitignore
+    package.json
+    README.md
+
+Then run a local web server to serve the example web page (index.html), e.g.
 
     python3 -m http.server 3000
 
