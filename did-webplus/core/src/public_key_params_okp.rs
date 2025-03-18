@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::Error;
 
-// "kty" of "OKP" is used for curves including "ed25519".
+// "kty" of "OKP" is used for curves including "Ed25519".
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct PublicKeyParamsOKP {
     pub crv: String,
@@ -10,10 +10,10 @@ pub struct PublicKeyParamsOKP {
 }
 
 impl PublicKeyParamsOKP {
-    /// Convenience function for creating the PublicKeyParamsOKP for an ed25519 key.
+    /// Convenience function for creating the PublicKeyParamsOKP for an Ed25519 key.
     pub fn ed25519(x: String) -> Self {
         Self {
-            crv: "ed25519".into(),
+            crv: "Ed25519".into(),
             x,
         }
     }
@@ -29,7 +29,7 @@ impl TryFrom<&dyn selfsign::Verifier> for PublicKeyParamsOKP {
                     .strip_prefix(verifier.key_type().keri_prefix())
                     .unwrap();
                 Ok(Self {
-                    crv: "ed25519".into(),
+                    crv: "Ed25519".into(),
                     x: public_key_base64.to_string(),
                 })
             }
@@ -46,7 +46,7 @@ impl TryFrom<&PublicKeyParamsOKP> for selfsign::KERIVerifier {
     type Error = Error;
     fn try_from(public_key_params_okp: &PublicKeyParamsOKP) -> Result<Self, Self::Error> {
         match public_key_params_okp.crv.as_str() {
-            "ed25519" => selfsign::KERIVerifier::from_str(
+            "Ed25519" => selfsign::KERIVerifier::from_str(
                 format!(
                     "{}{}",
                     selfsign::KeyType::Ed25519.keri_prefix(),

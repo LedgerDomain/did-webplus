@@ -77,12 +77,16 @@ pub trait Wallet: Send + Sync {
         Ok(controlled_did_v.into_iter().next().unwrap())
     }
     /// This just begins a transaction and calls WalletStorage::get_locally_controlled_verification_methods.
+    // TODO: Make a LocallyControlledVerificationMethodsFilter separate from LocallyControlledVerificationMethodFilter,
+    // because of the differing semantics of the result_limit_o field?
     async fn get_locally_controlled_verification_methods(
         &self,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
     ) -> Result<Vec<(VerificationMethodRecord, Box<dyn selfsign::Signer>)>>;
     /// Calls get_locally_controlled_verification_methods and returns the single result if there is exactly one.
     /// Otherwise, returns an error.  Note that this method will ignore the result_limit_o field of the filter.
+    // TODO: Make a LocallyControlledVerificationMethodsFilter separate from LocallyControlledVerificationMethodFilter,
+    // because of the differing semantics of the result_limit_o field?
     async fn get_locally_controlled_verification_method(
         &self,
         mut locally_controlled_verification_method_filter: LocallyControlledVerificationMethodFilter,
