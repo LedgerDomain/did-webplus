@@ -30,7 +30,7 @@ url = "2.5.0"
 uuid = "1.9.1"
 
 [dev-dependencies]
-ctor = "0.2.8"
+ctor = "0.4.1"
 did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
 did-webplus-wallet-storage-mock = { path = "../wallet-storage-mock" }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }

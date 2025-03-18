@@ -30,7 +30,7 @@ verifier-resolver = { path = "../../verifier-resolver" }
 vjson-core = { path = "../core" }
 
 [dev-dependencies]
-ctor = "0.2.8"
+ctor = "0.4.1"
 did-key = { path = "../../did-key", features = ["ed25519-dalek", "k256"] }
 ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
 env_logger = "0.11.3"

@@ -318,7 +318,7 @@ impl selfhash::SelfHashable for DIDDocument {
     }
     fn self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> selfhash::Result<Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a>>
+    ) -> selfhash::Result<Box<dyn std::iter::Iterator<Item = Option<&'b dyn selfhash::Hash>> + 'a>>
     {
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to return.
@@ -368,7 +368,7 @@ impl selfsign::SelfSignable for DIDDocument {
     }
     fn self_signature_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfsign::Signature>> + 'a> {
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b dyn selfsign::Signature>> + 'a> {
         // Root and non-root DID documents both have the same self-signature slots.
         Box::new(std::iter::once(
             self.self_signature_o
@@ -382,7 +382,7 @@ impl selfsign::SelfSignable for DIDDocument {
     }
     fn self_signature_verifier_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfsign::Verifier>> + 'a> {
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b dyn selfsign::Verifier>> + 'a> {
         // Root and non-root DID documents both have the same self-signature verifier slots.
         Box::new(std::iter::once(
             self.self_signature_verifier_o

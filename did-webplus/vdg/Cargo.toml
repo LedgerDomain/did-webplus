@@ -20,7 +20,7 @@ tokio = { version = "1.41", features = ["full"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 
 [dev-dependencies]
-ctor = "0.2.8"
+ctor = "0.4.1"
 did-webplus-core = { path = "../core", features = ["ed25519-dalek", "k256"] }
 did-webplus-mock = { path = "../mock" }
 reqwest = { version = "0.12.5", features = ["json"] }

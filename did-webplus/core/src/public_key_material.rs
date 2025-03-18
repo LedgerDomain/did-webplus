@@ -132,9 +132,10 @@ impl PublicKeyMaterial {
     }
     pub fn root_did_document_self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> {
-        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> =
-            Box::new(std::iter::empty());
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b dyn selfhash::Hash>> + 'a> {
+        let mut iter_chain: Box<
+            dyn std::iter::Iterator<Item = Option<&'b dyn selfhash::Hash>> + 'a,
+        > = Box::new(std::iter::empty());
         for verification_method in &self.verification_method_v {
             iter_chain = Box::new(
                 iter_chain.chain(

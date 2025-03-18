@@ -40,7 +40,7 @@ zeroize = "1.7.0"
 
 [dev-dependencies]
 anyhow = { version = "1.0.94", features = ["backtrace"] }
-ctor = "0.2.8"
+ctor = "0.4.1"
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
 did-webplus-software-wallet = { path = "../software-wallet" }

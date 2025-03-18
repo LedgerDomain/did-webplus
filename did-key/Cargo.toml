@@ -25,5 +25,5 @@ tracing = "0.1.37"
 verifier-resolver = { path = "../verifier-resolver", optional = true }
 
 [dev-dependencies]
-ctor = "0.2.8"
+ctor = "0.4.1"
 env_logger = "0.11.3"

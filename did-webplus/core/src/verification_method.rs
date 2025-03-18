@@ -75,13 +75,14 @@ impl VerificationMethod {
     }
     pub fn root_did_document_self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> {
-        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&dyn selfhash::Hash>> + 'a> =
-            Box::new(
-                std::iter::once(Some(&self.id as &dyn selfhash::Hash)).chain(std::iter::once(
-                    Some(&self.controller as &dyn selfhash::Hash),
-                )),
-            );
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b dyn selfhash::Hash>> + 'a> {
+        let mut iter_chain: Box<
+            dyn std::iter::Iterator<Item = Option<&'b dyn selfhash::Hash>> + 'a,
+        > = Box::new(
+            std::iter::once(Some(&self.id as &dyn selfhash::Hash)).chain(std::iter::once(Some(
+                &self.controller as &dyn selfhash::Hash,
+            ))),
+        );
         if let Some(kid) = self.public_key_jwk.kid_o.as_ref() {
             iter_chain =
                 Box::new(iter_chain.chain(std::iter::once(Some(kid as &dyn selfhash::Hash))));

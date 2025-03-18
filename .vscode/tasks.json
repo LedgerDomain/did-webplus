@@ -30,6 +30,9 @@
 				"check",
 				"--workspace",
 				"--all-features",
+				"--benches",
+				"--bins",
+				"--examples",
 				"--tests"
 			],
 			"group": {

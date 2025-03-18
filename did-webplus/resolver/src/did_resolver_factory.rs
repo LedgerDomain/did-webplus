@@ -8,5 +8,6 @@ use crate::{DIDResolver, Result};
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait DIDResolverFactory {
+    #[allow(elided_named_lifetimes)]
     async fn did_resolver(&self) -> Result<&dyn DIDResolver>;
 }
