@@ -28,6 +28,9 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
             self.fragment(),
         ).expect("programmer error: this should not fail due to guarantees in construction of DIDResource")
     }
+    pub fn without_fragment(&self) -> &DIDStr {
+        DIDStr::new_ref(self.1.split_once('#').unwrap().0).expect("programmer error: this should not fail due to guarantees in construction of DIDResource")
+    }
     fn uri_components(&self) -> DIDWebplusURIComponents {
         DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDResource")
     }
