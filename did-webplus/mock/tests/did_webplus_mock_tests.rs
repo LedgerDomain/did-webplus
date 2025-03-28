@@ -100,7 +100,7 @@ fn resolve_did_and_verify_jws<'r, 'p>(
 #[test]
 #[serial_test::serial]
 fn test_example_creating_and_updating_a_did() {
-    println!("# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n");
+    println!("# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test --all-features --package did-webplus-mock -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n");
 
     let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let verifying_key_0 = signing_key_0.verifying_key();

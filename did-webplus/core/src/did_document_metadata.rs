@@ -29,7 +29,7 @@ impl RequestedDIDDocumentMetadata {
 /// - data that is constant (once the DID is created, this metadata never changes).
 /// - data that is idempotent (it starts unset but once it's set it never changes).
 /// - data regarding its currency (it changes every time the DID document is updated).
-/// See https://www.w3.org/TR/did-core/#did-document-metadata
+/// See <https://www.w3.org/TR/did-core/#did-document-metadata>
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocumentMetadata {
     #[serde(flatten)]
@@ -41,7 +41,7 @@ pub struct DIDDocumentMetadata {
 }
 
 /// Immutable part of DID document metadata; meaning that these values are set upon DID creation
-/// and never change.  See https://www.w3.org/TR/did-core/#did-document-metadata
+/// and never change.  See <https://www.w3.org/TR/did-core/#did-document-metadata>
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocumentMetadataConstant {
     /// This is the "validFrom" timestamp of the first DID document for the DID (i.e. the timestamp of
@@ -51,7 +51,7 @@ pub struct DIDDocumentMetadataConstant {
 }
 
 /// Idempotent part of DID document metadata; meaning that these values begin unset and once they're
-/// set, they never change.  See https://www.w3.org/TR/did-core/#did-document-metadata
+/// set, they never change.  See <https://www.w3.org/TR/did-core/#did-document-metadata>
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocumentMetadataIdempotent {
     /// This is the "validFrom" timestamp for DID document immediately following this one, if this
@@ -70,7 +70,7 @@ pub struct DIDDocumentMetadataIdempotent {
 }
 
 /// Currency portion of DID document metadata; meaning that these values change every time the DID
-/// document is updated.  See https://www.w3.org/TR/did-core/#did-document-metadata
+/// document is updated.  See <https://www.w3.org/TR/did-core/#did-document-metadata>
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocumentMetadataCurrency {
     /// This is the "validFrom" timestamp of the most recent DID document for this DID.

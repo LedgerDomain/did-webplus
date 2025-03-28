@@ -15,7 +15,7 @@ If you want to see concrete examples, skip to the Examples section.
 
 To run the data model tests, which include printouts demonstrating various features and data structures, run
 
-    cargo test --all-features -- --nocapture
+    cargo test --all-features --workspace -- --nocapture
 
 The `--all-features` is necessary for now.
 

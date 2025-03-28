@@ -2,7 +2,7 @@
 
 This example can be run via command:
 
-    cargo test --all-features -- --nocapture test_example_creating_and_updating_a_did
+    cargo test --all-features --package did-webplus-mock -- --nocapture test_example_creating_and_updating_a_did
 
 ## Creating a DID
 

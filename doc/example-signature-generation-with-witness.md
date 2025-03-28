@@ -2,7 +2,7 @@
 
 This example can be run via command:
 
-    cargo test --all-features -- --nocapture test_signature_generation_with_witness
+    cargo test --all-features --package did-webplus-core -- --nocapture test_signature_generation_with_witness
 
 By specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.
 
