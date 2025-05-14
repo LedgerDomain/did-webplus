@@ -292,7 +292,7 @@ fn test_signature_generation_with_witness() {
     let verifying_key_0 = signing_key_0.verifying_key();
     let mut priv_jwk_0 = priv_jwk_from_ed25519_signing_key(&signing_key_0);
 
-    println!("# Example: Signature Generation With Witness\n\nThis example can be run via command:\n\n    cargo test --all-features -- --nocapture test_signature_generation_with_witness\n\nBy specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.\n");
+    println!("# Example: Signature Generation With Witness\n\nThis example can be run via command:\n\n    cargo test --all-features --package did-webplus-core -- --nocapture test_signature_generation_with_witness\n\nBy specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.\n");
 
     // TODO: Other key types
     {
