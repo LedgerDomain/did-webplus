@@ -18,8 +18,8 @@ type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
 
 pub fn get_routes(did_doc_store: DIDDocStore) -> Router {
     Router::new()
-        .route("/:did_query", get(resolve_did))
-        .route("/update/:did", post(update_did))
+        .route("/{:did_query}", get(resolve_did))
+        .route("/update/{:did}", post(update_did))
         .with_state(did_doc_store)
 }
 

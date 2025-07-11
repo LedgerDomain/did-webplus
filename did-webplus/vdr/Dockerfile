@@ -1,7 +1,7 @@
 ################################################################
 # Builder Image                                                #
 ################################################################
-FROM rust:1.75 as builder
+FROM rust:1.88 AS builder
 WORKDIR /workdir
 
 # Install deps/reqs
@@ -47,7 +47,7 @@ fi
 # Runner Image                                                 #
 ################################################################
 # Latest as of Aug 19, 2023
-FROM debian:bookworm-slim as runtime
+FROM debian:bookworm-slim AS runtime
 
 # We listen on standard port 80
 EXPOSE 80

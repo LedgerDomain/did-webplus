@@ -24,7 +24,7 @@ pub fn get_routes(did_doc_store: DIDDocStore, vdr_config: &VDRConfig) -> Router 
             // We have to do our own URL processing in each handler because of the non-standard
             // form of the "query" (e.g. did.selfHash=<hash>.json) and the fact that we're using
             // the same handler for multiple routes.
-            "/*path",
+            "/{*path}",
             get(get_did_document_or_metadata)
                 .post(create_did)
                 .put(update_did),

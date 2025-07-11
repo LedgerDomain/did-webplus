@@ -13,7 +13,7 @@ sqlite = ["dep:did-webplus-doc-storage-sqlite", "sqlx/sqlite"]
 
 [dependencies]
 anyhow = "1.0.94"
-axum = "0.7.5"
+axum = "0.8.4"
 clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus-core = { path = "../core", features = ["ed25519-dalek", "k256"] }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
@@ -29,8 +29,8 @@ serde_json = "1.0.107"
 sqlx = { version = "0.8.2", optional = true }
 storage-traits = { path = "../../storage-traits" }
 tokio = "1.41"
-tower = "0.4.13"
-tower-http = { version = "0.5.2", features = ["full"] }
+tower = "0.5.2"
+tower-http = { version = "0.6.0", features = ["full"] }
 tracing = "0.1.37"
 
 [dev-dependencies]
