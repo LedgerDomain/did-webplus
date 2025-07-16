@@ -168,7 +168,7 @@ pub fn validate_against_json_schema(
 
 /// The kid field should give the fully-qualified DID resource of the signer.  For did:key this would look like
 /// "did:key:<base58enc-key>#<base58enc-key>" (see did_key::DIDResource).  For did:webplus this would look like
-/// "did:webplus:<host>:<path>:<root-self-hash>?selfHash=<query-self-hash>&versionId=<version-id>#<key-id>"
+/// "did:webplus:<hostname>:<path>:<root-self-hash>?selfHash=<query-self-hash>&versionId=<version-id>#<key-id>"
 /// (see did_webplus::DIDKeyResourceFullyQualified).  If verifier_resolver_o is Some(_), then the
 /// signed-and-self-hashed VJSON will be verified before returning.  This is not strictly necessary,
 /// but will be done as a sanity check for now.

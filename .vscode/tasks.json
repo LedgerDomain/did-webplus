@@ -48,7 +48,14 @@
 				"clear": true,
 				"revealProblems": "onProblem"
 			},
-			"problemMatcher": []
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
 		},
 		{
 			"label": "test all (SQLX_OFFLINE=true)",

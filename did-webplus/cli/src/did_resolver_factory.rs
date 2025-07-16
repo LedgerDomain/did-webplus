@@ -1,17 +1,20 @@
-use crate::{DIDResolverArgs, HTTPSchemeArgs};
+use crate::{DIDResolverArgs, HTTPSchemeOverrideArgs};
 use std::sync::OnceLock;
 
 pub struct DIDResolverFactory {
     did_resolver_args: DIDResolverArgs,
-    http_scheme_args: HTTPSchemeArgs,
+    http_scheme_override_args: HTTPSchemeOverrideArgs,
     did_resolver_bc: OnceLock<Box<dyn did_webplus_resolver::DIDResolver>>,
 }
 
 impl DIDResolverFactory {
-    pub fn new(did_resolver_args: DIDResolverArgs, http_scheme_args: HTTPSchemeArgs) -> Self {
+    pub fn new(
+        did_resolver_args: DIDResolverArgs,
+        http_scheme_override_args: HTTPSchemeOverrideArgs,
+    ) -> Self {
         Self {
             did_resolver_args,
-            http_scheme_args,
+            http_scheme_override_args,
             did_resolver_bc: OnceLock::new(),
         }
     }
@@ -28,10 +31,12 @@ impl did_webplus_resolver::DIDResolverFactory for DIDResolverFactory {
             return Ok(did_resolver_b.as_ref());
         }
 
+        let http_scheme_override_o =
+            Some(self.http_scheme_override_args.http_scheme_override.clone());
         let did_resolver_b = self
             .did_resolver_args
             .clone()
-            .get_did_resolver(self.http_scheme_args.determine_http_scheme())
+            .get_did_resolver(http_scheme_override_o)
             .await
             .map_err(|e| did_webplus_resolver::Error::GenericError(e.to_string().into()))?;
         if self.did_resolver_bc.set(did_resolver_b).is_err() {

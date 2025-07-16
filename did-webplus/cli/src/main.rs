@@ -9,7 +9,7 @@ mod did_resolve;
 mod did_resolver_args;
 mod did_resolver_factory;
 mod did_webplus_verifier_resolver;
-mod http_scheme_args;
+mod http_scheme_override_args;
 mod jws_payload_args;
 mod jws_verify;
 mod newline_args;
@@ -42,7 +42,7 @@ pub use crate::{
     did_resolver_args::{DIDResolverArgs, DIDResolverType},
     did_resolver_factory::DIDResolverFactory,
     did_webplus_verifier_resolver::DIDWebplusVerifierResolver,
-    http_scheme_args::{HTTPScheme, HTTPSchemeArgs},
+    http_scheme_override_args::HTTPSchemeOverrideArgs,
     jws_payload_args::JWSPayloadArgs,
     jws_verify::JWSVerify,
     newline_args::NewlineArgs,

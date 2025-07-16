@@ -970,6 +970,7 @@ dependencies = [
  "ssi-jws",
  "thiserror",
  "time",
+ "tracing",
 ]
 
 [[package]]
@@ -1165,6 +1166,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]
@@ -1213,6 +1215,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

@@ -50,7 +50,7 @@ pub struct DIDResolverArgs {
 impl DIDResolverArgs {
     pub async fn get_did_resolver(
         self,
-        http_scheme: &'static str,
+        http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<Box<dyn did_webplus_resolver::DIDResolver>> {
         match self.did_resolver_type {
             DIDResolverType::Full => {
@@ -70,7 +70,7 @@ impl DIDResolverArgs {
                 let did_doc_store = did_doc_store_args.open_did_doc_store().await?;
                 Ok(Box::new(did_webplus_resolver::DIDResolverFull {
                     did_doc_store,
-                    http_scheme,
+                    http_scheme_override_o,
                 }))
             }
             DIDResolverType::Thin => {
@@ -86,16 +86,22 @@ impl DIDResolverArgs {
 
                 let mut vdg_resolve_endpoint_url = self.vdg_resolve_endpoint_url_o.unwrap();
                 anyhow::ensure!(vdg_resolve_endpoint_url.scheme().is_empty(), "VDG resolve endpoint URL must not contain a scheme; i.e. it must omit the \"https://\" portion");
+                let http_scheme =
+                    did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+                        http_scheme_override_o.as_ref(),
+                        vdg_resolve_endpoint_url.host_str().unwrap(),
+                    );
                 vdg_resolve_endpoint_url.set_scheme(http_scheme).unwrap();
 
                 Ok(Box::new(did_webplus_resolver::DIDResolverThin {
                     vdg_resolve_endpoint_url,
+                    http_scheme_override_o,
                 }))
             }
             DIDResolverType::Raw => {
                 // No extra validation needed.
                 Ok(Box::new(did_webplus_resolver::DIDResolverRaw {
-                    http_scheme,
+                    http_scheme_override_o,
                 }))
             }
         }

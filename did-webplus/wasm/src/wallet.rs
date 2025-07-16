@@ -1,4 +1,4 @@
-use crate::into_js_value;
+use crate::{into_js_value, HTTPSchemeOverride};
 use std::{ops::Deref, sync::Arc};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
@@ -34,12 +34,20 @@ impl Wallet {
     /// and send the DID document to the specified VDR.  This DID is now a locally-controlled DID.  Returns the
     /// fully qualified DID corresponding to the updated DID doc (i.e. the DID with selfHash and versionId query
     /// params; in this case, the query selfHash matches the DID doc selfHash, and the query versionId is 0).
-    pub fn create_did(&self, vdr_did_create_endpoint: String) -> js_sys::Promise {
+    pub fn create_did(
+        &self,
+        vdr_did_create_endpoint: String,
+        http_scheme_override_o: Option<HTTPSchemeOverride>,
+    ) -> js_sys::Promise {
         let wallet = self.clone();
+        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         wasm_bindgen_futures::future_to_promise(async move {
             let controlled_did = wallet
                 .deref()
-                .create_did(vdr_did_create_endpoint.as_str())
+                .create_did(
+                    vdr_did_create_endpoint.as_str(),
+                    http_scheme_override_o.as_ref(),
+                )
                 .await
                 .map_err(into_js_value)?;
             let did = controlled_did.did();
@@ -49,14 +57,18 @@ impl Wallet {
     }
     /// Retrieve all DID document updates for the given DID from the VDR, verify them, and store the latest DID document.
     // TODO: Figure out how to update any other local doc stores.
-    pub fn fetch_did(&self, did: String, vdr_scheme: String) -> js_sys::Promise {
+    pub fn fetch_did(
+        &self,
+        did: String,
+        http_scheme_override_o: Option<HTTPSchemeOverride>,
+    ) -> js_sys::Promise {
         let wallet = self.clone();
+        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         wasm_bindgen_futures::future_to_promise(async move {
             let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
-            let vdr_scheme = Self::parse_http_scheme(vdr_scheme.as_str())?;
             wallet
                 .deref()
-                .fetch_did(did, vdr_scheme)
+                .fetch_did(did, http_scheme_override_o.as_ref())
                 .await
                 .map_err(into_js_value)?;
             Ok(JsValue::NULL)
@@ -67,14 +79,18 @@ impl Wallet {
     /// only if there are other wallets that control this DID and that have updated the DID document since the last
     /// time this wallet updated the DID document.  Returns the fully qualified DID corresponding to the updated
     /// DID doc (i.e. the DID with selfHash and versionId query params).
-    pub fn update_did(&self, did: String, vdr_scheme: String) -> js_sys::Promise {
+    pub fn update_did(
+        &self,
+        did: String,
+        http_scheme_override_o: Option<HTTPSchemeOverride>,
+    ) -> js_sys::Promise {
         let wallet = self.clone();
+        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         wasm_bindgen_futures::future_to_promise(async move {
             let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
-            let vdr_scheme = Self::parse_http_scheme(vdr_scheme.as_str())?;
             let controlled_did = wallet
                 .deref()
-                .update_did(did, vdr_scheme)
+                .update_did(did, http_scheme_override_o.as_ref())
                 .await
                 .map_err(into_js_value)?;
             tracing::debug!("updated DID: {}", controlled_did);
@@ -121,20 +137,6 @@ impl Wallet {
                 .map_err(into_js_value)?;
             Ok(controlled_did.to_string().into())
         })
-    }
-}
-
-impl Wallet {
-    // This ridiculous-looking function is to produce a &'static str from a non-static &str.
-    fn parse_http_scheme(http_scheme: &str) -> Result<&'static str, JsValue> {
-        match http_scheme {
-            "http" => Ok("http"),
-            "https" => Ok("https"),
-            _ => Err(into_js_value(format!(
-                "Invalid http_scheme {:?}",
-                http_scheme
-            ))),
-        }
     }
 }
 

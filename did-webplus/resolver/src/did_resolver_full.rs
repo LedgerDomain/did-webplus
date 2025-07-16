@@ -16,14 +16,12 @@ use std::sync::Arc;
 pub struct DIDResolverFull {
     // TODO: Ideally this wouldn't be generic.
     pub did_doc_store: did_webplus_doc_store::DIDDocStore,
-    /// Optionally specifies the URL of the "resolve" endpoint of a VDG to use for DID resolution.  The URL
-    /// can omit the scheme (i.e. the "https://" portion), in which case, "https://" will be used.  The URL
-    /// must not contain a query string or fragment.
+    // /// Optionally specifies the URL of the "resolve" endpoint of a VDG to use for DID resolution.  The URL
+    // /// can omit the scheme (i.e. the "https://" portion), in which case, "https://" will be used.  The URL
+    // /// must not contain a query string or fragment.
     // TODO: Implement this.
     // pub vdg_resolve_endpoint_o: Option<url::Url>,
-    /// TEMP HACK: Specify the scheme used for HTTP requests.  Must be either "https" or "http".  This is
-    /// only useful for testing and potentially for VPC-like situations.
-    pub http_scheme: &'static str,
+    pub http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -34,6 +32,12 @@ impl DIDResolver for DIDResolverFull {
         did_query: &str,
         requested_did_document_metadata: did_webplus_core::RequestedDIDDocumentMetadata,
     ) -> Result<(String, did_webplus_core::DIDDocumentMetadata)> {
+        tracing::debug!(
+            "DIDResolverFull::resolve_did_document_string; did_query: {}; requested_did_document_metadata: {:?}",
+            did_query,
+            requested_did_document_metadata
+        );
+
         if requested_did_document_metadata.constant
             || requested_did_document_metadata.idempotent
             || requested_did_document_metadata.currency
@@ -47,7 +51,7 @@ impl DIDResolver for DIDResolverFull {
             &self.did_doc_store,
             transaction_b.as_mut(),
             did_query,
-            self.http_scheme,
+            self.http_scheme_override_o.as_ref(),
         )
         .await?;
         transaction_b.commit().await?;
@@ -59,6 +63,10 @@ impl DIDResolver for DIDResolverFull {
             currency_o: None,
         };
 
+        tracing::trace!(
+            "DIDResolverFull::resolve_did_document_string; successfully resolved DID document: {}",
+            did_doc_record.did_document_jcs
+        );
         Ok((did_doc_record.did_document_jcs, did_document_metadata))
     }
     fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {
@@ -81,14 +89,13 @@ impl verifier_resolver::VerifierResolver for DIDResolverFull {
 }
 
 // TODO: Probably add params for what metadata is desired
-// TODO: Move this into did_resolver_full.rs
 async fn resolve_did(
     did_doc_store: &DIDDocStore,
     // TODO: Use Option
     // transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
     transaction: &mut dyn storage_traits::TransactionDynT,
     did_query: &str,
-    http_scheme: &'static str,
+    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
 ) -> Result<DIDDocRecord> {
     tracing::trace!("starting DID resolution");
 
@@ -222,7 +229,7 @@ async fn resolve_did(
                 "fetching DID document from VDR with selfHash value {}",
                 query_self_hash
             );
-            vdr_fetch_did_document_body(&did_with_query, http_scheme).await?
+            vdr_fetch_did_document_body(&did_with_query, http_scheme_override_o).await?
         }
         (None, Some(version_id)) => {
             // A DID doc with the specified versionId is being requested, but no selfHash is specified.
@@ -232,13 +239,13 @@ async fn resolve_did(
                 "fetching DID document from VDR with versionId {}",
                 version_id
             );
-            vdr_fetch_did_document_body(&did_with_query, http_scheme).await?
+            vdr_fetch_did_document_body(&did_with_query, http_scheme_override_o).await?
         }
         (None, None) => {
             // The VDR's latest DID doc is being requested.  We must retrieve the latest version, then
             // all its predecessors.
             tracing::trace!("fetching latest DID document from VDR");
-            vdr_fetch_latest_did_document_body(&did, http_scheme).await?
+            vdr_fetch_latest_did_document_body(&did, http_scheme_override_o).await?
         }
     };
     let target_did_document = parse_did_document(&target_did_doc_body)?;
@@ -256,7 +263,7 @@ async fn resolve_did(
         );
         let did_with_query = did.with_query_version_id(version_id);
         let predecessor_did_document_body =
-            vdr_fetch_did_document_body(&did_with_query, http_scheme).await?;
+            vdr_fetch_did_document_body(&did_with_query, http_scheme_override_o).await?;
         let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
         did_doc_store
             .validate_and_add_did_doc(

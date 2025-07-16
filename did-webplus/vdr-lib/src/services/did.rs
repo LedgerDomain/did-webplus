@@ -1,5 +1,4 @@
-use super::VDRState;
-use crate::VDRConfig;
+use crate::{VDRAppState, VDRConfig};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -14,7 +13,7 @@ use did_webplus_doc_store::DIDDocStore;
 use tokio::task;
 
 pub fn get_routes(did_doc_store: DIDDocStore, vdr_config: &VDRConfig) -> Router {
-    let state = VDRState {
+    let state = VDRAppState {
         did_doc_store,
         vdr_config: vdr_config.clone(),
     };
@@ -32,27 +31,29 @@ pub fn get_routes(did_doc_store: DIDDocStore, vdr_config: &VDRConfig) -> Router 
         .with_state(state)
 }
 
-#[tracing::instrument(err(Debug), skip(vdr_state))]
+#[tracing::instrument(err(Debug), skip(vdr_app_state))]
 async fn get_did_document_or_metadata(
-    State(vdr_state): State<VDRState>,
+    State(vdr_app_state): State<VDRAppState>,
     Path(path): Path<String>,
 ) -> Result<String, (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let did_host = vdr_state.vdr_config.did_host.as_str();
+    let did_hostname = vdr_app_state.vdr_config.did_hostname.as_str();
 
     use storage_traits::StorageDynT;
-    let mut transaction_b = vdr_state
+    let mut transaction_b = vdr_app_state
         .did_doc_store
         .begin_transaction()
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Case for retrieving the latest DID doc.
-    if let Ok(did) =
-        DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path.as_str())
-    {
-        let latest_did_doc_record = vdr_state
+    if let Ok(did) = DID::from_resolution_url(
+        did_hostname,
+        vdr_app_state.vdr_config.did_port_o,
+        path.as_str(),
+    ) {
+        let latest_did_doc_record = vdr_app_state
             .did_doc_store
             .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
             .await
@@ -66,12 +67,14 @@ async fn get_did_document_or_metadata(
     }
 
     // Cases for retrieving a specific DID doc based on selfHash or versionId
-    if let Ok(did_with_query) =
-        DIDWithQuery::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path.as_str())
-    {
+    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(
+        did_hostname,
+        vdr_app_state.vdr_config.did_port_o,
+        path.as_str(),
+    ) {
         let did = did_with_query.did();
         if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
-            let did_doc_record = vdr_state
+            let did_doc_record = vdr_app_state
                 .did_doc_store
                 .get_did_doc_record_with_self_hash(
                     Some(transaction_b.as_mut()),
@@ -87,7 +90,7 @@ async fn get_did_document_or_metadata(
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             return Ok(did_doc_record.did_document_jcs);
         } else if let Some(query_version_id) = did_with_query.query_version_id_o() {
-            let did_doc_record = vdr_state
+            let did_doc_record = vdr_app_state
                 .did_doc_store
                 .get_did_doc_record_with_version_id(
                     Some(transaction_b.as_mut()),
@@ -110,15 +113,15 @@ async fn get_did_document_or_metadata(
     // Cases for metadata
     if path.ends_with("/did/metadata.json") {
         let path = path.strip_suffix("/did/metadata.json").unwrap();
-        let did = DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path)
+        let did = DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-        let latest_did_document_record = vdr_state
+        let latest_did_document_record = vdr_app_state
             .did_doc_store
             .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-        let first_did_document_record = vdr_state
+        let first_did_document_record = vdr_app_state
             .did_doc_store
             .get_did_doc_record_with_version_id(Some(transaction_b.as_mut()), &did, 0)
             .await
@@ -155,9 +158,9 @@ async fn get_did_document_or_metadata(
         });
     } else if path.ends_with("/did/metadata/constant.json") {
         let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
-        let did = DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path)
+        let did = DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-        let first_did_document_record = vdr_state
+        let first_did_document_record = vdr_app_state
             .did_doc_store
             .get_did_doc_record_with_version_id(Some(transaction_b.as_mut()), &did, 0)
             .await
@@ -186,12 +189,13 @@ async fn get_did_document_or_metadata(
         }
         let (did, did_document_record) = if path.ends_with("/did/metadata/selfHash") {
             let path = path.strip_suffix("/did/metadata/selfHash").unwrap();
-            let did = DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path)
-                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+            let did =
+                DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
+                    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
             let filename_self_hash = selfhash::KERIHashStr::new_ref(filename_self_hash_str)
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let did_document_record = vdr_state
+            let did_document_record = vdr_app_state
                 .did_doc_store
                 .get_did_doc_record_with_self_hash(
                     Some(transaction_b.as_mut()),
@@ -204,13 +208,14 @@ async fn get_did_document_or_metadata(
             (did, did_document_record)
         } else if path.ends_with("/did/metadata/versionId") {
             let path = path.strip_suffix("/did/metadata/versionId").unwrap();
-            let did = DID::from_resolution_url(did_host, vdr_state.vdr_config.did_port_o, path)
-                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+            let did =
+                DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
+                    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
             let filename_version_id_str = filename.strip_suffix(".json").unwrap();
             let filename_version_id: u32 = filename_version_id_str
                 .parse()
                 .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let did_document_record = vdr_state
+            let did_document_record = vdr_app_state
                 .did_doc_store
                 .get_did_doc_record_with_version_id(
                     Some(transaction_b.as_mut()),
@@ -224,7 +229,7 @@ async fn get_did_document_or_metadata(
         } else {
             return Err((StatusCode::NOT_FOUND, "".to_string()));
         };
-        let next_did_document_record_o = vdr_state
+        let next_did_document_record_o = vdr_app_state
             .did_doc_store
             .get_did_doc_record_with_version_id(
                 Some(transaction_b.as_mut()),
@@ -233,7 +238,7 @@ async fn get_did_document_or_metadata(
             )
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        let first_did_document_record = vdr_state
+        let first_did_document_record = vdr_app_state
             .did_doc_store
             .get_did_doc_record_with_version_id(Some(transaction_b.as_mut()), &did, 0)
             .await
@@ -275,17 +280,17 @@ async fn get_did_document_or_metadata(
     Err((StatusCode::BAD_REQUEST, "".to_string()))
 }
 
-#[tracing::instrument(err(Debug), skip(vdr_state))]
+#[tracing::instrument(err(Debug), skip(vdr_app_state))]
 async fn create_did(
-    State(vdr_state): State<VDRState>,
+    State(vdr_app_state): State<VDRAppState>,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
     let did = DID::from_resolution_url(
-        vdr_state.vdr_config.did_host.as_str(),
-        vdr_state.vdr_config.did_port_o,
+        vdr_app_state.vdr_config.did_hostname.as_str(),
+        vdr_app_state.vdr_config.did_port_o,
         path.as_str(),
     )
     .map_err(|err| {
@@ -307,12 +312,12 @@ async fn create_did(
     }
 
     use storage_traits::StorageDynT;
-    let mut transaction_b = vdr_state
+    let mut transaction_b = vdr_app_state
         .did_doc_store
         .begin_transaction()
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    vdr_state
+    vdr_app_state
         .did_doc_store
         .validate_and_add_did_doc(
             Some(transaction_b.as_mut()),
@@ -336,17 +341,17 @@ async fn create_did(
     Ok(())
 }
 
-#[tracing::instrument(err(Debug), skip(vdr_state))]
+#[tracing::instrument(err(Debug), skip(vdr_app_state))]
 async fn update_did(
-    State(vdr_state): State<VDRState>,
+    State(vdr_app_state): State<VDRAppState>,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
     let did = DID::from_resolution_url(
-        vdr_state.vdr_config.did_host.as_str(),
-        vdr_state.vdr_config.did_port_o,
+        vdr_app_state.vdr_config.did_hostname.as_str(),
+        vdr_app_state.vdr_config.did_port_o,
         path.as_str(),
     )
     .map_err(|err| {
@@ -358,12 +363,12 @@ async fn update_did(
     tracing::trace!("update_did; path: {:?}, did: {}", path, did);
 
     use storage_traits::StorageDynT;
-    let mut transaction_b = vdr_state
+    let mut transaction_b = vdr_app_state
         .did_doc_store
         .begin_transaction()
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let latest_did_document_record_o = vdr_state
+    let latest_did_document_record_o = vdr_app_state
         .did_doc_store
         .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
         .await
@@ -396,7 +401,7 @@ async fn update_did(
             )
         })?;
 
-    vdr_state
+    vdr_app_state
         .did_doc_store
         .validate_and_add_did_doc(
             Some(transaction_b.as_mut()),
@@ -416,7 +421,11 @@ async fn update_did(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    task::spawn(send_vdg_updates(vdr_state.vdr_config.gateways.clone(), did));
+    // TODO: Is there any reason to wait for this to complete, e.g. to ensure that all VDG updates succeeded?
+    task::spawn(send_vdg_updates(
+        vdr_app_state.vdr_config.gateway_url_v.clone(),
+        did,
+    ));
 
     Ok(())
 }
@@ -426,11 +435,17 @@ lazy_static::lazy_static! {
 }
 
 /// The reason this function takes its parameters by value instead of reference is because
-/// it's called via task::spawn.
-async fn send_vdg_updates(gateways: Vec<String>, did: DID) {
+/// it's called via task::spawn.  Note that errors here do not propagate back to the spawner,
+/// and the client won't be aware that there was an error.  It's probably worth queue'ing these
+/// updates and retrying them if they fail, with some retry schedule and eventually give up
+/// after a certain number of retries, logging that fact.
+async fn send_vdg_updates(
+    gateway_url_v: Vec<url::Url>,
+    did: DID,
+) -> anyhow::Result<Vec<(url::Url, reqwest::Result<reqwest::Response>)>> {
     tracing::trace!(
-        "VDR; send_vdg_updates; gateways: {:?}, did: {}",
-        gateways,
+        "VDR; send_vdg_updates; gateway_url_v: {:?}, did: {}",
+        gateway_url_v,
         did
     );
     // NOTE: We have to percent-encode the DID in the request, because there can be a percent
@@ -440,26 +455,35 @@ async fn send_vdg_updates(gateways: Vec<String>, did: DID) {
         "VDR; send_vdg_updates; percent_encoded_did: {}",
         percent_encoded_did
     );
-    for vdg in gateways.iter() {
-        // if vdg starts with http:// or https://, then use it as is, otherwise assume https://
-        let url = if vdg.starts_with("http://") || vdg.starts_with("https://") {
-            format!("{}/update/{}", vdg, percent_encoded_did)
-        } else {
-            format!("https://{}/update/{}", vdg, percent_encoded_did)
-        };
-        tracing::info!("sending update to VDG {}: {}", vdg, url);
+    let mut join_set = tokio::task::JoinSet::new();
+    for gateway_url in gateway_url_v.iter() {
+        // Form the specific URL to POST to.
+        let update_url = gateway_url
+            .join(&format!("/update/{}", percent_encoded_did))
+            .unwrap();
+        tracing::info!("POST-ing update to VDG: {}", update_url);
         // There is no reason to do these sequentially, so spawn a task for each one.
-        let vdg = vdg.clone();
-        task::spawn(async move {
-            let response = VDG_CLIENT.post(&url).send().await;
-            if let Err(err) = response {
-                tracing::error!("error in sending update to VDG {}: {}", vdg, err);
-            }
+        join_set.spawn(async move {
+            let result = VDG_CLIENT
+                .post(update_url.as_str())
+                .send()
+                .await
+                .map_err(|err| {
+                    tracing::error!(
+                        "error in POST-ing update to VDG: {}; error was: {}",
+                        update_url,
+                        err
+                    );
+                    err
+                });
+            (update_url, result)
         });
     }
+    // Wait for all the tasks to complete, then return their results.
+    Ok(join_set.join_all().await)
 }
 
-/// INCOMPLETE, TEMP HACK
+/// INCOMPLETE, TEMP HACK -- TODO: use percent-encoding crate
 fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
     // Note that the '%' -> "%25" replacement must happen first.
     s.replace('%', "%25")

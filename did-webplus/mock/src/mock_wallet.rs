@@ -29,12 +29,16 @@ impl MockWallet {
     }
     pub fn create_did(
         &mut self,
-        did_host: String,
+        did_hostname: String,
         did_port_o: Option<u16>,
         did_path_o: Option<String>,
     ) -> Result<DID, Error> {
-        let controlled_did =
-            ControlledDID::create(did_host, did_port_o, did_path_o, self.vdr_client_a.as_ref())?;
+        let controlled_did = ControlledDID::create(
+            did_hostname,
+            did_port_o,
+            did_path_o,
+            self.vdr_client_a.as_ref(),
+        )?;
         let did = controlled_did.did().to_owned();
         assert!(
             !self.controlled_did_m.contains_key(&did),

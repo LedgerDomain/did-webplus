@@ -289,7 +289,7 @@ async fn test_vdg_wallet_operations() {
     test_vdg_wallet_operations_impl(true).await;
 }
 
-/// INCOMPLETE, TEMP HACK
+/// INCOMPLETE, TEMP HACK -- TODO: use percent-encoding crate
 fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
     // Note that the '%' -> "%25" replacement must happen first.
     s.replace('%', "%25")

@@ -115,7 +115,7 @@ fn test_example_creating_and_updating_a_did() {
         let microledger = Microledger::create(
             DIDDocument::create_root(
                 DIDDocumentCreateParams {
-                    did_host: "example.com".into(),
+                    did_hostname: "example.com".into(),
                     did_port_o: None,
                     did_path_o: Some("hey".into()),
                     valid_from: time::OffsetDateTime::now_utc(),

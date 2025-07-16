@@ -1,5 +1,6 @@
 use crate::{
     DIDFullyQualified, DIDResource, DIDWebplusURIComponents, DIDWithQuery, Error, Fragment,
+    HTTPSchemeOverride,
 };
 use std::fmt::Write;
 
@@ -92,8 +93,12 @@ impl DIDStr {
         .expect("programmer error")
     }
     /// Produce the URL that addresses the latest DID document for this DID.
-    pub fn resolution_url(&self, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}", scheme, self.host());
+    pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -110,9 +115,13 @@ impl DIDStr {
     pub fn resolution_url_for_self_hash(
         &self,
         self_hash: &selfhash::KERIHashStr,
-        scheme: &'static str,
+        http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let mut url = format!("{}://{}", scheme, self.host());
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -128,8 +137,16 @@ impl DIDStr {
         url
     }
     /// Produce the URL that addresses the DID document for this DID that has the given version ID.
-    pub fn resolution_url_for_version_id(&self, version_id: u32, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}", scheme, self.host());
+    pub fn resolution_url_for_version_id(
+        &self,
+        version_id: u32,
+        http_scheme_override_o: Option<&HTTPSchemeOverride>,
+    ) -> String {
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -144,8 +161,15 @@ impl DIDStr {
         url
     }
     /// Produce the URL that addresses the current DID document metadata for this DID.
-    pub fn resolution_url_for_metadata_current(&self, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}", scheme, self.host());
+    pub fn resolution_url_for_metadata_current(
+        &self,
+        http_scheme_override_o: Option<&HTTPSchemeOverride>,
+    ) -> String {
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -160,8 +184,15 @@ impl DIDStr {
     }
     /// Produce the URL that addresses the constant DID document metadata for this DID
     /// (in particular, this includes DID creation timestamp).
-    pub fn resolution_url_for_metadata_constant(&self, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}", scheme, self.host());
+    pub fn resolution_url_for_metadata_constant(
+        &self,
+        http_scheme_override_o: Option<&HTTPSchemeOverride>,
+    ) -> String {
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -179,9 +210,13 @@ impl DIDStr {
     pub fn resolution_url_for_metadata_idempotent_for_self_hash(
         &self,
         self_hash: &selfhash::KERIHashStr,
-        scheme: &'static str,
+        http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let mut url = format!("{}://{}", scheme, self.host());
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -201,9 +236,13 @@ impl DIDStr {
     pub fn resolution_url_for_metadata_idempotent_for_version_id(
         &self,
         version_id: u32,
-        scheme: &'static str,
+        http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let mut url = format!("{}://{}", scheme, self.host());
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
