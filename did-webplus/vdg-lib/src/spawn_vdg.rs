@@ -1,4 +1,4 @@
-use crate::VDGConfig;
+use crate::{VDGAppState, VDGConfig};
 use std::sync::Arc;
 
 pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
@@ -37,8 +37,13 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
                 .layer(tower_http::cors::CorsLayer::permissive())
                 .into_inner();
 
+            let vdg_app_state = VDGAppState {
+                did_doc_store,
+                http_scheme_override_o: Some(vdg_config.http_scheme_override),
+            };
+
             let app = axum::Router::new()
-                .merge(crate::services::did_resolve::get_routes(did_doc_store))
+                .merge(crate::services::did_resolve::get_routes(vdg_app_state))
                 .layer(middleware_stack)
                 .route("/health", axum::routing::get(|| async { "OK" }));
 
@@ -99,8 +104,13 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
         //         .layer(tower_http::cors::CorsLayer::permissive())
         //         .into_inner();
 
+        //     let vdg_app_state = VDGAppState {
+        //         did_doc_store,
+        //         http_scheme_override: vdg_config.http_scheme_override,
+        //     };
+
         //     let app = axum::Router::new()
-        //         .merge(crate::services::did_resolve::get_routes(did_doc_store))
+        //         .merge(crate::services::did_resolve::get_routes(vdg_app_state))
         //         .layer(middleware_stack)
         //         .route("/health", axum::routing::get(|| async { "OK" }));
 

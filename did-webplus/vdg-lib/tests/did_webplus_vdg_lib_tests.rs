@@ -58,19 +58,22 @@ async fn test_vdg_operations() {
         listen_port: 10086,
         database_url: "postgres:///test_vdg_operations_vdg".to_string(),
         database_max_connections: 10,
+        http_scheme_override: Default::default(),
     };
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
         .await
         .expect("pass");
-    let vdg_url = format!("http://localhost:{}", vdg_config.listen_port);
+    let vdg_url =
+        url::Url::parse(&format!("http://localhost:{}", vdg_config.listen_port)).expect("pass");
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        did_host: "localhost".to_string(),
+        did_hostname: "localhost".to_string(),
         did_port_o: Some(10085),
         listen_port: 10085,
         database_url: "postgres:///test_vdg_operations_vdr".to_string(),
         database_max_connections: 10,
-        gateways: vec![vdg_url.clone()],
+        gateway_url_v: vec![vdg_url.clone()],
+        http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
@@ -89,8 +92,8 @@ async fn test_vdg_operations() {
 
     tracing::info!("Testing wallet operations; DID without path component");
     test_vdg_wallet_operations_impl(
-        vdg_url.as_str(),
-        vdr_config.did_host.as_str(),
+        &vdg_url,
+        vdr_config.did_hostname.as_str(),
         vdr_config.did_port_o,
         false,
     )
@@ -98,8 +101,8 @@ async fn test_vdg_operations() {
 
     tracing::info!("Testing wallet operations; DID with path component");
     test_vdg_wallet_operations_impl(
-        vdg_url.as_str(),
-        vdr_config.did_host.as_str(),
+        &vdg_url,
+        vdr_config.did_hostname.as_str(),
         vdr_config.did_port_o,
         true,
     )
@@ -113,11 +116,16 @@ async fn test_vdg_operations() {
 }
 
 async fn test_vdg_wallet_operations_impl(
-    vdg_url: &str,
+    vdg_url: &url::Url,
     vdr_host: &str,
     vdr_did_port_o: Option<u16>,
     use_path: bool,
 ) {
+    let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
+        .with_override(vdr_host.to_string(), "http")
+        .expect("pass");
+    let http_scheme_override_o = Some(&http_scheme_override);
+
     // Setup of mock services
     let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_host(
         vdr_host.into(),
@@ -144,7 +152,7 @@ async fn test_vdg_wallet_operations_impl(
     let alice_did = alice_wallet
         .create_did(vdr_host.to_string(), vdr_did_port_o, did_path_o)
         .expect("pass");
-    let alice_did_url = alice_did.resolution_url("http");
+    let alice_did_url = alice_did.resolution_url(http_scheme_override_o);
     tracing::trace!("alice_did_url: {}", alice_did_url);
     // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
@@ -329,12 +337,10 @@ async fn update_did(
     }
 }
 
-async fn get_did_response(vdg_url: &str, did_query: &str) -> reqwest::Response {
-    let request_url = format!(
-        "{}/{}",
-        vdg_url,
-        temp_hack_incomplete_percent_encoded(did_query)
-    );
+async fn get_did_response(vdg_url: &url::Url, did_query: &str) -> reqwest::Response {
+    let mut request_url = vdg_url.clone();
+    // Note that `push` will percent-encode did_query!
+    request_url.path_segments_mut().unwrap().push(did_query);
     tracing::trace!(
         "VDG-LIB tests; vdg_url: {:?}, did_query: {:?}, request_url: {}",
         vdg_url,
@@ -342,17 +348,8 @@ async fn get_did_response(vdg_url: &str, did_query: &str) -> reqwest::Response {
         request_url
     );
     test_util::REQWEST_CLIENT
-        .get(request_url)
+        .get(request_url.as_str())
         .send()
         .await
         .expect("pass")
-}
-
-/// INCOMPLETE, TEMP HACK
-fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
-    // Note that the '%' -> "%25" replacement must happen first.
-    s.replace('%', "%25")
-        .replace('?', "%3F")
-        .replace('=', "%3D")
-        .replace('&', "%26")
 }

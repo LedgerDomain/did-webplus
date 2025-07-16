@@ -10,17 +10,27 @@ pub struct DIDResolverThin {
     /// omit the scheme (i.e. the "https://" portion), in which case, "https://" will be used.  The URL
     /// must not contain a query string or fragment.
     pub vdg_resolve_endpoint_url: url::Url,
+    /// Specifies optional HTTP scheme overrides for the DID Resolver.  See `HTTPSchemeOverride` for
+    /// more details.
+    pub http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl DIDResolver for DIDResolverThin {
-    // TODO: Maybe specify HTTP client via trait here?
+    // TODO: Maybe specify HTTP client via trait here?  I.e. for wasm vs native.  Unless reqwest already
+    // handles wasm correctly.
     async fn resolve_did_document_string(
         &self,
         did_query: &str,
         requested_did_document_metadata: did_webplus_core::RequestedDIDDocumentMetadata,
     ) -> Result<(String, did_webplus_core::DIDDocumentMetadata)> {
+        tracing::debug!(
+            "DIDResolverThin::resolve_did_document_string; did_query: {}; requested_did_document_metadata: {:?}",
+            did_query,
+            requested_did_document_metadata
+        );
+
         if requested_did_document_metadata.constant
             || requested_did_document_metadata.idempotent
             || requested_did_document_metadata.currency
@@ -29,13 +39,19 @@ impl DIDResolver for DIDResolverThin {
         }
 
         // Set the HTTP scheme is not specified.
-        let vdg_resolve_endpoint_url = if self.vdg_resolve_endpoint_url.scheme().is_empty() {
+        let mut vdg_resolve_endpoint_url = if self.vdg_resolve_endpoint_url.scheme().is_empty() {
             let mut vdg_resolve_endpoint_url = self.vdg_resolve_endpoint_url.clone();
             vdg_resolve_endpoint_url.set_scheme("https").unwrap();
             vdg_resolve_endpoint_url
         } else {
             self.vdg_resolve_endpoint_url.clone()
         };
+
+        if let Some(http_scheme_override) = &self.http_scheme_override_o {
+            let http_scheme = http_scheme_override
+                .determine_http_scheme_for_hostname(vdg_resolve_endpoint_url.host_str().unwrap());
+            vdg_resolve_endpoint_url.set_scheme(http_scheme).unwrap();
+        }
 
         if !vdg_resolve_endpoint_url.path().ends_with('/') {
             panic!("VDG resolve endpoint must end with a slash");
@@ -84,6 +100,10 @@ impl DIDResolver for DIDResolverThin {
 
         // TODO: Implement metadata (requires VDG support)
 
+        tracing::trace!(
+            "DIDResolverThin::resolve_did_document_string; successfully resolved DID document: {}",
+            did_document_string
+        );
         Ok((
             did_document_string,
             did_webplus_core::DIDDocumentMetadata {
@@ -112,7 +132,7 @@ impl verifier_resolver::VerifierResolver for DIDResolverThin {
     }
 }
 
-/// INCOMPLETE, TEMP HACK
+/// INCOMPLETE, TEMP HACK -- TODO: use percent-encoding crate
 fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
     // Note that the '%' -> "%25" replacement must happen first.
     s.replace('%', "%25")

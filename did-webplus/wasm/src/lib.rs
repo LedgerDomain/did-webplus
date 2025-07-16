@@ -1,6 +1,7 @@
 mod did;
 mod did_doc_store;
 mod did_resolver;
+mod http_scheme_override;
 mod jws;
 mod signer;
 mod verifier_resolver;
@@ -13,6 +14,7 @@ pub use crate::{
     did::did_resolve,
     did_doc_store::DIDDocStore,
     did_resolver::DIDResolver,
+    http_scheme_override::HTTPSchemeOverride,
     signer::Signer,
     verifier_resolver::VerifierResolver,
     vjson::{vjson_default_schema, vjson_self_hash, vjson_sign_and_self_hash, vjson_verify},

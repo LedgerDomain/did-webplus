@@ -14,6 +14,7 @@ mod did_webplus_uri_components;
 mod did_with_query;
 mod did_with_query_str;
 mod error;
+mod http_scheme_override;
 mod key_purpose;
 mod key_purpose_flags;
 mod microledger_mut_view;
@@ -53,6 +54,7 @@ pub use crate::{
     did_with_query::DIDWithQuery,
     did_with_query_str::DIDWithQueryStr,
     error::Error,
+    http_scheme_override::HTTPSchemeOverride,
     key_purpose::KeyPurpose,
     key_purpose_flags::KeyPurposeFlags,
     microledger_mut_view::MicroledgerMutView,

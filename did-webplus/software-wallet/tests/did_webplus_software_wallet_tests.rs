@@ -24,12 +24,13 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
     // TODO: postgres drop schema
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        did_host: "localhost".to_string(),
+        did_hostname: "localhost".to_string(),
         did_port_o: Some(11085),
         listen_port: 11085,
         database_url: "postgres:///test_software_wallet_vdr".to_string(),
         database_max_connections: 10,
-        gateways: Vec::new(),
+        gateway_url_v: Vec::new(),
+        http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
@@ -41,23 +42,30 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
     )
     .await;
 
-    let vdr_scheme = "http";
+    let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
+        .with_override(vdr_config.did_hostname.clone(), "http")
+        .unwrap();
+    let vdr_scheme =
+        http_scheme_override.determine_http_scheme_for_hostname(&vdr_config.did_hostname);
     let vdr_did_create_endpoint = format!(
         "{}://{}:{}",
-        vdr_scheme, vdr_config.did_host, vdr_config.listen_port
+        vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port
     );
 
     use did_webplus_wallet::Wallet;
 
     let controlled_did = software_wallet
-        .create_did(vdr_did_create_endpoint.as_str())
+        .create_did(
+            vdr_did_create_endpoint.as_str(),
+            Some(&http_scheme_override),
+        )
         .await
         .expect("pass");
     let did = controlled_did.did();
     tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 
     let controlled_did = software_wallet
-        .update_did(&did, vdr_scheme)
+        .update_did(&did, Some(&http_scheme_override))
         .await
         .expect("pass");
     tracing::debug!("updated DID: {}", controlled_did);

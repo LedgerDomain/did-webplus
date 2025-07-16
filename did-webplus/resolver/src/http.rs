@@ -49,15 +49,20 @@ async fn http_get(url: &str) -> HTTPResult<String> {
 // TODO: Add optional VDG to use as a proxy
 pub async fn vdr_fetch_latest_did_document_body(
     did: &DIDStr,
-    scheme: &'static str,
+    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
 ) -> HTTPResult<String> {
-    http_get(did.resolution_url(scheme).as_str()).await
+    http_get(did.resolution_url(http_scheme_override_o).as_str()).await
 }
 
 // TODO: Add optional VDG to use as a proxy
 pub async fn vdr_fetch_did_document_body(
     did_with_query: &DIDWithQueryStr,
-    scheme: &'static str,
+    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
 ) -> HTTPResult<String> {
-    http_get(did_with_query.resolution_url(scheme).as_str()).await
+    http_get(
+        did_with_query
+            .resolution_url(http_scheme_override_o)
+            .as_str(),
+    )
+    .await
 }

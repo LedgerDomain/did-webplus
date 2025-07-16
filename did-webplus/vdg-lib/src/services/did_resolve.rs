@@ -1,3 +1,4 @@
+use crate::VDGAppState;
 use axum::{
     extract::{Path, State},
     http::{
@@ -8,32 +9,31 @@ use axum::{
     Router,
 };
 use did_webplus_core::{DIDStr, DIDWithQueryStr, DID};
-use did_webplus_doc_store::DIDDocStore;
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
 
 // Perhaps make this configurable?
 const CACHE_DAYS: i64 = 365;
-type DidResult = Result<(HeaderMap, String), (StatusCode, String)>;
+type DIDResult = Result<(HeaderMap, String), (StatusCode, String)>;
 
-pub fn get_routes(did_doc_store: DIDDocStore) -> Router {
+pub fn get_routes(vdg_app_state: VDGAppState) -> Router {
     Router::new()
         .route("/{:did_query}", get(resolve_did))
         .route("/update/{:did}", post(update_did))
-        .with_state(did_doc_store)
+        .with_state(vdg_app_state)
 }
 
-#[tracing::instrument(err(Debug), skip(did_doc_store))]
+#[tracing::instrument(err(Debug), skip(vdg_app_state))]
 async fn resolve_did(
-    State(did_doc_store): State<DIDDocStore>,
+    State(vdg_app_state): State<VDGAppState>,
     // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
     Path(did_query): Path<String>,
-) -> DidResult {
-    resolve_did_impl(&did_doc_store, did_query).await
+) -> DIDResult {
+    resolve_did_impl(&vdg_app_state, did_query).await
 }
 
 async fn resolve_did_impl(
-    did_doc_store: &DIDDocStore,
+    vdg_app_state: &VDGAppState,
     did_query: String,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::trace!("VDG DID resolution; did_query: {}", did_query);
@@ -54,7 +54,8 @@ async fn resolve_did_impl(
     };
 
     use storage_traits::StorageDynT;
-    let mut transaction_b = did_doc_store
+    let mut transaction_b = vdg_app_state
+        .did_doc_store
         .begin_transaction()
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -77,7 +78,8 @@ async fn resolve_did_impl(
         let did_document_record_o = match (query_self_hash_o.as_deref(), query_version_id_o) {
             (Some(query_self_hash), None) => {
                 // If only a selfHash is present, then we simply use it to select the DID document.
-                did_doc_store
+                vdg_app_state
+                    .did_doc_store
                     .get_did_doc_record_with_self_hash(
                         Some(transaction_b.as_mut()),
                         &did,
@@ -88,7 +90,8 @@ async fn resolve_did_impl(
             }
             (query_self_hash_o, Some(query_version_id)) => {
                 // If a versionId is present, then we can use it to select the DID document.
-                let did_document_record_o = did_doc_store
+                let did_document_record_o = vdg_app_state
+                    .did_doc_store
                     .get_did_doc_record_with_version_id(
                         Some(transaction_b.as_mut()),
                         &did,
@@ -133,7 +136,7 @@ async fn resolve_did_impl(
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
             return Ok((
                 headers_for_did_document(
-                    did_document_record.self_hash,
+                    did_document_record.self_hash.as_str(),
                     did_document_record.valid_from,
                     true,
                 ),
@@ -146,7 +149,8 @@ async fn resolve_did_impl(
 
     // Check what the latest version we do have is.
     tracing::trace!("checking latest DID document version in database");
-    let latest_did_document_record_o = did_doc_store
+    let latest_did_document_record_o = vdg_app_state
+        .did_doc_store
         .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -182,7 +186,11 @@ async fn resolve_did_impl(
                 "fetching DID document from VDR with selfHash value {}",
                 query_self_hash
             );
-            vdr_fetch_did_document_body(&did_with_query).await?
+            vdr_fetch_did_document_body(
+                &did_with_query,
+                vdg_app_state.http_scheme_override_o.as_ref(),
+            )
+            .await?
         }
         (None, Some(version_id)) => {
             // A DID doc with the specified versionId is being requested, but no selfHash is specified.
@@ -192,13 +200,18 @@ async fn resolve_did_impl(
                 "fetching DID document from VDR with versionId {}",
                 version_id
             );
-            vdr_fetch_did_document_body(&did_with_query).await?
+            vdr_fetch_did_document_body(
+                &did_with_query,
+                vdg_app_state.http_scheme_override_o.as_ref(),
+            )
+            .await?
         }
         (None, None) => {
             // The VDR's latest DID doc is being requested.  We must retrieve the latest version, then
             // all its predecessors.
             tracing::trace!("fetching latest DID document from VDR");
-            vdr_fetch_latest_did_document_body(&did).await?
+            vdr_fetch_latest_did_document_body(&did, vdg_app_state.http_scheme_override_o.as_ref())
+                .await?
         }
     };
     let target_did_document = parse_did_document(&target_did_document_body)?;
@@ -216,9 +229,14 @@ async fn resolve_did_impl(
             version_id
         );
         let did_with_query = did.with_query_version_id(version_id);
-        let predecessor_did_document_body = vdr_fetch_did_document_body(&did_with_query).await?;
+        let predecessor_did_document_body = vdr_fetch_did_document_body(
+            &did_with_query,
+            vdg_app_state.http_scheme_override_o.as_ref(),
+        )
+        .await?;
         let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
-        did_doc_store
+        vdg_app_state
+            .did_doc_store
             .validate_and_add_did_doc(
                 Some(transaction_b.as_mut()),
                 &predecessor_did_document,
@@ -237,7 +255,8 @@ async fn resolve_did_impl(
         || *latest_did_document_version_id_o.as_ref().unwrap() < target_did_document.version_id
     {
         tracing::trace!("validating and storing target DID document");
-        did_doc_store
+        vdg_app_state
+            .did_doc_store
             .validate_and_add_did_doc(
                 Some(transaction_b.as_mut()),
                 &target_did_document,
@@ -283,7 +302,7 @@ async fn resolve_did_impl(
 
     Ok((
         headers_for_did_document(
-            target_did_document.self_hash().to_string(),
+            target_did_document.self_hash().as_str(),
             target_did_document.valid_from(),
             false,
         ),
@@ -292,7 +311,7 @@ async fn resolve_did_impl(
 }
 
 fn headers_for_did_document(
-    hash: String,
+    hash: &str,
     last_modified: OffsetDateTime,
     cache_hit: bool,
 ) -> HeaderMap {
@@ -315,11 +334,13 @@ fn headers_for_did_document(
         LAST_MODIFIED,
         HeaderValue::from_str(&last_modified_header).unwrap(),
     );
-    headers.insert(ETAG, HeaderValue::from_str(&hash).unwrap());
+    headers.insert(ETAG, HeaderValue::from_str(hash).unwrap());
     headers.insert(
         "X-Cache-Hit",
-        HeaderValue::from_str(&cache_hit.to_string()).unwrap(),
+        HeaderValue::from_static(if cache_hit { "true" } else { "false" }),
     );
+
+    tracing::debug!("headers_for_did_document; headers: {:?}", headers);
 
     headers
 }
@@ -353,21 +374,28 @@ async fn http_get(url: &str) -> Result<String, (StatusCode, String)> {
     }
 }
 
-async fn vdr_fetch_latest_did_document_body(did: &DIDStr) -> Result<String, (StatusCode, String)> {
-    // Use of hardcoded "http" is a TEMP HACK
-    http_get(did.resolution_url("http").as_str()).await
+async fn vdr_fetch_latest_did_document_body(
+    did: &DIDStr,
+    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+) -> Result<String, (StatusCode, String)> {
+    http_get(did.resolution_url(http_scheme_override_o).as_str()).await
 }
 
 async fn vdr_fetch_did_document_body(
     did_with_query: &DIDWithQueryStr,
+    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
 ) -> Result<String, (StatusCode, String)> {
-    // Use of hardcoded "http" is a TEMP HACK
-    http_get(did_with_query.resolution_url("http").as_str()).await
+    http_get(
+        did_with_query
+            .resolution_url(http_scheme_override_o)
+            .as_str(),
+    )
+    .await
 }
 
-#[tracing::instrument(err(Debug), skip(did_doc_store))]
+#[tracing::instrument(err(Debug), skip(vdg_app_state))]
 async fn update_did(
-    State(did_doc_store): State<DIDDocStore>,
+    State(vdg_app_state): State<VDGAppState>,
     Path(did_string): Path<String>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
     tracing::trace!("VDG; update_did; did_string: {}", did_string);
@@ -377,7 +405,7 @@ async fn update_did(
     // for the response as the vdg queries back the vdr for the latest did document
     task::spawn({
         async move {
-            if let Err((_, err)) = resolve_did_impl(&did_doc_store, did.to_string()).await {
+            if let Err((_, err)) = resolve_did_impl(&vdg_app_state, did.to_string()).await {
                 tracing::error!(
                     "error updating DID document for DID {} -- error was: {}",
                     did,

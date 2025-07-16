@@ -8,7 +8,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 pub struct Signer {
     /// This is the value to use for the "kid" field in the JWS header in JWS signatures. For example,
     /// "did:key:<base58enc-key>#<base58enc-key>" (see did_key::DIDResource) and
-    /// "did:webplus:<host>:<path>:<root-self-hash>?selfHash=<query-self-hash>&versionId=<version-id>#<key-id>"
+    /// "did:webplus:<hostname>:<path>:<root-self-hash>?selfHash=<query-self-hash>&versionId=<version-id>#<key-id>"
     /// (see did_webplus_core::DIDKeyResourceFullyQualified).
     key_id: String,
     /// The signer itself.

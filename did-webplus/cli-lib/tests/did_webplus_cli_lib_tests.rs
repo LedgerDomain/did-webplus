@@ -285,22 +285,27 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
     }
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        did_host: "localhost".to_string(),
+        did_hostname: "localhost".to_string(),
         did_port_o: Some(12085),
         listen_port: 12085,
         // database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
         database_url: "postgres:///test_wallet_did_create_update_sign_jws_verify_vdr".to_string(),
         database_max_connections: 10,
-        gateways: Vec::new(),
+        gateway_url_v: Vec::new(),
+        http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
         .expect("pass");
 
-    let vdr_scheme = "http";
+    let http_scheme_override_o = None;
+    let vdr_scheme = did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        http_scheme_override_o,
+        &vdr_config.did_hostname,
+    );
     let vdr_did_create_endpoint = format!(
         "{}://{}:{}",
-        vdr_scheme, vdr_config.did_host, vdr_config.listen_port
+        vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port
     );
 
     let wallet_storage = {
@@ -330,7 +335,7 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
         did_webplus_resolver::DIDResolverFull {
             did_doc_store,
-            http_scheme: vdr_scheme,
+            http_scheme_override_o: http_scheme_override_o.cloned(),
         }
     };
 
@@ -351,16 +356,20 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
     )
     .await;
 
-    let controlled_did =
-        did_webplus_cli_lib::wallet_did_create(&software_wallet, &vdr_did_create_endpoint)
-            .await
-            .expect("pass");
+    let controlled_did = did_webplus_cli_lib::wallet_did_create(
+        &software_wallet,
+        &vdr_did_create_endpoint,
+        http_scheme_override_o,
+    )
+    .await
+    .expect("pass");
     let did = controlled_did.did();
     tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 
-    let controlled_did = did_webplus_cli_lib::wallet_did_update(&software_wallet, did, vdr_scheme)
-        .await
-        .expect("pass");
+    let controlled_did =
+        did_webplus_cli_lib::wallet_did_update(&software_wallet, did, http_scheme_override_o)
+            .await
+            .expect("pass");
     tracing::debug!("updated DID: {} - fully qualified: {}", did, controlled_did);
 
     let payload = r#"{"splunge": true}"#;
@@ -425,21 +434,26 @@ async fn test_wallet_did_sign_vjson_verify() {
     }
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        did_host: "localhost".to_string(),
+        did_hostname: "localhost".to_string(),
         did_port_o: Some(13085),
         listen_port: 13085,
         database_url: "postgres:///test_wallet_did_sign_vjson_verify_vdr".to_string(),
         database_max_connections: 10,
-        gateways: Vec::new(),
+        gateway_url_v: Vec::new(),
+        http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
         .expect("pass");
 
-    let vdr_scheme = "http";
+    let http_scheme_override_o = None;
+    let vdr_scheme = did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        http_scheme_override_o,
+        &vdr_config.did_hostname,
+    );
     let vdr_did_create_endpoint = format!(
         "{}://{}:{}",
-        vdr_scheme, vdr_config.did_host, vdr_config.listen_port
+        vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port
     );
 
     let wallet_storage = {
@@ -469,7 +483,7 @@ async fn test_wallet_did_sign_vjson_verify() {
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
         did_webplus_resolver::DIDResolverFull {
             did_doc_store,
-            http_scheme: vdr_scheme,
+            http_scheme_override_o: http_scheme_override_o.cloned(),
         }
     };
 
@@ -490,10 +504,13 @@ async fn test_wallet_did_sign_vjson_verify() {
     )
     .await;
 
-    let controlled_did =
-        did_webplus_cli_lib::wallet_did_create(&software_wallet, &vdr_did_create_endpoint)
-            .await
-            .expect("pass");
+    let controlled_did = did_webplus_cli_lib::wallet_did_create(
+        &software_wallet,
+        &vdr_did_create_endpoint,
+        http_scheme_override_o,
+    )
+    .await
+    .expect("pass");
     let did = controlled_did.did();
     tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 

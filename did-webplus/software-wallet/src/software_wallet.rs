@@ -50,7 +50,7 @@ impl SoftwareWallet {
     async fn fetch_did_internal(
         &self,
         did: &DIDStr,
-        vdr_scheme: &'static str,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<did_webplus_core::DIDDocument> {
         // Note the version of the known latest DID document.  This will only differ from the actual latest
         // version if more than one wallet controls the DID.
@@ -60,7 +60,7 @@ impl SoftwareWallet {
             did_doc_store: did_webplus_doc_store::DIDDocStore::new(
                 self.wallet_storage_a.clone().as_did_doc_storage_a(),
             ),
-            http_scheme: vdr_scheme,
+            http_scheme_override_o: http_scheme_override_o.cloned(),
         };
         use did_webplus_resolver::DIDResolver;
         let (did_document, _did_doc_metadata) = did_resolver
@@ -78,7 +78,11 @@ impl SoftwareWallet {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl Wallet for SoftwareWallet {
-    async fn create_did(&self, vdr_did_create_endpoint: &str) -> Result<DIDFullyQualified> {
+    async fn create_did(
+        &self,
+        vdr_did_create_endpoint: &str,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    ) -> Result<DIDFullyQualified> {
         // Parse the vdr_did_create_endpoint as a URL.
         let vdr_did_create_endpoint_url =
             url::Url::parse(vdr_did_create_endpoint).map_err(|e| {
@@ -90,19 +94,6 @@ impl Wallet for SoftwareWallet {
                     .into(),
                 )
             })?;
-        let scheme: &'static str = match vdr_did_create_endpoint_url.scheme() {
-            "http" => "http",
-            "https" => "https",
-            _ => {
-                return Err(Error::InvalidVDRDIDCreateURL(
-                    format!(
-                        "VDR DID Create endpoint URL {:?} expected scheme \"http\" or \"https\"",
-                        vdr_did_create_endpoint
-                    )
-                    .into(),
-                ));
-            }
-        };
         if vdr_did_create_endpoint_url.host_str().is_none() {
             return Err(Error::InvalidVDRDIDCreateURL(
                 format!(
@@ -153,7 +144,7 @@ impl Wallet for SoftwareWallet {
         // Form the self-signed-and-hashed root DID document.
         let did_document = DIDDocument::create_root(
             DIDDocumentCreateParams {
-                did_host: vdr_did_create_endpoint_url.host_str().unwrap().into(),
+                did_hostname: vdr_did_create_endpoint_url.host_str().unwrap().into(),
                 did_port_o: vdr_did_create_endpoint_url.port(),
                 did_path_o,
                 valid_from: time::OffsetDateTime::now_utc(),
@@ -199,7 +190,7 @@ impl Wallet for SoftwareWallet {
             // HTTP POST is for DID create operation.
             REQWEST_CLIENT
                 .clone()
-                .post(did.resolution_url(scheme))
+                .post(did.resolution_url(http_scheme_override_o))
                 .body(did_document_jcs)
                 .send()
                 .await
@@ -267,20 +258,22 @@ impl Wallet for SoftwareWallet {
         Ok(controlled_did)
     }
     // TODO: Figure out how to update any other local doc stores.
-    async fn fetch_did(&self, did: &DIDStr, vdr_scheme: &'static str) -> Result<()> {
-        self.fetch_did_internal(did, vdr_scheme).await?;
+    async fn fetch_did(
+        &self,
+        did: &DIDStr,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    ) -> Result<()> {
+        self.fetch_did_internal(did, http_scheme_override_o).await?;
         Ok(())
     }
     async fn update_did(
         &self,
         did: &DIDStr,
-        vdr_scheme: &'static str,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<DIDFullyQualified> {
-        assert!(vdr_scheme == "https" || vdr_scheme == "http");
-
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let latest_did_document = self.fetch_did_internal(did, vdr_scheme).await?;
+        let latest_did_document = self.fetch_did_internal(did, http_scheme_override_o).await?;
 
         // Rotate the appropriate set of keys.  Record the creation timestamp.
         let now_utc = time::OffsetDateTime::now_utc();
@@ -382,7 +375,7 @@ impl Wallet for SoftwareWallet {
             // HTTP PUT is for DID update operation.
             REQWEST_CLIENT
                 .clone()
-                .put(did.resolution_url(vdr_scheme))
+                .put(did.resolution_url(http_scheme_override_o))
                 .body(updated_did_document_jcs)
                 .send()
                 .await

@@ -1,4 +1,4 @@
-use crate::{DIDStr, DIDWebplusURIComponents, Error};
+use crate::{DIDStr, DIDWebplusURIComponents, Error, HTTPSchemeOverride};
 use std::fmt::Write;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
@@ -45,11 +45,14 @@ impl DIDWithQueryStr {
     }
 
     /// Produce the URL that addresses the specified DID document for this DID.
-    /// Based on the URL scheme for did:webplus, this is only well-defined if there is at most
-    /// one query param (either selfHash or versionId).
-    pub fn resolution_url(&self, scheme: &'static str) -> String {
-        // Form the base URL.
-        let mut url = format!("{}://{}", scheme, self.host());
+    /// If both the selfHash and versionId query params are present, the selfHash takes precedence.
+    pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        // Form the base URL
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.push(':');
             url.write_fmt(format_args!("{}", port)).unwrap();
