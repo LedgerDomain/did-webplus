@@ -20,7 +20,7 @@ pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::Joi
         vdr_config
     };
 
-    tracing::info!("{:?}", vdr_config);
+    tracing::debug!("{:?}", vdr_config);
 
     if vdr_config.database_url.starts_with("postgres://") {
         #[cfg(feature = "postgres")]
