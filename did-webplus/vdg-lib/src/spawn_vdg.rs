@@ -2,7 +2,7 @@ use crate::{VDGAppState, VDGConfig};
 use std::sync::Arc;
 
 pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
-    tracing::info!("{:?}", vdg_config);
+    tracing::debug!("{:?}", vdg_config);
 
     if vdg_config.database_url.starts_with("postgres://") {
         #[cfg(feature = "postgres")]

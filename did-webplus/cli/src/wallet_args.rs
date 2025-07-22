@@ -5,7 +5,8 @@ use std::sync::Arc;
 /// Args common to wallet-specifying CLI commands.
 #[derive(clap::Args)]
 pub struct WalletArgs {
-    /// Specify the URL to the wallet database.  The URL must start with "sqlite://".
+    /// Specify the URL to the wallet database.  Note that for SQLite, `?mode=rwc` can be appended to the end
+    /// of the URL to cause the database to be created if it doesn't exist.  The URL must start with "sqlite://".
     #[arg(
         env = "DID_WEBPLUS_WALLET_DB_URL",
         short = 'u',

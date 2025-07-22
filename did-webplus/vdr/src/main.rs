@@ -24,10 +24,16 @@ async fn main() -> anyhow::Result<()> {
     let _ = dotenvy::dotenv();
 
     // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
-    // TODO: Make env var to control full/compact/pretty/json formatting of logs
     let tracing_subscriber_fmt = tracing_subscriber::fmt()
         .with_target(true)
+        .with_file(true)
         .with_line_number(true)
+        .with_thread_ids(true)
+        .with_thread_names(true)
+        .with_span_events(
+            tracing_subscriber::fmt::format::FmtSpan::NEW
+                | tracing_subscriber::fmt::format::FmtSpan::CLOSE,
+        )
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env());
 
     use clap::Parser;
@@ -36,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
     match root.log_format {
         LogFormat::Compact => tracing_subscriber_fmt.compact().init(),
         LogFormat::Pretty => tracing_subscriber_fmt.pretty().init(),
-    }
+    };
 
     // Spawn the VDR, returning a JoinHandle to the task.
     let vdr_join_handle = did_webplus_vdr_lib::spawn_vdr(root.vdr_config).await?;

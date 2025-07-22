@@ -31,7 +31,7 @@ pub fn get_routes(did_doc_store: DIDDocStore, vdr_config: &VDRConfig) -> Router 
         .with_state(state)
 }
 
-#[tracing::instrument(err(Debug), skip(vdr_app_state))]
+#[tracing::instrument(level = tracing::Level::INFO, ret(level = tracing::Level::DEBUG, Display), err(Debug), skip(vdr_app_state))]
 async fn get_did_document_or_metadata(
     State(vdr_app_state): State<VDRAppState>,
     Path(path): Path<String>,
@@ -53,6 +53,7 @@ async fn get_did_document_or_metadata(
         vdr_app_state.vdr_config.did_port_o,
         path.as_str(),
     ) {
+        tracing::debug!(?did, "retrieving latest DID doc");
         let latest_did_doc_record = vdr_app_state
             .did_doc_store
             .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
@@ -72,6 +73,10 @@ async fn get_did_document_or_metadata(
         vdr_app_state.vdr_config.did_port_o,
         path.as_str(),
     ) {
+        tracing::debug!(
+            ?did_with_query,
+            "retrieving specific DID doc based on selfHash or versionId"
+        );
         let did = did_with_query.did();
         if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
             let did_doc_record = vdr_app_state
@@ -112,6 +117,7 @@ async fn get_did_document_or_metadata(
 
     // Cases for metadata
     if path.ends_with("/did/metadata.json") {
+        tracing::debug!("retrieving latest DID doc metadata");
         let path = path.strip_suffix("/did/metadata.json").unwrap();
         let did = DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
@@ -157,6 +163,7 @@ async fn get_did_document_or_metadata(
             )
         });
     } else if path.ends_with("/did/metadata/constant.json") {
+        tracing::debug!("retrieving 'constant' DID doc metadata");
         let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
         let did = DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
@@ -184,6 +191,11 @@ async fn get_did_document_or_metadata(
             )
         });
     } else if let Some((path, filename)) = path.rsplit_once('/') {
+        tracing::debug!(
+            ?path,
+            ?filename,
+            "retrieving 'selfHash' or 'versionId' DID doc metadata"
+        );
         if !filename.ends_with(".json") {
             return Err((StatusCode::NOT_FOUND, "".to_string()));
         }
@@ -280,7 +292,7 @@ async fn get_did_document_or_metadata(
     Err((StatusCode::BAD_REQUEST, "".to_string()))
 }
 
-#[tracing::instrument(err(Debug), skip(vdr_app_state))]
+#[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]
 async fn create_did(
     State(vdr_app_state): State<VDRAppState>,
     Path(path): Path<String>,
@@ -299,6 +311,8 @@ async fn create_did(
             format!("malformed DID resolution URL: {}", err),
         )
     })?;
+
+    tracing::debug!(?did);
 
     let root_did_document = parse_did_document(&did_document_body)?;
     if root_did_document.did != did {
@@ -341,7 +355,7 @@ async fn create_did(
     Ok(())
 }
 
-#[tracing::instrument(err(Debug), skip(vdr_app_state))]
+#[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]
 async fn update_did(
     State(vdr_app_state): State<VDRAppState>,
     Path(path): Path<String>,
@@ -360,7 +374,7 @@ async fn update_did(
             format!("malformed DID resolution URL: {}", err),
         )
     })?;
-    tracing::trace!("update_did; path: {:?}, did: {}", path, did);
+    tracing::debug!(?path, ?did);
 
     use storage_traits::StorageDynT;
     let mut transaction_b = vdr_app_state
@@ -439,14 +453,15 @@ lazy_static::lazy_static! {
 /// and the client won't be aware that there was an error.  It's probably worth queue'ing these
 /// updates and retrying them if they fail, with some retry schedule and eventually give up
 /// after a certain number of retries, logging that fact.
+#[tracing::instrument(level = tracing::Level::DEBUG, ret(Debug), err(Debug), skip(gateway_url_v))]
 async fn send_vdg_updates(
     gateway_url_v: Vec<url::Url>,
     did: DID,
 ) -> anyhow::Result<Vec<(url::Url, reqwest::Result<reqwest::Response>)>> {
     tracing::trace!(
-        "VDR; send_vdg_updates; gateway_url_v: {:?}, did: {}",
-        gateway_url_v,
-        did
+        gateway_url_v = ?gateway_url_v,
+        did = ?did,
+        "VDR; send_vdg_updates"
     );
     // NOTE: We have to percent-encode the DID in the request, because there can be a percent
     // character in it, which will be automatically percent-decoded by the HTTP server.
