@@ -111,6 +111,28 @@ impl DIDStr {
         url.push_str("/did.json");
         url
     }
+    /// Produce the URL that addresses the did-documents.jsonl file for this DID.
+    pub fn resolution_url_for_did_documents_jsonl(
+        &self,
+        http_scheme_override_o: Option<&HTTPSchemeOverride>,
+    ) -> String {
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+            http_scheme_override_o,
+            self.host(),
+        );
+        let mut url = format!("{}://{}", http_scheme, self.host());
+        if let Some(port) = self.port_o() {
+            url.write_fmt(format_args!(":{}", port)).unwrap();
+        }
+        url.push('/');
+        if let Some(path) = self.path_o().as_deref() {
+            url.push_str(&path.replace(':', "/"));
+            url.push('/');
+        }
+        url.push_str(self.root_self_hash().as_str());
+        url.push_str("/did-documents.jsonl");
+        url
+    }
     /// Produce the URL that addresses the DID document for this DID that has the given self-hash.
     pub fn resolution_url_for_self_hash(
         &self,

@@ -47,6 +47,34 @@ async fn get_did_document_or_metadata(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    // Case for retrieving did-documents.jsonl (i.e. all DID docs concatenated into a single JSONL file)
+    if let Ok(did) = DID::from_did_documents_jsonl_resolution_url(
+        did_hostname,
+        vdr_app_state.vdr_config.did_port_o,
+        path.as_str(),
+    ) {
+        tracing::debug!(
+            ?did,
+            "retrieving all DID docs concatenated into a single JSONL file"
+        );
+        let did_doc_records = vdr_app_state
+            .did_doc_store
+            .get_all_did_doc_records(Some(transaction_b.as_mut()), &did)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        transaction_b
+            .commit()
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        // Now print all the DID documents into the response, separated by newlines.
+        let did_document_jcs_v = did_doc_records
+            .into_iter()
+            .map(|did_doc_record| did_doc_record.did_document_jcs)
+            .collect::<Vec<_>>();
+        let did_document_jsonl = did_document_jcs_v.join("\n");
+        return Ok(did_document_jsonl);
+    }
+
     // Case for retrieving the latest DID doc.
     if let Ok(did) = DID::from_resolution_url(
         did_hostname,

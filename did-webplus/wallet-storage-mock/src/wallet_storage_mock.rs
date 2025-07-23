@@ -582,6 +582,20 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
         state_g.add_did_document(did_document.clone(), did_document_jcs.to_owned())?;
         Ok(())
     }
+    async fn add_did_documents(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did_document_jcs_v: &[&str],
+        did_document_v: &[DIDDocument],
+    ) -> did_webplus_doc_store::Result<()> {
+        let mut state_g = self.state_la.write().unwrap();
+        for (&did_document_jcs, did_document) in
+            did_document_jcs_v.iter().zip(did_document_v.iter())
+        {
+            state_g.add_did_document(did_document.clone(), did_document_jcs.to_owned())?;
+        }
+        Ok(())
+    }
     async fn get_did_doc_record_with_self_hash(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,

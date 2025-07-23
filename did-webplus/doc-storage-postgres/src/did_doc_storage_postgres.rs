@@ -64,6 +64,14 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         }
         Ok(())
     }
+    async fn add_did_documents(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        _did_document_jcs_v: &[&str],
+        _did_document_v: &[DIDDocument],
+    ) -> Result<()> {
+        todo!();
+    }
     async fn get_did_doc_record_with_self_hash(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,

@@ -14,6 +14,13 @@ pub trait DIDDocStorage: Send + storage_traits::StorageDynT + Sync + 'static {
         did_document: &DIDDocument,
         did_document_jcs: &str,
     ) -> Result<()>;
+    // TEMP HACK
+    async fn add_did_documents(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did_document_jcs_v: &[&str],
+        did_document_v: &[DIDDocument],
+    ) -> Result<()>;
     /// Attempt to get a DIDDocRecord with a specific self-hash value from the store.  Will return None if
     /// the requested DIDDocRecord does not exist.
     async fn get_did_doc_record_with_self_hash(

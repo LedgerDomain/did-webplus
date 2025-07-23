@@ -272,12 +272,12 @@ impl DIDDocument {
             ));
         }
 
-        // Check that prev_did_document_self_signature matches the expected_prev_did_document_b's self-signature.
+        // Check that prev_did_document_self_hash matches the expected_prev_did_document_b's self-hash.
         use selfhash::Hash;
         let prev_did_document_self_hash = self.prev_did_document_self_hash_o.as_ref().unwrap();
         if !prev_did_document_self_hash.equals(expected_prev_did_document_self_hash)? {
             return Err(Error::Malformed(
-                "Non-root DID document's prev_did_document_self_signature must match the self-signature of the previous DID document",
+                "Non-root DID document's prev_did_document_self_hash must match the self-hash of the previous DID document",
             ));
         }
 
