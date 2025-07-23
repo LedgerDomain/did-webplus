@@ -9,7 +9,7 @@ mod http;
 pub use crate::{
     did_resolver::{verifier_resolver_impl, DIDResolver},
     did_resolver_factory::DIDResolverFactory,
-    did_resolver_full::DIDResolverFull,
+    did_resolver_full::{DIDResolverFull, FetchPattern},
     did_resolver_raw::DIDResolverRaw,
     did_resolver_thin::DIDResolverThin,
     error::Error,

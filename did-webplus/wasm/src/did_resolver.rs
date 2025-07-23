@@ -24,6 +24,7 @@ impl DIDResolver {
         let did_resolver = did_webplus_resolver::DIDResolverFull {
             did_doc_store: did_doc_store.into_inner(),
             http_scheme_override_o: http_scheme_override_o.map(|o| o.into()),
+            fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
         };
         Ok(Self(Arc::new(did_resolver)))
     }

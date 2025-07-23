@@ -71,6 +71,7 @@ impl DIDResolverArgs {
                 Ok(Box::new(did_webplus_resolver::DIDResolverFull {
                     did_doc_store,
                     http_scheme_override_o,
+                    fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
                 }))
             }
             DIDResolverType::Thin => {

@@ -20,3 +20,16 @@ thiserror = "1.0.60"
 tracing = "0.1.37"
 url = "2.5.0"
 verifier-resolver = { path = "../../verifier-resolver" }
+
+[dev-dependencies]
+ctor = "0.4.1"
+did-webplus-software-wallet = { path = "../software-wallet" }
+did-webplus-vdg-lib = { path = "../vdg-lib", features = ["postgres"] }
+did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
+did-webplus-wallet = { path = "../wallet" }
+did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
+did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
+sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
+test-util = { path = "../../test-util" }
+tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
