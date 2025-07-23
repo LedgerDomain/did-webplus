@@ -120,6 +120,24 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         // );
         Ok(())
     }
+    async fn add_did_documents(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did_document_jcs_v: &[&str],
+        did_document_v: &[DIDDocument],
+    ) -> Result<()> {
+        let mut state_g = self.state_la.write().unwrap();
+        for (&did_document_jcs, did_document) in
+            did_document_jcs_v.iter().zip(did_document_v.iter())
+        {
+            assert!(
+                did_document.self_hash_o.is_some(),
+                "programmer error: self_hash is expected to be present on a valid DID document"
+            );
+            state_g.add(did_document, did_document_jcs.to_string());
+        }
+        Ok(())
+    }
     async fn get_did_doc_record_with_self_hash(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,

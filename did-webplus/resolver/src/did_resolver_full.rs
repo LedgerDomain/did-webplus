@@ -1,6 +1,6 @@
 use crate::{
-    vdr_fetch_did_document_body, vdr_fetch_latest_did_document_body, verifier_resolver_impl,
-    DIDResolver, Error, Result,
+    vdr_fetch_did_document_body, vdr_fetch_did_documents_jsonl, vdr_fetch_latest_did_document_body,
+    verifier_resolver_impl, DIDResolver, Error, Result,
 };
 use did_webplus_core::{DIDStr, DIDWebplusURIComponents, DIDWithQueryStr};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStore};
@@ -91,10 +91,11 @@ impl verifier_resolver::VerifierResolver for DIDResolverFull {
 }
 
 /// TEMP HACK
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum FetchPattern {
-    Serial,
+    Batch,
     Parallel,
+    Serial,
 }
 
 // TODO: Probably add params for what metadata is desired
@@ -268,8 +269,73 @@ async fn resolve_did(
     });
 
     match fetch_pattern {
+        FetchPattern::Batch => {
+            // TODO: It would be better to be able to fetch a specific range of DID docs by versionId instead of all of them.
+            let did_documents_jsonl =
+                vdr_fetch_did_documents_jsonl(&did, http_scheme_override_o).await?;
+
+            let time_start = std::time::SystemTime::now();
+            // TEMP HACK -- TODO: This needs to be bounded in memory, since the version_id comes from external source and could be arbitrarily large.
+            tracing::trace!(?target_did_document.version_id, ?version_id_start, "HIPPO");
+            // saturating_sub is necessary because version_id_start could be bigger than target_did_document.version_id.
+            let mut did_document_jcs_v = Vec::with_capacity(
+                (target_did_document
+                    .version_id
+                    .saturating_sub(version_id_start)) as usize,
+            );
+            let mut did_document_v = Vec::with_capacity(
+                (target_did_document
+                    .version_id
+                    .saturating_sub(version_id_start)) as usize,
+            );
+            let original_prev_did_document_o = prev_did_document_o.clone();
+            // TEMP HACK: Skip all DID docs before version_id_start.
+            for did_document_jcs in did_documents_jsonl
+                .split('\n')
+                .skip(version_id_start as usize)
+            {
+                let did_document = parse_did_document(did_document_jcs)?;
+                // HACK: Don't handle the latest DID doc here, because it's being handled below.
+                if did_document.version_id == target_did_document.version_id {
+                    break;
+                }
+                if did_document.version_id + 1 == target_did_document.version_id {
+                    prev_did_document_o = Some(did_document.clone());
+                }
+                did_document_jcs_v.push(did_document_jcs);
+                did_document_v.push(did_document);
+            }
+            let duration = std::time::SystemTime::now()
+                .duration_since(time_start)
+                .expect("pass");
+            tracing::info!(
+                "Time taken to assemble predecessor DID documents (fetch_pattern: {:?}): {:?}",
+                fetch_pattern,
+                duration
+            );
+
+            // let time_start = std::time::SystemTime::now();
+            did_doc_store
+                .validate_and_add_did_docs(
+                    Some(&mut *transaction),
+                    &did_document_jcs_v,
+                    &did_document_v,
+                    original_prev_did_document_o.as_ref(),
+                )
+                .await?;
+            // let duration = std::time::SystemTime::now()
+            //     .duration_since(time_start)
+            //     .expect("pass");
+            // tracing::info!(
+            //     "Time taken to store predecessor DID documents (fetch_pattern: {:?}): {:?}",
+            //     fetch_pattern,
+            //     duration
+            // );
+        }
         FetchPattern::Parallel => {
             const PARALLEL_FETCH_LIMIT: usize = 0x100;
+
+            let time_start = std::time::SystemTime::now();
             use futures::StreamExt;
             let predecessor_did_document_body_rv =
                 futures::stream::iter(version_id_start..target_did_document.version_id)
@@ -288,8 +354,17 @@ async fn resolve_did(
                     .buffered(PARALLEL_FETCH_LIMIT)
                     .collect::<Vec<_>>()
                     .await;
+            let duration = std::time::SystemTime::now()
+                .duration_since(time_start)
+                .expect("pass");
+            tracing::info!(
+                "Time taken to fetch predecessor DID documents (fetch_pattern: {:?}): {:?}",
+                fetch_pattern,
+                duration
+            );
 
             // Process the validation and storage of the predecessor DID documents serially -- this likely can't be fully parallelized.
+            let time_start = std::time::SystemTime::now();
             for predecessor_did_document_body_r in predecessor_did_document_body_rv.into_iter() {
                 let predecessor_did_document_body = predecessor_did_document_body_r?;
                 let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
@@ -307,8 +382,17 @@ async fn resolve_did(
                     .await?;
                 prev_did_document_o = Some(predecessor_did_document);
             }
+            let duration = std::time::SystemTime::now()
+                .duration_since(time_start)
+                .expect("pass");
+            tracing::info!(
+                "Time taken to validate and store predecessor DID documents (fetch_pattern: {:?}): {:?}",
+                fetch_pattern,
+                duration
+            );
         }
         FetchPattern::Serial => {
+            let time_start = std::time::SystemTime::now();
             for version_id in version_id_start..target_did_document.version_id {
                 tracing::trace!(
                     "fetching, validating, and storing predecessor DID document with versionId {}",
@@ -328,6 +412,14 @@ async fn resolve_did(
                     .await?;
                 prev_did_document_o = Some(predecessor_did_document);
             }
+            let duration = std::time::SystemTime::now()
+                .duration_since(time_start)
+                .expect("pass");
+            tracing::info!(
+                "Time taken to fetch, validate, and store predecessor DID documents (fetch_pattern: {:?}): {:?}",
+                fetch_pattern,
+                duration
+            );
         }
     }
 

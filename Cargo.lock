@@ -1017,6 +1017,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "did-webplus-core",
+ "futures",
  "selfhash",
  "selfsign",
  "serde",
@@ -1025,6 +1026,8 @@ dependencies = [
  "storage-traits",
  "thiserror",
  "time",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

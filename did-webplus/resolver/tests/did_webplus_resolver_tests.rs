@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
@@ -7,7 +7,7 @@ fn overall_init() {
 }
 
 /// Integration test for DIDResolverFull operating against a VDR, but without a VDG.
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_did_resolver() {
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
     // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
@@ -79,9 +79,6 @@ async fn test_did_resolver() {
         (wallet_storage_a, software_wallet)
     };
 
-    // Start a timer just to see how long it takes to create the DID and update it many times.
-    let time_start = std::time::SystemTime::now();
-
     // Create a DID.
     use did_webplus_wallet::Wallet;
     let mut controlled_did = software_wallet
@@ -91,119 +88,158 @@ async fn test_did_resolver() {
     let did = controlled_did.did().to_owned();
     tracing::debug!("Created DID: {} (fully qualified: {})", did, controlled_did);
 
-    // Now update it many times.
-    const UPDATE_COUNT: usize = 1000;
-    for _ in 0..UPDATE_COUNT {
-        controlled_did = software_wallet.update_did(&did, None).await.expect("pass");
-    }
-
-    // Stop the timer.
-    let duration = std::time::SystemTime::now()
-        .duration_since(time_start)
-        .expect("pass");
-    tracing::info!(
-        "Time taken to create DID and update it {} times: {:?}",
-        UPDATE_COUNT,
-        duration
-    );
-
-    // Retrieve the latest DID doc from the wallet's doc store.  This will be a sanity check for the performance test.
-    let expected_latest_did_document_jcs = {
-        use did_webplus_wallet_store::WalletStorage;
-        let did_doc_record = wallet_storage_a
-            .as_did_doc_storage()
-            .get_latest_did_doc_record(None, controlled_did.did())
-            .await
-            .expect("pass")
-            .expect("pass");
-        did_doc_record.did_document_jcs
+    // Create DIDResolverFull for each FetchPattern.
+    let did_resolver_full_m = {
+        let mut did_resolver_full_m = HashMap::with_capacity(3);
+        for fetch_pattern in [
+            did_webplus_resolver::FetchPattern::Batch,
+            did_webplus_resolver::FetchPattern::Parallel,
+            did_webplus_resolver::FetchPattern::Serial,
+        ] {
+            let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
+                .await
+                .expect("pass");
+            let did_doc_storage =
+                did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
+                    sqlite_pool,
+                )
+                .await
+                .expect("pass");
+            let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
+            let did_resolver_full = did_webplus_resolver::DIDResolverFull {
+                did_doc_store,
+                http_scheme_override_o: None,
+                fetch_pattern,
+            };
+            did_resolver_full_m.insert(fetch_pattern, did_resolver_full);
+        }
+        did_resolver_full_m
     };
 
-    // Now for the performance testing for DIDResolverFull: Time two scenarios:
-    // 1. How long it takes to resolve the DID (latest DID doc) with parallel fetching.
-    // 2. How long it takes to resolve the DID (latest DID doc) with serial fetching.
-    let mut timing_result_v = Vec::with_capacity(2);
-    for fetch_pattern in [
-        did_webplus_resolver::FetchPattern::Parallel,
-        did_webplus_resolver::FetchPattern::Serial,
-    ] {
-        let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
-            .await
-            .expect("pass");
-        let did_doc_storage =
-            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
-            )
-            .await
-            .expect("pass");
-        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
-        let did_resolver_full = did_webplus_resolver::DIDResolverFull {
-            did_doc_store,
-            http_scheme_override_o: None,
-            fetch_pattern,
-        };
+    // Now update it many times.
+    // const UPDATE_COUNT: usize = 2000;
+    let big_update_count = std::env::var("UPDATE_COUNT")
+        .unwrap_or("2000".to_string())
+        .parse::<usize>()
+        .unwrap();
 
-        // Start the timer
+    for update_count in [big_update_count, 1, 0] {
+        tracing::info!("Updating DID {} times", update_count);
+        // Start a timer just to see how long it takes to create the DID and update it many times.
         let time_start = std::time::SystemTime::now();
-
-        // Resolve the DID.
-        use did_webplus_resolver::DIDResolver;
-        let (did_document_body, _did_document_metadata) = did_resolver_full
-            .resolve_did_document_string(
-                &did,
-                did_webplus_core::RequestedDIDDocumentMetadata::none(),
-            )
-            .await
-            .expect("pass");
-
+        for _ in 0..update_count {
+            controlled_did = software_wallet.update_did(&did, None).await.expect("pass");
+        }
         // Stop the timer.
         let duration = std::time::SystemTime::now()
             .duration_since(time_start)
             .expect("pass");
-        tracing::debug!("Time taken: {:?}", duration);
-        timing_result_v.push((
-            format!("DIDResolverFull {{ fetch_pattern: {:?} }}", fetch_pattern),
-            duration,
-        ));
+        tracing::info!(
+            "-- Time taken to update DID {} times: {:?} -------------------------",
+            update_count,
+            duration
+        );
 
-        // Verify that the DID document body is the expected value.
-        assert_eq!(did_document_body, expected_latest_did_document_jcs);
-    }
-
-    // Now to test DIDResolverThin:
-    {
-        let did_resolver_thin = did_webplus_resolver::DIDResolverThin {
-            vdg_resolve_endpoint_url: vdg_url.clone(),
-            http_scheme_override_o: None,
+        // Retrieve the latest DID doc from the wallet's doc store.  This will be a sanity check for the performance test.
+        let expected_latest_did_document_jcs = {
+            use did_webplus_wallet_store::WalletStorage;
+            let did_doc_record = wallet_storage_a
+                .as_did_doc_storage()
+                .get_latest_did_doc_record(None, controlled_did.did())
+                .await
+                .expect("pass")
+                .expect("pass");
+            did_doc_record.did_document_jcs
         };
 
-        // Start the timer
-        let time_start = std::time::SystemTime::now();
+        // Now for the performance testing for DIDResolverFull: Time two scenarios:
+        // 1. How long it takes to resolve the DID (latest DID doc) with parallel fetching.
+        // 2. How long it takes to resolve the DID (latest DID doc) with serial fetching.
+        let mut timing_result_v = Vec::with_capacity(4);
+        for fetch_pattern in [
+            did_webplus_resolver::FetchPattern::Batch,
+            did_webplus_resolver::FetchPattern::Parallel,
+            did_webplus_resolver::FetchPattern::Serial,
+        ] {
+            // let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
+            //     .await
+            //     .expect("pass");
+            // let did_doc_storage =
+            //     did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
+            //         sqlite_pool,
+            //     )
+            //     .await
+            //     .expect("pass");
+            // let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
+            // let did_resolver_full = did_webplus_resolver::DIDResolverFull {
+            //     did_doc_store,
+            //     http_scheme_override_o: None,
+            //     fetch_pattern,
+            // };
+            let did_resolver_full = did_resolver_full_m.get(&fetch_pattern).expect("pass");
 
-        // Resolve the DID.
-        use did_webplus_resolver::DIDResolver;
-        let (did_document_body, _did_document_metadata) = did_resolver_thin
-            .resolve_did_document_string(
-                &did,
-                did_webplus_core::RequestedDIDDocumentMetadata::none(),
-            )
-            .await
-            .expect("pass");
+            // Start the timer
+            let time_start = std::time::SystemTime::now();
 
-        // Stop the timer.
-        let duration = std::time::SystemTime::now()
-            .duration_since(time_start)
-            .expect("pass");
-        tracing::debug!("Time taken: {:?}", duration);
-        timing_result_v.push(("DIDResolverThin".to_string(), duration));
+            // Resolve the DID.
+            use did_webplus_resolver::DIDResolver;
+            let (did_document_body, _did_document_metadata) = did_resolver_full
+                .resolve_did_document_string(
+                    &did,
+                    did_webplus_core::RequestedDIDDocumentMetadata::none(),
+                )
+                .await
+                .expect("pass");
 
-        // Verify that the DID document body is the expected value.
-        assert_eq!(did_document_body, expected_latest_did_document_jcs);
-    }
+            // Stop the timer.
+            let duration = std::time::SystemTime::now()
+                .duration_since(time_start)
+                .expect("pass");
+            tracing::debug!("Time taken: {:?}", duration);
+            timing_result_v.push((
+                format!("DIDResolverFull {{ fetch_pattern: {:?} }}", fetch_pattern),
+                duration,
+            ));
 
-    // Print the timing results.
-    for (resolver_name, duration) in timing_result_v {
-        tracing::info!("{}: Time taken: {:?}", resolver_name, duration);
+            // Verify that the DID document body is the expected value.
+            assert_eq!(did_document_body, expected_latest_did_document_jcs);
+        }
+
+        // Now to test DIDResolverThin:
+        {
+            let did_resolver_thin = did_webplus_resolver::DIDResolverThin {
+                vdg_resolve_endpoint_url: vdg_url.clone(),
+                http_scheme_override_o: None,
+            };
+
+            // Start the timer
+            let time_start = std::time::SystemTime::now();
+
+            // Resolve the DID.
+            use did_webplus_resolver::DIDResolver;
+            let (did_document_body, _did_document_metadata) = did_resolver_thin
+                .resolve_did_document_string(
+                    &did,
+                    did_webplus_core::RequestedDIDDocumentMetadata::none(),
+                )
+                .await
+                .expect("pass");
+
+            // Stop the timer.
+            let duration = std::time::SystemTime::now()
+                .duration_since(time_start)
+                .expect("pass");
+            tracing::debug!("Time taken: {:?}", duration);
+            timing_result_v.push(("DIDResolverThin".to_string(), duration));
+
+            // Verify that the DID document body is the expected value.
+            assert_eq!(did_document_body, expected_latest_did_document_jcs);
+        }
+
+        // Print the timing results.
+        for (resolver_name, duration) in timing_result_v {
+            tracing::info!("{}: Time taken: {:?}", resolver_name, duration);
+        }
     }
 
     //

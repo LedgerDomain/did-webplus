@@ -66,3 +66,21 @@ pub async fn vdr_fetch_did_document_body(
     )
     .await
 }
+
+// TODO: Add optional VDG to use as a proxy
+pub async fn vdr_fetch_did_documents_jsonl(
+    did: &DIDStr,
+    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+) -> HTTPResult<String> {
+    let time_start = std::time::SystemTime::now();
+    let did_documents_jsonl = http_get(
+        did.resolution_url_for_did_documents_jsonl(http_scheme_override_o)
+            .as_str(),
+    )
+    .await;
+    let duration = std::time::SystemTime::now()
+        .duration_since(time_start)
+        .expect("pass");
+    tracing::info!("Time taken to fetch did-documents.jsonl: {:?}", duration);
+    did_documents_jsonl
+}
