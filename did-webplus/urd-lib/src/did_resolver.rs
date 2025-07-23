@@ -39,6 +39,7 @@ pub async fn create_did_resolver_full(
     let did_resolver_full = did_webplus_resolver::DIDResolverFull {
         did_doc_store,
         http_scheme_override_o,
+        fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
     };
     Ok(did_resolver_full)
 }

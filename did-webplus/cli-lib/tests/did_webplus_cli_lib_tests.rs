@@ -326,6 +326,7 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
         did_webplus_resolver::DIDResolverFull {
             did_doc_store,
             http_scheme_override_o: http_scheme_override_o.cloned(),
+            fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
         }
     };
 
@@ -474,6 +475,7 @@ async fn test_wallet_did_sign_vjson_verify() {
         did_webplus_resolver::DIDResolverFull {
             did_doc_store,
             http_scheme_override_o: http_scheme_override_o.cloned(),
+            fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
         }
     };
 

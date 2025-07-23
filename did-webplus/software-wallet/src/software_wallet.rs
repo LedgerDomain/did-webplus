@@ -61,6 +61,7 @@ impl SoftwareWallet {
                 self.wallet_storage_a.clone().as_did_doc_storage_a(),
             ),
             http_scheme_override_o: http_scheme_override_o.cloned(),
+            fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
         };
         use did_webplus_resolver::DIDResolver;
         let (did_document, _did_doc_metadata) = did_resolver

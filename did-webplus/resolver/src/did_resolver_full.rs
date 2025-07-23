@@ -22,6 +22,7 @@ pub struct DIDResolverFull {
     // TODO: Implement this.
     // pub vdg_resolve_endpoint_o: Option<url::Url>,
     pub http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
+    pub fetch_pattern: FetchPattern,
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -52,6 +53,7 @@ impl DIDResolver for DIDResolverFull {
             transaction_b.as_mut(),
             did_query,
             self.http_scheme_override_o.as_ref(),
+            self.fetch_pattern,
         )
         .await?;
         transaction_b.commit().await?;
@@ -88,6 +90,13 @@ impl verifier_resolver::VerifierResolver for DIDResolverFull {
     }
 }
 
+/// TEMP HACK
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FetchPattern {
+    Serial,
+    Parallel,
+}
+
 // TODO: Probably add params for what metadata is desired
 async fn resolve_did(
     did_doc_store: &DIDDocStore,
@@ -96,6 +105,7 @@ async fn resolve_did(
     transaction: &mut dyn storage_traits::TransactionDynT,
     did_query: &str,
     http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    fetch_pattern: FetchPattern,
 ) -> Result<DIDDocRecord> {
     tracing::trace!("starting DID resolution");
 
@@ -256,25 +266,71 @@ async fn resolve_did(
         parse_did_document(&prev_did_document_body)
             .expect("programmer error: stored DID document should be valid JSON")
     });
-    for version_id in version_id_start..target_did_document.version_id {
-        tracing::trace!(
-            "fetching, validating, and storing predecessor DID document with versionId {}",
-            version_id
-        );
-        let did_with_query = did.with_query_version_id(version_id);
-        let predecessor_did_document_body =
-            vdr_fetch_did_document_body(&did_with_query, http_scheme_override_o).await?;
-        let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
-        did_doc_store
-            .validate_and_add_did_doc(
-                Some(&mut *transaction),
-                &predecessor_did_document,
-                prev_did_document_o.as_ref(),
-                predecessor_did_document_body.as_str(),
-            )
-            .await?;
-        prev_did_document_o = Some(predecessor_did_document);
+
+    match fetch_pattern {
+        FetchPattern::Parallel => {
+            const PARALLEL_FETCH_LIMIT: usize = 0x100;
+            use futures::StreamExt;
+            let predecessor_did_document_body_rv =
+                futures::stream::iter(version_id_start..target_did_document.version_id)
+                    .map(|version_id| {
+                        tracing::trace!(
+                            "fetching predecessor DID document with versionId {}",
+                            version_id
+                        );
+                        async move {
+                            let did_with_query = did.with_query_version_id(version_id);
+                            // Yes, this returns a future!
+                            vdr_fetch_did_document_body(&did_with_query, http_scheme_override_o)
+                                .await
+                        }
+                    })
+                    .buffered(PARALLEL_FETCH_LIMIT)
+                    .collect::<Vec<_>>()
+                    .await;
+
+            // Process the validation and storage of the predecessor DID documents serially -- this likely can't be fully parallelized.
+            for predecessor_did_document_body_r in predecessor_did_document_body_rv.into_iter() {
+                let predecessor_did_document_body = predecessor_did_document_body_r?;
+                let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
+                tracing::trace!(
+                    "validating and storing predecessor DID document with versionId {}",
+                    predecessor_did_document.version_id
+                );
+                did_doc_store
+                    .validate_and_add_did_doc(
+                        Some(&mut *transaction),
+                        &predecessor_did_document,
+                        prev_did_document_o.as_ref(),
+                        &predecessor_did_document_body.as_str(),
+                    )
+                    .await?;
+                prev_did_document_o = Some(predecessor_did_document);
+            }
+        }
+        FetchPattern::Serial => {
+            for version_id in version_id_start..target_did_document.version_id {
+                tracing::trace!(
+                    "fetching, validating, and storing predecessor DID document with versionId {}",
+                    version_id
+                );
+                let did_with_query = did.with_query_version_id(version_id);
+                let predecessor_did_document_body =
+                    vdr_fetch_did_document_body(&did_with_query, http_scheme_override_o).await?;
+                let predecessor_did_document = parse_did_document(&predecessor_did_document_body)?;
+                did_doc_store
+                    .validate_and_add_did_doc(
+                        Some(&mut *transaction),
+                        &predecessor_did_document,
+                        prev_did_document_o.as_ref(),
+                        predecessor_did_document_body.as_str(),
+                    )
+                    .await?;
+                prev_did_document_o = Some(predecessor_did_document);
+            }
+        }
     }
+
     // Finally, validate and store the target DID doc if necessary.
     // TODO: Need to handle forked DIDs eventually, but for now, this logic will use the first DID doc it
     // sees, which is precisely what should happen for a solo VDG (i.e. not part of a consensus cluster
