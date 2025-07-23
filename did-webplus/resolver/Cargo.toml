@@ -10,6 +10,7 @@ did-webplus-core = { path = "../core", features = ["tracing"] }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional = true }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }
+futures = "0.3.31"                                                                       # TEMP HACK
 lazy_static = "1.4.0"
 reqwest = "0.12.5"
 selfsign = "0.6.0"

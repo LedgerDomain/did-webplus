@@ -18,6 +18,8 @@ members = [
     "did-webplus/mock",
     "did-webplus/resolver",
     "did-webplus/software-wallet",
+    "did-webplus/urd",
+    "did-webplus/urd-lib",
     "did-webplus/vdg",
     "did-webplus/vdg-lib",
     "did-webplus/vdr",

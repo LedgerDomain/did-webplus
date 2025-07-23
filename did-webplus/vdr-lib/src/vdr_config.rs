@@ -47,6 +47,7 @@ pub struct VDRConfig {
     // NOTE: It's critical that the type of gateways be fully qualified as `std::vec::Vec<url::Url>`;
     // see https://github.com/clap-rs/clap/issues/4481#issuecomment-1314475143
     #[arg(
+        name = "gateway-hosts",
         env = "DID_WEBPLUS_VDR_GATEWAY_HOSTS",
         long,
         value_name = "URLs",
