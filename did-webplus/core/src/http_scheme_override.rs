@@ -83,15 +83,18 @@ impl HTTPSchemeOverride {
     /// and everything else uses the "https" scheme.  However, these mappings are overridden by
     /// this data structure, and the mapping for the given hostname is returned.
     pub fn determine_http_scheme_for_hostname(&self, hostname: &str) -> &'static str {
-        #[cfg(feature = "tracing")]
-        tracing::debug!(
-            "HTTPSchemeOverride::determine_http_scheme_for_hostname; self: {:?}; hostname: {}",
-            self,
-            hostname
-        );
         match self.0.get(hostname) {
             // Override was specified, so use it.
-            Some(&scheme) => scheme,
+            Some(&scheme) => {
+                #[cfg(feature = "tracing")]
+                tracing::debug!(
+                    "HTTPSchemeOverride::determine_http_scheme_for_hostname; self: {:?}; hostname: {}; overriding with scheme {}",
+                    self,
+                    hostname,
+                    scheme
+                );
+                scheme
+            }
             // No override, so use the default did:webplus resolution rules.
             None => Self::default_http_scheme_for_hostname(hostname),
         }
@@ -102,12 +105,6 @@ impl HTTPSchemeOverride {
         http_scheme_override_o: Option<&Self>,
         hostname: &str,
     ) -> &'static str {
-        #[cfg(feature = "tracing")]
-        tracing::debug!(
-            "HTTPSchemeOverride::determine_http_scheme_for_hostname_from; http_scheme_override_o: {:?}; hostname: {}",
-            http_scheme_override_o,
-            hostname
-        );
         if let Some(http_scheme_override) = http_scheme_override_o {
             http_scheme_override.determine_http_scheme_for_hostname(hostname)
         } else {
@@ -119,14 +116,14 @@ impl HTTPSchemeOverride {
     pub fn default_http_scheme_for_hostname(hostname: &str) -> &'static str {
         if hostname == "localhost" {
             #[cfg(feature = "tracing")]
-            tracing::debug!(
+            tracing::trace!(
                 "HTTPSchemeOverride::default_http_scheme_for_hostname; hostname: {}; returning \"http\"",
                 hostname
             );
             "http"
         } else {
             #[cfg(feature = "tracing")]
-            tracing::debug!(
+            tracing::trace!(
                 "HTTPSchemeOverride::default_http_scheme_for_hostname; hostname: {}; returning \"https\"",
                 hostname
             );
