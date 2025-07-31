@@ -1,0 +1,50 @@
+[package]
+name = "did-webplus-software-wallet-indexeddb"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.94"
+async-trait = "0.1.80"
+did-webplus-core = { path = "../core" }
+did-webplus-doc-store = { path = "../doc-store" }
+did-webplus-wallet = { path = "../wallet" }
+did-webplus-wallet-store = { path = "../wallet-store" }
+ed25519-dalek = { version = "2.0.0", features = [
+    "rand_core",
+] } # TEMP HACK until SubtleCrypto is used
+enum-map = "2.7.3"
+indexed-db = "0.4.2"
+# lazy_static = "1.4.0"
+rand = "0.8"
+# reqwest = { version = "0.12.5", features = ["json"] }
+selfhash = "0.4.0"
+selfsign = { version = "0.6.0", features = ["ed25519-dalek"] }
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6.5"
+time = { version = "0.3", features = [
+    "serde",
+    "serde-well-known",
+    "macros",
+    "wasm-bindgen",
+] }
+tracing = "0.1.37"
+url = "2.5.0"
+uuid = { version = "1.9.1", features = ["v4"] }
+wasm-bindgen-futures = "0.4.49"
+web-sys = { version = "0.3.66", features = [
+    "Headers",
+    "Request",
+    "RequestInit",
+    "Response",
+    "Window",
+] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2.15", features = ["js"] }
+
+[dev-dependencies]
+console_error_panic_hook = "0.1.7"
+tracing = "0.1.37"
+wasm-bindgen-test = "0.3.49"
+wasm-tracing = "2.0.0"

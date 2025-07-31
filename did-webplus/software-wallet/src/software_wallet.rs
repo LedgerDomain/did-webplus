@@ -222,8 +222,8 @@ impl Wallet for SoftwareWallet {
                             .into_owned(),
                         key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
                         created_at,
-                        last_used_at_o: None,
-                        usage_count: 0,
+                        last_used_at_o: Some(created_at),
+                        usage_count: 1,
                         deleted_at_o: None,
                         private_key_bytes_o: Some(
                             priv_key_m[key_purpose].to_private_key_bytes().to_owned(),

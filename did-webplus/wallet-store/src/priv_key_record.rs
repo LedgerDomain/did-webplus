@@ -1,7 +1,7 @@
 use did_webplus_core::KeyPurposeFlags;
 
 // TODO: Consider making a "non-deleted" version of PrivKeyRecord that has those constraints.
-#[derive(Debug)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct PrivKeyRecord {
     /// The pub key corresponding to this priv key.
     pub pub_key: selfsign::KERIVerifier,
@@ -9,13 +9,16 @@ pub struct PrivKeyRecord {
     /// If None, then there is no restriction.
     pub key_purpose_restriction_o: Option<KeyPurposeFlags>,
     /// The time at which this priv key was created.
+    #[serde(with = "time::serde::rfc3339")]
     pub created_at: time::OffsetDateTime,
     /// The time at which this priv key was last used in a cryptographic operation, or None if never used.
+    #[serde(with = "time::serde::rfc3339::option")]
     pub last_used_at_o: Option<time::OffsetDateTime>,
     /// The number of cryptographic operations this priv key has been used for.
     pub usage_count: u32,
     /// If this is Some(time), then this priv key has been deleted at that time.  In this case, the priv_jwk_o
     /// field will be None.
+    #[serde(with = "time::serde::rfc3339::option")]
     pub deleted_at_o: Option<time::OffsetDateTime>,
     /// The priv key, or None if this priv key has been deleted.
     // TODO: REDACT THIS

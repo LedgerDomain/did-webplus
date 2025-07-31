@@ -1,6 +1,6 @@
-# did-webplus-wasm
+# did-webplus-software-wallet-indexeddb
 
-WebAssembly SDK for did-webplus, including a JS/TS package.
+Software wallet implementation for did-webplus, using IndexedDB as the storage backend.  This is only available on `target_arch = "wasm32"`.
 
 ## Necessary Toolchain
 
@@ -18,15 +18,11 @@ Note that you may need to install a few things:
 
 ## Running Tests
 
-### Running Tests in `node.js`
-
-From this directory (the did-webplus-wasm crate directory), run
-
-    wasm-pack test --node
+Note that node.js does not support IndexedDB, and therefore this crate can not be run against node.js.
 
 ### Running Tests in Browser (Headless Mode)
 
-From this directory (the did-webplus-wasm crate directory), run one of the following:
+From this directory (the did-webplus-software-wallet-indexeddb crate directory), run one of the following:
 
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --chrome
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --firefox
@@ -38,7 +34,7 @@ You can even combine them if you have multiple browsers, e.g.
 
 ### Running Tests in Browser (Headful Mode)
 
-From this directory (the did-webplus-wasm crate directory), run one of the following:
+From this directory (the did-webplus-software-wallet-indexeddb crate directory), run one of the following:
 
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox
@@ -58,11 +54,11 @@ When using the SDK or running the tests in the browser, logging messages will be
 | debug | log     |
 | trace | debug   |
 
-When running the tests in headless browser mode, only the Rust debug level messages will be sent to stdout.  The `RUST_LOG` env var doesn't affect this (it applies to the wasm-pack process that runs the tests, but not the tests themselves).  TODO: Fix this deficiency using the `wasm-tracing` crate (see did-webplus-software-wallet-indexeddb crate).
-
-It appears that no logging is sent to stdout when the tests are run within node.js.  TODO: Fix this deficiency.
+When running the tests in headless browser mode, only the Rust debug level messages will be sent to stdout.  The `RUST_LOG` env var doesn't affect this (it applies to the wasm-pack process that runs the tests, but not the tests themselves).
 
 ## Running Example
+
+TODO: IMPLEMENT EXAMPLE AND UPDATE THIS SECTION FOR THIS CRATE
 
 Ensure the wasm package has been built:
 

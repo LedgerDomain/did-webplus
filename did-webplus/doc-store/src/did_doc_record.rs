@@ -1,14 +1,14 @@
 use crate::{Error, Result};
 use did_webplus_core::DIDDocument;
-use time::OffsetDateTime;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct DIDDocRecord {
     pub self_hash: String,
     pub did: String,
     // TODO: Make this u32?  Or would it be better to just use i64 for all contexts?
     pub version_id: i64,
-    pub valid_from: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub valid_from: time::OffsetDateTime,
     pub did_document_jcs: String,
 }
 

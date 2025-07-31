@@ -4,7 +4,7 @@ use crate::{Error, KeyPurpose};
 /// Use KeyPurposeFlags::from(key_purpose) to construct a KeyPurposeFlags that has a single bitflag.
 /// KeyPurposeFlags::NONE and KeyPurposeFlags::ALL are associated constants that represent the empty
 /// set and the "full" set.  All the expected bit operations are defined.
-#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, serde::Deserialize, Eq, Ord, PartialEq, PartialOrd, serde::Serialize)]
 pub struct KeyPurposeFlags(u8);
 
 impl KeyPurposeFlags {

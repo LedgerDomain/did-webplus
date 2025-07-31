@@ -2,7 +2,19 @@ use crate::{Error, KeyPurposeFlags};
 
 /// Enumeration of the purposes of verification methods, as specified by the DID spec.
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, enum_map::Enum, Eq, Hash, PartialEq, Ord, PartialOrd)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    serde::Deserialize,
+    enum_map::Enum,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    serde::Serialize,
+)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
 pub enum KeyPurpose {
     Authentication = 0,
