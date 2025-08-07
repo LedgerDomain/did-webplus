@@ -27,4 +27,12 @@ async fn test_software_wallet_indexeddb_basic() {
         .await
         .expect("pass");
     tracing::debug!("controlled_did: {:?}", controlled_did);
+    let did = controlled_did.did();
+    tracing::debug!("did: {:?}", did);
+
+    let controlled_did = software_wallet_indexeddb
+        .update_did(&did, "http")
+        .await
+        .expect("pass");
+    tracing::debug!("controlled_did: {:?}", controlled_did);
 }

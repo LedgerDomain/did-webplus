@@ -1139,6 +1139,7 @@ dependencies = [
  "selfsign",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "time",
  "tracing",
  "url",

@@ -1,7 +1,8 @@
 use crate::Result;
 use anyhow::Context;
 use did_webplus_core::{
-    DIDDocument, DIDDocumentCreateParams, DIDFullyQualified, DIDStr, KeyPurpose, KeyPurposeFlags,
+    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDFullyQualified, DIDStr,
+    KeyPurpose, KeyPurposeFlags,
 };
 use did_webplus_doc_store::DIDDocRecord;
 use did_webplus_wallet_store::{
@@ -78,9 +79,9 @@ impl SoftwareWalletIndexedDB {
         tracing::debug!("opened database");
 
         // Create a wallet.
-        let ctx = db.transaction(&["wallets"]).rw().run(async move |transaction| {
+        let ctx = db.transaction(&[Self::WALLETS_OBJECT_STORE]).rw().run(async move |transaction| {
             tracing::debug!("started transaction for creating a wallet");
-            let wallets_object_store = transaction.object_store("wallets")?;
+            let wallets_object_store = transaction.object_store(Self::WALLETS_OBJECT_STORE)?;
             tracing::debug!("got wallets_object_store");
             // Create a random UUID for the wallet.  The chance of collision is so low that
             // it's more likely a programmer error if it happens.
@@ -141,11 +142,11 @@ impl SoftwareWalletIndexedDB {
         tracing::debug!("opened database");
 
         let ctx = db
-            .transaction(&["wallets"])
+            .transaction(&[Self::WALLETS_OBJECT_STORE])
             .run(async move |transaction| {
                 tracing::debug!("started transaction for opening a wallet");
                 let wallets_rowid_jsvalue_o = transaction
-                    .object_store("wallets")?
+                    .object_store(Self::WALLETS_OBJECT_STORE)?
                     .index("wallet_uuid index")?
                     .get(&serde_wasm_bindgen::to_value(&wallet_uuid).unwrap())
                     .await?;
@@ -214,51 +215,275 @@ impl SoftwareWalletIndexedDB {
             }
         }
     }
+
+    // Names for object stores and indexes, so they don't need to be repeated in multiple places.
+
+    const WALLETS_OBJECT_STORE: &str = "wallets";
+    const WALLETS_INDEX_WALLET_UUID: &str = "wallets index: wallet_uuid";
+
+    const PRIV_KEYS_OBJECT_STORE: &str = "priv_keys";
+    const PRIV_KEYS_PROVISIONAL_OBJECT_STORE: &str = "priv_keys_provisional";
+    const PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY: &str =
+        "priv_keys index: wallets_rowid_and_pub_key";
+
+    const PRIV_KEY_USAGES_OBJECT_STORE: &str = "priv_key_usages";
+
+    const PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE: &str = "priv_key_usages_provisional";
+
+    const DID_DOCUMENTS_OBJECT_STORE: &str = "did_documents";
+    const DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE: &str = "did_documents_provisional";
+    const DID_DOCUMENTS_INDEX_DID_AND_SELF_HASH: &str = "did_documents index: did_and_self_hash";
+    const DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID: &str = "did_documents index: did_and_version_id";
+    const DID_DOCUMENTS_INDEX_SELF_HASH_AND_VERSION_ID: &str =
+        "did_documents index: self_hash_and_version_id";
+    const DID_DOCUMENTS_INDEX_SELF_HASH_AND_VALID_FROM: &str =
+        "did_documents index: self_hash_and_valid_from";
+
     fn migration_0_to_1(db: &indexed_db::Database<Error>) -> Result<(), indexed_db::Error<Error>> {
         tracing::info!("Applying database migration 0 -> 1: Adding initial object stores",);
-        let wallets_object_store = db.build_object_store("wallets").auto_increment().create()?;
+        let wallets_object_store = db
+            .build_object_store(Self::WALLETS_OBJECT_STORE)
+            .auto_increment()
+            .create()?;
         wallets_object_store
-            .build_index("wallet_uuid index", "wallet_uuid")
+            .build_index(Self::WALLETS_INDEX_WALLET_UUID, "wallet_uuid")
             .create()?;
 
-        db.build_object_store("priv_keys")
+        let priv_keys_object_store = db
+            .build_object_store(Self::PRIV_KEYS_OBJECT_STORE)
             .auto_increment()
             .create()?;
-        db.build_object_store("priv_keys_provisional")
+        let priv_keys_provisional_object_store = db
+            .build_object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)
             .auto_increment()
             .create()?;
-        db.build_object_store("priv_key_usages")
+        for object_store in [&priv_keys_object_store, &priv_keys_provisional_object_store] {
+            object_store
+                .build_compound_index(
+                    Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY,
+                    &["wallets_rowid", "priv_key_record.pub_key"],
+                )
+                .create()?;
+        }
+
+        db.build_object_store(Self::PRIV_KEY_USAGES_OBJECT_STORE)
             .auto_increment()
             .create()?;
-        db.build_object_store("priv_key_usages_provisional")
+
+        db.build_object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)
             .auto_increment()
             .create()?;
-        db.build_object_store("did_documents")
+
+        let did_documents_object_store = db
+            .build_object_store(Self::DID_DOCUMENTS_OBJECT_STORE)
             .auto_increment()
             .create()?;
-        db.build_object_store("did_documents_provisional")
+        let did_documents_provisional_object_store = db
+            .build_object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)
             .auto_increment()
             .create()?;
+        for object_store in [
+            &did_documents_object_store,
+            &did_documents_provisional_object_store,
+        ] {
+            object_store
+                .build_compound_index(
+                    Self::DID_DOCUMENTS_INDEX_DID_AND_SELF_HASH,
+                    &["did_doc_record.did", "did_doc_record.self_hash"],
+                )
+                .create()?;
+            object_store
+                .build_compound_index(
+                    Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID,
+                    &["did_doc_record.did", "did_doc_record.version_id"],
+                )
+                .create()?;
+            object_store
+                .build_compound_index(
+                    Self::DID_DOCUMENTS_INDEX_SELF_HASH_AND_VERSION_ID,
+                    &["did_doc_record.self_hash", "did_doc_record.version_id"],
+                )
+                .create()?;
+            object_store
+                .build_compound_index(
+                    Self::DID_DOCUMENTS_INDEX_SELF_HASH_AND_VALID_FROM,
+                    &["did_doc_record.self_hash", "did_doc_record.valid_from"],
+                )
+                .create()?;
+        }
+
         Ok(())
+    }
+    async fn fetch_did_internal(
+        &self,
+        did_documents_object_store_name: &str,
+        did: &DIDStr,
+        _vdr_scheme: &'static str,
+    ) -> did_webplus_wallet::Result<did_webplus_core::DIDDocument> {
+        // TEMP HACK: Just retrieve the latest DID document that exists in the database.
+
+        tracing::debug!("TEMP HACK: Just retrieving the latest DID document from database");
+        let did_documents_object_store_name = did_documents_object_store_name.to_owned();
+        let did = did.to_owned();
+        let did_as_jsvalue = JsValue::from(did.as_str());
+        let range_begin = JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(0)]);
+        let range_end = JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(i32::MAX)]);
+        let did_document = self
+            .db()
+            .await
+            .map_err(into_wallet_error)?
+            .transaction(&[did_documents_object_store_name.as_str()])
+            .run(async move |transaction| {
+                tracing::debug!("starting transaction for fetch_did_internal");
+                let did_document_blob_cursor = transaction
+                    .object_store(did_documents_object_store_name.as_str())?
+                    .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
+                    .cursor()
+                    .range(range_begin..range_end)?
+                    // DID documents are stored in chronological order, so we need to go backwards.
+                    .direction(indexed_db::CursorDirection::Prev)
+                    .open()
+                    .await?;
+                tracing::trace!("got did_document_blob_cursor");
+                let did_document_blob_jsvalue_o = did_document_blob_cursor.value();
+                if did_document_blob_jsvalue_o.is_none() {
+                    return Err(Error::from(anyhow::anyhow!(
+                        "DID document not found for DID: {}",
+                        did
+                    ))
+                    .into());
+                }
+                let did_document_blob_jsvalue = did_document_blob_jsvalue_o.unwrap();
+                tracing::trace!(
+                    "got did_document_blob_jsvalue: {:?}",
+                    did_document_blob_jsvalue
+                );
+                let did_document_blob =
+                    serde_wasm_bindgen::from_value::<DIDDocumentBlob>(did_document_blob_jsvalue)
+                        .map_err(|e| {
+                            Error::from(anyhow::anyhow!(
+                                "Database corruption in DID document; error was: {}",
+                                e
+                            ))
+                        })?;
+                let did_document = serde_json::from_str::<DIDDocument>(
+                    did_document_blob.did_doc_record.did_document_jcs.as_str(),
+                )
+                .map_err(|e| {
+                    Error::from(anyhow::anyhow!("Error deserializing DID document: {}", e))
+                })?;
+
+                Ok(did_document)
+            })
+            .await
+            .map_err(into_wallet_error)?;
+        Ok(did_document)
+    }
+    async fn post_or_put_did_document(
+        &self,
+        operation: &'static str,
+        did_document_jcs: &str,
+        did: &DIDStr,
+        vdr_scheme: &'static str,
+    ) -> did_webplus_wallet::Result<()> {
+        if operation != "create" && operation != "update" {
+            return Err(did_webplus_wallet::Error::Malformed(
+                format!("Invalid operation: {}", operation).into(),
+            ));
+        }
+        let http_method = match operation {
+            "create" => "POST",
+            "update" => "PUT",
+            _ => unreachable!(),
+        };
+
+        tracing::trace!(
+            "DID {}; {}'ing DID document to VDR for DID: {}",
+            operation,
+            http_method,
+            did,
+        );
+        let request_init = web_sys::RequestInit::new();
+        request_init.set_method(http_method);
+        request_init.set_body(&JsValue::from_str(did_document_jcs));
+
+        let request =
+            web_sys::Request::new_with_str_and_init(&did.resolution_url(vdr_scheme), &request_init)
+                .map_err(|_| {
+                    did_webplus_wallet::Error::HTTPRequestError("Failed to create a request".into())
+                })?;
+        tracing::trace!("created HTTP request: {:?}", request);
+        request
+            .headers()
+            .set("Content-Type", "application/json")
+            .unwrap();
+        use wasm_bindgen_futures::wasm_bindgen::JsCast;
+        let response: web_sys::Response =
+            JsFuture::from(web_sys::window().unwrap().fetch_with_request(&request))
+                .await
+                .map_err(|_| {
+                    did_webplus_wallet::Error::HTTPRequestError("Failed to fetch response".into())
+                })?
+                .dyn_into()
+                .map_err(|_| {
+                    did_webplus_wallet::Error::HTTPRequestError(
+                        "Failed to convert response to web_sys::Response".into(),
+                    )
+                })?;
+        tracing::trace!("got HTTP response: {:?}", response);
+
+        if !response.ok() {
+            tracing::error!(
+                "DID {}; {}'ing DID document to VDR failed (DID: {}): {:?}",
+                operation,
+                http_method,
+                did,
+                response
+            );
+            return Err(did_webplus_wallet::Error::HTTPOperationStatus(
+                format!(
+                    "DID {}; {}'ing DID document to VDR failed (DID: {}): {:?}",
+                    operation, http_method, did, response
+                )
+                .into(),
+            ));
+        }
+        tracing::trace!(
+            "DID {}; {}'ing DID document to VDR succeeded; DID: {}",
+            operation,
+            http_method,
+            did
+        );
+
+        Ok(())
+    }
+    fn wallets_rowid_as_f64_jsvalue(wallets_rowid: i64) -> JsValue {
+        let wallets_rowid_as_i32 = i32::try_from(wallets_rowid).expect("programmer error: overflow in wallets_rowid; this is so unlikely that it's almost certainly a programmer error");
+        let wallets_rowid_as_f64 = f64::from(wallets_rowid_as_i32);
+        assert!(
+            wallets_rowid_as_f64.fract() == 0.0,
+            "programmer error: wallets_rowid is not an integer"
+        );
+        JsValue::from(wallets_rowid_as_f64)
     }
 }
 
-// TODO: Move these somewhere appropriate.
-
 /// This is the blob that gets stored in the IndexedDB database for each DID document.
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct DIDDocumentBlob {
+struct DIDDocumentBlob {
     pub did_doc_record: DIDDocRecord,
 }
 
+/// This is the blob that gets stored in the IndexedDB database for each private key.
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct PrivKeyBlob {
+struct PrivKeyBlob {
     pub wallets_rowid: i64,
     pub priv_key_record: PrivKeyRecord,
 }
 
+/// This is the blob that gets stored in the IndexedDB database for each private key usage.
 #[derive(serde::Deserialize, serde::Serialize)]
-pub struct PrivKeyUsageBlob {
+struct PrivKeyUsageBlob {
     pub wallets_rowid: i64,
     pub priv_key_usage_record: PrivKeyUsageRecord,
 }
@@ -287,7 +512,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     .into(),
                 )
             })?;
-        let scheme: &'static str = match vdr_did_create_endpoint_url.scheme() {
+        let vdr_scheme: &'static str = match vdr_did_create_endpoint_url.scheme() {
             "http" => "http",
             "https" => "https",
             _ => {
@@ -391,7 +616,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // the "provisional" versions of those object stores.  Then the HTTP POST to the VDR will
         // happen, and then only if it succeeds will move the records to the non-provisional
         // versions of those object stores.
-        // let db = self.db().await.map_err(into_wallet_error)?;
 
         let ctx_clone = self.ctx.clone();
         let did_clone = did.clone();
@@ -401,9 +625,9 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             .await
             .map_err(into_wallet_error)?
             .transaction(&[
-                "did_documents_provisional",
-                "priv_keys_provisional",
-                "priv_key_usages_provisional",
+                Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
             ])
             .rw()
             .run(async move |transaction| {
@@ -420,7 +644,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 };
                 tracing::trace!("adding did_document_blob: {:?}", did_document_blob);
                 let did_document_blob_key = transaction
-                    .object_store("did_documents_provisional")?
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
                     .put(&serde_wasm_bindgen::to_value(&did_document_blob).unwrap())
                     .await?;
                 tracing::trace!("added did_document_blob; did_document_blob_key: {:?}", did_document_blob_key);
@@ -444,7 +668,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         },
                     };
                     let priv_key_blob_key = transaction
-                        .object_store("priv_keys_provisional")?
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
                         .put(&serde_wasm_bindgen::to_value(&priv_key_blob).unwrap())
                         .await?;
                     tracing::trace!("added priv key; key_purpose: {:?}; priv_key_blob_key.priv_key_record.pub_key: {:?}", key_purpose, priv_key_blob.priv_key_record.pub_key);
@@ -463,7 +687,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             .clone(),
                         used_at: created_at,
                         usage: PrivKeyUsage::DIDCreate {
-                            created_did_o: Some(did.to_owned()),
+                            created_did_o: Some(did_clone.clone()),
                         },
                         verification_method_and_purpose_o: Some((
                             controlled_did_with_key_id,
@@ -472,7 +696,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     },
                 };
                 let priv_key_usage_blob_key = transaction
-                    .object_store("priv_key_usages_provisional")?
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
                     .put(&serde_wasm_bindgen::to_value(&priv_key_usage_blob).unwrap())
                     .await?;
                 tracing::trace!("added priv key usage; priv_key_usage_blob_key: {:?}", priv_key_usage_blob_key);
@@ -487,50 +711,54 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             .await
             .map_err(into_wallet_error)?;
 
-        // POST the DID document to the VDR to create the DID.
-        // TODO: Handle errors -- if the POST fails, then we need to delete the provisional records.
+        // POST the DID document to the VDR to create the DID.  If an error occurs, then delete the
+        // provisional records.
+        match self
+            .post_or_put_did_document("create", &did_document_jcs, &did, vdr_scheme)
+            .await
         {
-            tracing::trace!("POST'ing DID document to VDR");
-            let request_init = web_sys::RequestInit::new();
-            request_init.set_method("POST");
-            request_init.set_body(&JsValue::from_str(did_document_jcs.as_str()));
-
-            let request = web_sys::Request::new_with_str_and_init(
-                &did_clone.resolution_url(scheme),
-                &request_init,
-            )
-            .map_err(|_| {
-                did_webplus_wallet::Error::HTTPRequestError("Failed to create a request".into())
-            })?;
-            tracing::trace!("created HTTP request: {:?}", request);
-            request
-                .headers()
-                .set("Content-Type", "application/json")
-                .unwrap();
-            use wasm_bindgen_futures::wasm_bindgen::JsCast;
-            let response: web_sys::Response =
-                JsFuture::from(web_sys::window().unwrap().fetch_with_request(&request))
+            Ok(()) => (),
+            Err(e) => {
+                tracing::error!("error POST'ing DID document to VDR: {:?}", e);
+                // Delete the provisional records.
+                // TODO: Figure out how to handle errors here.  Maybe do some sort of cleanup of provisional records
+                // that are older than some threshold.
+                self.db()
                     .await
-                    .map_err(|_| {
-                        did_webplus_wallet::Error::HTTPRequestError(
-                            "Failed to fetch response".into(),
-                        )
-                    })?
-                    .dyn_into()
-                    .map_err(|_| {
-                        did_webplus_wallet::Error::HTTPRequestError(
-                            "Failed to convert response to web_sys::Response".into(),
-                        )
-                    })?;
-            tracing::trace!("got HTTP response: {:?}", response);
+                    .map_err(into_wallet_error)?
+                    .transaction(&[
+                        Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                        Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                        Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
+                    ])
+                    .rw()
+                    .run(async move |transaction| {
+                        tracing::trace!("undoing transaction #1 because HTTP POST for DID {} failed; deleting provisional records", did);
+                        transaction
+                            .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                            .delete(&did_document_blob_key)
+                            .await?;
 
-            if !response.ok() {
-                tracing::error!("HTTP POST to DID create endpoint failed: {:?}", response);
-                return Err(did_webplus_wallet::Error::HTTPOperationStatus(
-                    format!("HTTP POST to DID create endpoint failed: {:?}", response).into(),
-                ));
+                        for priv_key_blob_key in priv_key_blob_key_v {
+                            transaction
+                                .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                                .delete(&priv_key_blob_key)
+                                .await?;
+                        }
+
+                        transaction
+                            .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                            .delete(&priv_key_usage_blob_key)
+                            .await?;
+
+                        tracing::trace!("undo of transaction #1 succeeded");
+                        Ok(())
+                    })
+                    .await
+                    .map_err(into_wallet_error)?;
+                // Finally, abort this operation.
+                return Err(e);
             }
-            tracing::trace!("HTTP POST to DID create endpoint succeeded");
         }
 
         // Now that the HTTP POST is successful, move the provisional records to the non-provisional
@@ -539,57 +767,57 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             .await
             .map_err(into_wallet_error)?
             .transaction(&[
-                "did_documents",
-                "did_documents_provisional",
-                "priv_keys",
-                "priv_keys_provisional",
-                "priv_key_usages",
-                "priv_key_usages_provisional",
+                Self::DID_DOCUMENTS_OBJECT_STORE,
+                Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEYS_OBJECT_STORE,
+                Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
             ])
             .rw()
             .run(async move |transaction| {
                 tracing::trace!("started transaction #2; moving provisional records to non-provisional versions of those object stores");
                 let did_document_blob_jsvalue = transaction
-                    .object_store("did_documents_provisional")?
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
                     .get(&did_document_blob_key)
                     .await?
                     .unwrap();
                 transaction
-                    .object_store("did_documents_provisional")?
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
                     .delete(&did_document_blob_key)
                     .await?;
                 transaction
-                    .object_store("did_documents")?
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
                     .put(&did_document_blob_jsvalue)
                     .await?;
 
                 for priv_key_blob_key in priv_key_blob_key_v {
                     let priv_key_blob_jsvalue = transaction
-                        .object_store("priv_keys_provisional")?
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
                         .get(&priv_key_blob_key)
                         .await?
                         .unwrap();
                     transaction
-                        .object_store("priv_keys_provisional")?
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
                         .delete(&priv_key_blob_key)
                         .await?;
                     transaction
-                        .object_store("priv_keys")?
+                        .object_store(Self::PRIV_KEYS_OBJECT_STORE)?
                         .put(&priv_key_blob_jsvalue)
                         .await?;
                 }
 
                 let priv_key_usage_blob_jsvalue = transaction
-                    .object_store("priv_key_usages_provisional")?
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
                     .get(&priv_key_usage_blob_key)
                     .await?
                     .unwrap();
                 transaction
-                    .object_store("priv_key_usages_provisional")?
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
                     .delete(&priv_key_usage_blob_key)
                     .await?;
                 transaction
-                    .object_store("priv_key_usages")?
+                    .object_store(Self::PRIV_KEY_USAGES_OBJECT_STORE)?
                     .put(&priv_key_usage_blob_jsvalue)
                     .await?;
 
@@ -610,10 +838,384 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     }
     async fn update_did(
         &self,
-        _did: &DIDStr,
-        _vdr_scheme: &'static str,
+        did: &DIDStr,
+        vdr_scheme: &'static str,
     ) -> did_webplus_wallet::Result<DIDFullyQualified> {
-        todo!()
+        tracing::debug!(
+            "SoftwareWalletIndexedDB::update_did; did: {}; vdr_scheme: {}",
+            did,
+            vdr_scheme
+        );
+        assert!(vdr_scheme == "https" || vdr_scheme == "http");
+
+        let did = did.to_owned();
+
+        // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
+        // controls the DID.
+        let latest_did_document = self
+            .fetch_did_internal(Self::DID_DOCUMENTS_OBJECT_STORE, &did, vdr_scheme)
+            .await?;
+        let did_fully_qualified = did.with_queries(
+            latest_did_document.self_hash(),
+            latest_did_document.version_id,
+        );
+
+        // Rotate the appropriate set of keys.  Record the creation timestamp.
+        let now_utc = time::OffsetDateTime::now_utc();
+        // TODO: Somehow iterate?
+        let priv_key_m = enum_map::enum_map! {
+            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+        };
+        // TODO: Somehow iterate?
+        use selfsign::Verifier;
+        let pub_key_m = enum_map::enum_map! {
+            KeyPurpose::Authentication => priv_key_m[KeyPurpose::Authentication].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::AssertionMethod => priv_key_m[KeyPurpose::AssertionMethod].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::KeyAgreement => priv_key_m[KeyPurpose::KeyAgreement].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::CapabilityInvocation => priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key().to_keri_verifier().into_owned(),
+        };
+
+        // First, add the DID document, priv keys, and priv key usages to the database, but under
+        // the "provisional" versions of those object stores.  Then the HTTP PUT to the VDR will
+        // happen, and then only if it succeeds will move the records to the non-provisional
+        // versions of those object stores.
+        let ctx_clone = self.ctx.clone();
+        let did_clone = did.clone();
+        // let updated_did_document_clone = updated_did_document.clone();
+        // let updated_did_document_jcs_clone = updated_did_document_jcs.clone();
+        let (updated_did_document, updated_did_document_jcs, did_document_blob_key, priv_key_blob_key_v, priv_key_usage_blob_key) = self
+            .db()
+            .await
+            .map_err(into_wallet_error)?
+            .transaction(&[
+                Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEYS_OBJECT_STORE,
+                Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
+            ])
+            .rw()
+            .run(async move |transaction| -> std::result::Result<_, indexed_db::Error<Error>> {
+                tracing::trace!("started transaction #1; retrieving appropriate signing key, updating DID document, adding provisional records for updated DID document, priv keys, and priv key usages");
+
+                // Get locally controlled verification methods for the latest DID document
+                let locally_controlled_verification_method_v = {
+                    tracing::trace!("getting locally controlled verification methods for latest DID document");
+                    let mut locally_controlled_verification_method_v = Vec::new();
+                    // Go through latest_did_document and find the verification methods that are locally controlled,
+                    // i.e. whose public keys match those in the priv_keys object store.
+                    let priv_keys_object_store = transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE)?;
+                    for verification_method in latest_did_document.public_key_material.verification_method_v.iter() {
+                        let wallets_rowid_as_f64_jsvalue = Self::wallets_rowid_as_f64_jsvalue(ctx_clone.wallets_rowid);
+
+                        let pub_key = verification_method.id.fragment();
+                        let pub_key_str = pub_key.as_str();
+                        let pub_key_str_jsvalue = JsValue::from(pub_key_str);
+
+                        let priv_key_blob_jsvalue_o = priv_keys_object_store.index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
+                            .get(&JsValue::from(vec![wallets_rowid_as_f64_jsvalue, pub_key_str_jsvalue]))
+                            .await?;
+                        if let Some(priv_key_blob_jsvalue) = priv_key_blob_jsvalue_o {
+                            let key_purpose_flags = latest_did_document.public_key_material.key_purpose_flags_for_key_id_fragment(&pub_key);
+                            let verification_method_record = did_webplus_wallet_store::VerificationMethodRecord {
+                                did_key_resource_fully_qualified: did_fully_qualified.with_fragment(&verification_method.id.fragment()),
+                                key_purpose_flags,
+                                pub_key: pub_key.to_owned(),
+                            };
+                            let priv_key_blob = serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue).map_err(|e| {
+                                Error::from(anyhow::anyhow!(
+                                    "Database corruption in DID document; error was: {}",
+                                    e
+                                ))
+                            })?;
+                            let priv_key_record = priv_key_blob.priv_key_record;
+                            locally_controlled_verification_method_v.push((verification_method_record, priv_key_record));
+                        }
+                    }
+                    tracing::trace!("found {} locally controlled verification methods for latest DID document", locally_controlled_verification_method_v.len());
+                    locally_controlled_verification_method_v
+                };
+                // let locally_controlled_verification_method_v = 
+                //     Self::get_locally_controlled_verification_methods_internal(
+                //         Self::PRIV_KEYS_OBJECT_STORE,
+                //         &ctx_clone,
+                //         &transaction,
+                //         &LocallyControlledVerificationMethodFilter {
+                //             did_o: Some(did_clone.clone()),
+                //             version_id_o: Some(latest_did_document.version_id),
+                //             key_purpose_o: None,
+                //             key_id_o: None,
+                //             result_limit_o: None,
+                //         },
+                //     )
+                //     .await?;
+
+                // If there are no matching locally controlled verification methods, then this means that the DID
+                // doc has been changed by another wallet that controls this DID, and this wallet no longer controls
+                // any keys present in the DID doc, and so there's no way for it to proceed with the DID update.
+                if locally_controlled_verification_method_v.is_empty() {
+                    return Err(indexed_db::Error::from(Error::from(anyhow::Error::from(did_webplus_wallet::Error::NoSuitablePrivKeyFound(format!("this wallet has no locally-controlled verification methods for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", did_clone, latest_did_document.self_hash(), latest_did_document.version_id).into())))));
+                }
+
+                // Select the appropriate key to self-sign the updated DID document.
+                let (_, priv_key_record_for_update) = locally_controlled_verification_method_v.iter().find(|(verification_method_record, _priv_key_record)| verification_method_record.key_purpose_flags.contains(KeyPurpose::CapabilityInvocation)).ok_or_else(|| indexed_db::Error::from(Error::from(anyhow::Error::from(did_webplus_wallet::Error::NoSuitablePrivKeyFound(format!("this wallet has no locally-controlled {} verification method for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", KeyPurpose::CapabilityInvocation, did_clone, latest_did_document.self_hash(), latest_did_document.version_id).into())))))?;
+                tracing::trace!("selected priv key for update: {:?}", priv_key_record_for_update);
+                let priv_key_for_update = priv_key_record_for_update
+                    .private_key_bytes_o
+                    .as_ref()
+                    .expect(
+                        "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
+                    );
+
+                // Form and self-sign-and-hash the updated DID document.
+                // TODO: Allow for other verification methods that were added by other wallets.
+                let updated_did_document = DIDDocument::update_from_previous(
+                    &latest_did_document,
+                    DIDDocumentUpdateParams {
+                        valid_from: now_utc,
+                        public_key_set: did_webplus_core::PublicKeySet {
+                            authentication_v: vec![&pub_key_m[KeyPurpose::Authentication].as_ref()],
+                            assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod].as_ref()],
+                            key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement].as_ref()],
+                            capability_invocation_v: vec![
+                                &pub_key_m[KeyPurpose::CapabilityInvocation].as_ref()
+                            ],
+                            capability_delegation_v: vec![
+                                &pub_key_m[KeyPurpose::CapabilityDelegation].as_ref()
+                            ],
+                        },
+                    },
+                    &selfhash::Blake3,
+                    priv_key_for_update,
+                ).map_err(|e| indexed_db::Error::from(Error::from(anyhow::Error::from(e))))?;
+
+                // Serialize DID doc as JCS (JSON Canonicalization Scheme).  This is what gets PUT'ed to the VDR.
+                let updated_did_document_jcs = updated_did_document
+                    .serialize_canonically()
+                    .expect("this shouldn't happen");
+
+                tracing::trace!(
+                    "formed updated DID document (not yet stored anywhere); did: {}; updated_did_document_jcs: {}",
+                    did_clone,
+                    updated_did_document_jcs
+                );
+
+                // Add the updated DID document.
+                let did_document_blob = DIDDocumentBlob {
+                    did_doc_record: DIDDocRecord {
+                        self_hash: updated_did_document.self_hash().to_string(),
+                        did: updated_did_document.did.to_string(),
+                        version_id: updated_did_document.version_id.try_into().unwrap(),
+                        valid_from: updated_did_document.valid_from,
+                        did_document_jcs: updated_did_document_jcs.clone(),
+                    },
+                };
+                tracing::trace!("adding did_document_blob: {:?}", did_document_blob);
+                let did_document_blob_key = transaction
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                    .put(&serde_wasm_bindgen::to_value(&did_document_blob).unwrap())
+                    .await?;
+                tracing::trace!("added did_document_blob; did_document_blob_key: {:?}", did_document_blob_key);
+
+                // Add the priv keys.
+                let mut priv_key_blob_key_v = Vec::with_capacity(KeyPurpose::VARIANTS.len());
+                for key_purpose in KeyPurpose::VARIANTS {
+                    tracing::trace!("adding priv key for key_purpose: {:?}", key_purpose);
+                    let priv_key_blob = PrivKeyBlob {
+                        wallets_rowid: ctx_clone.wallets_rowid,
+                        priv_key_record: PrivKeyRecord {
+                            pub_key: pub_key_m[key_purpose].clone(),
+                            key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
+                            created_at: now_utc,
+                            last_used_at_o: Some(now_utc),
+                            usage_count: 1,
+                            deleted_at_o: None,
+                            private_key_bytes_o: Some(
+                                priv_key_m[key_purpose].to_private_key_bytes().to_owned(),
+                            ),
+                        },
+                    };
+                    let priv_key_blob_key = transaction
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                        .put(&serde_wasm_bindgen::to_value(&priv_key_blob).unwrap())
+                        .await?;
+                    tracing::trace!("added priv key; key_purpose: {:?}; priv_key_blob_key.priv_key_record.pub_key: {:?}", key_purpose, priv_key_blob.priv_key_record.pub_key);
+                    priv_key_blob_key_v.push(priv_key_blob_key);
+                }
+
+                // Add the priv key usage for the DIDUpdate.
+                tracing::trace!("adding priv key usage for DIDUpdate");
+                let controlled_did = did_clone.with_queries(
+                    updated_did_document.self_hash(),
+                    updated_did_document.version_id,
+                );
+                let controlled_did_with_key_id = controlled_did.with_fragment(
+                    updated_did_document
+                        .self_signature_verifier_o
+                        .as_deref()
+                        .unwrap(),
+                );
+                let priv_key_usage_blob = PrivKeyUsageBlob {
+                    wallets_rowid: ctx_clone.wallets_rowid,
+                    priv_key_usage_record: PrivKeyUsageRecord {
+                        pub_key: updated_did_document
+                            .self_signature_verifier_o
+                            .as_ref()
+                            .unwrap()
+                            .clone(),
+                        used_at: now_utc,
+                        usage: PrivKeyUsage::DIDUpdate {
+                            updated_did_fully_qualified_o: Some(controlled_did.clone()),
+                        },
+                        verification_method_and_purpose_o: Some((
+                            controlled_did_with_key_id,
+                            KeyPurpose::CapabilityInvocation,
+                        )),
+                    },
+                };
+                let priv_key_usage_blob_key = transaction
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                    .put(&serde_wasm_bindgen::to_value(&priv_key_usage_blob).unwrap())
+                    .await?;
+                tracing::trace!("added priv key usage; priv_key_usage_blob_key: {:?}", priv_key_usage_blob_key);
+
+                tracing::trace!("transaction #1 succeeded");
+                Ok((
+                    updated_did_document,
+                    updated_did_document_jcs,
+                    did_document_blob_key,
+                    priv_key_blob_key_v,
+                    priv_key_usage_blob_key,
+                ))
+            })
+            .await
+            .map_err(into_wallet_error)?;
+
+        // PUT the DID document to the VDR to update the DID.  If an error occurs, then delete the
+        // provisional records.
+        match self
+            .post_or_put_did_document("update", &updated_did_document_jcs, &did, vdr_scheme)
+            .await
+        {
+            Ok(()) => (),
+            Err(e) => {
+                tracing::error!("error PUT'ing DID document to VDR: {:?}", e);
+                // Delete the provisional records.
+                // TODO: Figure out how to handle errors here.  Maybe do some sort of cleanup of provisional records
+                // that are older than some threshold.
+                self.db()
+                    .await
+                    .map_err(into_wallet_error)?
+                    .transaction(&[
+                        Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                        Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                        Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
+                    ])
+                    .rw()
+                    .run(async move |transaction| {
+                        tracing::trace!("undoing transaction #1 because HTTP PUT for DID {} failed; deleting provisional records", did);
+                        transaction
+                            .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                            .delete(&did_document_blob_key)
+                            .await?;
+
+                        for priv_key_blob_key in priv_key_blob_key_v {
+                            transaction
+                                .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                                .delete(&priv_key_blob_key)
+                                .await?;
+                        }
+
+                        transaction
+                            .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                            .delete(&priv_key_usage_blob_key)
+                            .await?;
+
+                        tracing::trace!("undo of transaction #1 succeeded");
+                        Ok(())
+                    })
+                    .await
+                    .map_err(into_wallet_error)?;
+                // Finally, abort this operation.
+                return Err(e);
+            }
+        }
+
+        // Now that the HTTP PUT is successful, move the provisional records to the non-provisional
+        // versions of those object stores.
+        self.db()
+            .await
+            .map_err(into_wallet_error)?
+            .transaction(&[
+                Self::DID_DOCUMENTS_OBJECT_STORE,
+                Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEYS_OBJECT_STORE,
+                Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
+            ])
+            .rw()
+            .run(async move |transaction| {
+                tracing::trace!("started transaction #2; moving provisional records to non-provisional versions of those object stores");
+                let did_document_blob_jsvalue = transaction
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                    .get(&did_document_blob_key)
+                    .await?
+                    .unwrap();
+                transaction
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                    .delete(&did_document_blob_key)
+                    .await?;
+                transaction
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
+                    .put(&did_document_blob_jsvalue)
+                    .await?;
+
+                for priv_key_blob_key in priv_key_blob_key_v {
+                    let priv_key_blob_jsvalue = transaction
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                        .get(&priv_key_blob_key)
+                        .await?
+                        .unwrap();
+                    transaction
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                        .delete(&priv_key_blob_key)
+                        .await?;
+                    transaction
+                        .object_store(Self::PRIV_KEYS_OBJECT_STORE)?
+                        .put(&priv_key_blob_jsvalue)
+                        .await?;
+                }
+
+                let priv_key_usage_blob_jsvalue = transaction
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                    .get(&priv_key_usage_blob_key)
+                    .await?
+                    .unwrap();
+                transaction
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                    .delete(&priv_key_usage_blob_key)
+                    .await?;
+                transaction
+                    .object_store(Self::PRIV_KEY_USAGES_OBJECT_STORE)?
+                    .put(&priv_key_usage_blob_jsvalue)
+                    .await?;
+
+                tracing::trace!("transaction #2 succeeded");
+                Ok(())
+            })
+            .await
+            .map_err(into_wallet_error)?;
+
+        let controlled_did = did.with_queries(
+            updated_did_document.self_hash(),
+            updated_did_document.version_id,
+        );
+        Ok(controlled_did)
     }
     async fn get_locally_controlled_verification_methods(
         &self,
