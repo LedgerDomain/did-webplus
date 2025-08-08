@@ -44,6 +44,10 @@ impl From<indexed_db::Error<Error>> for Error {
     }
 }
 
+fn into_doc_store_error<E: std::fmt::Display>(e: E) -> did_webplus_doc_store::Error {
+    did_webplus_doc_store::Error::StorageError(e.to_string().into())
+}
+
 fn into_wallet_error<E: std::fmt::Display>(e: E) -> did_webplus_wallet::Error {
     did_webplus_wallet::Error::WalletStorageError(did_webplus_wallet_store::Error::StorageError(
         e.to_string().into(),
@@ -316,67 +320,33 @@ impl SoftwareWalletIndexedDB {
     }
     async fn fetch_did_internal(
         &self,
-        did_documents_object_store_name: &str,
         did: &DIDStr,
-        _vdr_scheme: &'static str,
+        vdr_scheme: &'static str,
     ) -> did_webplus_wallet::Result<did_webplus_core::DIDDocument> {
-        // TEMP HACK: Just retrieve the latest DID document that exists in the database.
+        // Note the version of the known latest DID document.  This will only differ from the actual latest
+        // version if more than one wallet controls the DID.
 
-        tracing::debug!("TEMP HACK: Just retrieving the latest DID document from database");
-        let did_documents_object_store_name = did_documents_object_store_name.to_owned();
-        let did = did.to_owned();
-        let did_as_jsvalue = JsValue::from(did.as_str());
-        let range_begin = JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(0)]);
-        let range_end = JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(i32::MAX)]);
-        let did_document = self
-            .db()
+        // Retrieve any unfetched updates to the DID.
+        let did_doc_storage = self.clone();
+        let did_doc_storage_a = std::sync::Arc::new(did_doc_storage);
+        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(did_doc_storage_a);
+        let did_resolver = did_webplus_resolver::DIDResolverFull {
+            did_doc_store,
+            http_scheme: vdr_scheme,
+        };
+        use did_webplus_resolver::DIDResolver;
+        let (did_document, _did_doc_metadata) = did_resolver
+            .resolve_did_document(
+                did.as_str(),
+                did_webplus_core::RequestedDIDDocumentMetadata::none(),
+            )
             .await
-            .map_err(into_wallet_error)?
-            .transaction(&[did_documents_object_store_name.as_str()])
-            .run(async move |transaction| {
-                tracing::debug!("starting transaction for fetch_did_internal");
-                let did_document_blob_cursor = transaction
-                    .object_store(did_documents_object_store_name.as_str())?
-                    .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
-                    .cursor()
-                    .range(range_begin..range_end)?
-                    // DID documents are stored in chronological order, so we need to go backwards.
-                    .direction(indexed_db::CursorDirection::Prev)
-                    .open()
-                    .await?;
-                tracing::trace!("got did_document_blob_cursor");
-                let did_document_blob_jsvalue_o = did_document_blob_cursor.value();
-                if did_document_blob_jsvalue_o.is_none() {
-                    return Err(Error::from(anyhow::anyhow!(
-                        "DID document not found for DID: {}",
-                        did
-                    ))
-                    .into());
-                }
-                let did_document_blob_jsvalue = did_document_blob_jsvalue_o.unwrap();
-                tracing::trace!(
-                    "got did_document_blob_jsvalue: {:?}",
-                    did_document_blob_jsvalue
-                );
-                let did_document_blob =
-                    serde_wasm_bindgen::from_value::<DIDDocumentBlob>(did_document_blob_jsvalue)
-                        .map_err(|e| {
-                            Error::from(anyhow::anyhow!(
-                                "Database corruption in DID document; error was: {}",
-                                e
-                            ))
-                        })?;
-                let did_document = serde_json::from_str::<DIDDocument>(
-                    did_document_blob.did_doc_record.did_document_jcs.as_str(),
+            .map_err(|e| {
+                did_webplus_wallet::Error::DIDFetchError(
+                    format!("DID: {}, error was: {}", did, e).into(),
                 )
-                .map_err(|e| {
-                    Error::from(anyhow::anyhow!("Error deserializing DID document: {}", e))
-                })?;
+            })?;
 
-                Ok(did_document)
-            })
-            .await
-            .map_err(into_wallet_error)?;
         Ok(did_document)
     }
     async fn post_or_put_did_document(
@@ -486,6 +456,160 @@ struct PrivKeyBlob {
 struct PrivKeyUsageBlob {
     pub wallets_rowid: i64,
     pub priv_key_usage_record: PrivKeyUsageRecord,
+}
+
+/// NOTE: This is a hack that doesn't follow the semantics of storage_traits::TransactionDynT
+/// and storage_traits::StorageDynT, and is only used to allow the SoftwareWalletIndexedDB to
+/// implement the DIDDocStorage trait.  SoftwareWalletIndexedDB can't directly support the
+/// TransactionDynT pattern because the indexed_db crate transaction pattern involves async
+/// closures passed to a particular async executor, instead of passing around a transaction
+/// object.  This means that each DIDDocStorage operation on SoftwareWalletIndexedDB is
+/// effectively in its own transaction, and not part of a larger transaction.
+#[derive(Clone, Debug)]
+pub struct NotATransaction;
+
+impl std::ops::Drop for NotATransaction {
+    fn drop(&mut self) {
+        // Nothing to do.
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl storage_traits::TransactionDynT for NotATransaction {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    async fn commit(self: Box<Self>) -> storage_traits::Result<()> {
+        Ok(())
+    }
+    async fn rollback(self: Box<Self>) -> storage_traits::Result<()> {
+        Ok(())
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl storage_traits::StorageDynT for SoftwareWalletIndexedDB {
+    async fn begin_transaction(
+        &self,
+    ) -> storage_traits::Result<Box<dyn storage_traits::TransactionDynT>> {
+        Ok(Box::new(NotATransaction))
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
+    async fn add_did_document(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did_document: &DIDDocument,
+        did_document_jcs: &str,
+    ) -> did_webplus_doc_store::Result<()> {
+        let self_hash = did_document.self_hash().to_string();
+        let did = did_document.did.to_string();
+        let version_id = did_document.version_id.try_into().unwrap();
+        let valid_from = did_document.valid_from;
+        let did_document_jcs = did_document_jcs.to_string();
+        self.db()
+            .await
+            .map_err(into_doc_store_error)?
+            .transaction(&[Self::DID_DOCUMENTS_OBJECT_STORE])
+            .rw()
+            .run(async move |transaction| {
+                let did_document_blob = DIDDocumentBlob {
+                    did_doc_record: DIDDocRecord {
+                        self_hash,
+                        did,
+                        version_id,
+                        valid_from,
+                        did_document_jcs,
+                    },
+                };
+                transaction
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
+                    .put(&serde_wasm_bindgen::to_value(&did_document_blob).unwrap())
+                    .await?;
+                Ok(())
+            })
+            .await
+            .map_err(into_doc_store_error)?;
+        Ok(())
+    }
+    async fn get_did_doc_record_with_self_hash(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        _did: &DIDStr,
+        _self_hash: &selfhash::KERIHashStr,
+    ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
+        unimplemented!("SoftwareWalletIndexedDB::get_did_doc_record_with_self_hash");
+    }
+    async fn get_did_doc_record_with_version_id(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        _did: &DIDStr,
+        _version_id: u32,
+    ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
+        unimplemented!("SoftwareWalletIndexedDB::get_did_doc_record_with_version_id");
+    }
+    async fn get_latest_did_doc_record(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+    ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
+        let did = did.to_owned();
+        let did_as_jsvalue = JsValue::from(did.as_str());
+        let range_begin = JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(0)]);
+        let range_end = JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(i32::MAX)]);
+        let did_doc_record_o = self
+            .db()
+            .await
+            .map_err(into_doc_store_error)?
+            .transaction(&[Self::DID_DOCUMENTS_OBJECT_STORE])
+            .run(async move |transaction| {
+                tracing::debug!("starting transaction for fetch_did_internal");
+                let did_document_blob_cursor = transaction
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
+                    .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
+                    .cursor()
+                    .range(range_begin..range_end)?
+                    // DID documents are stored in chronological order, so we need to go backwards.
+                    .direction(indexed_db::CursorDirection::Prev)
+                    .open()
+                    .await?;
+                tracing::trace!("got did_document_blob_cursor");
+                let did_document_blob_jsvalue_o = did_document_blob_cursor.value();
+                if let Some(did_document_blob_jsvalue) = did_document_blob_jsvalue_o {
+                    tracing::trace!(
+                        "got did_document_blob_jsvalue: {:?}",
+                        did_document_blob_jsvalue
+                    );
+                    let did_document_blob = serde_wasm_bindgen::from_value::<DIDDocumentBlob>(
+                        did_document_blob_jsvalue,
+                    )
+                    .map_err(|e| {
+                        Error::from(anyhow::anyhow!(
+                            "Database corruption in DID document; error was: {}",
+                            e
+                        ))
+                    })?;
+                    Ok(Some(did_document_blob.did_doc_record))
+                } else {
+                    Ok(None)
+                }
+            })
+            .await
+            .map_err(into_doc_store_error)?;
+        Ok(did_doc_record_o)
+    }
+    async fn get_did_doc_records(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        _did_doc_record_filter: &did_webplus_doc_store::DIDDocRecordFilter,
+    ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
+        unimplemented!("SoftwareWalletIndexedDB::get_did_doc_records");
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -852,9 +976,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let latest_did_document = self
-            .fetch_did_internal(Self::DID_DOCUMENTS_OBJECT_STORE, &did, vdr_scheme)
-            .await?;
+        let latest_did_document = self.fetch_did_internal(&did, vdr_scheme).await?;
         let did_fully_qualified = did.with_queries(
             latest_did_document.self_hash(),
             latest_did_document.version_id,

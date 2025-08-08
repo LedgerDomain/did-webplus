@@ -30,12 +30,16 @@
 				"check",
 				"--workspace",
 				"--all-features",
+				"--all-targets",
 				"--benches",
 				"--bins",
 				"--examples",
 				"--tests"
 			],
-			"group": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
 			"options": {
 				"env": {
 					"SQLX_OFFLINE": "true"
@@ -708,10 +712,7 @@
 				"--all-features",
 				"--tests"
 			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
+			"group": "build",
 			"presentation": {
 				"clear": true,
 				"revealProblems": "onProblem"
