@@ -63,6 +63,7 @@ pub struct SoftwareWalletIndexedDB {
 }
 
 impl SoftwareWalletIndexedDB {
+    pub const CURRENT_DB_VERSION: u32 = 1;
     pub async fn create(
         db_name: String,
         db_version: u32,

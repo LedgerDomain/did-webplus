@@ -21,10 +21,10 @@
         window.vjson_store = await VJSONStore.new_mock();
         // Generate a VJSONResolver from the VJSONStore.
         window.vjson_resolver = window.vjson_store.as_resolver();
-        window.wallet = await Wallet.new_mock();
+        window.wallet = await Wallet.create("wallet_db_1", `Example Wallet ${new Date().toISOString()}`);
 
         // Create a DID
-        let controlled_did = await window.wallet.create_did("http://localhost:10001");
+        let controlled_did = await window.wallet.create_did("http://localhost:12321");
         console.log("Created DID: " + controlled_did);
 
         // Do some more setup

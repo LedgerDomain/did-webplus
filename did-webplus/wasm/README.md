@@ -64,6 +64,41 @@ It appears that no logging is sent to stdout when the tests are run within node.
 
 ## Running Example
 
+### Build and Run the VDR
+
+Build and install `did-webplus-vdr` binary:
+
+    cd ../vdr
+    cargo install --path . --features postgres
+
+Create a "home" directory for the VDR (for the configuration):
+
+    cd ~
+    mkdir -p did-webplus/vdr_12321
+    cd did-webplus/vdr_12321
+
+Create a `.env` file for the VDR with the following contents:
+
+    export DID_WEBPLUS_VDR_DID_HOST=localhost
+    export DID_WEBPLUS_VDR_DID_PORT=12321
+    export DID_WEBPLUS_VDR_LISTEN_PORT=12321
+    export DID_WEBPLUS_VDR_DATABASE_URL=postgres:///did_webplus_vdr_12321
+    export DID_WEBPLUS_VDR_GATEWAY_HOSTS=localhost:23456
+    export DID_WEBPLUS_VDR_LOG_FORMAT=pretty
+    export DID_WEBPLUS_VDR_HTTP_SCHEME_OVERRIDE=
+
+    export RUST_LOG=did_webplus=debug,tower_http::trace::on_response=info,debug
+
+Make sure that the postgres database has been created:
+
+    psql -c 'create database did_webplus_vdr_12321'
+
+Run the VDR (make sure you're in the `did-webplus/vdr_12321` directory):
+
+    did-webplus-vdr
+
+### Build and Run the Example Web Page
+
 Ensure the wasm package has been built:
 
     wasm-pack build --target web
@@ -78,8 +113,10 @@ This should populate the `pkg` directory with various files, including:
     package.json
     README.md
 
-Then run a local web server to serve the example web page (index.html), e.g.
+Ensure that the VDR is running (see above).  Then run a local web server to serve the example web page (`index.html`), e.g.
 
     python3 -m http.server 3000
 
-and then load http://localhost:3000 in your web browser.  This is a very ugly -- but working -- example of some critical features of did-webplus running in a browser.
+and then load `http://localhost:3000` in your web browser.  This is a very ugly -- but working -- example of some critical features of did-webplus running in a browser.
+
+For now, the IndexedDB-backed wallet is demonstrated upon first load, and its results can be seen in the console log.  There should be corresponding VDR log messages (e.g. about DID creation).

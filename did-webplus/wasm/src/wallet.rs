@@ -30,6 +30,29 @@ impl Wallet {
             Ok(Self(Arc::new(software_wallet)).into())
         })
     }
+    // TODO: Method for listing wallets in a given database.
+    /// Create a new (IndexedDB-backed) wallet in the given database, with optional wallet name.
+    pub fn create(db_name: String, wallet_name_o: Option<String>) -> js_sys::Promise {
+        wasm_bindgen_futures::future_to_promise(async move {
+            let software_wallet_indexeddb = did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::create(db_name, did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::CURRENT_DB_VERSION, wallet_name_o).await.map_err(into_js_value)?;
+            Ok(Self(Arc::new(software_wallet_indexeddb)).into())
+        })
+    }
+    /// Open an existing (IndexedDB-backed) wallet in the given database.
+    pub fn open(db_name: String, wallet_uuid: String) -> js_sys::Promise {
+        wasm_bindgen_futures::future_to_promise(async move {
+            let wallet_uuid = uuid::Uuid::parse_str(&wallet_uuid).map_err(into_js_value)?;
+            let software_wallet_indexeddb =
+                did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::open(
+                    db_name,
+                    did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::CURRENT_DB_VERSION,
+                    wallet_uuid,
+                )
+                .await
+                .map_err(into_js_value)?;
+            Ok(Self(Arc::new(software_wallet_indexeddb)).into())
+        })
+    }
     /// Create a new (set of) private key(s), create a root DID document containing the corresponding public key(s),
     /// and send the DID document to the specified VDR.  This DID is now a locally-controlled DID.  Returns the
     /// fully qualified DID corresponding to the updated DID doc (i.e. the DID with selfHash and versionId query

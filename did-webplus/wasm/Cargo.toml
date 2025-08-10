@@ -31,6 +31,7 @@ did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-jws = { path = "../jws", features = ["wasm-bindgen"] }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-software-wallet = { path = "../software-wallet" }
+did-webplus-software-wallet-indexeddb = { path = "../software-wallet-indexeddb" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-storage-mock = { path = "../wallet-storage-mock" }
 js-sys = "0.3.76"
@@ -48,6 +49,7 @@ storage-traits = { path = "../../storage-traits" }
 time = { version = "0.3", features = ["wasm-bindgen"] }
 tracing = { version = "0.1.37", features = ["log"] }
 url = "2.5.0"
+uuid = "1.9.1"
 verifier-resolver = { path = "../../verifier-resolver" }
 vjson-core = { path = "../../vjson/core" }
 vjson-storage-mock = { path = "../../vjson/storage-mock" }
