@@ -400,11 +400,6 @@
 				"--all-features",
 				"--tests"
 			],
-			"options": {
-				"env": {
-					"SQLX_OFFLINE": "true"
-				}
-			},
 			"group": "build",
 			"presentation": {
 				"clear": true,

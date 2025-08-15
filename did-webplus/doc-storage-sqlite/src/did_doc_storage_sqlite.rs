@@ -39,10 +39,29 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         let version_id = did_document.version_id() as i64;
         let valid_from = did_document.valid_from();
         let self_hash_str = did_document.self_hash().as_str();
+        // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
+        // and that means that the DID document is verifiably already present in the database.
         let query = sqlx::query!(
             r#"
-                insert into did_document_records(did, version_id, valid_from, self_hash, did_document)
-                values ($1, $2, $3, $4, $5)
+                INSERT INTO did_document_records(did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs)
+                VALUES (
+                    $1,
+                    $2,
+                    $3,
+                    $4,
+                    COALESCE(
+                        (
+                            SELECT did_documents_jsonl_octet_length
+                            FROM did_document_records
+                            WHERE did = $1
+                            ORDER BY version_id DESC
+                            LIMIT 1
+                        ),
+                        0
+                    ) + OCTET_LENGTH($5) + 1,
+                    $5
+                )
+                ON CONFLICT DO NOTHING
             "#,
             did_str,
             version_id,
@@ -90,10 +109,29 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
             let version_id = did_document.version_id() as i64;
             let valid_from = did_document.valid_from();
             let self_hash_str = did_document.self_hash().as_str();
+            // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
+            // and that means that the DID document is verifiably already present in the database.
             let query = sqlx::query!(
                 r#"
-                insert into did_document_records(did, version_id, valid_from, self_hash, did_document)
-                values ($1, $2, $3, $4, $5)
+                INSERT INTO did_document_records(did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs)
+                VALUES (
+                    $1,
+                    $2,
+                    $3,
+                    $4,
+                    COALESCE(
+                        (
+                            SELECT did_documents_jsonl_octet_length
+                            FROM did_document_records
+                            WHERE did = $1
+                            ORDER BY version_id DESC
+                            LIMIT 1
+                        ),
+                        0
+                    ) + OCTET_LENGTH($5) + 1,
+                    $5
+                )
+                ON CONFLICT DO NOTHING
             "#,
                 did_str,
                 version_id,
@@ -128,9 +166,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
-                select did, version_id, valid_from, self_hash, did_document
-                from did_document_records
-                where did = $1 and self_hash = $2
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1 AND self_hash = $2
             "#,
             did_str,
             self_hash_str
@@ -163,9 +201,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
-                select did, version_id, valid_from, self_hash, did_document
-                from did_document_records
-                where did = $1 and version_id = $2
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1 AND version_id = $2
             "#,
             did_str,
             version_id,
@@ -196,11 +234,11 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
-                select did, version_id, valid_from, self_hash, did_document
-                from did_document_records
-                where did = $1
-                order by version_id desc
-                limit 1
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1
+                ORDER BY version_id DESC
+                LIMIT 1
             "#,
             did_str,
         );
@@ -234,9 +272,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
-                select did, version_id, valid_from, self_hash, did_document
-                from did_document_records
-                where (NOT $1 OR did = $2) AND
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE (NOT $1 OR did = $2) AND
                       (NOT $3 OR self_hash = $4) AND
                       (NOT $5 OR version_id = $6)
             "#,
@@ -265,6 +303,92 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         .collect::<Result<Vec<_>>>()?;
         Ok(did_doc_record_v)
     }
+    async fn get_known_did_documents_jsonl_octet_length(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+    ) -> Result<u64> {
+        let did_str = did.as_str();
+        let query = sqlx::query!(
+            r#"
+                SELECT COALESCE(
+                    (
+                        SELECT did_documents_jsonl_octet_length
+                        FROM did_document_records
+                        WHERE did = $1
+                        ORDER BY version_id DESC
+                        LIMIT 1
+                    ),
+                    0
+                ) AS did_documents_jsonl_octet_length
+            "#,
+            did_str
+        );
+        let did_documents_jsonl_octet_length = if let Some(transaction) = transaction_o {
+            query
+                .fetch_one(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+                .did_documents_jsonl_octet_length
+        } else {
+            query
+                .fetch_one(&self.sqlite_pool)
+                .await?
+                .did_documents_jsonl_octet_length
+        };
+        let did_documents_jsonl_octet_length = did_documents_jsonl_octet_length as u64;
+        Ok(did_documents_jsonl_octet_length)
+    }
+    async fn get_did_doc_records_for_did_documents_jsonl_range(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+        range_begin_inclusive_o: Option<u64>,
+        range_end_exclusive_o: Option<u64>,
+    ) -> Result<Vec<DIDDocRecord>> {
+        let range_begin_inclusive = range_begin_inclusive_o.map(|x| x as i64).unwrap_or(0);
+        let range_end_exclusive = range_end_exclusive_o.map(|x| x as i64).unwrap_or(i64::MAX);
+
+        if range_begin_inclusive >= range_end_exclusive {
+            // If the range is empty (or invalid), return an empty vector.
+            return Ok(Vec::new());
+        }
+
+        let did_str = did.as_str();
+        let query = sqlx::query_as!(
+            DIDDocRecord,
+            r#"
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1 AND
+                      $2 < did_documents_jsonl_octet_length AND
+                      did_documents_jsonl_octet_length - (OCTET_LENGTH(did_document_jcs) + 1) < $3
+                ORDER BY version_id ASC
+            "#,
+            did_str,
+            range_begin_inclusive,
+            range_end_exclusive,
+        );
+        let did_doc_record_v = if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.sqlite_pool).await?
+        };
+        Ok(did_doc_record_v)
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -287,7 +411,8 @@ pub struct DIDDocumentRowSQLite {
     pub did: String,
     pub version_id: i64,
     pub valid_from: time::OffsetDateTime,
-    pub did_document: String,
+    pub did_documents_jsonl_octet_length: i64,
+    pub did_document_jcs: String,
 }
 
 impl TryFrom<DIDDocumentRowSQLite> for did_webplus_doc_store::DIDDocRecord {
@@ -300,7 +425,9 @@ impl TryFrom<DIDDocumentRowSQLite> for did_webplus_doc_store::DIDDocRecord {
             did: did_doc_record_sqlite.did,
             version_id: did_doc_record_sqlite.version_id,
             valid_from: did_doc_record_sqlite.valid_from,
-            did_document_jcs: did_doc_record_sqlite.did_document,
+            did_documents_jsonl_octet_length: did_doc_record_sqlite
+                .did_documents_jsonl_octet_length,
+            did_document_jcs: did_doc_record_sqlite.did_document_jcs,
         })
     }
 }

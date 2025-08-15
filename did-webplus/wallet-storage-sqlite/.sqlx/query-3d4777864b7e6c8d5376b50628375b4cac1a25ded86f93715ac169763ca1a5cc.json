@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                    INSERT INTO verification_methods(did_document_records_rowid, key_id_fragment, controller, pub_key, key_purpose_flags)\n                    VALUES ($1, $2, $3, $4, $5)\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "3d4777864b7e6c8d5376b50628375b4cac1a25ded86f93715ac169763ca1a5cc"
+}

@@ -23,6 +23,10 @@ impl DIDDocStorageMockState {
         }
     }
     fn add(&mut self, did_document: &DIDDocument, did_document_jcs: String) {
+        let previous_did_documents_jsonl_octet_length = self
+            .get_latest(&did_document.did)
+            .map(|did_doc_record| did_doc_record.did_documents_jsonl_octet_length)
+            .unwrap_or(0);
         let did_doc_record_primary_key = self.next_did_doc_record_primary_key;
         self.next_did_doc_record_primary_key += 1;
         let did_doc_record = DIDDocRecord {
@@ -30,6 +34,9 @@ impl DIDDocStorageMockState {
             did: did_document.did.to_string(),
             version_id: did_document.version_id as i64,
             valid_from: did_document.valid_from,
+            did_documents_jsonl_octet_length: previous_did_documents_jsonl_octet_length
+                + did_document_jcs.len() as i64
+                + 1,
             did_document_jcs,
         };
         self.did_doc_record_m
@@ -180,6 +187,55 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
     ) -> Result<Vec<DIDDocRecord>> {
         let state_g = self.state_la.read().unwrap();
         let did_doc_record_v = state_g.get(did_doc_record_filter);
+        Ok(did_doc_record_v)
+    }
+    async fn get_known_did_documents_jsonl_octet_length(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+    ) -> Result<u64> {
+        let state_g = self.state_la.read().unwrap();
+        let did_doc_record_v = state_g.get(&DIDDocRecordFilter {
+            did_o: Some(did.to_string()),
+            ..Default::default()
+        });
+        let mut size = 0;
+        for did_doc_record in did_doc_record_v {
+            size += did_doc_record.did_document_jcs.len() as u64;
+            // One more byte for the trailing newline.
+            size += 1;
+        }
+        Ok(size)
+    }
+    async fn get_did_doc_records_for_did_documents_jsonl_range(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+        range_begin_inclusive_o: Option<u64>,
+        range_end_exclusive_o: Option<u64>,
+    ) -> Result<Vec<DIDDocRecord>> {
+        let range_begin_inclusive = range_begin_inclusive_o.map(|x| x as i64).unwrap_or(0);
+        let range_end_exclusive = range_end_exclusive_o.map(|x| x as i64).unwrap_or(i64::MAX);
+
+        if range_begin_inclusive >= range_end_exclusive {
+            // If the range is empty (or invalid), return an empty vector.
+            return Ok(Vec::new());
+        }
+
+        let state_g = self.state_la.read().unwrap();
+        let did_doc_record_v = state_g
+            .get(&DIDDocRecordFilter {
+                did_o: Some(did.to_string()),
+                ..Default::default()
+            })
+            .into_iter()
+            .filter(|did_doc_record| {
+                range_begin_inclusive < did_doc_record.did_documents_jsonl_octet_length
+                    && did_doc_record.did_documents_jsonl_octet_length
+                        - (did_doc_record.did_document_jcs.len() as i64 + 1)
+                        < range_end_exclusive
+            })
+            .collect();
         Ok(did_doc_record_v)
     }
 }

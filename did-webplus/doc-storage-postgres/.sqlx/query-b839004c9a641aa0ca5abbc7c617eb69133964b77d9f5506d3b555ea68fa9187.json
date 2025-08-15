@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                select did, version_id, valid_from, self_hash, did_document#>>'{}' as \"did_document_jcs!: String\"\n                from did_document_records\n                where did = $1 and version_id = $2\n            ",
+  "query": "\n                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs\n                FROM did_document_records\n                WHERE (NOT $1 OR did = $2) AND\n                      (NOT $3 OR self_hash = $4) AND\n                      (NOT $5 OR version_id = $6)\n            ",
   "describe": {
     "columns": [
       {
@@ -25,13 +25,22 @@
       },
       {
         "ordinal": 4,
-        "name": "did_document_jcs!: String",
+        "name": "did_documents_jsonl_octet_length",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "did_document_jcs",
         "type_info": "Text"
       }
     ],
     "parameters": {
       "Left": [
+        "Bool",
         "Text",
+        "Bool",
+        "Text",
+        "Bool",
         "Int8"
       ]
     },
@@ -40,8 +49,9 @@
       false,
       false,
       false,
-      null
+      false,
+      false
     ]
   },
-  "hash": "56f725fc6a0392ccec97c15d1ef8c51c85443e48917c5c42d453f704ec8a891d"
+  "hash": "b839004c9a641aa0ca5abbc7c617eb69133964b77d9f5506d3b555ea68fa9187"
 }
