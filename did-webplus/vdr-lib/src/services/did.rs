@@ -1,7 +1,7 @@
 use crate::{VDRAppState, VDRConfig};
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{header, HeaderMap, StatusCode},
     routing::get,
     Router,
 };
@@ -24,21 +24,229 @@ pub fn get_routes(did_doc_store: DIDDocStore, vdr_config: &VDRConfig) -> Router 
             // form of the "query" (e.g. did.selfHash=<hash>.json) and the fact that we're using
             // the same handler for multiple routes.
             "/{*path}",
-            get(get_did_document_or_metadata)
-                .post(create_did)
-                .put(update_did),
+            get(get_did).post(create_did).put(update_did),
         )
         .with_state(state)
 }
 
-#[tracing::instrument(level = tracing::Level::INFO, ret(level = tracing::Level::DEBUG, Display), err(Debug), skip(vdr_app_state))]
-async fn get_did_document_or_metadata(
+#[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(vdr_app_state))]
+async fn get_did(
     State(vdr_app_state): State<VDRAppState>,
     Path(path): Path<String>,
-) -> Result<String, (StatusCode, String)> {
+    header_map: HeaderMap,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
 
-    let did_hostname = vdr_app_state.vdr_config.did_hostname.as_str();
+    // Case for retrieving did-documents.jsonl (i.e. all DID docs concatenated into a single JSONL file)
+    if let Ok(did) = DID::from_did_documents_jsonl_resolution_url(
+        vdr_app_state.vdr_config.did_hostname.as_str(),
+        vdr_app_state.vdr_config.did_port_o,
+        path.as_str(),
+    ) {
+        return get_did_document_jsonl(State(vdr_app_state), header_map, did).await;
+    }
+
+    // Case for retrieving the latest DID doc.
+    if let Ok(did) = DID::from_resolution_url(
+        vdr_app_state.vdr_config.did_hostname.as_str(),
+        vdr_app_state.vdr_config.did_port_o,
+        path.as_str(),
+    ) {
+        return get_did_latest_did_document(State(vdr_app_state), header_map, did).await;
+    }
+
+    // Cases for retrieving a specific DID doc based on selfHash or versionId
+    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(
+        vdr_app_state.vdr_config.did_hostname.as_str(),
+        vdr_app_state.vdr_config.did_port_o,
+        path.as_str(),
+    ) {
+        return get_did_with_query(State(vdr_app_state), header_map, did_with_query).await;
+    }
+
+    // Cases for metadata
+    if path.ends_with("/did/metadata.json") {
+        return get_did_document_metadata(State(vdr_app_state), Path(path)).await;
+    } else if path.ends_with("/did/metadata/constant.json") {
+        return get_did_document_metadata_constant(State(vdr_app_state), Path(path)).await;
+    } else if let Some((path, filename)) = path.rsplit_once('/') {
+        return get_did_document_metadata_self_hash_or_version_id(
+            State(vdr_app_state),
+            path,
+            filename,
+        )
+        .await;
+    }
+
+    // If none of the cases above matched, then the path is malformed.
+    Err((StatusCode::BAD_REQUEST, "".to_string()))
+}
+
+async fn get_did_document_jsonl(
+    State(vdr_app_state): State<VDRAppState>,
+    header_map: HeaderMap,
+    did: DID,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    tracing::debug!(
+        ?did,
+        "retrieving all DID docs concatenated into a single JSONL file; header_map: {:?}",
+        header_map
+    );
+
+    let mut response_header_map = HeaderMap::new();
+    response_header_map.insert("Content-Type", "application/jsonl".parse().unwrap());
+
+    if let Some(range_header) = header_map.get(header::RANGE) {
+        // Parse the "Range" header, if present, and then handle.
+
+        let time_start = std::time::SystemTime::now();
+
+        tracing::debug!("Range header: {:?}", range_header);
+        let range_header_str = range_header.to_str().unwrap();
+        if !range_header_str.starts_with("bytes=") {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Malformed Range header -- expected it to begin with 'bytes='".to_string(),
+            ));
+        }
+        let range_header_str = range_header_str.strip_prefix("bytes=").unwrap();
+        let (range_start_str, range_end_str) = range_header_str.split_once('-').unwrap();
+        let range_begin_inclusive_o = if range_start_str.is_empty() {
+            None
+        } else {
+            Some(range_start_str.parse::<u64>().unwrap())
+        };
+        let range_end_inclusive_o = if range_end_str.is_empty() {
+            None
+        } else {
+            Some(range_end_str.parse::<u64>().unwrap())
+        };
+        let range_end_exclusive_o = range_end_inclusive_o.map(|x| x + 1);
+
+        use storage_traits::StorageDynT;
+        let mut transaction_b = vdr_app_state
+            .did_doc_store
+            .begin_transaction()
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        let did_documents_jsonl_range = vdr_app_state
+            .did_doc_store
+            .get_did_documents_jsonl_range(
+                Some(transaction_b.as_mut()),
+                &did,
+                range_begin_inclusive_o,
+                range_end_exclusive_o,
+            )
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        transaction_b
+            .commit()
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+        response_header_map.insert(
+            header::CONTENT_RANGE,
+            format!(
+                "bytes {}-{}/{}",
+                range_start_str,
+                range_end_str,
+                did_documents_jsonl_range.len()
+            )
+            .parse()
+            .unwrap(),
+        );
+
+        let duration = time_start.elapsed().unwrap();
+        tracing::debug!(
+            "retrieved range `{}` of did-documents.jsonl in {:?}",
+            range_header_str,
+            duration
+        );
+
+        return Ok((response_header_map, did_documents_jsonl_range));
+    } else {
+        // No Range header present, so serve the whole did-documents.jsonl file.
+
+        let time_start = std::time::SystemTime::now();
+
+        use storage_traits::StorageDynT;
+        let mut transaction_b = vdr_app_state
+            .did_doc_store
+            .begin_transaction()
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        let did_documents_jsonl = vdr_app_state
+            .did_doc_store
+            .get_did_documents_jsonl_range(Some(transaction_b.as_mut()), &did, None, None)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        transaction_b
+            .commit()
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        let duration = time_start.elapsed().unwrap();
+        tracing::debug!(
+            "retrieved entire did-documents.jsonl file in {:?}",
+            duration
+        );
+
+        return Ok((response_header_map, did_documents_jsonl));
+    }
+}
+
+async fn get_did_latest_did_document(
+    State(vdr_app_state): State<VDRAppState>,
+    header_map: HeaderMap,
+    did: DID,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    tracing::debug!(
+        ?did,
+        "retrieving latest DID doc; header_map: {:?}",
+        header_map
+    );
+
+    use storage_traits::StorageDynT;
+    let mut transaction_b = vdr_app_state
+        .did_doc_store
+        .begin_transaction()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let latest_did_doc_record = vdr_app_state
+        .did_doc_store
+        .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
+    transaction_b
+        .commit()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let response_header_map = {
+        let mut header_map = HeaderMap::new();
+        header_map.insert("Content-Type", "application/json".parse().unwrap());
+        header_map
+    };
+    return Ok((response_header_map, latest_did_doc_record.did_document_jcs));
+}
+
+async fn get_did_with_query(
+    State(vdr_app_state): State<VDRAppState>,
+    header_map: HeaderMap,
+    did_with_query: DIDWithQuery,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    tracing::debug!(
+        ?did_with_query,
+        "retrieving specific DID doc based on selfHash or versionId; header_map: {:?}",
+        header_map
+    );
+
+    let did = did_with_query.did();
+    let response_header_map = {
+        let mut header_map = HeaderMap::new();
+        header_map.insert("Content-Type", "application/json".parse().unwrap());
+        header_map
+    };
 
     use storage_traits::StorageDynT;
     let mut transaction_b = vdr_app_state
@@ -47,44 +255,10 @@ async fn get_did_document_or_metadata(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    // Case for retrieving did-documents.jsonl (i.e. all DID docs concatenated into a single JSONL file)
-    if let Ok(did) = DID::from_did_documents_jsonl_resolution_url(
-        did_hostname,
-        vdr_app_state.vdr_config.did_port_o,
-        path.as_str(),
-    ) {
-        tracing::debug!(
-            ?did,
-            "retrieving all DID docs concatenated into a single JSONL file"
-        );
-        let did_doc_records = vdr_app_state
+    if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
+        let did_doc_record = vdr_app_state
             .did_doc_store
-            .get_all_did_doc_records(Some(transaction_b.as_mut()), &did)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        transaction_b
-            .commit()
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        // Now print all the DID documents into the response, separated by newlines.
-        let did_document_jcs_v = did_doc_records
-            .into_iter()
-            .map(|did_doc_record| did_doc_record.did_document_jcs)
-            .collect::<Vec<_>>();
-        let did_document_jsonl = did_document_jcs_v.join("\n");
-        return Ok(did_document_jsonl);
-    }
-
-    // Case for retrieving the latest DID doc.
-    if let Ok(did) = DID::from_resolution_url(
-        did_hostname,
-        vdr_app_state.vdr_config.did_port_o,
-        path.as_str(),
-    ) {
-        tracing::debug!(?did, "retrieving latest DID doc");
-        let latest_did_doc_record = vdr_app_state
-            .did_doc_store
-            .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
+            .get_did_doc_record_with_self_hash(Some(transaction_b.as_mut()), &did, query_self_hash)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
@@ -92,193 +266,54 @@ async fn get_did_document_or_metadata(
             .commit()
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        return Ok(latest_did_doc_record.did_document_jcs);
-    }
-
-    // Cases for retrieving a specific DID doc based on selfHash or versionId
-    if let Ok(did_with_query) = DIDWithQuery::from_resolution_url(
-        did_hostname,
-        vdr_app_state.vdr_config.did_port_o,
-        path.as_str(),
-    ) {
-        tracing::debug!(
-            ?did_with_query,
-            "retrieving specific DID doc based on selfHash or versionId"
-        );
-        let did = did_with_query.did();
-        if let Some(query_self_hash) = did_with_query.query_self_hash_o() {
-            let did_doc_record = vdr_app_state
-                .did_doc_store
-                .get_did_doc_record_with_self_hash(
-                    Some(transaction_b.as_mut()),
-                    &did,
-                    query_self_hash,
-                )
-                .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-                .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-            transaction_b
-                .commit()
-                .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-            return Ok(did_doc_record.did_document_jcs);
-        } else if let Some(query_version_id) = did_with_query.query_version_id_o() {
-            let did_doc_record = vdr_app_state
-                .did_doc_store
-                .get_did_doc_record_with_version_id(
-                    Some(transaction_b.as_mut()),
-                    &did,
-                    query_version_id,
-                )
-                .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-                .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-            transaction_b
-                .commit()
-                .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-            return Ok(did_doc_record.did_document_jcs);
-        } else {
-            return Err((StatusCode::BAD_REQUEST, "".to_string()));
-        }
-    }
-
-    // Cases for metadata
-    if path.ends_with("/did/metadata.json") {
-        tracing::debug!("retrieving latest DID doc metadata");
-        let path = path.strip_suffix("/did/metadata.json").unwrap();
-        let did = DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
-            .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-        let latest_did_document_record = vdr_app_state
-            .did_doc_store
-            .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-        let first_did_document_record = vdr_app_state
-            .did_doc_store
-            .get_did_doc_record_with_version_id(Some(transaction_b.as_mut()), &did, 0)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .ok_or_else(|| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "if any DID doc is present in database for a DID, then its root DID doc (version 0) is expected to be present in database"
-                        .to_string(),
-                )
-            })?;
-        transaction_b
-            .commit()
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        let current_did_document_metadata = DIDDocumentMetadata {
-            constant_o: Some(DIDDocumentMetadataConstant {
-                created: first_did_document_record.valid_from,
-            }),
-            idempotent_o: Some(DIDDocumentMetadataIdempotent {
-                next_update_o: None,
-                next_version_id_o: None,
-            }),
-            currency_o: Some(DIDDocumentMetadataCurrency {
-                most_recent_update: latest_did_document_record.valid_from,
-                most_recent_version_id: latest_did_document_record.version_id as u32,
-            }),
-        };
-        return serde_json::to_string(&current_did_document_metadata).map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to serialize current DID document metadata into JSON".to_string(),
-            )
-        });
-    } else if path.ends_with("/did/metadata/constant.json") {
-        tracing::debug!("retrieving 'constant' DID doc metadata");
-        let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
-        let did = DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
-            .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-        let first_did_document_record = vdr_app_state
-            .did_doc_store
-            .get_did_doc_record_with_version_id(Some(transaction_b.as_mut()), &did, 0)
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-        transaction_b
-            .commit()
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        let current_did_document_metadata = DIDDocumentMetadata {
-            constant_o: Some(DIDDocumentMetadataConstant {
-                created: first_did_document_record.valid_from,
-            }),
-            idempotent_o: None,
-            currency_o: None,
-        };
-        return serde_json::to_string(&current_did_document_metadata).map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to serialize current DID document metadata into JSON".to_string(),
-            )
-        });
-    } else if let Some((path, filename)) = path.rsplit_once('/') {
-        tracing::debug!(
-            ?path,
-            ?filename,
-            "retrieving 'selfHash' or 'versionId' DID doc metadata"
-        );
-        if !filename.ends_with(".json") {
-            return Err((StatusCode::NOT_FOUND, "".to_string()));
-        }
-        let (did, did_document_record) = if path.ends_with("/did/metadata/selfHash") {
-            let path = path.strip_suffix("/did/metadata/selfHash").unwrap();
-            let did =
-                DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
-                    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
-            let filename_self_hash = selfhash::KERIHashStr::new_ref(filename_self_hash_str)
-                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let did_document_record = vdr_app_state
-                .did_doc_store
-                .get_did_doc_record_with_self_hash(
-                    Some(transaction_b.as_mut()),
-                    &did,
-                    filename_self_hash,
-                )
-                .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-                .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-            (did, did_document_record)
-        } else if path.ends_with("/did/metadata/versionId") {
-            let path = path.strip_suffix("/did/metadata/versionId").unwrap();
-            let did =
-                DID::from_resolution_url(did_hostname, vdr_app_state.vdr_config.did_port_o, path)
-                    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let filename_version_id_str = filename.strip_suffix(".json").unwrap();
-            let filename_version_id: u32 = filename_version_id_str
-                .parse()
-                .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
-            let did_document_record = vdr_app_state
-                .did_doc_store
-                .get_did_doc_record_with_version_id(
-                    Some(transaction_b.as_mut()),
-                    &did,
-                    filename_version_id,
-                )
-                .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-                .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
-            (did, did_document_record)
-        } else {
-            return Err((StatusCode::NOT_FOUND, "".to_string()));
-        };
-        let next_did_document_record_o = vdr_app_state
+        return Ok((response_header_map, did_doc_record.did_document_jcs));
+    } else if let Some(query_version_id) = did_with_query.query_version_id_o() {
+        let did_doc_record = vdr_app_state
             .did_doc_store
             .get_did_doc_record_with_version_id(
                 Some(transaction_b.as_mut()),
                 &did,
-                did_document_record.version_id as u32 + 1,
+                query_version_id,
             )
             .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
+        transaction_b
+            .commit()
+            .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        let first_did_document_record = vdr_app_state
+        return Ok((response_header_map, did_doc_record.did_document_jcs));
+    } else {
+        return Err((StatusCode::BAD_REQUEST, "".to_string()));
+    }
+}
+
+async fn get_did_document_metadata(
+    State(vdr_app_state): State<VDRAppState>,
+    Path(path): Path<String>,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    tracing::debug!("retrieving latest DID doc metadata");
+    let path = path.strip_suffix("/did/metadata.json").unwrap();
+    let did = DID::from_resolution_url(
+        vdr_app_state.vdr_config.did_hostname.as_str(),
+        vdr_app_state.vdr_config.did_port_o,
+        path,
+    )
+    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+
+    use storage_traits::StorageDynT;
+    let mut transaction_b = vdr_app_state
+        .did_doc_store
+        .begin_transaction()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let latest_did_document_record = vdr_app_state
+        .did_doc_store
+        .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
+    let first_did_document_record = vdr_app_state
             .did_doc_store
             .get_did_doc_record_with_version_id(Some(transaction_b.as_mut()), &did, 0)
             .await
@@ -290,34 +325,208 @@ async fn get_did_document_or_metadata(
                         .to_string(),
                 )
             })?;
-        let current_did_document_metadata = DIDDocumentMetadata {
-            constant_o: Some(DIDDocumentMetadataConstant {
-                created: first_did_document_record.valid_from,
-            }),
-            idempotent_o: Some(DIDDocumentMetadataIdempotent {
-                next_update_o: next_did_document_record_o
-                    .as_ref()
-                    .map(|next_did_document_record| next_did_document_record.valid_from),
-                next_version_id_o: next_did_document_record_o
-                    .as_ref()
-                    .map(|next_did_document_record| next_did_document_record.version_id as u32),
-            }),
-            currency_o: None,
-        };
-        transaction_b
-            .commit()
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        return serde_json::to_string(&current_did_document_metadata).map_err(|_| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to serialize current DID document metadata into JSON".to_string(),
-            )
-        });
+    transaction_b
+        .commit()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let current_did_document_metadata = DIDDocumentMetadata {
+        constant_o: Some(DIDDocumentMetadataConstant {
+            created: first_did_document_record.valid_from,
+        }),
+        idempotent_o: Some(DIDDocumentMetadataIdempotent {
+            next_update_o: None,
+            next_version_id_o: None,
+        }),
+        currency_o: Some(DIDDocumentMetadataCurrency {
+            most_recent_update: latest_did_document_record.valid_from,
+            most_recent_version_id: latest_did_document_record.version_id as u32,
+        }),
+    };
+
+    let response_header_map = {
+        let mut header_map = HeaderMap::new();
+        header_map.insert("Content-Type", "application/json".parse().unwrap());
+        header_map
+    };
+    let response_body = serde_json::to_string(&current_did_document_metadata).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to serialize current DID document metadata into JSON".to_string(),
+        )
+    })?;
+    return Ok((response_header_map, response_body));
+}
+
+async fn get_did_document_metadata_constant(
+    State(vdr_app_state): State<VDRAppState>,
+    Path(path): Path<String>,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    tracing::debug!("retrieving 'constant' DID doc metadata");
+    let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
+    let did = DID::from_resolution_url(
+        vdr_app_state.vdr_config.did_hostname.as_str(),
+        vdr_app_state.vdr_config.did_port_o,
+        path,
+    )
+    .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+
+    use storage_traits::StorageDynT;
+    let mut transaction_b = vdr_app_state
+        .did_doc_store
+        .begin_transaction()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let first_did_document_record = vdr_app_state
+        .did_doc_store
+        .get_did_doc_record_with_version_id(Some(transaction_b.as_mut()), &did, 0)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
+    transaction_b
+        .commit()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let current_did_document_metadata = DIDDocumentMetadata {
+        constant_o: Some(DIDDocumentMetadataConstant {
+            created: first_did_document_record.valid_from,
+        }),
+        idempotent_o: None,
+        currency_o: None,
+    };
+
+    let response_header_map = {
+        let mut header_map = HeaderMap::new();
+        header_map.insert("Content-Type", "application/json".parse().unwrap());
+        header_map
+    };
+    let response_body = serde_json::to_string(&current_did_document_metadata).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to serialize current DID document metadata into JSON".to_string(),
+        )
+    })?;
+    return Ok((response_header_map, response_body));
+}
+
+async fn get_did_document_metadata_self_hash_or_version_id(
+    State(vdr_app_state): State<VDRAppState>,
+    path: &str,
+    filename: &str,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    tracing::debug!(
+        ?path,
+        ?filename,
+        "retrieving 'selfHash' or 'versionId' DID doc metadata"
+    );
+    if !filename.ends_with(".json") {
+        return Err((StatusCode::NOT_FOUND, "".to_string()));
     }
 
-    // If none of the cases above matched, then the path is malformed.
-    Err((StatusCode::BAD_REQUEST, "".to_string()))
+    use storage_traits::StorageDynT;
+    let mut transaction_b = vdr_app_state
+        .did_doc_store
+        .begin_transaction()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let (did, did_document_record) = if path.ends_with("/did/metadata/selfHash") {
+        let path = path.strip_suffix("/did/metadata/selfHash").unwrap();
+        let did = DID::from_resolution_url(
+            vdr_app_state.vdr_config.did_hostname.as_str(),
+            vdr_app_state.vdr_config.did_port_o,
+            path,
+        )
+        .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+        let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
+        let filename_self_hash = selfhash::KERIHashStr::new_ref(filename_self_hash_str)
+            .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+        let did_document_record = vdr_app_state
+            .did_doc_store
+            .get_did_doc_record_with_self_hash(
+                Some(transaction_b.as_mut()),
+                &did,
+                filename_self_hash,
+            )
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
+        (did, did_document_record)
+    } else if path.ends_with("/did/metadata/versionId") {
+        let path = path.strip_suffix("/did/metadata/versionId").unwrap();
+        let did = DID::from_resolution_url(
+            vdr_app_state.vdr_config.did_hostname.as_str(),
+            vdr_app_state.vdr_config.did_port_o,
+            path,
+        )
+        .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+        let filename_version_id_str = filename.strip_suffix(".json").unwrap();
+        let filename_version_id: u32 = filename_version_id_str
+            .parse()
+            .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
+        let did_document_record = vdr_app_state
+            .did_doc_store
+            .get_did_doc_record_with_version_id(
+                Some(transaction_b.as_mut()),
+                &did,
+                filename_version_id,
+            )
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .ok_or_else(|| (StatusCode::NOT_FOUND, "".to_string()))?;
+        (did, did_document_record)
+    } else {
+        return Err((StatusCode::NOT_FOUND, "".to_string()));
+    };
+    let next_did_document_record_o = vdr_app_state
+        .did_doc_store
+        .get_did_doc_record_with_version_id(
+            Some(transaction_b.as_mut()),
+            &did,
+            did_document_record.version_id as u32 + 1,
+        )
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let first_did_document_record = vdr_app_state
+            .did_doc_store
+            .get_did_doc_record_with_version_id(Some(transaction_b.as_mut()), &did, 0)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .ok_or_else(|| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "if any DID doc is present in database for a DID, then its root DID doc (version 0) is expected to be present in database"
+                        .to_string(),
+                )
+            })?;
+    let current_did_document_metadata = DIDDocumentMetadata {
+        constant_o: Some(DIDDocumentMetadataConstant {
+            created: first_did_document_record.valid_from,
+        }),
+        idempotent_o: Some(DIDDocumentMetadataIdempotent {
+            next_update_o: next_did_document_record_o
+                .as_ref()
+                .map(|next_did_document_record| next_did_document_record.valid_from),
+            next_version_id_o: next_did_document_record_o
+                .as_ref()
+                .map(|next_did_document_record| next_did_document_record.version_id as u32),
+        }),
+        currency_o: None,
+    };
+    transaction_b
+        .commit()
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let response_header_map = {
+        let mut header_map = HeaderMap::new();
+        header_map.insert("Content-Type", "application/json".parse().unwrap());
+        header_map
+    };
+    let response_body = serde_json::to_string(&current_did_document_metadata).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "failed to serialize current DID document metadata into JSON".to_string(),
+        )
+    })?;
+    return Ok((response_header_map, response_body));
 }
 
 #[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]

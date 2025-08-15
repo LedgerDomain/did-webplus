@@ -22,11 +22,15 @@ impl std::fmt::Display for HTTPError {
 
 pub type HTTPResult<T> = std::result::Result<T, HTTPError>;
 
-async fn http_get(url: &str) -> HTTPResult<String> {
+async fn http_get(
+    url: &str,
+    header_map_o: Option<reqwest::header::HeaderMap>,
+) -> HTTPResult<String> {
     // This is ridiculous.
     let response = REQWEST_CLIENT
         .clone()
         .get(url)
+        .headers(header_map_o.unwrap_or(reqwest::header::HeaderMap::new()))
         .send()
         .await
         .map_err(|err| HTTPError {
@@ -51,7 +55,7 @@ pub async fn vdr_fetch_latest_did_document_body(
     did: &DIDStr,
     http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
 ) -> HTTPResult<String> {
-    http_get(did.resolution_url(http_scheme_override_o).as_str()).await
+    http_get(did.resolution_url(http_scheme_override_o).as_str(), None).await
 }
 
 // TODO: Add optional VDG to use as a proxy
@@ -63,24 +67,46 @@ pub async fn vdr_fetch_did_document_body(
         did_with_query
             .resolution_url(http_scheme_override_o)
             .as_str(),
+        None,
     )
     .await
 }
 
 // TODO: Add optional VDG to use as a proxy
-pub async fn vdr_fetch_did_documents_jsonl(
+pub async fn vdr_fetch_did_documents_jsonl_update(
     did: &DIDStr,
     http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    known_did_documents_jsonl_octet_length: u64,
 ) -> HTTPResult<String> {
     let time_start = std::time::SystemTime::now();
-    let did_documents_jsonl = http_get(
+    let header_map = {
+        let mut header_map = reqwest::header::HeaderMap::new();
+        header_map.insert(
+            "Range",
+            reqwest::header::HeaderValue::from_str(&format!(
+                "bytes={}-",
+                known_did_documents_jsonl_octet_length
+            ))
+            .unwrap(),
+        );
+        header_map
+    };
+    let did_documents_jsonl_update_r = http_get(
         did.resolution_url_for_did_documents_jsonl(http_scheme_override_o)
             .as_str(),
+        Some(header_map),
     )
     .await;
     let duration = std::time::SystemTime::now()
         .duration_since(time_start)
         .expect("pass");
-    tracing::info!("Time taken to fetch did-documents.jsonl: {:?}", duration);
-    did_documents_jsonl
+    if let Ok(did_documents_jsonl_update) = &did_documents_jsonl_update_r {
+        tracing::info!(
+            "Time taken to do a range-based GET of {} bytes of did-documents.jsonl starting at byte {}: {:?}",
+            did_documents_jsonl_update.len(),
+            known_did_documents_jsonl_octet_length,
+            duration
+        );
+    }
+    did_documents_jsonl_update_r
 }

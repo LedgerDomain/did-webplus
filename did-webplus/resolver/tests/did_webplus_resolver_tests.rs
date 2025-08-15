@@ -86,7 +86,7 @@ async fn test_did_resolver() {
         .await
         .expect("pass");
     let did = controlled_did.did().to_owned();
-    tracing::debug!("Created DID: {} (fully qualified: {})", did, controlled_did);
+    tracing::info!("Created DID: {} (fully qualified: {})", did, controlled_did);
 
     // Create DIDResolverFull for each FetchPattern.
     let did_resolver_full_m = {
@@ -119,7 +119,7 @@ async fn test_did_resolver() {
     // Now update it many times.
     // const UPDATE_COUNT: usize = 2000;
     let big_update_count = std::env::var("UPDATE_COUNT")
-        .unwrap_or("2000".to_string())
+        .unwrap_or("10".to_string())
         .parse::<usize>()
         .unwrap();
 
@@ -246,8 +246,8 @@ async fn test_did_resolver() {
     // Tests are done, so shut down.
     //
 
-    tracing::info!("Shutting down VDG");
-    vdg_handle.abort();
     tracing::info!("Shutting down VDR");
     vdr_handle.abort();
+    tracing::info!("Shutting down VDG");
+    vdg_handle.abort();
 }

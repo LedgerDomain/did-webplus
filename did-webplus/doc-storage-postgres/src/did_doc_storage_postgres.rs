@@ -35,12 +35,28 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             did_document.self_hash_o.is_some(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
-        // TODO: Figure out how, on conflict, to check that the did_document_jcs matches what's in the DB.
-        // Though this is an extremely pedantic check which may not be worth doing.
+        // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
+        // and that means that the DID document is verifiably already present in the database.
         let query = sqlx::query!(
             r#"
-                INSERT INTO did_document_records(did, version_id, valid_from, self_hash, did_document)
-                VALUES ($1, $2, $3, $4, to_jsonb($5::text))
+                INSERT INTO did_document_records(did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs)
+                VALUES (
+                    $1,
+                    $2,
+                    $3,
+                    $4,
+                    COALESCE(
+                        (
+                            SELECT did_documents_jsonl_octet_length
+                            FROM did_document_records
+                            WHERE did = $1
+                            ORDER BY version_id DESC
+                            LIMIT 1
+                        ),
+                        0
+                    ) + OCTET_LENGTH($5) + 1,
+                    $5
+                )
                 ON CONFLICT DO NOTHING
             "#,
             did_document.did.as_str(),
@@ -81,9 +97,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         let query = sqlx::query_as!(
             DIDDocRecord,
             r#"
-                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
-                from did_document_records
-                where did = $1 and self_hash = $2
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1 AND self_hash = $2
             "#,
             did.as_str(),
             self_hash.as_str()
@@ -112,9 +128,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         let query = sqlx::query_as!(
             DIDDocRecord,
             r#"
-                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
-                from did_document_records
-                where did = $1 and version_id = $2
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1 AND version_id = $2
             "#,
             did.as_str(),
             version_id as i64
@@ -142,11 +158,11 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         let query = sqlx::query_as!(
             DIDDocRecord,
             r#"
-                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
-                from did_document_records
-                where did = $1
-                order by version_id desc
-                limit 1
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1
+                ORDER BY version_id DESC
+                LIMIT 1
             "#,
             did.as_str(),
         );
@@ -178,9 +194,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         let query = sqlx::query_as!(
             DIDDocRecord,
             r#"
-                select did, version_id, valid_from, self_hash, did_document#>>'{}' as "did_document_jcs!: String"
-                from did_document_records
-                where (NOT $1 OR did = $2) AND
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE (NOT $1 OR did = $2) AND
                       (NOT $3 OR self_hash = $4) AND
                       (NOT $5 OR version_id = $6)
             "#,
@@ -192,6 +208,85 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             did_doc_record_filter
                 .version_id_o
                 .map(|version_id| version_id as i64),
+        );
+        let did_doc_record_v = if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Postgres>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.pg_pool).await?
+        };
+        Ok(did_doc_record_v)
+    }
+    async fn get_known_did_documents_jsonl_octet_length(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+    ) -> Result<u64> {
+        let query = sqlx::query!(
+            r#"
+                SELECT did_documents_jsonl_octet_length
+                FROM did_document_records
+                WHERE did = $1
+                ORDER BY version_id DESC
+                LIMIT 1
+            "#,
+            did.as_str()
+        );
+        let did_documents_jsonl_octet_length = if let Some(transaction) = transaction_o {
+            query
+                .fetch_one(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Postgres>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+                .did_documents_jsonl_octet_length
+        } else {
+            query
+                .fetch_one(&self.pg_pool)
+                .await?
+                .did_documents_jsonl_octet_length
+        };
+        let did_documents_jsonl_octet_length = did_documents_jsonl_octet_length as u64;
+        Ok(did_documents_jsonl_octet_length)
+    }
+    async fn get_did_doc_records_for_did_documents_jsonl_range(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+        range_begin_inclusive_o: Option<u64>,
+        range_end_exclusive_o: Option<u64>,
+    ) -> Result<Vec<DIDDocRecord>> {
+        let range_begin_inclusive = range_begin_inclusive_o.map(|x| x as i64).unwrap_or(0);
+        let range_end_exclusive = range_end_exclusive_o.map(|x| x as i64).unwrap_or(i64::MAX);
+
+        if range_begin_inclusive >= range_end_exclusive {
+            // If the range is empty (or invalid), return an empty vector.
+            return Ok(Vec::new());
+        }
+
+        let query = sqlx::query_as!(
+            DIDDocRecord,
+            r#"
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1 AND
+                      $2 < did_documents_jsonl_octet_length AND
+                      did_documents_jsonl_octet_length - (OCTET_LENGTH(did_document_jcs) + 1) < $3
+                ORDER BY version_id ASC
+            "#,
+            did.as_str(),
+            range_begin_inclusive,
+            range_end_exclusive,
         );
         let did_doc_record_v = if let Some(transaction) = transaction_o {
             query

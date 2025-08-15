@@ -1,6 +1,6 @@
 use crate::{
-    vdr_fetch_did_document_body, vdr_fetch_did_documents_jsonl, vdr_fetch_latest_did_document_body,
-    verifier_resolver_impl, DIDResolver, Error, Result,
+    vdr_fetch_did_document_body, vdr_fetch_did_documents_jsonl_update,
+    vdr_fetch_latest_did_document_body, verifier_resolver_impl, DIDResolver, Error, Result,
 };
 use did_webplus_core::{DIDStr, DIDWebplusURIComponents, DIDWithQueryStr};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord, DIDDocStore};
@@ -218,6 +218,13 @@ async fn resolve_did(
     } else {
         tracing::trace!("no DID documents in database for DID {}", did);
     }
+
+    // We need to track the octet_length of did-documents.jsonl, based on what we already have.
+    let mut did_documents_jsonl_octet_length = latest_did_doc_record_o
+        .as_ref()
+        .map(|record| record.did_documents_jsonl_octet_length)
+        .unwrap_or(0);
+
     let latest_did_doc_version_id_o = latest_did_doc_record_o
         .as_ref()
         .map(|record| record.version_id as u32);
@@ -270,12 +277,36 @@ async fn resolve_did(
 
     match fetch_pattern {
         FetchPattern::Batch => {
-            // TODO: It would be better to be able to fetch a specific range of DID docs by versionId instead of all of them.
-            let did_documents_jsonl =
-                vdr_fetch_did_documents_jsonl(&did, http_scheme_override_o).await?;
+            // Compute the range of bytes to fetch, based on how many bytes we already have.
+            let known_did_documents_jsonl_octet_length = did_doc_store
+                .get_known_did_documents_jsonl_octet_length(Some(&mut *transaction), &did)
+                .await?;
+            assert_eq!(
+                did_documents_jsonl_octet_length as u64, known_did_documents_jsonl_octet_length,
+                "programmer error"
+            );
+            tracing::debug!(
+                "{} -- did_documents_jsonl_octet_length: {} bytes",
+                did,
+                known_did_documents_jsonl_octet_length
+            );
+            let did_documents_jsonl_update = vdr_fetch_did_documents_jsonl_update(
+                &did,
+                http_scheme_override_o,
+                known_did_documents_jsonl_octet_length,
+            )
+            .await?;
+            // Trim whitespace off the end (typically a newline)
+            let did_documents_jsonl_update_str = did_documents_jsonl_update.trim_end();
+            tracing::trace!(
+                ?did_documents_jsonl_update_str,
+                "got did-documents.jsonl update"
+            );
 
             let time_start = std::time::SystemTime::now();
-            // TEMP HACK -- TODO: This needs to be bounded in memory, since the version_id comes from external source and could be arbitrarily large.
+            // TEMP HACK: Collate it all into memory
+            // TODO: This needs to be bounded in memory, since the version_id comes from external
+            // source and could be arbitrarily large.
             tracing::trace!(?target_did_document.version_id, ?version_id_start, "HIPPO");
             // saturating_sub is necessary because version_id_start could be bigger than target_did_document.version_id.
             let mut did_document_jcs_v = Vec::with_capacity(
@@ -289,21 +320,22 @@ async fn resolve_did(
                     .saturating_sub(version_id_start)) as usize,
             );
             let original_prev_did_document_o = prev_did_document_o.clone();
-            // TEMP HACK: Skip all DID docs before version_id_start.
-            for did_document_jcs in did_documents_jsonl
-                .split('\n')
-                .skip(version_id_start as usize)
-            {
-                let did_document = parse_did_document(did_document_jcs)?;
-                // HACK: Don't handle the latest DID doc here, because it's being handled below.
-                if did_document.version_id == target_did_document.version_id {
-                    break;
+            if !did_documents_jsonl_update_str.is_empty() {
+                for did_document_jcs in did_documents_jsonl_update_str.split('\n') {
+                    tracing::trace!(?did_document_jcs, "parsing did_document_jcs");
+                    let did_document = parse_did_document(did_document_jcs)?;
+                    tracing::trace!(?did_document, "parsed did_document");
+                    // HACK: Don't handle the latest DID doc here, because it's being handled below.
+                    if did_document.version_id == target_did_document.version_id {
+                        break;
+                    }
+                    if did_document.version_id + 1 == target_did_document.version_id {
+                        prev_did_document_o = Some(did_document.clone());
+                    }
+                    did_document_jcs_v.push(did_document_jcs);
+                    did_document_v.push(did_document);
+                    did_documents_jsonl_octet_length += did_document_jcs.len() as i64 + 1;
                 }
-                if did_document.version_id + 1 == target_did_document.version_id {
-                    prev_did_document_o = Some(did_document.clone());
-                }
-                did_document_jcs_v.push(did_document_jcs);
-                did_document_v.push(did_document);
             }
             let duration = std::time::SystemTime::now()
                 .duration_since(time_start)
@@ -312,6 +344,13 @@ async fn resolve_did(
                 "Time taken to assemble predecessor DID documents (fetch_pattern: {:?}): {:?}",
                 fetch_pattern,
                 duration
+            );
+
+            tracing::trace!(
+                ?did_document_jcs_v,
+                ?did_document_v,
+                ?original_prev_did_document_o,
+                "validating and storing predecessor DID documents"
             );
 
             // let time_start = std::time::SystemTime::now();
@@ -380,6 +419,7 @@ async fn resolve_did(
                         &predecessor_did_document_body.as_str(),
                     )
                     .await?;
+                did_documents_jsonl_octet_length += predecessor_did_document_body.len() as i64 + 1;
                 prev_did_document_o = Some(predecessor_did_document);
             }
             let duration = std::time::SystemTime::now()
@@ -410,6 +450,7 @@ async fn resolve_did(
                         predecessor_did_document_body.as_str(),
                     )
                     .await?;
+                did_documents_jsonl_octet_length += predecessor_did_document_body.len() as i64 + 1;
                 prev_did_document_o = Some(predecessor_did_document);
             }
             let duration = std::time::SystemTime::now()
@@ -471,6 +512,7 @@ async fn resolve_did(
         did: did.to_string(),
         version_id: target_did_document.version_id as i64,
         valid_from: target_did_document.valid_from(),
+        did_documents_jsonl_octet_length: did_documents_jsonl_octet_length,
         did_document_jcs: target_did_doc_body,
     };
     Ok(target_did_doc_record)

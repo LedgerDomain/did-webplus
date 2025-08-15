@@ -18,6 +18,6 @@ pub use crate::{
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub(crate) use crate::http::{
-    vdr_fetch_did_document_body, vdr_fetch_did_documents_jsonl, vdr_fetch_latest_did_document_body,
-    REQWEST_CLIENT,
+    vdr_fetch_did_document_body, vdr_fetch_did_documents_jsonl_update,
+    vdr_fetch_latest_did_document_body, REQWEST_CLIENT,
 };

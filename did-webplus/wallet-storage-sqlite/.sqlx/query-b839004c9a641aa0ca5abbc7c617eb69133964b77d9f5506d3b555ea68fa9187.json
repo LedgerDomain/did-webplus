@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n                select did, version_id, valid_from, self_hash, did_document\n                from did_document_records\n                where did = $1 and self_hash = $2\n            ",
+  "query": "\n                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs\n                FROM did_document_records\n                WHERE (NOT $1 OR did = $2) AND\n                      (NOT $3 OR self_hash = $4) AND\n                      (NOT $5 OR version_id = $6)\n            ",
   "describe": {
     "columns": [
       {
@@ -24,15 +24,21 @@
         "type_info": "Text"
       },
       {
-        "name": "did_document",
+        "name": "did_documents_jsonl_octet_length",
         "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "did_document_jcs",
+        "ordinal": 5,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 2
+      "Right": 6
     },
     "nullable": [
+      false,
       false,
       false,
       false,
@@ -40,5 +46,5 @@
       false
     ]
   },
-  "hash": "984f8a4d5c7336819d8a34552a4e99865656a6d9b3a3c889adb7c6599e9c4ec3"
+  "hash": "b839004c9a641aa0ca5abbc7c617eb69133964b77d9f5506d3b555ea68fa9187"
 }

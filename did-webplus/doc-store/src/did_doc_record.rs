@@ -9,6 +9,7 @@ pub struct DIDDocRecord {
     // TODO: Make this u32?  Or would it be better to just use i64 for all contexts?
     pub version_id: i64,
     pub valid_from: OffsetDateTime,
+    pub did_documents_jsonl_octet_length: i64,
     pub did_document_jcs: String,
 }
 
@@ -58,6 +59,10 @@ impl DIDDocRecord {
 
         if did_document.valid_from != self.valid_from {
             return Err(Error::RecordCorruption(format!("Parsed DID doc \"validFrom\" field {} doesn't match stored record's valid_from {}", did_document.valid_from, self.valid_from).into(), self.self_hash.to_string().into()));
+        }
+
+        if self.did_documents_jsonl_octet_length < self.did_document_jcs.len() as i64 + 1 {
+            return Err(Error::RecordCorruption(format!("Inconsistent: DID doc record did_documents_jsonl_octet_length {} is less than did_document_jcs.len() + 1 (which is {})", self.did_documents_jsonl_octet_length, self.did_document_jcs.len() + 1).into(), self.self_hash.to_string().into()));
         }
 
         use selfsign::SelfSignAndHashable;
