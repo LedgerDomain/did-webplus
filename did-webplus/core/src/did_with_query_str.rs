@@ -47,10 +47,11 @@ impl DIDWithQueryStr {
     /// Produce the URL that addresses the specified DID document for this DID.
     /// If both the selfHash and versionId query params are present, the selfHash takes precedence.
     pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         // Form the base URL
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {

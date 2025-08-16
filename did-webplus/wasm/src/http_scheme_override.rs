@@ -25,7 +25,8 @@ impl HTTPSchemeOverride {
     pub fn determine_http_scheme_for_hostname(&self, hostname: String) -> Result<String> {
         Ok(self
             .0
-            .determine_http_scheme_for_hostname(hostname.as_str())
+            .determine_http_scheme_for_host(hostname.as_str())
+            .map_err(into_js_value)?
             .to_string())
     }
 }

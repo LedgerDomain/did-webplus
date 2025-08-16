@@ -94,10 +94,11 @@ impl DIDStr {
     }
     /// Produce the URL that addresses the latest DID document for this DID.
     pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
@@ -116,10 +117,11 @@ impl DIDStr {
         &self,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
@@ -139,10 +141,11 @@ impl DIDStr {
         self_hash: &selfhash::KERIHashStr,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
@@ -164,10 +167,11 @@ impl DIDStr {
         version_id: u32,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
@@ -187,10 +191,11 @@ impl DIDStr {
         &self,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
@@ -210,10 +215,11 @@ impl DIDStr {
         &self,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
@@ -234,10 +240,11 @@ impl DIDStr {
         self_hash: &selfhash::KERIHashStr,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
@@ -260,10 +267,11 @@ impl DIDStr {
         version_id: u32,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
             self.host(),
-        );
+        )
+        .unwrap();
         let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();

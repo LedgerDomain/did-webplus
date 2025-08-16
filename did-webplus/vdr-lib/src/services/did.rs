@@ -674,7 +674,7 @@ async fn update_did(
 
     // TODO: Is there any reason to wait for this to complete, e.g. to ensure that all VDG updates succeeded?
     task::spawn(send_vdg_updates(
-        vdr_app_state.vdr_config.gateway_url_v.clone(),
+        vdr_app_state.vdr_config.vdg_base_url_v.clone(),
         did,
     ));
 
@@ -690,29 +690,21 @@ lazy_static::lazy_static! {
 /// and the client won't be aware that there was an error.  It's probably worth queue'ing these
 /// updates and retrying them if they fail, with some retry schedule and eventually give up
 /// after a certain number of retries, logging that fact.
-#[tracing::instrument(level = tracing::Level::DEBUG, ret(Debug), err(Debug), skip(gateway_url_v))]
+#[tracing::instrument(level = tracing::Level::DEBUG, ret(Debug), err(Debug), skip(vdg_base_url_v))]
 async fn send_vdg_updates(
-    gateway_url_v: Vec<url::Url>,
+    vdg_base_url_v: Vec<url::Url>,
     did: DID,
 ) -> anyhow::Result<Vec<(url::Url, reqwest::Result<reqwest::Response>)>> {
-    tracing::trace!(
-        gateway_url_v = ?gateway_url_v,
-        did = ?did,
-        "VDR; send_vdg_updates"
-    );
-    // NOTE: We have to percent-encode the DID in the request, because there can be a percent
-    // character in it, which will be automatically percent-decoded by the HTTP server.
-    let percent_encoded_did = temp_hack_incomplete_percent_encoded(did.as_str());
-    tracing::trace!(
-        "VDR; send_vdg_updates; percent_encoded_did: {}",
-        percent_encoded_did
-    );
+    tracing::trace!(?vdg_base_url_v, ?did, "VDR; send_vdg_updates");
     let mut join_set = tokio::task::JoinSet::new();
-    for gateway_url in gateway_url_v.iter() {
+    for vdg_base_url in vdg_base_url_v.iter() {
         // Form the specific URL to POST to.
-        let update_url = gateway_url
-            .join(&format!("/update/{}", percent_encoded_did))
-            .unwrap();
+        let mut update_url = vdg_base_url.clone();
+        update_url.path_segments_mut().unwrap().push("webplus");
+        update_url.path_segments_mut().unwrap().push("v1");
+        update_url.path_segments_mut().unwrap().push("update");
+        // Note that `push` will percent-encode did_query!
+        update_url.path_segments_mut().unwrap().push(did.as_str());
         tracing::info!("POST-ing update to VDG: {}", update_url);
         // There is no reason to do these sequentially, so spawn a task for each one.
         join_set.spawn(async move {
@@ -733,15 +725,6 @@ async fn send_vdg_updates(
     }
     // Wait for all the tasks to complete, then return their results.
     Ok(join_set.join_all().await)
-}
-
-/// INCOMPLETE, TEMP HACK -- TODO: use percent-encoding crate
-fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
-    // Note that the '%' -> "%25" replacement must happen first.
-    s.replace('%', "%25")
-        .replace('?', "%3F")
-        .replace('=', "%3D")
-        .replace('&', "%26")
 }
 
 fn parse_did_document(

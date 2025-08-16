@@ -1,4 +1,4 @@
-use crate::{parse_url, DIDDocStoreArgs, Result};
+use crate::{DIDDocStoreArgs, Result};
 
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum DIDResolverType {
@@ -34,17 +34,11 @@ pub struct DIDResolverArgs {
         default_value = "sqlite://~/.did-webplus/did-doc-store.db?mode=rwc"
     )]
     pub did_doc_store_db_url_o: Option<String>,
-    /// Specify the URL of the "resolve" endpoint of the VDG to use for DID resolution.  This is required
-    /// if the resolver is set to "thin", but is optional if the resolver is set to "full".  The URL can
-    /// omit the scheme (i.e. the "https://" portion).  The URL must not contain a query string or fragment.
-    #[arg(
-        name = "vdg",
-        env = "DID_WEBPLUS_VDG",
-        long,
-        value_name = "URL",
-        value_parser = parse_url,
-    )]
-    pub vdg_resolve_endpoint_url_o: Option<url::Url>,
+    /// Specify the host of the VDG to use (i.e. hostname and optional port number).  URLs for various operations
+    /// of the VDG will be constructed from this.  This should not include the scheme (i.e. the "https://" part).
+    /// This is required if the resolver is set to "thin", but is optional if the resolver is set to "full".
+    #[arg(name = "vdg", env = "DID_WEBPLUS_VDG", long, value_name = "HOST")]
+    pub vdg_host_o: Option<String>,
 }
 
 impl DIDResolverArgs {
@@ -59,7 +53,7 @@ impl DIDResolverArgs {
                     "When using the \"full\" resolver, the \"--did-doc-store\" argument is required"
                 );
                 // TODO: Implement usage of VDG for "full" resolver.
-                if self.vdg_resolve_endpoint_url_o.is_some() {
+                if self.vdg_host_o.is_some() {
                     tracing::warn!(
                         "Ignoring \"--vdg\" argument since the resolver is set to \"full\", and its usage of VDG is not yet implemented"
                     );
@@ -76,7 +70,7 @@ impl DIDResolverArgs {
             }
             DIDResolverType::Thin => {
                 anyhow::ensure!(
-                    self.vdg_resolve_endpoint_url_o.is_some(),
+                    self.vdg_host_o.is_some(),
                     "When using the \"thin\" resolver, the \"--vdg\" argument is required"
                 );
                 if self.did_doc_store_db_url_o.is_some() {
@@ -85,19 +79,13 @@ impl DIDResolverArgs {
                     );
                 }
 
-                let mut vdg_resolve_endpoint_url = self.vdg_resolve_endpoint_url_o.unwrap();
-                anyhow::ensure!(vdg_resolve_endpoint_url.scheme().is_empty(), "VDG resolve endpoint URL must not contain a scheme; i.e. it must omit the \"https://\" portion");
-                let http_scheme =
-                    did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
-                        http_scheme_override_o.as_ref(),
-                        vdg_resolve_endpoint_url.host_str().unwrap(),
-                    );
-                vdg_resolve_endpoint_url.set_scheme(http_scheme).unwrap();
+                let vdg_host = self.vdg_host_o.unwrap();
+                anyhow::ensure!(vdg_host.find("://").is_none(), "VDG host must not contain a scheme; i.e. it must omit the \"https://\" portion");
 
-                Ok(Box::new(did_webplus_resolver::DIDResolverThin {
-                    vdg_resolve_endpoint_url,
-                    http_scheme_override_o,
-                }))
+                Ok(Box::new(did_webplus_resolver::DIDResolverThin::new(
+                    &vdg_host,
+                    http_scheme_override_o.as_ref(),
+                )?))
             }
             DIDResolverType::Raw => {
                 // No extra validation needed.

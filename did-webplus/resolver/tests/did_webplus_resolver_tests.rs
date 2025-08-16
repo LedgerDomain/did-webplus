@@ -23,8 +23,8 @@ async fn test_did_resolver() {
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
         .await
         .expect("pass");
-    let vdg_url =
-        url::Url::parse(&format!("http://localhost:{}", vdg_config.listen_port)).expect("pass");
+    let vdg_host = format!("localhost:{}", vdg_config.listen_port);
+    let vdg_base_url = url::Url::parse(&format!("http://{}", vdg_host)).expect("pass");
 
     let vdr_listen_port = 50000;
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
@@ -33,7 +33,7 @@ async fn test_did_resolver() {
         listen_port: vdr_listen_port,
         database_url: "postgres:///test_did_resolver_vdr".to_string(),
         database_max_connections: 10,
-        gateway_url_v: vec![vdg_url.clone()],
+        vdg_base_url_v: vec![vdg_base_url.clone()],
         http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
@@ -42,7 +42,7 @@ async fn test_did_resolver() {
     let vdr_url =
         url::Url::parse(&format!("http://localhost:{}", vdr_config.listen_port)).expect("pass");
 
-    test_util::wait_until_service_is_up("VDG", vdg_url.join("health").expect("pass").as_str())
+    test_util::wait_until_service_is_up("VDG", vdg_base_url.join("health").expect("pass").as_str())
         .await;
     tracing::info!("VDG is up");
     test_util::wait_until_service_is_up("VDR", vdr_url.join("health").expect("pass").as_str())
@@ -207,10 +207,8 @@ async fn test_did_resolver() {
 
         // Now to test DIDResolverThin:
         {
-            let did_resolver_thin = did_webplus_resolver::DIDResolverThin {
-                vdg_resolve_endpoint_url: vdg_url.clone(),
-                http_scheme_override_o: None,
-            };
+            let did_resolver_thin =
+                did_webplus_resolver::DIDResolverThin::new(&vdg_host, None).expect("pass");
 
             // Start the timer
             let time_start = std::time::SystemTime::now();

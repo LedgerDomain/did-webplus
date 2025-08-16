@@ -261,11 +261,15 @@ async fn update_did(
 }
 
 async fn get_did_response(did_query: &str) -> reqwest::Response {
+    let mut request_url = url::Url::parse("http://localhost:8086").unwrap();
+    request_url.path_segments_mut().unwrap().push("webplus");
+    request_url.path_segments_mut().unwrap().push("v1");
+    request_url.path_segments_mut().unwrap().push("resolve");
+    // NOTE: `push` will percent-encode did_query!
+    request_url.path_segments_mut().unwrap().push(did_query);
+    tracing::trace!(?request_url, "DID query URL for VDG");
     reqwest::Client::new()
-        .get(format!(
-            "http://localhost:8086/{}",
-            temp_hack_incomplete_percent_encoded(did_query)
-        ))
+        .get(request_url.as_str())
         .send()
         .await
         .expect("pass")
@@ -277,13 +281,4 @@ async fn get_did_response(did_query: &str) -> reqwest::Response {
 async fn test_vdg_wallet_operations() {
     test_vdg_wallet_operations_impl(false).await;
     test_vdg_wallet_operations_impl(true).await;
-}
-
-/// INCOMPLETE, TEMP HACK -- TODO: use percent-encoding crate
-fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
-    // Note that the '%' -> "%25" replacement must happen first.
-    s.replace('%', "%25")
-        .replace('?', "%3F")
-        .replace('=', "%3D")
-        .replace('&', "%26")
 }
