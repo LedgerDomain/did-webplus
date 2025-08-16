@@ -25,7 +25,7 @@ async fn test_vdr_operations() {
         // database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
         database_url: "postgres:///test_vdr_operations_vdr".to_string(),
         database_max_connections: 10,
-        gateway_url_v: Vec::new(),
+        vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())

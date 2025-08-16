@@ -281,7 +281,7 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
         // database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
         database_url: "postgres:///test_wallet_did_create_update_sign_jws_verify_vdr".to_string(),
         database_max_connections: 10,
-        gateway_url_v: Vec::new(),
+        vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
@@ -289,10 +289,11 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
         .expect("pass");
 
     let http_scheme_override_o = None;
-    let vdr_scheme = did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+    let vdr_scheme = did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_host_from(
         http_scheme_override_o,
         &vdr_config.did_hostname,
-    );
+    )
+    .unwrap();
     let vdr_did_create_endpoint = format!(
         "{}://{}:{}",
         vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port
@@ -430,7 +431,7 @@ async fn test_wallet_did_sign_vjson_verify() {
         listen_port: 13085,
         database_url: "postgres:///test_wallet_did_sign_vjson_verify_vdr".to_string(),
         database_max_connections: 10,
-        gateway_url_v: Vec::new(),
+        vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
@@ -438,10 +439,11 @@ async fn test_wallet_did_sign_vjson_verify() {
         .expect("pass");
 
     let http_scheme_override_o = None;
-    let vdr_scheme = did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_hostname_from(
+    let vdr_scheme = did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_host_from(
         http_scheme_override_o,
         &vdr_config.did_hostname,
-    );
+    )
+    .unwrap();
     let vdr_did_create_endpoint = format!(
         "{}://{}:{}",
         vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port

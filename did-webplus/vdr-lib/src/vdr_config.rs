@@ -47,14 +47,14 @@ pub struct VDRConfig {
     // NOTE: It's critical that the type of gateways be fully qualified as `std::vec::Vec<url::Url>`;
     // see https://github.com/clap-rs/clap/issues/4481#issuecomment-1314475143
     #[arg(
-        name = "gateway-hosts",
-        env = "DID_WEBPLUS_VDR_GATEWAY_HOSTS",
+        name = "vdg-hosts",
+        env = "DID_WEBPLUS_VDR_VDG_HOSTS",
         long,
         value_name = "URLs",
         default_value = "",
         value_parser = parse_comma_separated_hosts_into_urls,
     )]
-    pub gateway_url_v: std::vec::Vec<url::Url>,
+    pub vdg_base_url_v: std::vec::Vec<url::Url>,
     /// Optionally specify a comma-separated list of `hostname=scheme` pairs defining the scheme to use
     /// for each of the specified hostnames when the VDR connects to VDGs to notify of updated DIDs.
     /// This particular mechanic is unrelated to DID resolution, and is specific to did:webplus
@@ -74,7 +74,7 @@ fn parse_comma_separated_hosts_into_urls(s: &str) -> anyhow::Result<Vec<url::Url
         return Ok(Vec::new());
     }
 
-    let gateway_url_v = s
+    let vdg_base_url_v = s
         .split(',')
         .map(|host| {
             // Apply "https" as the default scheme, then set it to "http" if the hostname is "localhost".
@@ -85,5 +85,5 @@ fn parse_comma_separated_hosts_into_urls(s: &str) -> anyhow::Result<Vec<url::Url
             Ok(url)
         })
         .collect::<Result<Vec<url::Url>, url::ParseError>>()?;
-    Ok(gateway_url_v)
+    Ok(vdg_base_url_v)
 }

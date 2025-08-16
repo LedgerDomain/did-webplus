@@ -66,17 +66,6 @@ pub use crate::{
 };
 pub use anyhow::{Error, Result};
 
-pub(crate) fn parse_url(s: &str) -> anyhow::Result<url::Url> {
-    let parsed_url = if !s.contains("://") {
-        // If no scheme was specified, slap "https://" on the front before parsing.
-        url::Url::parse(format!("https://{}", s).as_str())?
-    } else {
-        // Otherwise, parse directly.
-        url::Url::parse(s)?
-    };
-    Ok(parsed_url)
-}
-
 async fn get_uniquely_determinable_did(
     wallet: &did_webplus_software_wallet::SoftwareWallet,
     did_o: Option<did_webplus_core::DID>,

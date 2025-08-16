@@ -18,8 +18,8 @@ type DIDResult = Result<(HeaderMap, String), (StatusCode, String)>;
 
 pub fn get_routes(vdg_app_state: VDGAppState) -> Router {
     Router::new()
-        .route("/{:did_query}", get(resolve_did))
-        .route("/update/{:did}", post(update_did))
+        .route("/webplus/v1/resolve/{:did_query}", get(resolve_did))
+        .route("/webplus/v1/update/{:did}", post(update_did))
         .with_state(vdg_app_state)
 }
 
@@ -128,8 +128,8 @@ async fn resolve_did_impl(
             }
         };
         if let Some(did_document_record) = did_document_record_o {
-            // If we do have the requested DID document record,  return it.
-            tracing::trace!("requested DID document already in database");
+            // If we do already have the requested DID document record, then we can return it.
+            tracing::trace!(?did_query, "requested DID document already in database");
             transaction_b
                 .commit()
                 .await
@@ -300,6 +300,7 @@ async fn resolve_did_impl(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    tracing::trace!(?did_query, "requested DID document was not already in database, so it had to be fetched from VDR; returning it now.");
     Ok((
         headers_for_did_document(
             target_did_document.self_hash().as_str(),

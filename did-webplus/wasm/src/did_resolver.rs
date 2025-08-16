@@ -30,15 +30,13 @@ impl DIDResolver {
     }
     /// Create a "thin" DIDResolver that operates against the given trusted VDG.
     pub fn new_thin(
-        vdg_resolve_endpoint: &str,
+        vdg_host: &str,
         http_scheme_override_o: Option<HTTPSchemeOverride>,
     ) -> Result<Self> {
-        let vdg_resolve_endpoint_url =
-            url::Url::parse(vdg_resolve_endpoint).map_err(into_js_value)?;
-        let did_resolver = did_webplus_resolver::DIDResolverThin {
-            vdg_resolve_endpoint_url,
-            http_scheme_override_o: http_scheme_override_o.map(|o| o.into()),
-        };
+        let http_scheme_override_o = http_scheme_override_o.map(|o| o.into());
+        let did_resolver =
+            did_webplus_resolver::DIDResolverThin::new(vdg_host, http_scheme_override_o.as_ref())
+                .map_err(into_js_value)?;
         Ok(Self(Arc::new(did_resolver)))
     }
     /// Create a "raw" DIDResolver that bypasses all verification and only fetches DID documents.

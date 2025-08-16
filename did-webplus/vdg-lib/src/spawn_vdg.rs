@@ -68,7 +68,7 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
 
         #[cfg(not(feature = "postgres"))]
         {
-            panic!("postgres database is only supported by VDR if the `postgres` feature was enabled when building it");
+            panic!("postgres database is only supported by VDG if the `postgres` feature was enabled when building it");
         }
     } else if vdg_config.database_url.starts_with("sqlite://") {
         panic!("VDG should not be run with SQLite DB backend, as SQLite can't handle concurrent writes.  Use Postgres instead.");

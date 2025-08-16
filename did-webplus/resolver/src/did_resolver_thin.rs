@@ -6,13 +6,46 @@ use std::sync::Arc;
 /// or do not want to implement the full DID resolution logic themselves.
 #[derive(Clone)]
 pub struct DIDResolverThin {
-    /// Specifies the URL of the "resolve" endpoint of the VDG to use for DID resolution.  The URL can
-    /// omit the scheme (i.e. the "https://" portion), in which case, "https://" will be used.  The URL
-    /// must not contain a query string or fragment.
-    pub vdg_resolve_endpoint_url: url::Url,
-    /// Specifies optional HTTP scheme overrides for the DID Resolver.  See `HTTPSchemeOverride` for
-    /// more details.
-    pub http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
+    /// Specifies the "base" URL of the VDG to use.  URLs for various operations of the VDG will be constructed from this.
+    vdg_base_url: url::Url,
+}
+
+impl DIDResolverThin {
+    pub fn new(
+        vdg_host: &str,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    ) -> Result<Self> {
+        // Set the HTTP scheme appropriately.
+        let http_scheme =
+            did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_host_from(
+                http_scheme_override_o,
+                vdg_host,
+            )
+            .map_err(|e| Error::MalformedVDGHost(e.to_string().into()))?;
+        let vdg_base_url =
+            url::Url::parse(&format!("{}://{}/", http_scheme, vdg_host)).map_err(|e| {
+                Error::MalformedVDGHost(
+                    format!(
+                        "Failed to construct VDG base URL from VDG host {:?}: {}",
+                        vdg_host, e
+                    )
+                    .into(),
+                )
+            })?;
+
+        if vdg_base_url.query().is_some() {
+            return Err(Error::MalformedVDGHost(
+                "VDG resolve endpoint must not contain a query string".into(),
+            ));
+        }
+        if vdg_base_url.fragment().is_some() {
+            return Err(Error::MalformedVDGHost(
+                "VDG resolve endpoint must not contain a fragment".into(),
+            ));
+        }
+        tracing::debug!("VDG base URL: {}", vdg_base_url);
+        Ok(Self { vdg_base_url })
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -38,38 +71,13 @@ impl DIDResolver for DIDResolverThin {
             panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverThin");
         }
 
-        // Set the HTTP scheme is not specified.
-        let mut vdg_resolve_endpoint_url = if self.vdg_resolve_endpoint_url.scheme().is_empty() {
-            let mut vdg_resolve_endpoint_url = self.vdg_resolve_endpoint_url.clone();
-            vdg_resolve_endpoint_url.set_scheme("https").unwrap();
-            vdg_resolve_endpoint_url
-        } else {
-            self.vdg_resolve_endpoint_url.clone()
-        };
-
-        if let Some(http_scheme_override) = &self.http_scheme_override_o {
-            let http_scheme = http_scheme_override
-                .determine_http_scheme_for_hostname(vdg_resolve_endpoint_url.host_str().unwrap());
-            vdg_resolve_endpoint_url.set_scheme(http_scheme).unwrap();
-        }
-
-        if !vdg_resolve_endpoint_url.path().ends_with('/') {
-            panic!("VDG resolve endpoint must end with a slash");
-        }
-        if vdg_resolve_endpoint_url.query().is_some() {
-            panic!("VDG resolve endpoint must not contain a query string");
-        }
-        if vdg_resolve_endpoint_url.fragment().is_some() {
-            panic!("VDG resolve endpoint must not contain a fragment");
-        }
-        tracing::debug!("VDG resolve endpoint: {}", vdg_resolve_endpoint_url);
         let resolution_url = {
-            let did_query_url_encoded = temp_hack_incomplete_percent_encoded(did_query);
-            let mut path = vdg_resolve_endpoint_url.path().to_string();
-            assert!(path.ends_with('/'));
-            path.push_str(did_query_url_encoded.as_str());
-            let mut resolution_url = vdg_resolve_endpoint_url.clone();
-            resolution_url.set_path(path.as_str());
+            let mut resolution_url = self.vdg_base_url.clone();
+            resolution_url.path_segments_mut().unwrap().push("webplus");
+            resolution_url.path_segments_mut().unwrap().push("v1");
+            resolution_url.path_segments_mut().unwrap().push("resolve");
+            // Note that `push` will percent-encode did_query!
+            resolution_url.path_segments_mut().unwrap().push(did_query);
             tracing::debug!("DID resolution URL: {}", resolution_url);
             resolution_url
         };
@@ -79,6 +87,7 @@ impl DIDResolver for DIDResolverThin {
             .send()
             .await
             .map_err(|e| {
+                tracing::error!("Error sending request to VDG: {}", e);
                 Error::DIDResolutionFailure(HTTPError {
                     status_code: e.status().unwrap(),
                     description: e.to_string().into(),
@@ -86,6 +95,7 @@ impl DIDResolver for DIDResolverThin {
             })?
             .error_for_status()
             .map_err(|e| {
+                tracing::error!("Error getting response from VDG: {}", e);
                 Error::DIDResolutionFailure(HTTPError {
                     status_code: e.status().unwrap(),
                     description: e.to_string().into(),
@@ -130,13 +140,4 @@ impl verifier_resolver::VerifierResolver for DIDResolverThin {
     ) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
         verifier_resolver_impl(verifier_str, self).await
     }
-}
-
-/// INCOMPLETE, TEMP HACK -- TODO: use percent-encoding crate
-fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
-    // Note that the '%' -> "%25" replacement must happen first.
-    s.replace('%', "%25")
-        .replace('?', "%3F")
-        .replace('=', "%3D")
-        .replace('&', "%26")
 }

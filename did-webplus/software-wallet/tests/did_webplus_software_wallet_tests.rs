@@ -19,7 +19,7 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
         listen_port: 11085,
         database_url: "postgres:///test_software_wallet_vdr".to_string(),
         database_max_connections: 10,
-        gateway_url_v: Vec::new(),
+        vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
@@ -35,8 +35,9 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
     let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
         .with_override(vdr_config.did_hostname.clone(), "http")
         .unwrap();
-    let vdr_scheme =
-        http_scheme_override.determine_http_scheme_for_hostname(&vdr_config.did_hostname);
+    let vdr_scheme = http_scheme_override
+        .determine_http_scheme_for_host(&vdr_config.did_hostname)
+        .unwrap();
     let vdr_did_create_endpoint = format!(
         "{}://{}:{}",
         vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port

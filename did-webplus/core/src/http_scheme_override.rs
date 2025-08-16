@@ -81,53 +81,58 @@ impl HTTPSchemeOverride {
     }
     /// The default did:webplus resolution rules specify that localhost uses the "http" scheme,
     /// and everything else uses the "https" scheme.  However, these mappings are overridden by
-    /// this data structure, and the mapping for the given hostname is returned.
-    pub fn determine_http_scheme_for_hostname(&self, hostname: &str) -> &'static str {
+    /// this data structure, and the mapping for the given hostname is returned.  Note that
+    /// "host" means hostname with optional port number (e.g. "fancy.com" or "localhost:8080").
+    pub fn determine_http_scheme_for_host(&self, host: &str) -> Result<&'static str> {
+        let (hostname, _port_o) = Self::parse_host_and_port_o(host)?;
         match self.0.get(hostname) {
             // Override was specified, so use it.
             Some(&scheme) => {
                 #[cfg(feature = "tracing")]
                 tracing::debug!(
-                    "HTTPSchemeOverride::determine_http_scheme_for_hostname; self: {:?}; hostname: {}; overriding with scheme {}",
+                    "HTTPSchemeOverride::determine_http_scheme_for_host; self: {:?}; host: {}; overriding with scheme {}",
                     self,
-                    hostname,
+                    host,
                     scheme
                 );
-                scheme
+                Ok(scheme)
             }
             // No override, so use the default did:webplus resolution rules.
-            None => Self::default_http_scheme_for_hostname(hostname),
+            None => Self::default_http_scheme_for_host(hostname),
         }
     }
     /// Does the same thing as determine_http_scheme_for_hostname, except operates on Option<&Self>
-    /// where None means "no override".
-    pub fn determine_http_scheme_for_hostname_from(
+    /// where None means "no override".  Note that "host" means hostname with optional port number
+    /// (e.g. "fancy.com" or "localhost:8080").
+    pub fn determine_http_scheme_for_host_from(
         http_scheme_override_o: Option<&Self>,
-        hostname: &str,
-    ) -> &'static str {
+        host: &str,
+    ) -> Result<&'static str> {
         if let Some(http_scheme_override) = http_scheme_override_o {
-            http_scheme_override.determine_http_scheme_for_hostname(hostname)
+            http_scheme_override.determine_http_scheme_for_host(host)
         } else {
-            Self::default_http_scheme_for_hostname(hostname)
+            Self::default_http_scheme_for_host(host)
         }
     }
     /// Gives the default scheme determination rules for did:webplus -- if the hostname is "localhost",
-    /// then the scheme is "http", and otherwise is "https".
-    pub fn default_http_scheme_for_hostname(hostname: &str) -> &'static str {
+    /// then the scheme is "http", and otherwise is "https".  Note that "host" means hostname with
+    /// optional port number (e.g. "fancy.com" or "localhost:8080").
+    pub fn default_http_scheme_for_host(host: &str) -> Result<&'static str> {
+        let (hostname, _port_o) = Self::parse_host_and_port_o(host)?;
         if hostname == "localhost" {
             #[cfg(feature = "tracing")]
             tracing::trace!(
-                "HTTPSchemeOverride::default_http_scheme_for_hostname; hostname: {}; returning \"http\"",
-                hostname
+                "HTTPSchemeOverride::default_http_scheme_for_host; host: {}; returning \"http\"",
+                host
             );
-            "http"
+            Ok("http")
         } else {
             #[cfg(feature = "tracing")]
             tracing::trace!(
-                "HTTPSchemeOverride::default_http_scheme_for_hostname; hostname: {}; returning \"https\"",
-                hostname
+                "HTTPSchemeOverride::default_http_scheme_for_host; host: {}; returning \"https\"",
+                host
             );
-            "https"
+            Ok("https")
         }
     }
     fn parse_scheme_static_str(scheme: &str) -> Result<&'static str> {
@@ -137,6 +142,17 @@ impl HTTPSchemeOverride {
             _ => Err(Error::Malformed(
                 "Invalid HTTP scheme; expected \"http\" or \"https\"",
             )),
+        }
+    }
+    fn parse_host_and_port_o(host: &str) -> Result<(&str, Option<u16>)> {
+        match host.split_once(':') {
+            Some((hostname, port_str)) => {
+                let port = port_str
+                    .parse::<u16>()
+                    .map_err(|_e| Error::Malformed("Invalid port number"))?;
+                Ok((hostname, Some(port)))
+            }
+            None => Ok((host, None)),
         }
     }
 }
