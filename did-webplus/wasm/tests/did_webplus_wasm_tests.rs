@@ -1,4 +1,3 @@
-use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
 
 #[wasm_bindgen_test]
@@ -14,14 +13,12 @@ async fn test_vjson_self_hash_and_verify() {
     // There are no signatures to verify, so we can use an empty VerifierResolver.
     let verifier_resolver = did_webplus_wasm::VerifierResolver::new_empty();
 
-    let vjson_string = JsFuture::from(did_webplus_wasm::vjson_self_hash(
+    let vjson_string = did_webplus_wasm::vjson_self_hash(
         r#"{"blah":123, "$id":"vjson:///"}"#.to_string(),
         &vjson_resolver,
-    ))
+    )
     .await
-    .expect("pass")
-    .as_string()
-    .unwrap();
+    .expect("pass");
 
     tracing::debug!("self-hashed VJSON: {}", vjson_string);
     assert_eq!(
@@ -29,13 +26,9 @@ async fn test_vjson_self_hash_and_verify() {
         r#"{"$id":"vjson:///Eapp9Rz4xD0CT7VnplnK4nAb--YlkfAaq0PYPRV43XZY","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","blah":123,"selfHash":"Eapp9Rz4xD0CT7VnplnK4nAb--YlkfAaq0PYPRV43XZY"}"#
     );
 
-    let x = JsFuture::from(did_webplus_wasm::vjson_verify(
-        vjson_string,
-        &vjson_resolver,
-        &verifier_resolver,
-    ))
-    .await
-    .expect("pass");
+    let x = did_webplus_wasm::vjson_verify(vjson_string, &vjson_resolver, &verifier_resolver)
+        .await
+        .expect("pass");
 }
 
 #[wasm_bindgen_test]
@@ -55,23 +48,49 @@ async fn test_vjson_sign_and_verify() {
     let signer =
         did_webplus_wasm::Signer::did_key_generate(selfsign::KeyType::Ed25519).expect("pass");
 
-    let vjson_string = JsFuture::from(did_webplus_wasm::vjson_sign_and_self_hash(
+    let vjson_string = did_webplus_wasm::vjson_sign_and_self_hash(
         r#"{"blah":123, "$id":"vjson:///"}"#.to_string(),
         &signer,
         &vjson_resolver,
-    ))
+    )
     .await
-    .expect("pass")
-    .as_string()
-    .unwrap();
+    .expect("pass");
 
     tracing::debug!("signed VJSON: {}", vjson_string);
 
-    let x = JsFuture::from(did_webplus_wasm::vjson_verify(
-        vjson_string,
-        &vjson_resolver,
-        &verifier_resolver,
-    ))
-    .await
-    .expect("pass");
+    let x = did_webplus_wasm::vjson_verify(vjson_string, &vjson_resolver, &verifier_resolver)
+        .await
+        .expect("pass");
+}
+
+#[wasm_bindgen_test]
+#[allow(unused)]
+async fn test_software_wallet_indexeddb() {
+    console_error_panic_hook::set_once();
+    wasm_logger::init(wasm_logger::Config::new(log::Level::Debug));
+
+    tracing::debug!("test_software_wallet_indexeddb");
+    let db_name = "test_software_wallet_indexeddb";
+
+    let wallet = did_webplus_wasm::Wallet::create(db_name.to_string(), None)
+        .await
+        .expect("pass");
+    tracing::debug!("wallet successfully created");
+
+    let controlled_did = wallet
+        .create_did("http://localhost:12321".to_string())
+        .await
+        .expect("pass");
+    tracing::debug!("controlled_did: {:?}", controlled_did);
+
+    let did = did_webplus_core::DIDFullyQualifiedStr::new_ref(&controlled_did)
+        .expect("pass")
+        .did()
+        .to_owned();
+    tracing::debug!("did: {:?}", did);
+
+    let controlled_did = wallet
+        .update_did(did.to_string(), "http".to_string())
+        .await
+        .expect("pass");
 }

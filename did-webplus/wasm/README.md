@@ -24,25 +24,27 @@ From this directory (the did-webplus-wasm crate directory), run
 
     wasm-pack test --node
 
+TEMPORARY NOTE: This is not expected to work at the moment.
+
 ### Running Tests in Browser (Headless Mode)
 
 From this directory (the did-webplus-wasm crate directory), run one of the following:
 
-    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --chrome
-    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --firefox
-    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --safari
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome --headless --all-features
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox --headless --all-features
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --safari --headless --all-features
 
 You can even combine them if you have multiple browsers, e.g.
 
-    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --headless --chrome --firefox --safari
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome --firefox --safari --headless --all-features
 
 ### Running Tests in Browser (Headful Mode)
 
 From this directory (the did-webplus-wasm crate directory), run one of the following:
 
-    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome
-    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox
-    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --safari
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome --all-features
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox --all-features
+    WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --safari --all-features
 
 It will print a URL to open in your browser, and once open, the tests will run there.
 
@@ -69,7 +71,9 @@ It appears that no logging is sent to stdout when the tests are run within node.
 Build and install `did-webplus-vdr` binary:
 
     cd ../vdr
-    cargo install --path . --features postgres
+    cargo install --path . --features postgres --debug
+
+The `--debug` flag is optional, but it is useful for development purposes in order to report bugs.  It is not needed for production.
 
 Create a "home" directory for the VDR (for the configuration):
 
@@ -101,7 +105,7 @@ Run the VDR (make sure you're in the `did-webplus/vdr_12321` directory):
 
 Ensure the wasm package has been built:
 
-    wasm-pack build --target web
+    wasm-pack build --target web --all-features
 
 This should populate the `pkg` directory with various files, including:
 

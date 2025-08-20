@@ -16,6 +16,11 @@ crate-type = ["cdylib", "rlib"]
 lto = true
 opt-level = 's'
 
+[features]
+# Define a wasm_bindgen "start" function that initializes the logger.  This is useful when you don't want
+# to have to define the "start" function externally to this crate.
+define-start-function = []
+
 [dependencies]
 anyhow = "1.0.94"
 async-trait = "0.1.80"

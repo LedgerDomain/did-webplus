@@ -30,6 +30,7 @@
         // Do some more setup
         document.getElementById("key_id").textContent = window.signer.key_id();
         document.getElementById("vjson_default_schema").textContent = vjson_default_schema();
+        document.getElementById("controlled_did").textContent = controlled_did;
     }
 
     window.sign_jws_input = function () {
@@ -59,6 +60,14 @@
         document.getElementById("vjson_verification").textContent = result;
     }
 
+    window.update_did = async function () {
+        let controlled_did = document.getElementById("controlled_did").textContent;
+        // Chop off the query params.
+        let did = controlled_did.split("?")[0];
+        let result = await window.wallet.update_did(did, "http");
+        document.getElementById("controlled_did").textContent = result;
+    }
+
     run().catch(console.error);
 </script>
 
@@ -68,8 +77,7 @@
     </div>
     <div>JWS Input: <textarea id="jws_input">{"blah": 123}</textarea></div>
     <div><button id="sign" onclick="sign_jws_input()">Sign</button></div>
-    <div>JWS Output: <textarea id="jws_output"></textarea>
-    </div>
+    <div>JWS Output: <textarea id="jws_output"></textarea></div>
     <div><button id="verify" onclick="verify_jws_output()">Verify</button></div>
     <div>JWS Verify Result: <div id="jws_verification"></div>
     </div>
@@ -81,6 +89,13 @@
     <div><button id="vjson_self_hash" onclick="vjson_self_hash()">Self-Hash VJSON</button></div>
     <div><button id="vjson_verify" onclick="vjson_verify()">Verify VJSON</button></div>
     <div>VJSON Verify Result: <div id="vjson_verification"></div>
+    </div>
+    <br>
+    <br>
+    <h2>Wallet Operations</h2>
+    <div>Controlled DID: <div id="controlled_did"></div>
+    </div>
+    <div><button id="update_did" onclick="update_did()">Update DID</button></div>
 </body>
 
 </html>
