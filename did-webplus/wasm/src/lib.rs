@@ -29,6 +29,9 @@ pub fn into_js_value<T: std::fmt::Display>(t: T) -> JsValue {
     JsValue::from(t.to_string())
 }
 
+/// This is the WebAssembly entry point.  It is used to initialize the logger.
+/// It is only defined if the `define-start-function` feature is enabled.
+#[cfg(feature = "define-start-function")]
 #[wasm_bindgen(start)]
 pub fn start() -> Result<()> {
     console_error_panic_hook::set_once();
