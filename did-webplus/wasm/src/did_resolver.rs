@@ -19,13 +19,16 @@ impl DIDResolver {
     /// will change in the future.
     pub fn new_full(
         did_doc_store: DIDDocStore,
+        vdg_host_o: Option<String>,
         http_scheme_override_o: Option<HTTPSchemeOverride>,
     ) -> Result<Self> {
-        let did_resolver = did_webplus_resolver::DIDResolverFull {
-            did_doc_store: did_doc_store.into_inner(),
-            http_scheme_override_o: http_scheme_override_o.map(|o| o.into()),
-            fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
-        };
+        let did_resolver = did_webplus_resolver::DIDResolverFull::new(
+            did_doc_store.into_inner(),
+            vdg_host_o.as_deref(),
+            http_scheme_override_o.map(|o| o.into()),
+            did_webplus_resolver::FetchPattern::Batch,
+        )
+        .map_err(into_js_value)?;
         Ok(Self(Arc::new(did_resolver)))
     }
     /// Create a "thin" DIDResolver that operates against the given trusted VDG.

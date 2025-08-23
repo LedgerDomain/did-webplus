@@ -16,6 +16,11 @@ pub struct Listen {
         default_value = "sqlite://:memory:"
     )]
     pub database_url: String,
+    /// The host of the VDG to use for fetching DID documents.  This is used so that this resolver
+    /// can take part in the scope of agreement defined by the VDG.  Without using a VDG, a
+    /// "Full" DID resolver has a scope of agreement that only contains itself.
+    #[arg(name = "vdg", long, env = "DID_WEBPLUS_URD_VDG", value_name = "HOST")]
+    pub vdg_host_o: Option<String>,
     /// Optionally specify a comma-separated list of `hostname=scheme` pairs defining the scheme to use
     /// for each of the specified hosts.  The default did:webplus resolution rules specify that
     /// localhost uses the "http" scheme, and everything else uses the "https" scheme.  This
@@ -52,6 +57,7 @@ impl Listen {
         // Create the DID resolver using the specified options.
         let did_resolver_full = did_webplus_urd_lib::create_did_resolver_full(
             &self.database_url,
+            self.vdg_host_o.as_deref(),
             Some(self.http_scheme_override),
         )
         .await?;

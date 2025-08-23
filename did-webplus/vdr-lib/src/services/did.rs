@@ -82,6 +82,8 @@ async fn get_did(
     Err((StatusCode::BAD_REQUEST, "".to_string()))
 }
 
+// NOTE: This is duplicated in did-webplus-vdg-lib crate.  In order to de-duplicate, there would need to be
+// an axum-aware crate common to this and that crate.
 async fn get_did_document_jsonl(
     State(vdr_app_state): State<VDRAppState>,
     header_map: HeaderMap,

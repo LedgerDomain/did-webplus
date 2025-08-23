@@ -15,6 +15,11 @@ use std::{borrow::Cow, sync::Arc};
 pub struct SoftwareWallet {
     ctx: WalletStorageCtx,
     wallet_storage_a: Arc<dyn WalletStorage>,
+    /// Optionally specifies the host (i.e. hostname and optional port number) of a VDG to use in the
+    /// DIDResolverFull for fetching DID documents.  This is used so that this resolver can take part
+    /// in the scope of agreement defined by the VDG.  Without using a VDG, a DIDResolverFull has a
+    /// scope of agreement that only contains itself.
+    vdg_host_o: Option<String>,
 }
 
 impl SoftwareWallet {
@@ -22,20 +27,41 @@ impl SoftwareWallet {
         transaction: &mut dyn storage_traits::TransactionDynT,
         wallet_storage_a: Arc<dyn WalletStorage>,
         wallet_name_o: Option<String>,
+        vdg_host_o: Option<String>,
     ) -> Result<Self> {
+        // Validate vdg_host_o.
+        if let Some(vdg_host) = vdg_host_o.as_deref() {
+            let http_scheme =
+                did_webplus_core::HTTPSchemeOverride::default_http_scheme_for_host(vdg_host)
+                    .map_err(|e| Error::MalformedVDGHost(e.to_string().into()))?;
+            let _vdg_base_url = url::Url::parse(&format!("{}://{}", http_scheme, vdg_host))
+                .map_err(|e| Error::MalformedVDGHost(e.to_string().into()))?;
+        }
+
         let wallet_storage_ctx = wallet_storage_a
             .create_wallet(Some(transaction), wallet_name_o)
             .await?;
         Ok(Self {
             ctx: wallet_storage_ctx,
             wallet_storage_a,
+            vdg_host_o,
         })
     }
     pub async fn open(
         transaction: &mut dyn storage_traits::TransactionDynT,
         wallet_storage_a: Arc<dyn WalletStorage>,
         wallet_uuid: &uuid::Uuid,
+        vdg_host_o: Option<String>,
     ) -> Result<Self> {
+        // Validate vdg_host_o.
+        if let Some(vdg_host) = vdg_host_o.as_deref() {
+            let http_scheme =
+                did_webplus_core::HTTPSchemeOverride::default_http_scheme_for_host(vdg_host)
+                    .map_err(|e| Error::MalformedVDGHost(e.to_string().into()))?;
+            let _vdg_base_url = url::Url::parse(&format!("{}://{}", http_scheme, vdg_host))
+                .map_err(|e| Error::MalformedVDGHost(e.to_string().into()))?;
+        }
+
         let (wallet_storage_ctx, _wallet_record) = wallet_storage_a
             .get_wallet(Some(transaction), wallet_uuid)
             .await?
@@ -45,6 +71,7 @@ impl SoftwareWallet {
         Ok(Self {
             ctx: wallet_storage_ctx,
             wallet_storage_a,
+            vdg_host_o,
         })
     }
     async fn fetch_did_internal(
@@ -56,13 +83,15 @@ impl SoftwareWallet {
         // version if more than one wallet controls the DID.
 
         // Retrieve any unfetched updates to the DID.
-        let did_resolver = did_webplus_resolver::DIDResolverFull {
-            did_doc_store: did_webplus_doc_store::DIDDocStore::new(
+        let did_resolver = did_webplus_resolver::DIDResolverFull::new(
+            did_webplus_doc_store::DIDDocStore::new(
                 self.wallet_storage_a.clone().as_did_doc_storage_a(),
             ),
-            http_scheme_override_o: http_scheme_override_o.cloned(),
-            fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
-        };
+            self.vdg_host_o.as_deref(),
+            http_scheme_override_o.cloned(),
+            did_webplus_resolver::FetchPattern::Batch,
+        )
+        .unwrap();
         use did_webplus_resolver::DIDResolver;
         let (did_document, _did_doc_metadata) = did_resolver
             .resolve_did_document(
