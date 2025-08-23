@@ -97,6 +97,7 @@ async fn test_software_wallet_with_storage_sqlite() {
         transaction_b.as_mut(),
         wallet_storage_a,
         Some("fancy wallet".to_string()),
+        None,
     )
     .await
     .expect("pass");
@@ -116,6 +117,7 @@ async fn test_software_wallet_with_storage_mock() {
         transaction_b.as_mut(),
         wallet_storage_a.clone(),
         Some("fancy wallet".to_string()),
+        None,
     )
     .await
     .expect("pass");

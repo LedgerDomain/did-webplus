@@ -10,7 +10,7 @@ pub struct Wallet(Arc<dyn did_webplus_wallet::Wallet>);
 impl Wallet {
     /// Create an ephemeral, in-memory wallet.  To be clear, this has no persistent storage and will be
     /// lost when the program exits.
-    pub fn new_mock() -> js_sys::Promise {
+    pub fn new_mock(vdg_host_o: Option<String>) -> js_sys::Promise {
         wasm_bindgen_futures::future_to_promise(async move {
             let wallet_storage = did_webplus_wallet_storage_mock::WalletStorageMock::new();
             let wallet_storage_a = Arc::new(wallet_storage);
@@ -23,6 +23,7 @@ impl Wallet {
                 transaction.as_mut(),
                 wallet_storage_a,
                 Some("fancy mock wallet".to_string()),
+                vdg_host_o,
             )
             .await
             .map_err(into_js_value)?;

@@ -324,11 +324,13 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
             .await
             .expect("pass");
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
-        did_webplus_resolver::DIDResolverFull {
+        did_webplus_resolver::DIDResolverFull::new(
             did_doc_store,
-            http_scheme_override_o: http_scheme_override_o.cloned(),
-            fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
-        }
+            None,
+            http_scheme_override_o.cloned(),
+            did_webplus_resolver::FetchPattern::Batch,
+        )
+        .unwrap()
     };
 
     use storage_traits::StorageDynT;
@@ -337,6 +339,7 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
         transaction_b.as_mut(),
         wallet_storage_a,
         Some("created by test_wallet_did_create_update_sign_jws_verify".to_string()),
+        None,
     )
     .await
     .expect("pass");
@@ -474,11 +477,13 @@ async fn test_wallet_did_sign_vjson_verify() {
             .await
             .expect("pass");
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
-        did_webplus_resolver::DIDResolverFull {
+        did_webplus_resolver::DIDResolverFull::new(
             did_doc_store,
-            http_scheme_override_o: http_scheme_override_o.cloned(),
-            fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
-        }
+            None,
+            http_scheme_override_o.cloned(),
+            did_webplus_resolver::FetchPattern::Batch,
+        )
+        .unwrap()
     };
 
     use storage_traits::StorageDynT;
@@ -487,6 +492,7 @@ async fn test_wallet_did_sign_vjson_verify() {
         transaction_b.as_mut(),
         wallet_storage_a,
         Some("created by test_wallet_did_sign_vjson_verify".to_string()),
+        None,
     )
     .await
     .expect("pass");

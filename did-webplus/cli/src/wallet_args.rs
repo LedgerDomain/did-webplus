@@ -25,6 +25,11 @@ pub struct WalletArgs {
         value_parser = parse_hyphenated_uuid
     )]
     pub wallet_uuid_o: Option<uuid::Uuid>,
+    /// Optionally specify the host of the VDG to use for fetching DID documents.  This is used so that DID
+    /// resolution for this wallet can take part in the scope of agreement defined by the VDG.  Without
+    /// using a VDG, a "Full" DID resolver has a scope of agreement that only contains itself.
+    #[arg(name = "vdg", long, env = "DID_WEBPLUS_VDG", value_name = "HOST")]
+    pub vdg_host_o: Option<String>,
 }
 
 fn parse_hyphenated_uuid(s: &str) -> Result<uuid::Uuid> {
@@ -74,18 +79,24 @@ impl WalletArgs {
         let wallet_storage_a = self.open_wallet_storage().await?;
         if let Some(wallet_uuid) = self.wallet_uuid_o.as_ref() {
             let mut transaction_b = wallet_storage_a.begin_transaction().await?;
-            let wallet =
-                SoftwareWallet::open(transaction_b.as_mut(), wallet_storage_a, wallet_uuid).await?;
+            let wallet = SoftwareWallet::open(
+                transaction_b.as_mut(),
+                wallet_storage_a,
+                wallet_uuid,
+                self.vdg_host_o.clone(),
+            )
+            .await?;
             transaction_b.commit().await?;
             Ok(wallet)
         } else {
-            open_or_create_wallet(wallet_storage_a).await
+            open_or_create_wallet(wallet_storage_a, self.vdg_host_o.clone()).await
         }
     }
 }
 
 async fn open_or_create_wallet(
     wallet_storage_a: Arc<dyn did_webplus_wallet_store::WalletStorage>,
+    vdg_host_o: Option<String>,
 ) -> Result<did_webplus_software_wallet::SoftwareWallet> {
     // If there are no wallets in the DB, then create one, and use it.
     // If there is exactly one wallet in the DB, then use it.
@@ -107,11 +118,18 @@ async fn open_or_create_wallet(
             transaction_b.as_mut(),
             wallet_storage_a,
             Some("Default Wallet".to_string()),
+            vdg_host_o,
         )
         .await?
     } else {
         let wallet_uuid = wallet_v.into_iter().next().unwrap().1.wallet_uuid;
-        SoftwareWallet::open(transaction_b.as_mut(), wallet_storage_a, &wallet_uuid).await?
+        SoftwareWallet::open(
+            transaction_b.as_mut(),
+            wallet_storage_a,
+            &wallet_uuid,
+            vdg_host_o,
+        )
+        .await?
     };
     transaction_b.commit().await?;
     Ok(software_wallet)

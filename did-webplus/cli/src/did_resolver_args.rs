@@ -52,21 +52,16 @@ impl DIDResolverArgs {
                     self.did_doc_store_db_url_o.is_some(),
                     "When using the \"full\" resolver, the \"--did-doc-store\" argument is required"
                 );
-                // TODO: Implement usage of VDG for "full" resolver.
-                if self.vdg_host_o.is_some() {
-                    tracing::warn!(
-                        "Ignoring \"--vdg\" argument since the resolver is set to \"full\", and its usage of VDG is not yet implemented"
-                    );
-                }
                 let did_doc_store_args = DIDDocStoreArgs {
                     did_doc_store_db_url: self.did_doc_store_db_url_o.unwrap(),
                 };
                 let did_doc_store = did_doc_store_args.open_did_doc_store().await?;
-                Ok(Box::new(did_webplus_resolver::DIDResolverFull {
+                Ok(Box::new(did_webplus_resolver::DIDResolverFull::new(
                     did_doc_store,
+                    self.vdg_host_o.as_deref(),
                     http_scheme_override_o,
-                    fetch_pattern: did_webplus_resolver::FetchPattern::Serial,
-                }))
+                    did_webplus_resolver::FetchPattern::Batch,
+                )?))
             }
             DIDResolverType::Thin => {
                 anyhow::ensure!(

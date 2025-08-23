@@ -26,7 +26,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
 
     let urd_listen_port = 60002;
     let urd_did_resolver_full =
-        did_webplus_urd_lib::create_did_resolver_full("sqlite://:memory:", None)
+        did_webplus_urd_lib::create_did_resolver_full("sqlite://:memory:", None, None)
             .await
             .expect("pass");
     let urd_handle =
@@ -60,6 +60,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
             transaction_b.as_mut(),
             wallet_storage_a.clone(),
             Some("Test wallet for test_urd_with_full_did_resolver_without_vdg".to_string()),
+            None,
         )
         .await
         .expect("pass");
