@@ -26,7 +26,7 @@ impl<'a> std::fmt::Display for DIDWebplusURIComponents<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "did:webplus:{}", self.host)?;
         if let Some(port) = self.port_o {
-            write!(f, "%3A{}", port)?;
+            write!(f, ":{}", port)?;
         }
         if let Some(path) = self.path_o {
             write!(f, ":{}", path)?;
@@ -69,13 +69,9 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         let (host_and_maybe_port, remainder) = s.split_once(':').ok_or(Error::Malformed(
             "did:webplus URI is expected to have a third ':' after the host",
         ))?;
-        let (host, port_o) = if let Some((host, after_percent_str)) =
-            host_and_maybe_port.split_once('%')
+        let (host, port_o) = if let Some((host, port_str)) =
+            host_and_maybe_port.split_once(':')
         {
-            if !after_percent_str.starts_with("3A") {
-                return Err(Error::Malformed("did:webplus URI may only have an embedded %3A (the percent-encoding of ':'), but it had some other percent-encoded char"));
-            }
-            let port_str = after_percent_str.strip_prefix("3A").unwrap();
             let port: u16 = port_str
                 .parse()
                 .map_err(|_| Error::Malformed("did:webplus URI port must be a valid integer"))?;

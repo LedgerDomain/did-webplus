@@ -356,6 +356,7 @@ impl SoftwareWalletIndexedDB {
         did_document_jcs: &str,
         did: &DIDStr,
         vdr_scheme: &'static str,
+        vdr_endpoint: &str,
     ) -> did_webplus_wallet::Result<()> {
         if operation != "create" && operation != "update" {
             return Err(did_webplus_wallet::Error::Malformed(
@@ -378,8 +379,9 @@ impl SoftwareWalletIndexedDB {
         request_init.set_method(http_method);
         request_init.set_body(&JsValue::from_str(did_document_jcs));
 
+        let did_url = format!("{}/{}/did.json", vdr_endpoint.trim_end_matches('/'), did.root_self_hash());
         let request =
-            web_sys::Request::new_with_str_and_init(&did.resolution_url(vdr_scheme), &request_init)
+            web_sys::Request::new_with_str_and_init(&did_url, &request_init)
                 .map_err(|_| {
                     did_webplus_wallet::Error::HTTPRequestError("Failed to create a request".into())
                 })?;
@@ -839,7 +841,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // POST the DID document to the VDR to create the DID.  If an error occurs, then delete the
         // provisional records.
         match self
-            .post_or_put_did_document("create", &did_document_jcs, &did, vdr_scheme)
+            .post_or_put_did_document("create", &did_document_jcs, &did, vdr_scheme, vdr_did_create_endpoint)
             .await
         {
             Ok(()) => (),
@@ -1221,7 +1223,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // PUT the DID document to the VDR to update the DID.  If an error occurs, then delete the
         // provisional records.
         match self
-            .post_or_put_did_document("update", &updated_did_document_jcs, &did, vdr_scheme)
+            .post_or_put_did_document("update", &updated_did_document_jcs, &did, vdr_scheme, "http://localhost:8085")
             .await
         {
             Ok(()) => (),
