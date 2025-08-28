@@ -1222,6 +1222,12 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
 
         // PUT the DID document to the VDR to update the DID.  If an error occurs, then delete the
         // provisional records.
+        // TODO: Future improvement - The hardcoded endpoint "http://localhost:8085" should be passed as a parameter
+        // or configuration value instead of being hardcoded. This creates inconsistency with the create operation
+        // which receives the endpoint as a parameter. Consider:
+        // 1. Adding vdr_endpoint parameter to update_did function signature
+        // 2. Storing VDR endpoint in wallet instance during creation
+        // 3. Using the same endpoint source for both create and update operations
         match self
             .post_or_put_did_document("update", &updated_did_document_jcs, &did, vdr_scheme, "http://localhost:8085")
             .await
