@@ -34,7 +34,7 @@ You can verify this works via
 
     ping -c 1 -w 1 vdr.did-webplus-wasm.test && ping -c 1 -w 1 vdg.did-webplus-wasm.test
 
-Now for the docker portion.  To build, run, and view logs for all the necessary docker services:
+Now for the docker portion.  To build, run, and view logs for all the necessary docker services, from this directory (the did-webplus-wasm crate directory, which is `did-webplus/did-webplus/wasm`) run:
 
     make build && make run && make logs-all
 
@@ -42,7 +42,7 @@ You should see the log output of the VDR under `vdr.did-webplus-wasm.test_1` and
 
 ### Running Tests in `node.js`
 
-Note that the test VDR and VDG MUST be running while running these tests.  See above for instructions.  From this directory (the did-webplus-wasm crate directory), run
+Note that the test VDR and VDG MUST be running while running these tests.  See above for instructions.  From this directory (the did-webplus-wasm crate directory, which is `did-webplus/did-webplus/wasm`), run
 
     wasm-pack test --node
 
@@ -50,7 +50,7 @@ TEMPORARY NOTE: This is not expected to work at the moment.
 
 ### Running Tests in Browser (Headless Mode)
 
-Note that the test VDR and VDG MUST be running in order for these tests to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory), run one of the following:
+Note that the test VDR and VDG MUST be running in order for these tests to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory, which is `did-webplus/did-webplus/wasm`), run one of the following:
 
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome --headless --all-features
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox --headless --all-features
@@ -62,7 +62,7 @@ You can even combine them if you have multiple browsers, e.g.
 
 ### Running Tests in Browser (Headful Mode)
 
-Note that the test VDR and VDG MUST be running in order for these tests to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory), run one of the following:
+Note that the test VDR and VDG MUST be running in order for these tests to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory, which is `did-webplus/did-webplus/wasm`), run one of the following:
 
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome --all-features
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox --all-features
@@ -90,9 +90,7 @@ It appears that no logging is sent to stdout when the tests are run within node.
 
 ### Build and Run the Example Web Page
 
-Note that the test VDR and VDG MUST be running in order for this example to work.  See above for instructions.
-
-Ensure the wasm package has been built:
+Note that the test VDR and VDG MUST be running in order for this example to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory, which is `did-webplus/did-webplus/wasm`), ensure the wasm package has been built:
 
     wasm-pack build --target web --all-features
 
