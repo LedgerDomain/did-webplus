@@ -1,0 +1,143 @@
+# Save/persist our PostgreSQL database
+volumes:
+  vdg_did_webplus_wasm_test_postgres_data:
+  vdr_did_webplus_wasm_test_postgres_data:
+
+services:
+  ####################################
+  # Auto-Restarter based on Docker Health Checks
+  ####################################
+
+  autoheal:
+    image: willfarrell/autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    <<: &autoRestartOnFailure
+      deploy:
+        restart_policy:
+          condition: on-failure
+          max_attempts: 10
+
+  ####################################
+  # PostgreSQL Database(s)
+  ####################################
+
+  vdg_did_webplus_wasm_test_database:
+    <<: *autoRestartOnFailure
+    image: postgres
+    ports:
+      - '5443:5432'
+    environment:
+      POSTGRES_DB: 'postgres'
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
+      PGPORT: 5432
+    # We want persistence for our database
+    volumes:
+      - vdg_did_webplus_wasm_test_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 1s
+      timeout: 1s
+      retries: 15
+
+  vdr_did_webplus_wasm_test_database:
+    <<: *autoRestartOnFailure
+    image: postgres
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_DB: 'postgres'
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
+      PGPORT: 5432
+    # We want persistence for our database
+    volumes:
+      - vdr_did_webplus_wasm_test_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 1s
+      timeout: 1s
+      retries: 15
+
+  ####################################
+  # App-Container(s)
+  ####################################
+
+  vdg.did-webplus-wasm.test:
+    <<: *autoRestartOnFailure
+    image: did-webplus-vdg
+    platform: linux/x86_64 # Helps ensure consistency even when used on an M1 Mac
+    build:
+      context: ../..
+      dockerfile: did-webplus/vdg/Dockerfile
+      target: runtime
+    environment:
+      DID_WEBPLUS_VDG_DATABASE_URL: postgres://postgres:postgres@vdg_did_webplus_wasm_test_database:5432/postgres?sslmode=disable
+      DID_WEBPLUS_VDG_LISTEN_PORT: 8086
+      # Options are "compact" and "pretty" (which is very verbose)
+      DID_WEBPLUS_VDG_LOG_FORMAT: compact
+      RUST_BACKTRACE: '1'
+      RUST_LOG: 'hyper=warn,sqlx=info,did_webplus_vdg=trace,debug'
+
+    entrypoint:
+      - /bin/sh
+    command:
+      - '-c'
+      - '/usr/local/bin/did-webplus-vdg'
+    ports:
+      - '8086:8086'
+    depends_on:
+      # Ensure our necessary services are up
+      vdg_did_webplus_wasm_test_database:
+        condition: service_healthy
+    links:
+      - vdg_did_webplus_wasm_test_database
+    # Ensure we autoheal incase we crash hard
+    labels:
+      autoheal: 'true'
+    # Ensure our service is up and running and healthy (needed for autoheal)
+    healthcheck:
+      test: curl --fail -s http://vdg.did-webplus-wasm.test:8086/health || exit 1
+      start_period: 10s # Wait 10 seconds for our app to startup before throwing health probes at it
+      interval: 5s
+      timeout: 4s
+      retries: 4
+
+  vdr.did-webplus-wasm.test:
+    <<: *autoRestartOnFailure
+    image: did-webplus-vdr
+    platform: linux/x86_64 # Helps ensure consistency even when used on an M1 Mac
+    build:
+      context: ../..
+      dockerfile: did-webplus/vdr/Dockerfile
+      target: runtime
+    environment:
+      DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@vdr_did_webplus_wasm_test_database:5432/postgres?sslmode=disable
+      DID_WEBPLUS_VDR_DID_HOST: vdr.did-webplus-wasm.test
+      DID_WEBPLUS_VDR_DID_PORT: 8085
+      DID_WEBPLUS_VDR_GATEWAYS: http://vdg.did-webplus-wasm.test:8086
+      DID_WEBPLUS_VDR_LISTEN_PORT: 8085
+      RUST_BACKTRACE: '1'
+      RUST_LOG: 'hyper=warn,sqlx=info,debug'
+
+    entrypoint:
+      - /usr/local/bin/did-webplus-vdr
+    ports:
+      - '8085:8085'
+    depends_on:
+      # Ensure our necessary services are up
+      vdr_did_webplus_wasm_test_database:
+        condition: service_healthy
+    links:
+      - vdr_did_webplus_wasm_test_database
+    # Ensure we autoheal incase we crash hard
+    labels:
+      autoheal: 'true'
+    # Ensure our service is up and running and healthy (needed for autoheal)
+    healthcheck:
+      test: curl --fail -s http://vdr.did-webplus-wasm.test:8085/health || exit 1
+      start_period: 10s # Wait 10 seconds for our app to startup before throwing health probes at it
+      interval: 5s
+      timeout: 4s
+      retries: 4

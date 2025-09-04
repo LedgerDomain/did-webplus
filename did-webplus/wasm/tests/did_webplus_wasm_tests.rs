@@ -78,7 +78,7 @@ async fn test_software_wallet_indexeddb() {
     tracing::debug!("wallet successfully created");
 
     let controlled_did = wallet
-        .create_did("http://localhost:12321".to_string())
+        .create_did("http://vdr.did-webplus-wasm.test:8085".to_string())
         .await
         .expect("pass");
     tracing::debug!("controlled_did: {:?}", controlled_did);

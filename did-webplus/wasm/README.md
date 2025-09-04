@@ -18,9 +18,31 @@ Note that you may need to install a few things:
 
 ## Running Tests
 
+Before running tests, the did-webplus VDR and VDG must be running.
+
+### Build and Run the Test VDR and VDG
+
+Everything needed is provided by `docker-compose.yml` and can be built, spun up, down, etc all via `make` commands.  Note that this particular docker configuration is NOT a production configuration!  See [this documentation](../vdr) for official VDR documentation.
+
+In order for the `docker-compose.yml` configuration to work, it's necessary to ensure the following lines exist in the `/etc/hosts` file (this defines which hostnames get redirected where, and gives a way to redirect a named domain to localhost):
+
+    # Used for did:webplus testing and development
+    127.0.0.1  vdr.did-webplus-wasm.test
+    127.0.0.1  vdg.did-webplus-wasm.test
+
+You can verify this works via
+
+    ping -c 1 -w 1 vdr.did-webplus-wasm.test && ping -c 1 -w 1 vdg.did-webplus-wasm.test
+
+Now for the docker portion.  To build, run, and view logs for all the necessary docker services:
+
+    make build && make run && make logs-all
+
+You should see the log output of the VDR under `vdr.did-webplus-wasm.test_1` and the VDG under `vdg.did-webplus-wasm.test_1`.
+
 ### Running Tests in `node.js`
 
-From this directory (the did-webplus-wasm crate directory), run
+Note that the test VDR and VDG MUST be running while running these tests.  See above for instructions.  From this directory (the did-webplus-wasm crate directory), run
 
     wasm-pack test --node
 
@@ -28,7 +50,7 @@ TEMPORARY NOTE: This is not expected to work at the moment.
 
 ### Running Tests in Browser (Headless Mode)
 
-From this directory (the did-webplus-wasm crate directory), run one of the following:
+Note that the test VDR and VDG MUST be running in order for these tests to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory), run one of the following:
 
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome --headless --all-features
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox --headless --all-features
@@ -40,7 +62,7 @@ You can even combine them if you have multiple browsers, e.g.
 
 ### Running Tests in Browser (Headful Mode)
 
-From this directory (the did-webplus-wasm crate directory), run one of the following:
+Note that the test VDR and VDG MUST be running in order for these tests to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory), run one of the following:
 
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --chrome --all-features
     WASM_BINDGEN_USE_BROWSER=1 wasm-pack test --firefox --all-features
@@ -66,42 +88,9 @@ It appears that no logging is sent to stdout when the tests are run within node.
 
 ## Running Example
 
-### Build and Run the VDR
-
-Build and install `did-webplus-vdr` binary:
-
-    cd ../vdr
-    cargo install --path . --features postgres --debug
-
-The `--debug` flag is optional, but it is useful for development purposes in order to report bugs.  It is not needed for production.
-
-Create a "home" directory for the VDR (for the configuration):
-
-    cd ~
-    mkdir -p did-webplus/vdr_12321
-    cd did-webplus/vdr_12321
-
-Create a `.env` file for the VDR with the following contents:
-
-    export DID_WEBPLUS_VDR_DID_HOST=localhost
-    export DID_WEBPLUS_VDR_DID_PORT=12321
-    export DID_WEBPLUS_VDR_LISTEN_PORT=12321
-    export DID_WEBPLUS_VDR_DATABASE_URL=postgres:///did_webplus_vdr_12321
-    export DID_WEBPLUS_VDR_GATEWAY_HOSTS=localhost:23456
-    export DID_WEBPLUS_VDR_LOG_FORMAT=pretty
-    export DID_WEBPLUS_VDR_HTTP_SCHEME_OVERRIDE=
-
-    export RUST_LOG=did_webplus=debug,tower_http::trace::on_response=info,debug
-
-Make sure that the postgres database has been created:
-
-    psql -c 'create database did_webplus_vdr_12321'
-
-Run the VDR (make sure you're in the `did-webplus/vdr_12321` directory):
-
-    did-webplus-vdr
-
 ### Build and Run the Example Web Page
+
+Note that the test VDR and VDG MUST be running in order for this example to work.  See above for instructions.
 
 Ensure the wasm package has been built:
 
@@ -117,7 +106,7 @@ This should populate the `pkg` directory with various files, including:
     package.json
     README.md
 
-Ensure that the VDR is running (see above).  Then run a local web server to serve the example web page (`index.html`), e.g.
+Then run a local web server to serve the example web page (`index.html`), e.g.
 
     python3 -m http.server 3000
 
