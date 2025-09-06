@@ -5,9 +5,7 @@ use std::sync::Arc;
 /// be used for any production purposes.  THIS IS INTENDED ONLY FOR DEVELOPMENT AND TESTING PURPOSES.
 #[derive(Clone)]
 pub struct DIDResolverRaw {
-    /// TEMP HACK: Specify the scheme used for HTTP requests.  Must be either "https" or "http".  This is
-    /// only useful for testing and potentially for VPC-like situations.
-    pub http_scheme: &'static str,
+    pub http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -18,6 +16,8 @@ impl DIDResolver for DIDResolverRaw {
         did_query: &str,
         requested_did_document_metadata: did_webplus_core::RequestedDIDDocumentMetadata,
     ) -> Result<(String, did_webplus_core::DIDDocumentMetadata)> {
+        tracing::debug!("DIDResolverRaw::resolve_did_document_string; did_query: {}; requested_did_document_metadata: {:?}", did_query, requested_did_document_metadata);
+
         if requested_did_document_metadata.constant
             || requested_did_document_metadata.idempotent
             || requested_did_document_metadata.currency
@@ -28,9 +28,9 @@ impl DIDResolver for DIDResolverRaw {
         let did_resolution_url = if let Ok(did_fully_qualified) =
             did_webplus_core::DIDFullyQualifiedStr::new_ref(did_query)
         {
-            did_fully_qualified.resolution_url(self.http_scheme)
+            did_fully_qualified.resolution_url(self.http_scheme_override_o.as_ref())
         } else if let Ok(did) = did_webplus_core::DIDStr::new_ref(did_query) {
-            did.resolution_url(self.http_scheme)
+            did.resolution_url(self.http_scheme_override_o.as_ref())
         } else {
             return Err(Error::MalformedDIDQuery(did_query.to_string().into()));
         };
@@ -66,6 +66,10 @@ impl DIDResolver for DIDResolverRaw {
             currency_o: None,
         };
 
+        tracing::trace!(
+            "DIDResolverRaw::resolve_did_document_string; successfully resolved DID document: {}",
+            did_document_string
+        );
         Ok((did_document_string, did_document_metadata))
     }
     fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {

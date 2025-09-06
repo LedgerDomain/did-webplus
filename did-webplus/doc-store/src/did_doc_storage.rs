@@ -14,6 +14,13 @@ pub trait DIDDocStorage: Send + storage_traits::StorageDynT + Sync + 'static {
         did_document: &DIDDocument,
         did_document_jcs: &str,
     ) -> Result<()>;
+    // TEMP HACK
+    async fn add_did_documents(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did_document_jcs_v: &[&str],
+        did_document_v: &[DIDDocument],
+    ) -> Result<()>;
     /// Attempt to get a DIDDocRecord with a specific self-hash value from the store.  Will return None if
     /// the requested DIDDocRecord does not exist.
     async fn get_did_doc_record_with_self_hash(
@@ -42,5 +49,26 @@ pub trait DIDDocStorage: Send + storage_traits::StorageDynT + Sync + 'static {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did_doc_record_filter: &DIDDocRecordFilter,
+    ) -> Result<Vec<DIDDocRecord>>;
+    /// Get the size, in bytes, of the did-documents.jsonl file for the given DID.  This file is the rendering
+    /// of all the DID documents in the store for the given DID, each rendered in its JCS form in a single line,
+    /// each with a trailing newline.
+    async fn get_known_did_documents_jsonl_octet_length(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+    ) -> Result<u64>;
+    /// Get the DIDDocRecord-s whose DID documents' place in the did-documents.jsonl file for the given DID
+    /// overlap with the specified range of bytes.  If None is provided for either range parameter, then it
+    /// means "unbounded" In particular, if range_begin_inclusive_o is None, then the range starts at byte 0,
+    /// and if range_end_exclusive_o is None, then the range ends at the end of the did-documents.jsonl file.
+    /// Thus, if both are None, then the entire contents of the did-documents.jsonl file is returned.
+    /// The returned vector is sorted by version_id.
+    async fn get_did_doc_records_for_did_documents_jsonl_range(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+        range_begin_inclusive_o: Option<u64>,
+        range_end_exclusive_o: Option<u64>,
     ) -> Result<Vec<DIDDocRecord>>;
 }

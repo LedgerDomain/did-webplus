@@ -8,20 +8,16 @@ use std::{
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
-    // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
-    // TODO: Make env var to control full/compact/pretty/json formatting of logs
-    tracing_subscriber::fmt()
-        .with_target(true)
-        .with_line_number(true)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .compact()
-        .init();
+    test_util::ctor_overall_init();
 }
 
 async fn test_vdr_wallet_operations_impl(use_path: bool) {
     test_util::wait_until_service_is_up("Dockerized VDR", "http://localhost:8085/health").await;
 
-    // Setup of mock services
+    let http_scheme_override_o = None;
+
+    // Setup of mock services -- these are used locally to handle validation of DID documents, which will then
+    // be sent to the real VDR.
     let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
         "fancy.net".into(),
         None,
@@ -36,7 +32,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
         "Alice's MockVDRClient".to_string(),
         mock_vdr_lam.clone(),
     ));
-    // Create the wallet.
+    // Create the wallet -- this MockWallet is used to create a DID document, which will then be sent to the real VDR.
     let mut alice_wallet = MockWallet::new("Alice's Wallet".to_string(), mock_vdr_client_a.clone());
     // Have it create a DID
     let did_path_o = if use_path {
@@ -127,16 +123,26 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
             );
             // Resolve the DID
             println!("alice_did_url: {}", alice_did_url);
+            // The replace calls are hacky, but effective.
             let alice_did_url_self_hash = alice_did
-                .resolution_url_for_self_hash(alice_did_document.self_hash().deref(), "http")
-                .replace("fancy.net", "localhost:8085");
+                .resolution_url_for_self_hash(
+                    alice_did_document.self_hash().deref(),
+                    http_scheme_override_o,
+                )
+                .replace("fancy.net", "localhost:8085")
+                .replace("https", "http");
             println!(
                 "alice_did_url with query self-hash: {}",
                 alice_did_url_self_hash
             );
+            // The replace calls are hacky, but effective.
             let alice_did_url_version_id = alice_did
-                .resolution_url_for_version_id(alice_did_document.version_id(), "http")
-                .replace("fancy.net", "localhost:8085");
+                .resolution_url_for_version_id(
+                    alice_did_document.version_id(),
+                    http_scheme_override_o,
+                )
+                .replace("fancy.net", "localhost:8085")
+                .replace("https", "http");
             println!(
                 "alice_did_url with query version_id: {}",
                 alice_did_url_version_id

@@ -1,8 +1,8 @@
-use crate::VDGConfig;
+use crate::{VDGAppState, VDGConfig};
 use std::sync::Arc;
 
 pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
-    tracing::info!("{:?}", vdg_config);
+    tracing::debug!("{:?}", vdg_config);
 
     if vdg_config.database_url.starts_with("postgres://") {
         #[cfg(feature = "postgres")]
@@ -37,15 +37,15 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
                 .layer(tower_http::cors::CorsLayer::permissive())
                 .into_inner();
 
+            let vdg_app_state = VDGAppState {
+                did_doc_store,
+                http_scheme_override_o: Some(vdg_config.http_scheme_override),
+            };
+
             let app = axum::Router::new()
-                .merge(crate::services::did_resolve::get_routes(did_doc_store))
+                .merge(crate::services::did_resolve::get_routes(vdg_app_state))
                 .layer(middleware_stack)
                 .route("/health", axum::routing::get(|| async { "OK" }));
-
-            tracing::info!(
-                "starting did-webplus-vdg, listening on port {}",
-                vdg_config.listen_port
-            );
 
             // This has to be 0.0.0.0 otherwise it won't work in a docker container.
             // 127.0.0.1 is only the loopback device, and isn't available outside the host.
@@ -53,6 +53,11 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
                 tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdg_config.listen_port))
                     .await
                     .unwrap();
+            tracing::info!(
+                "did-webplus VDG (Verifiable Data Gateway) listening on port {}",
+                vdg_config.listen_port
+            );
+
             // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
             // the task isn't good enough.
             Ok(tokio::task::spawn(async move {
@@ -63,7 +68,7 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
 
         #[cfg(not(feature = "postgres"))]
         {
-            panic!("postgres database is only supported by VDR if the `postgres` feature was enabled when building it");
+            panic!("postgres database is only supported by VDG if the `postgres` feature was enabled when building it");
         }
     } else if vdg_config.database_url.starts_with("sqlite://") {
         panic!("VDG should not be run with SQLite DB backend, as SQLite can't handle concurrent writes.  Use Postgres instead.");
@@ -99,15 +104,15 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
         //         .layer(tower_http::cors::CorsLayer::permissive())
         //         .into_inner();
 
+        //     let vdg_app_state = VDGAppState {
+        //         did_doc_store,
+        //         http_scheme_override: vdg_config.http_scheme_override,
+        //     };
+
         //     let app = axum::Router::new()
-        //         .merge(crate::services::did_resolve::get_routes(did_doc_store))
+        //         .merge(crate::services::did_resolve::get_routes(vdg_app_state))
         //         .layer(middleware_stack)
         //         .route("/health", axum::routing::get(|| async { "OK" }));
-
-        //     tracing::info!(
-        //         "starting did-webplus-vdg, listening on port {}",
-        //         vdg_config.listen_port
-        //     );
 
         //     // This has to be 0.0.0.0 otherwise it won't work in a docker container.
         //     // 127.0.0.1 is only the loopback device, and isn't available outside the host.
@@ -115,6 +120,11 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
         //         tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdg_config.listen_port))
         //             .await
         //             .unwrap();
+        //     tracing::info!(
+        //         "did-webplus VDG (Verifiable Data Gateway) listening on port {}",
+        //         vdg_config.listen_port
+        //     );
+
         //     // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
         //     // the task isn't good enough.
         //     Ok(tokio::task::spawn(async move {

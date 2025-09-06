@@ -8,14 +8,7 @@ use std::{
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
-    // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
-    // TODO: Make env var to control full/compact/pretty/json formatting of logs
-    tracing_subscriber::fmt()
-        .with_target(true)
-        .with_line_number(true)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .compact()
-        .init();
+    test_util::ctor_overall_init();
 }
 
 // TODO: Maybe make separate sqlite and postgres versions of this test?
@@ -26,13 +19,14 @@ async fn test_vdr_operations() {
     // TODO: postgres drop schema
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        did_host: "localhost".to_string(),
+        did_hostname: "localhost".to_string(),
         did_port_o: Some(9085),
         listen_port: 9085,
         // database_url: format!("sqlite://{}?mode=rwc", vdr_database_path),
         database_url: "postgres:///test_vdr_operations_vdr".to_string(),
         database_max_connections: 10,
-        gateways: Vec::new(),
+        vdg_base_url_v: Vec::new(),
+        http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
@@ -45,12 +39,20 @@ async fn test_vdr_operations() {
     .await;
 
     tracing::info!("Testing wallet operations; DID without path component");
-    test_vdr_wallet_operations_impl(vdr_config.did_host.as_str(), vdr_config.did_port_o, false)
-        .await;
+    test_vdr_wallet_operations_impl(
+        vdr_config.did_hostname.as_str(),
+        vdr_config.did_port_o,
+        false,
+    )
+    .await;
 
     tracing::info!("Testing wallet operations; DID with path component");
-    test_vdr_wallet_operations_impl(vdr_config.did_host.as_str(), vdr_config.did_port_o, true)
-        .await;
+    test_vdr_wallet_operations_impl(
+        vdr_config.did_hostname.as_str(),
+        vdr_config.did_port_o,
+        true,
+    )
+    .await;
 
     tracing::info!("Shutting down VDR");
     vdr_handle.abort();
@@ -60,6 +62,11 @@ async fn test_vdr_operations() {
 // to do this from a Wallet.  Maybe get rid of this test in favor of a Wallet-driven test (though
 // that would be testing two pieces of software at the same time).
 async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>, use_path: bool) {
+    let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
+        .with_override(vdr_host.to_string(), "http")
+        .expect("pass");
+    let http_scheme_override_o = Some(&http_scheme_override);
+
     // Setup of mock services
     let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
         vdr_host.into(),
@@ -86,7 +93,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
     let alice_did = alice_wallet
         .create_did(vdr_host.to_string(), did_port_o, did_path_o)
         .expect("pass");
-    let alice_did_url = alice_did.resolution_url("http");
+    let alice_did_url = alice_did.resolution_url(http_scheme_override_o);
     tracing::trace!("alice_did_url: {}", alice_did_url);
 
     // Hacky way to test the VDR without using a real Wallet.
@@ -156,14 +163,18 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
                 reqwest::StatusCode::OK
             );
             // Resolve the DID
-            let alice_did_url_self_hash = alice_did
-                .resolution_url_for_self_hash(alice_did_document.self_hash().deref(), "http");
+            let alice_did_url_self_hash = alice_did.resolution_url_for_self_hash(
+                alice_did_document.self_hash().deref(),
+                http_scheme_override_o,
+            );
             tracing::trace!(
                 "alice_did_url with query self-hash: {}",
                 alice_did_url_self_hash
             );
-            let alice_did_url_version_id =
-                alice_did.resolution_url_for_version_id(alice_did_document.version_id(), "http");
+            let alice_did_url_version_id = alice_did.resolution_url_for_version_id(
+                alice_did_document.version_id(),
+                http_scheme_override_o,
+            );
             tracing::trace!(
                 "alice_did_url with query version_id: {}",
                 alice_did_url_version_id

@@ -163,9 +163,23 @@ struct DIDDocumentRow {
     did: did_webplus_core::DID,
     version_id: u32,
     valid_from: time::OffsetDateTime,
+    did_documents_jsonl_octet_length: u64,
     did_document_jcs: String,
 }
 
+impl From<&DIDDocumentRow> for DIDDocRecord {
+    fn from(did_document_row: &DIDDocumentRow) -> Self {
+        DIDDocRecord {
+            self_hash: did_document_row.self_hash.to_string(),
+            did: did_document_row.did.to_string(),
+            version_id: did_document_row.version_id as i64,
+            valid_from: did_document_row.valid_from,
+            did_documents_jsonl_octet_length: did_document_row.did_documents_jsonl_octet_length
+                as i64,
+            did_document_jcs: did_document_row.did_document_jcs.clone(),
+        }
+    }
+}
 type DIDDocumentsTable = Table<DIDDocuments, DIDDocumentRow>;
 
 /// Sigil representing the did_documents table's (did, self_hash) index.
@@ -274,11 +288,18 @@ impl WalletStorageMockState {
         did_document: DIDDocument,
         did_document_jcs: String,
     ) -> TableResult<()> {
+        let latest_did_documents_jsonl_octet_length = self
+            .get_latest_did_document(&did_document.did)?
+            .map(|(_, did_document_row)| did_document_row.did_documents_jsonl_octet_length)
+            .unwrap_or(0);
         let row = DIDDocumentRow {
             self_hash: did_document.self_hash().clone(),
             did: did_document.did.clone(),
             version_id: did_document.version_id,
             valid_from: did_document.valid_from,
+            did_documents_jsonl_octet_length: latest_did_documents_jsonl_octet_length
+                + did_document_jcs.len() as u64
+                + 1,
             did_document_jcs,
         };
         let did_documents_row_id = self.did_documents_table.insert_with_index_3(
@@ -319,41 +340,68 @@ impl WalletStorageMockState {
         &self,
         did: &DIDStr,
         self_hash: &selfhash::KERIHashStr,
-    ) -> TableResult<Option<(RowId<DIDDocuments>, DIDDocumentRow)>> {
-        Ok(self
-            .did_documents_did_self_hash_index
-            .select(
+    ) -> TableResult<Option<(RowId<DIDDocuments>, &DIDDocumentRow)>> {
+        Ok(
+            self.did_documents_did_self_hash_index.select(
                 &self.did_documents_table,
                 &(did.to_owned(), self_hash.to_owned()),
-            )
-            .map(|(row_id, row)| (row_id, row.clone())))
+            ), // .map(|(row_id, row)| (row_id, row.clone())))
+        )
     }
     fn get_did_document_with_version_id(
         &self,
         did: &DIDStr,
         version_id: u32,
-    ) -> TableResult<Option<(RowId<DIDDocuments>, DIDDocumentRow)>> {
-        Ok(self
-            .did_documents_did_version_id_index
-            .select(&self.did_documents_table, &(did.to_owned(), version_id))
-            .map(|(row_id, row)| (row_id, row.clone())))
+    ) -> TableResult<Option<(RowId<DIDDocuments>, &DIDDocumentRow)>> {
+        Ok(
+            self.did_documents_did_version_id_index
+                .select(&self.did_documents_table, &(did.to_owned(), version_id)), // .map(|(row_id, row)| (row_id, row.clone())))
+        )
     }
     fn get_latest_did_document(
         &self,
         did: &DIDStr,
-    ) -> TableResult<Option<(RowId<DIDDocuments>, DIDDocumentRow)>> {
+    ) -> TableResult<Option<(RowId<DIDDocuments>, &DIDDocumentRow)>> {
         Ok(self
             .did_documents_table
             .row_iter()
             .filter(|(_row_id, row)| row.did.as_did_str() == did)
             .max_by_key(|(_row_id, row)| row.valid_from)
-            .map(|(row_id, row)| (*row_id, row.clone())))
+            // .map(|(row_id, row)| (*row_id, row.clone())))
+            .map(|(row_id, row)| (*row_id, row)))
     }
     // TODO: Replace return type with appropriate Iterator
     fn get_did_documents(&self) -> TableResult<Vec<(RowId<DIDDocuments>, &DIDDocumentRow)>> {
         Ok(self
             .did_documents_table
             .row_iter()
+            .map(|(row_id, row)| (*row_id, row))
+            .collect())
+    }
+    fn get_did_doc_records_for_did_documents_jsonl_range(
+        &self,
+        did: &DIDStr,
+        range_begin_inclusive_o: Option<u64>,
+        range_end_exclusive_o: Option<u64>,
+    ) -> TableResult<Vec<(RowId<DIDDocuments>, &DIDDocumentRow)>> {
+        let range_begin_inclusive = range_begin_inclusive_o.unwrap_or(0);
+        let range_end_exclusive = range_end_exclusive_o.unwrap_or(i64::MAX as u64);
+
+        if range_begin_inclusive >= range_end_exclusive {
+            // If the range is empty (or invalid), return an empty vector.
+            return Ok(Vec::new());
+        }
+
+        Ok(self
+            .did_documents_table
+            .row_iter()
+            .filter(|(_row_id, row)| {
+                row.did.as_did_str() == did
+                    && range_begin_inclusive < row.did_documents_jsonl_octet_length
+                    && row.did_documents_jsonl_octet_length
+                        - (row.did_document_jcs.len() as u64 + 1)
+                        < range_end_exclusive
+            })
             .map(|(row_id, row)| (*row_id, row))
             .collect())
     }
@@ -582,6 +630,20 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
         state_g.add_did_document(did_document.clone(), did_document_jcs.to_owned())?;
         Ok(())
     }
+    async fn add_did_documents(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did_document_jcs_v: &[&str],
+        did_document_v: &[DIDDocument],
+    ) -> did_webplus_doc_store::Result<()> {
+        let mut state_g = self.state_la.write().unwrap();
+        for (&did_document_jcs, did_document) in
+            did_document_jcs_v.iter().zip(did_document_v.iter())
+        {
+            state_g.add_did_document(did_document.clone(), did_document_jcs.to_owned())?;
+        }
+        Ok(())
+    }
     async fn get_did_doc_record_with_self_hash(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
@@ -589,17 +651,9 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
         self_hash: &selfhash::KERIHashStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let state_g = self.state_la.read().unwrap();
-        if let Some((_row_id, row)) = state_g.get_did_document_with_self_hash(did, self_hash)? {
-            Ok(Some(DIDDocRecord {
-                self_hash: row.self_hash.to_string(),
-                did: row.did.to_string(),
-                version_id: row.version_id as i64,
-                valid_from: row.valid_from,
-                did_document_jcs: row.did_document_jcs,
-            }))
-        } else {
-            Ok(None)
-        }
+        Ok(state_g
+            .get_did_document_with_self_hash(did, self_hash)?
+            .map(|(_, row)| DIDDocRecord::from(row)))
     }
     async fn get_did_doc_record_with_version_id(
         &self,
@@ -608,17 +662,9 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
         version_id: u32,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let state_g = self.state_la.read().unwrap();
-        if let Some((_row_id, row)) = state_g.get_did_document_with_version_id(did, version_id)? {
-            Ok(Some(DIDDocRecord {
-                self_hash: row.self_hash.to_string(),
-                did: row.did.to_string(),
-                version_id: row.version_id as i64,
-                valid_from: row.valid_from,
-                did_document_jcs: row.did_document_jcs,
-            }))
-        } else {
-            Ok(None)
-        }
+        Ok(state_g
+            .get_did_document_with_version_id(did, version_id)?
+            .map(|(_, row)| DIDDocRecord::from(row)))
     }
     async fn get_latest_did_doc_record(
         &self,
@@ -626,17 +672,9 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
         did: &DIDStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let state_g = self.state_la.read().unwrap();
-        if let Some((_row_id, row)) = state_g.get_latest_did_document(did)? {
-            Ok(Some(DIDDocRecord {
-                self_hash: row.self_hash.to_string(),
-                did: row.did.to_string(),
-                version_id: row.version_id as i64,
-                valid_from: row.valid_from,
-                did_document_jcs: row.did_document_jcs,
-            }))
-        } else {
-            Ok(None)
-        }
+        Ok(state_g
+            .get_latest_did_document(did)?
+            .map(|(_, row)| DIDDocRecord::from(row)))
     }
     async fn get_did_doc_records(
         &self,
@@ -647,18 +685,42 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
         let mut did_doc_records = Vec::new();
         for (_row_id, row) in state_g.get_did_documents()? {
             // This is a bit wasteful because it allocates unnecessarily before filtering.
-            let did_doc_record = DIDDocRecord {
-                self_hash: row.self_hash.to_string(),
-                did: row.did.to_string(),
-                version_id: row.version_id as i64,
-                valid_from: row.valid_from,
-                did_document_jcs: row.did_document_jcs.clone(),
-            };
+            let did_doc_record = DIDDocRecord::from(row);
             if did_doc_record_filter.matches(&did_doc_record) {
                 did_doc_records.push(did_doc_record);
             }
         }
         Ok(did_doc_records)
+    }
+    async fn get_known_did_documents_jsonl_octet_length(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+    ) -> did_webplus_doc_store::Result<u64> {
+        let state_g = self.state_la.read().unwrap();
+        Ok(state_g
+            .get_latest_did_document(did)?
+            .map(|(_, did_document_row)| did_document_row.did_documents_jsonl_octet_length)
+            .unwrap_or(0))
+    }
+    async fn get_did_doc_records_for_did_documents_jsonl_range(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+        range_begin_inclusive_o: Option<u64>,
+        range_end_exclusive_o: Option<u64>,
+    ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
+        let state_g = self.state_la.read().unwrap();
+        let did_doc_record_v = state_g
+            .get_did_doc_records_for_did_documents_jsonl_range(
+                did,
+                range_begin_inclusive_o,
+                range_end_exclusive_o,
+            )?
+            .into_iter()
+            .map(|(_, row)| DIDDocRecord::from(row))
+            .collect::<Vec<_>>();
+        Ok(did_doc_record_v)
     }
 }
 

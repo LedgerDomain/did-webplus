@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n                SELECT did, version_id, valid_from, self_hash, did_document_jcs\n                FROM did_documents\n                WHERE did = $1 AND version_id = $2\n            ",
+  "query": "\n                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs\n                FROM did_document_records\n                WHERE did = $1\n                ORDER BY version_id DESC\n                LIMIT 1\n            ",
   "describe": {
     "columns": [
       {
@@ -24,15 +24,21 @@
         "type_info": "Text"
       },
       {
-        "name": "did_document_jcs",
+        "name": "did_documents_jsonl_octet_length",
         "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "did_document_jcs",
+        "ordinal": 5,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 2
+      "Right": 1
     },
     "nullable": [
+      false,
       false,
       false,
       false,
@@ -40,5 +46,5 @@
       false
     ]
   },
-  "hash": "2eaaa4a4fd34cc3b530937afcc830b558aecc7a38daab6dfb6092e036ead5ec1"
+  "hash": "a99eb4c5764306a74fd4f00d623e55f34d15294236fe50546c84136ded9cfd8e"
 }

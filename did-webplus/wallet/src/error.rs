@@ -22,6 +22,8 @@ pub enum Error {
     InvalidVDRDIDUpdateURL(Cow<'static, str>),
     #[error("Malformed: {0}")]
     Malformed(Cow<'static, str>),
+    #[error("Malformed VDG host: {0}")]
+    MalformedVDGHost(Cow<'static, str>),
     #[error("Multiple locally controlled verification methods found: {0}")]
     MultipleLocallyControlledVerificationMethodsFound(Cow<'static, str>),
     #[error("Multiple suitable priv key found: {0}")]

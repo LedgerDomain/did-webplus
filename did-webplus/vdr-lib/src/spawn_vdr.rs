@@ -2,7 +2,25 @@ use crate::VDRConfig;
 
 /// Spawn a VDR using the given VDRConfig.
 pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::JoinHandle<()>> {
-    tracing::info!("{:?}", vdr_config);
+    // We have to process the vdg_base_url_v field here because it depends on the http_scheme_override field,
+    // and that kind of inter-field dependency is not supported by clap.
+    let vdr_config = {
+        let mut vdr_config = vdr_config;
+        for vdg_base_url in vdr_config.vdg_base_url_v.iter_mut() {
+            vdg_base_url
+                .set_scheme(
+                    vdr_config
+                        .http_scheme_override
+                        .determine_http_scheme_for_host(vdg_base_url.host_str().unwrap())?,
+                )
+                .map_err(|_| {
+                    anyhow::anyhow!("error setting scheme for VDG base URL {}", vdg_base_url)
+                })?;
+        }
+        vdr_config
+    };
+
+    tracing::debug!("{:?}", vdr_config);
 
     if vdr_config.database_url.starts_with("postgres://") {
         #[cfg(feature = "postgres")]
@@ -43,16 +61,16 @@ pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::Joi
                 .layer(middleware_stack)
                 .route("/health", axum::routing::get(|| async { "OK" }));
 
-            tracing::info!(
-                "starting did-webplus-vdr, listening on port {}",
-                vdr_config.listen_port
-            );
-
             // This has to be 0.0.0.0 otherwise it won't work in a docker container.
             // 127.0.0.1 is only the loopback device, and isn't available outside the host.
             let listener =
                 tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdr_config.listen_port))
                     .await?;
+            tracing::info!(
+                "did-webplus VDR (Verifiable Data Registry) listening on port {}",
+                vdr_config.listen_port
+            );
+
             // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
             // the task isn't good enough.
             Ok(tokio::task::spawn(async move {
@@ -105,16 +123,16 @@ pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::Joi
         //         .layer(middleware_stack)
         //         .route("/health", axum::routing::get(|| async { "OK" }));
 
-        //     tracing::info!(
-        //         "starting did-webplus-vdr, listening on port {}",
-        //         vdr_config.listen_port
-        //     );
-
         //     // This has to be 0.0.0.0 otherwise it won't work in a docker container.
         //     // 127.0.0.1 is only the loopback device, and isn't available outside the host.
         //     let listener =
         //         tokio::net::TcpListener::bind(format!("0.0.0.0:{}", vdr_config.listen_port))
         //             .await?;
+        //     tracing::info!(
+        //         "did-webplus VDR (Verifiable Data Registry) listening on port {}",
+        //         vdr_config.listen_port
+        //     );
+
         //     // TODO: Use Serve::with_graceful_shutdown to be able to shutdown the server gracefully, in case aborting
         //     // the task isn't good enough.
         //     Ok(tokio::task::spawn(async move {

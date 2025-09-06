@@ -3,17 +3,7 @@ use std::sync::Arc;
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
-    // Ignore errors, since there may not be a .env file (e.g. in docker image)
-    let _ = dotenvy::dotenv();
-
-    // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
-    // TODO: Make env var to control full/compact/pretty/json formatting of logs
-    tracing_subscriber::fmt()
-        .with_target(true)
-        .with_line_number(true)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .compact()
-        .init();
+    test_util::ctor_overall_init();
 }
 
 async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet::SoftwareWallet) {
@@ -24,12 +14,13 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
     // TODO: postgres drop schema
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        did_host: "localhost".to_string(),
+        did_hostname: "localhost".to_string(),
         did_port_o: Some(11085),
         listen_port: 11085,
         database_url: "postgres:///test_software_wallet_vdr".to_string(),
         database_max_connections: 10,
-        gateways: Vec::new(),
+        vdg_base_url_v: Vec::new(),
+        http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
@@ -41,23 +32,31 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
     )
     .await;
 
-    let vdr_scheme = "http";
+    let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
+        .with_override(vdr_config.did_hostname.clone(), "http")
+        .unwrap();
+    let vdr_scheme = http_scheme_override
+        .determine_http_scheme_for_host(&vdr_config.did_hostname)
+        .unwrap();
     let vdr_did_create_endpoint = format!(
         "{}://{}:{}",
-        vdr_scheme, vdr_config.did_host, vdr_config.listen_port
+        vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port
     );
 
     use did_webplus_wallet::Wallet;
 
     let controlled_did = software_wallet
-        .create_did(vdr_did_create_endpoint.as_str())
+        .create_did(
+            vdr_did_create_endpoint.as_str(),
+            Some(&http_scheme_override),
+        )
         .await
         .expect("pass");
     let did = controlled_did.did();
     tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 
     let controlled_did = software_wallet
-        .update_did(&did, vdr_scheme)
+        .update_did(&did, Some(&http_scheme_override))
         .await
         .expect("pass");
     tracing::debug!("updated DID: {}", controlled_did);
@@ -98,6 +97,7 @@ async fn test_software_wallet_with_storage_sqlite() {
         transaction_b.as_mut(),
         wallet_storage_a,
         Some("fancy wallet".to_string()),
+        None,
     )
     .await
     .expect("pass");
@@ -117,6 +117,7 @@ async fn test_software_wallet_with_storage_mock() {
         transaction_b.as_mut(),
         wallet_storage_a.clone(),
         Some("fancy wallet".to_string()),
+        None,
     )
     .await
     .expect("pass");

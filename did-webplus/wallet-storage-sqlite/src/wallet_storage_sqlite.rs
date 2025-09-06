@@ -47,10 +47,28 @@ impl DIDDocStorage for WalletStorageSQLite {
         let version_id = did_document.version_id() as i64;
         let valid_from = did_document.valid_from();
         let self_hash_str = did_document.self_hash().as_str();
+        // TODO: Figure out if ON CONFLICT DO NOTHING is appropriate here -- not sure how returning the rowid
+        // would interact with that.
         let query = sqlx::query!(
             r#"
-                INSERT INTO did_documents(did, version_id, valid_from, self_hash, did_document_jcs)
-                VALUES ($1, $2, $3, $4, $5)
+                INSERT INTO did_document_records(did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs)
+                VALUES (
+                    $1,
+                    $2,
+                    $3,
+                    $4,
+                    COALESCE(
+                        (
+                            SELECT did_documents_jsonl_octet_length
+                            FROM did_document_records
+                            WHERE did = $1
+                            ORDER BY version_id DESC
+                            LIMIT 1
+                        ),
+                        0
+                    ) + OCTET_LENGTH($5) + 1,
+                    $5
+                )
                 RETURNING rowid
             "#,
             did_str,
@@ -59,7 +77,7 @@ impl DIDDocStorage for WalletStorageSQLite {
             self_hash_str,
             did_document_jcs,
         );
-        let did_documents_rowid = if let Some(transaction) = transaction_o.as_mut() {
+        let did_document_records_rowid = if let Some(transaction) = transaction_o.as_mut() {
             query
                 .fetch_one(
                     transaction
@@ -90,10 +108,10 @@ impl DIDDocStorage for WalletStorageSQLite {
             let key_purpose_flags_integer = key_purpose_flags.integer_value() as i32;
             let query = sqlx::query!(
                 r#"
-                    INSERT INTO verification_methods(did_documents_rowid, key_id_fragment, controller, pub_key, key_purpose_flags)
+                    INSERT INTO verification_methods(did_document_records_rowid, key_id_fragment, controller, pub_key, key_purpose_flags)
                     VALUES ($1, $2, $3, $4, $5)
                 "#,
-                did_documents_rowid,
+                did_document_records_rowid,
                 key_id_fragment_str,
                 controller,
                 pub_key,
@@ -115,6 +133,14 @@ impl DIDDocStorage for WalletStorageSQLite {
         }
         Ok(())
     }
+    async fn add_did_documents(
+        &self,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        _did_document_jcs_v: &[&str],
+        _did_document_v: &[DIDDocument],
+    ) -> did_webplus_doc_store::Result<()> {
+        todo!();
+    }
     async fn get_did_doc_record_with_self_hash(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
@@ -126,8 +152,8 @@ impl DIDDocStorage for WalletStorageSQLite {
         let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
-                SELECT did, version_id, valid_from, self_hash, did_document_jcs
-                FROM did_documents
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
                 WHERE did = $1 AND self_hash = $2
             "#,
             did_str,
@@ -161,8 +187,8 @@ impl DIDDocStorage for WalletStorageSQLite {
         let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
-                SELECT did, version_id, valid_from, self_hash, did_document_jcs
-                FROM did_documents
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
                 WHERE did = $1 AND version_id = $2
             "#,
             did_str,
@@ -194,10 +220,10 @@ impl DIDDocStorage for WalletStorageSQLite {
         let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
-                SELECT did, version_id, valid_from, self_hash, did_document_jcs
-                FROM did_documents
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
                 WHERE did = $1
-                ORDER BY version_id desc
+                ORDER BY version_id DESC
                 LIMIT 1
             "#,
             did_str,
@@ -232,9 +258,9 @@ impl DIDDocStorage for WalletStorageSQLite {
         let query = sqlx::query_as!(
             DIDDocumentRowSQLite,
             r#"
-                select did, version_id, valid_from, self_hash, did_document_jcs
-                from did_documents
-                where (NOT $1 OR did = $2) AND
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE (NOT $1 OR did = $2) AND
                       (NOT $3 OR self_hash = $4) AND
                       (NOT $5 OR version_id = $6)
             "#,
@@ -261,6 +287,91 @@ impl DIDDocStorage for WalletStorageSQLite {
         .into_iter()
         .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
         .collect::<did_webplus_doc_store::Result<Vec<_>>>()?;
+        Ok(did_doc_record_v)
+    }
+    async fn get_known_did_documents_jsonl_octet_length(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+    ) -> did_webplus_doc_store::Result<u64> {
+        let did_str = did.as_str();
+        let query = sqlx::query!(
+            r#"
+                SELECT did_documents_jsonl_octet_length
+                FROM did_document_records
+                WHERE did = $1
+                ORDER BY version_id DESC
+                LIMIT 1
+            "#,
+            did_str
+        );
+        let did_documents_jsonl_octet_length = if let Some(transaction) = transaction_o {
+            query
+                .fetch_one(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+                .did_documents_jsonl_octet_length
+        } else {
+            query
+                .fetch_one(&self.sqlite_pool)
+                .await?
+                .did_documents_jsonl_octet_length
+        };
+        let did_documents_jsonl_octet_length = did_documents_jsonl_octet_length as u64;
+        Ok(did_documents_jsonl_octet_length)
+    }
+    async fn get_did_doc_records_for_did_documents_jsonl_range(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+        range_begin_inclusive_o: Option<u64>,
+        range_end_exclusive_o: Option<u64>,
+    ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
+        let range_begin_inclusive = range_begin_inclusive_o.map(|x| x as i64).unwrap_or(0);
+        let range_end_exclusive = range_end_exclusive_o.map(|x| x as i64).unwrap_or(i64::MAX);
+
+        if range_begin_inclusive >= range_end_exclusive {
+            // If the range is empty (or invalid), return an empty vector.
+            return Ok(Vec::new());
+        }
+
+        let did_str = did.as_str();
+        let query = sqlx::query_as!(
+            DIDDocumentRowSQLite,
+            r#"
+                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs
+                FROM did_document_records
+                WHERE did = $1 AND
+                      $2 < did_documents_jsonl_octet_length AND
+                      did_documents_jsonl_octet_length - (OCTET_LENGTH(did_document_jcs) + 1) < $3
+                ORDER BY version_id ASC
+            "#,
+            did_str,
+            range_begin_inclusive,
+            range_end_exclusive,
+        );
+        let did_document_row_sqlite_v = if let Some(transaction) = transaction_o {
+            query
+                .fetch_all(
+                    transaction
+                        .as_any_mut()
+                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
+                        .unwrap()
+                        .as_mut(),
+                )
+                .await?
+        } else {
+            query.fetch_all(&self.sqlite_pool).await?
+        };
+        let did_doc_record_v = did_document_row_sqlite_v
+            .into_iter()
+            .map(|did_document_row_sqlite| did_document_row_sqlite.try_into())
+            .collect::<did_webplus_doc_store::Result<Vec<_>>>()?;
         Ok(did_doc_record_v)
     }
 }
@@ -735,14 +846,14 @@ impl WalletStorage for WalletStorageSQLite {
         let query = sqlx::query!(
             r#"
                 SELECT
-                    verification_methods.did_documents_rowid,
+                    verification_methods.did_document_records_rowid,
                     verification_methods.key_id_fragment,
                     verification_methods.controller,
                     verification_methods.pub_key,
                     verification_methods.key_purpose_flags,
-                    did_documents.did,
-                    did_documents.self_hash,
-                    did_documents.version_id,
+                    did_document_records.did,
+                    did_document_records.self_hash,
+                    did_document_records.version_id,
                     priv_keys.key_type,
                     priv_keys.key_purpose_restriction_o,
                     priv_keys.created_at,
@@ -752,15 +863,15 @@ impl WalletStorage for WalletStorageSQLite {
                     priv_keys.priv_key_format_o,
                     priv_keys.priv_key_bytes_o
                 FROM verification_methods
-                INNER JOIN did_documents
-                    ON verification_methods.did_documents_rowid = did_documents.rowid
+                INNER JOIN did_document_records
+                    ON verification_methods.did_document_records_rowid = did_document_records.rowid
                 INNER JOIN priv_keys
                     ON verification_methods.pub_key = priv_keys.pub_key
                 WHERE
                     priv_keys.wallets_rowid = $1
                     AND priv_keys.deleted_at_o IS NULL
-                    AND (NOT $2 OR did_documents.did = $3)
-                    AND (NOT $4 OR did_documents.version_id = $5)
+                    AND (NOT $2 OR did_document_records.did = $3)
+                    AND (NOT $4 OR did_document_records.version_id = $5)
                     AND (NOT $6 OR (verification_methods.key_purpose_flags & $7 != 0))
             "#,
             ctx.wallets_rowid,
@@ -790,7 +901,7 @@ impl WalletStorage for WalletStorageSQLite {
             let did = DIDStr::new_ref(query_result.did.as_str()).map_err(|e| {
                 Error::RecordCorruption(
                     format!(
-                        "invalid did_documents.did value {}; error was: {}",
+                        "invalid did_document_records.did value {}; error was: {}",
                         query_result.did, e
                     )
                     .into(),
@@ -800,7 +911,7 @@ impl WalletStorage for WalletStorageSQLite {
                 .map_err(|e| {
                     Error::RecordCorruption(
                         format!(
-                            "invalid did_documents.self_hash value {}; error was: {}",
+                            "invalid did_document_records.self_hash value {}; error was: {}",
                             query_result.self_hash, e
                         )
                         .into(),
@@ -809,7 +920,7 @@ impl WalletStorage for WalletStorageSQLite {
             let version_id = u32::try_from(query_result.version_id).map_err(|e| {
                 Error::RecordCorruption(
                     format!(
-                        "invalid did_documents.version_id value {}; error was: {}",
+                        "invalid did_document_records.version_id value {}; error was: {}",
                         query_result.version_id, e
                     )
                     .into(),
