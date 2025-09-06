@@ -102,7 +102,7 @@ fn test_root_did_document_self_sign() {
     // - The public keys for each key purpose
     let root_did_document = DIDDocument::create_root(
         DIDDocumentCreateParams {
-            did_host: "example.com".into(),
+            did_hostname: "example.com".into(),
             did_port_o: None,
             did_path_o: None,
             valid_from: time::OffsetDateTime::now_utc(),
@@ -142,7 +142,7 @@ fn test_root_did_document_with_port_self_sign() {
     // - The public keys for each key purpose
     let root_did_document = DIDDocument::create_root(
         DIDDocumentCreateParams {
-            did_host: "example.com".into(),
+            did_hostname: "example.com".into(),
             did_port_o: Some(3000),
             did_path_o: None,
             valid_from: time::OffsetDateTime::now_utc(),
@@ -182,7 +182,7 @@ fn test_did_document_verification() {
     // - The public keys for each key purpose
     let did_document_0 = DIDDocument::create_root(
         DIDDocumentCreateParams {
-            did_host: "localhost".into(),
+            did_hostname: "localhost".into(),
             did_port_o: None,
             // did_path_o: Some("user".into()),
             did_path_o: None,
@@ -300,7 +300,7 @@ fn test_signature_generation_with_witness() {
 
         let did_document_0 = DIDDocument::create_root(
             DIDDocumentCreateParams {
-                did_host: "example.com".into(),
+                did_hostname: "example.com".into(),
                 did_port_o: None,
                 did_path_o: None,
                 valid_from: time::OffsetDateTime::now_utc(),

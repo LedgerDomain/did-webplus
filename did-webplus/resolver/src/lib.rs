@@ -9,7 +9,7 @@ mod http;
 pub use crate::{
     did_resolver::{verifier_resolver_impl, DIDResolver},
     did_resolver_factory::DIDResolverFactory,
-    did_resolver_full::DIDResolverFull,
+    did_resolver_full::{DIDResolverFull, FetchPattern},
     did_resolver_raw::DIDResolverRaw,
     did_resolver_thin::DIDResolverThin,
     error::Error,
@@ -18,5 +18,6 @@ pub use crate::{
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub(crate) use crate::http::{
-    vdr_fetch_did_document_body, vdr_fetch_latest_did_document_body, REQWEST_CLIENT,
+    fetch_did_document_body, fetch_did_documents_jsonl_update,
+    fetch_latest_did_document_body, REQWEST_CLIENT,
 };

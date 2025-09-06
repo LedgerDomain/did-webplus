@@ -1,4 +1,4 @@
-use crate::{DIDResolverArgs, HTTPSchemeArgs, NewlineArgs, Result};
+use crate::{DIDResolverArgs, HTTPSchemeOverrideArgs, NewlineArgs, Result};
 use std::io::Write;
 
 /// Perform DID resolution for a given query URI, using the "full" resolver, which does all
@@ -15,7 +15,7 @@ pub struct DIDResolve {
     #[command(flatten)]
     pub did_resolver_args: DIDResolverArgs,
     #[command(flatten)]
-    pub http_scheme_args: HTTPSchemeArgs,
+    pub http_scheme_override_args: HTTPSchemeOverrideArgs,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
@@ -23,8 +23,8 @@ pub struct DIDResolve {
 impl DIDResolve {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
-        let http_scheme = self.http_scheme_args.determine_http_scheme();
-        let did_resolver_b = self.did_resolver_args.get_did_resolver(http_scheme).await?;
+        let http_scheme_override_o = Some(self.http_scheme_override_args.http_scheme_override);
+        let did_resolver_b = self.did_resolver_args.get_did_resolver(http_scheme_override_o).await?;
 
         // Do the processing
         // TODO: Handle metadata

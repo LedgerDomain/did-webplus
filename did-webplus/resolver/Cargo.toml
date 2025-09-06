@@ -6,10 +6,11 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.80"
-did-webplus-core = { path = "../core" }
+did-webplus-core = { path = "../core", features = ["tracing"] }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional = true }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }
+futures = "0.3.31"                                                                       # TEMP HACK
 lazy_static = "1.4.0"
 reqwest = "0.12.5"
 selfsign = "0.6.0"
@@ -19,3 +20,16 @@ thiserror = "1.0.60"
 tracing = "0.1.37"
 url = "2.5.0"
 verifier-resolver = { path = "../../verifier-resolver" }
+
+[dev-dependencies]
+ctor = "0.4.1"
+did-webplus-software-wallet = { path = "../software-wallet" }
+did-webplus-vdg-lib = { path = "../vdg-lib", features = ["postgres"] }
+did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
+did-webplus-wallet = { path = "../wallet" }
+did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
+did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
+sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
+test-util = { path = "../../test-util" }
+tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

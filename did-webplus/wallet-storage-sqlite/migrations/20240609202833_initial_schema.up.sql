@@ -82,7 +82,7 @@ CREATE TABLE priv_key_usages (
 
 -- This is meant to hold DID docs only for controlled DIDs.
 -- The contents of this table are shared by all wallet_uuid-s.
-CREATE TABLE did_documents (
+CREATE TABLE did_document_records (
     -- For efficient joins with verification_methods table.
     rowid INTEGER PRIMARY KEY,
     -- The selfHash field value for this DID document.
@@ -93,12 +93,18 @@ CREATE TABLE did_documents (
     version_id BIGINT NOT NULL,
     -- The timestamp at which this DID document becomes valid.
     valid_from DATETIME NOT NULL,
-    -- This must be the JCS (JSON Canonicalization Scheme) representation of the DID document.
+    -- This is the size (in bytes) of the did-documents.jsonl file that ends with this DID document, including
+    -- the trailing newline.  This must be equal to the did_documents_jsonl_octet_length field of the previous DID document
+    -- row + OCTET_LENGTH(did_document_jcs) + 1.
+    did_documents_jsonl_octet_length BIGINT NOT NULL,
+    -- This must be the JCS (JSON Canonicalization Scheme) representation of the DID document, not including
+    -- the trailing newline.
     did_document_jcs TEXT NOT NULL,
 
     CONSTRAINT did_self_hash_idx UNIQUE (did, self_hash),
     CONSTRAINT did_version_id_idx UNIQUE (did, version_id),
-    CONSTRAINT did_valid_from_idx UNIQUE (did, valid_from)
+    CONSTRAINT did_valid_from_idx UNIQUE (did, valid_from),
+    CONSTRAINT did_did_documents_jsonl_octet_length_idx UNIQUE (did, did_documents_jsonl_octet_length)
 );
 
 -- This table is meant to hold the verification methods from ingested DID documents of controlled DIDs.
@@ -106,8 +112,8 @@ CREATE TABLE did_documents (
 CREATE TABLE verification_methods (
     -- For efficient joins with verification_method_purposes table.
     rowid INTEGER PRIMARY KEY,
-    -- The rowid in the did_documents table that this verification method pertains to.
-    did_documents_rowid INTEGER NOT NULL,
+    -- The rowid in the did_document_records table that this verification method pertains to.
+    did_document_records_rowid INTEGER NOT NULL,
     -- The key identifier fragment portion of the id field.  This identifies this verification within the DID document.
     key_id_fragment TEXT NOT NULL,
     -- The "controller" field for the verification method.  This must be a DID, but isn't necessarily the same as the
@@ -120,6 +126,6 @@ CREATE TABLE verification_methods (
     -- keyAgreement, capabilityInvocation, and capabilityDelegation fields in the DID document.
     key_purpose_flags INTEGER NOT NULL,
 
-    CONSTRAINT verification_method_id_idx UNIQUE (did_documents_rowid, key_id_fragment),
-    FOREIGN KEY(did_documents_rowid) REFERENCES did_documents(rowid) ON DELETE CASCADE
+    CONSTRAINT verification_method_id_idx UNIQUE (did_document_records_rowid, key_id_fragment),
+    FOREIGN KEY(did_document_records_rowid) REFERENCES did_document_records(rowid) ON DELETE CASCADE
 );

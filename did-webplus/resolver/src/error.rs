@@ -17,6 +17,8 @@ pub enum Error {
     MalformedDIDDocument(Cow<'static, str>),
     #[error("Malformed DID query: {0}")]
     MalformedDIDQuery(Cow<'static, str>),
+    #[error("Malformed VDG host: {0}")]
+    MalformedVDGHost(Cow<'static, str>),
     #[error(transparent)]
     StorageError(#[from] storage_traits::Error),
 }

@@ -1,0 +1,68 @@
+################################################################
+# Builder Image                                                #
+################################################################
+FROM rust:1.88.0-slim as builder
+MAINTAINER Victor Dods <victor.dods@ledgerdomain.com>
+WORKDIR /workdir
+
+# Install deps/reqs
+RUN --mount=type=cache,target=/root/.cargo/git \
+    --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,sharing=private,target=/workdir/target \
+    rustup component add rustfmt && \
+    apt-get update && \
+    apt-get -y install lld clang ssh-tools
+
+# Grab Cargo files for layer caching purposes
+ADD Cargo.lock .
+ADD Cargo.toml .
+
+# Install all files now
+ADD . .
+
+# This is either "release" or "debug"
+ARG RELEASE_TYPE="release"
+ARG CARGO_BUILD_ARGS=""
+
+# Build for release or debug, and make sure it builds...
+RUN --mount=type=cache,target=/root/.cargo/git \
+    --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,sharing=private,target=/workdir/target \
+    if [ "$RELEASE_TYPE" = "release" ]; then \
+        SQLX_OFFLINE=true cargo build --package did-webplus-urd --bin did-webplus-urd --features postgres --release; \
+        mv /workdir/target/release/did-webplus-urd /usr/local/bin/did-webplus-urd; \
+    else \
+        SQLX_OFFLINE=true cargo build --package did-webplus-urd --bin did-webplus-urd --features postgres; \
+        mv /workdir/target/debug/did-webplus-urd /usr/local/bin/did-webplus-urd; \
+    fi
+
+# If we are release then also shrink our app's size to make our final container smaller
+RUN if [ "$RELEASE_TYPE" = "release" ]; then \
+    objcopy --only-keep-debug /usr/local/bin/did-webplus-urd /usr/local/bin/did-webplus-urd.debug && \
+    objcopy --strip-debug --strip-unneeded /usr/local/bin/did-webplus-urd && \
+    objcopy --add-gnu-debuglink=/usr/local/bin/did-webplus-urd.debug /usr/local/bin/did-webplus-urd; \
+fi
+
+
+################################################################
+# Runner Image                                                 #
+################################################################
+
+FROM debian:bookworm-slim as runtime
+MAINTAINER Victor Dods <victor.dods@ledgerdomain.com>
+
+# We listen on standard port 80
+EXPOSE 80
+
+# OpenSSL is needed for root certs.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Then copy in our pre-built app
+COPY --from=builder /usr/local/bin/did-webplus-urd /usr/local/bin/
+
+ENV RUST_BACKTRACE=1
+
+ENTRYPOINT ["/usr/local/bin/did-webplus-urd"]

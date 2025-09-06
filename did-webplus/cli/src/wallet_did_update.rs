@@ -1,4 +1,6 @@
-use crate::{get_uniquely_determinable_did, HTTPSchemeArgs, NewlineArgs, Result, WalletArgs};
+use crate::{
+    get_uniquely_determinable_did, HTTPSchemeOverrideArgs, NewlineArgs, Result, WalletArgs,
+};
 use std::io::Write;
 
 /// Update a DID that is controlled by the specified wallet by rotating the DID's current keys and
@@ -10,7 +12,7 @@ pub struct WalletDIDUpdate {
     #[command(flatten)]
     pub wallet_args: WalletArgs,
     #[command(flatten)]
-    pub http_scheme_args: HTTPSchemeArgs,
+    pub http_scheme_override_args: HTTPSchemeOverrideArgs,
     /// Specify the DID to be updated.  If not specified and there is exactly one DID controlled by
     /// the wallet, then that DID will be used -- it is uniquely determinable.  If there is no uniquely
     /// determinable DID, then an error will be returned.
@@ -25,10 +27,12 @@ impl WalletDIDUpdate {
         // Handle CLI args and input
         let wallet = self.wallet_args.open_wallet().await?;
         let did = get_uniquely_determinable_did(&wallet, self.did_o).await?;
-        let vdr_scheme = self.http_scheme_args.determine_http_scheme();
+        let http_scheme_override_o = Some(self.http_scheme_override_args.http_scheme_override);
 
         // Do the processing
-        let updated_did = did_webplus_cli_lib::wallet_did_update(&wallet, &did, vdr_scheme).await?;
+        let updated_did =
+            did_webplus_cli_lib::wallet_did_update(&wallet, &did, http_scheme_override_o.as_ref())
+                .await?;
 
         // Print the fully-qualified form of the updated DID and optional newline.
         std::io::stdout().write_all(updated_did.as_bytes())?;

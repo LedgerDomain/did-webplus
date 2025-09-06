@@ -8,17 +8,7 @@ use std::{
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
-    // Ignore errors, since there may not be a .env file (e.g. in docker image)
-    let _ = dotenvy::dotenv();
-
-    // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
-    // TODO: Make env var to control full/compact/pretty/json formatting of logs
-    tracing_subscriber::fmt()
-        .with_target(true)
-        .with_line_number(true)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .compact()
-        .init();
+    test_util::ctor_overall_init();
 }
 
 const CACHE_DAYS: u64 = 365;
@@ -58,19 +48,22 @@ async fn test_vdg_operations() {
         listen_port: 10086,
         database_url: "postgres:///test_vdg_operations_vdg".to_string(),
         database_max_connections: 10,
+        http_scheme_override: Default::default(),
     };
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
         .await
         .expect("pass");
-    let vdg_url = format!("http://localhost:{}", vdg_config.listen_port);
+    let vdg_host = format!("localhost:{}", vdg_config.listen_port);
+    let vdg_base_url = url::Url::parse(&format!("http://{}", vdg_host)).expect("pass");
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        did_host: "localhost".to_string(),
+        did_hostname: "localhost".to_string(),
         did_port_o: Some(10085),
         listen_port: 10085,
         database_url: "postgres:///test_vdg_operations_vdr".to_string(),
         database_max_connections: 10,
-        gateways: vec![vdg_url.clone()],
+        vdg_base_url_v: vec![vdg_base_url.clone()],
+        http_scheme_override: Default::default(),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
@@ -89,8 +82,8 @@ async fn test_vdg_operations() {
 
     tracing::info!("Testing wallet operations; DID without path component");
     test_vdg_wallet_operations_impl(
-        vdg_url.as_str(),
-        vdr_config.did_host.as_str(),
+        &vdg_base_url,
+        vdr_config.did_hostname.as_str(),
         vdr_config.did_port_o,
         false,
     )
@@ -98,8 +91,8 @@ async fn test_vdg_operations() {
 
     tracing::info!("Testing wallet operations; DID with path component");
     test_vdg_wallet_operations_impl(
-        vdg_url.as_str(),
-        vdr_config.did_host.as_str(),
+        &vdg_base_url,
+        vdr_config.did_hostname.as_str(),
         vdr_config.did_port_o,
         true,
     )
@@ -113,11 +106,16 @@ async fn test_vdg_operations() {
 }
 
 async fn test_vdg_wallet_operations_impl(
-    vdg_url: &str,
+    vdg_base_url: &url::Url,
     vdr_host: &str,
     vdr_did_port_o: Option<u16>,
     use_path: bool,
 ) {
+    let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
+        .with_override(vdr_host.to_string(), "http")
+        .expect("pass");
+    let http_scheme_override_o = Some(&http_scheme_override);
+
     // Setup of mock services
     let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_host(
         vdr_host.into(),
@@ -144,7 +142,7 @@ async fn test_vdg_wallet_operations_impl(
     let alice_did = alice_wallet
         .create_did(vdr_host.to_string(), vdr_did_port_o, did_path_o)
         .expect("pass");
-    let alice_did_url = alice_did.resolution_url("http");
+    let alice_did_url = alice_did.resolution_url(http_scheme_override_o);
     tracing::trace!("alice_did_url: {}", alice_did_url);
     // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
@@ -192,7 +190,7 @@ async fn test_vdg_wallet_operations_impl(
 
     // Simplest test of the VDG for now.
     {
-        let response: reqwest::Response = get_did_response(vdg_url, alice_did.as_str()).await;
+        let response: reqwest::Response = get_did_response(vdg_base_url, alice_did.as_str()).await;
         assert_eq!(response.status(), reqwest::StatusCode::OK);
         let response_headers = response.headers().clone();
         let alice_did_document =
@@ -201,7 +199,7 @@ async fn test_vdg_wallet_operations_impl(
         assert!(response_headers["X-Cache-Hit"].to_str().unwrap() == "false");
     }
     // Run it again to make sure the VDG has cached stuff.
-    let response: reqwest::Response = get_did_response(vdg_url, alice_did.as_str()).await;
+    let response: reqwest::Response = get_did_response(vdg_base_url, alice_did.as_str()).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     let response_headers = response.headers().clone();
     let alice_did_document =
@@ -211,7 +209,8 @@ async fn test_vdg_wallet_operations_impl(
 
     // Ask for a particular version that the VDG is known to have to see if it hits the VDR.
     let alice_did_version_id_query = format!("{}?versionId=3", alice_did);
-    let response: reqwest::Response = get_did_response(vdg_url, &alice_did_version_id_query).await;
+    let response: reqwest::Response =
+        get_did_response(vdg_base_url, &alice_did_version_id_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     let response_headers = response.headers().clone();
     let alice_did_document =
@@ -233,7 +232,7 @@ async fn test_vdg_wallet_operations_impl(
         .latest_did_document();
     let alice_did_self_hash_query =
         format!("{}?selfHash={}", alice_did, alice_did_document.self_hash());
-    let response = get_did_response(vdg_url, &alice_did_self_hash_query).await;
+    let response = get_did_response(vdg_base_url, &alice_did_self_hash_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "true");
 
@@ -244,7 +243,7 @@ async fn test_vdg_wallet_operations_impl(
         alice_did_document.self_hash(),
         alice_did_document.version_id
     );
-    let response = get_did_response(vdg_url, &alice_did_self_hash_version_query).await;
+    let response = get_did_response(vdg_base_url, &alice_did_self_hash_version_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "true");
 
@@ -256,18 +255,23 @@ async fn test_vdg_wallet_operations_impl(
         alice_did_document.self_hash(),
         0
     );
-    let response = get_did_response(vdg_url, &alice_did_self_hash_version_inconsistent_query).await;
+    let response = get_did_response(
+        vdg_base_url,
+        &alice_did_self_hash_version_inconsistent_query,
+    )
+    .await;
     assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
 
     // Ask for a particular version that the VDG is known to have, but with a bad selfHash
     // to see if it will return an error.
     let alice_did_bad_query = format!("{}?versionId=3&selfHash=XXXX", alice_did);
-    let response = get_did_response(vdg_url, &alice_did_bad_query).await;
+    let response = get_did_response(vdg_base_url, &alice_did_bad_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
 
     // Ask for a particular version that the VDG is known not to have to see if it errors correctly.
     let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
-    let response: reqwest::Response = get_did_response(vdg_url, &alice_did_version_id_query).await;
+    let response: reqwest::Response =
+        get_did_response(vdg_base_url, &alice_did_version_id_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
 
     // update the did again
@@ -278,7 +282,8 @@ async fn test_vdg_wallet_operations_impl(
 
     // Ask for the new version to see if the VDG has been notified of the update.
     let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
-    let response: reqwest::Response = get_did_response(vdg_url, &alice_did_version_id_query).await;
+    let response: reqwest::Response =
+        get_did_response(vdg_base_url, &alice_did_version_id_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert_eq!(response.headers()["X-Cache-Hit"].to_str().unwrap(), "true");
 }
@@ -329,30 +334,18 @@ async fn update_did(
     }
 }
 
-async fn get_did_response(vdg_url: &str, did_query: &str) -> reqwest::Response {
-    let request_url = format!(
-        "{}/{}",
-        vdg_url,
-        temp_hack_incomplete_percent_encoded(did_query)
-    );
-    tracing::trace!(
-        "VDG-LIB tests; vdg_url: {:?}, did_query: {:?}, request_url: {}",
-        vdg_url,
-        did_query,
-        request_url
-    );
+async fn get_did_response(vdg_base_url: &url::Url, did_query: &str) -> reqwest::Response {
+    // NOTE: This has to be the same logic as in DIDResolverThin::resolve_did_document_string.
+    let mut resolution_url = vdg_base_url.clone();
+    resolution_url.path_segments_mut().unwrap().push("webplus");
+    resolution_url.path_segments_mut().unwrap().push("v1");
+    resolution_url.path_segments_mut().unwrap().push("resolve");
+    // Note that `push` will percent-encode did_query!
+    resolution_url.path_segments_mut().unwrap().push(did_query);
+    tracing::trace!(?resolution_url, "Checking VDG response for DID query");
     test_util::REQWEST_CLIENT
-        .get(request_url)
+        .get(resolution_url.as_str())
         .send()
         .await
         .expect("pass")
-}
-
-/// INCOMPLETE, TEMP HACK
-fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
-    // Note that the '%' -> "%25" replacement must happen first.
-    s.replace('%', "%25")
-        .replace('?', "%3F")
-        .replace('=', "%3D")
-        .replace('&', "%26")
 }

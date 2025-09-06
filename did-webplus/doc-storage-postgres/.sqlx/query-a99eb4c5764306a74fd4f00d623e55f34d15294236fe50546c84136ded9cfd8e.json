@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                select did, version_id, valid_from, self_hash, did_document#>>'{}' as \"did_document_jcs!: String\"\n                from did_document_records\n                where did = $1\n                order by version_id desc\n                limit 1\n            ",
+  "query": "\n                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs\n                FROM did_document_records\n                WHERE did = $1\n                ORDER BY version_id DESC\n                LIMIT 1\n            ",
   "describe": {
     "columns": [
       {
@@ -25,7 +25,12 @@
       },
       {
         "ordinal": 4,
-        "name": "did_document_jcs!: String",
+        "name": "did_documents_jsonl_octet_length",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "did_document_jcs",
         "type_info": "Text"
       }
     ],
@@ -39,8 +44,9 @@
       false,
       false,
       false,
-      null
+      false,
+      false
     ]
   },
-  "hash": "83745f399ff5f30924182ae1c16d87a0d63ecb9b7551ee07fa5374e959eab6b3"
+  "hash": "a99eb4c5764306a74fd4f00d623e55f34d15294236fe50546c84136ded9cfd8e"
 }

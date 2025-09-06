@@ -30,8 +30,8 @@ rmi: remove-docker-image
 # run the `did-webplus` binary manually against the VDG and VDR.
 #
 # Note that because TLS is not being used currently in the VDG/VDR, the env var
-# DID_WEBPLUS_HTTP_SCHEME_OVERRIDE (development-only) is set to http so that all HTTP requests
-# use scheme http:// instead of the default https:// (mandatory in all production scenarios).
+# DID_WEBPLUS_HTTP_SCHEME_OVERRIDE (development-only) is used to use "http" scheme for those
+# connections, instead of the default "https" scheme.
 shell:
 	mkdir -p ~/.did-webplus.docker
 	docker run --rm --tty --interactive \
@@ -41,6 +41,6 @@ shell:
 		--env RUST_LOG=error \
 		--env DID_WEBPLUS_VDG=witness.org \
 		--env DID_WEBPLUS_VDR=http://fancy.net \
-		--env DID_WEBPLUS_HTTP_SCHEME_OVERRIDE=http \
+		--env DID_WEBPLUS_HTTP_SCHEME_OVERRIDE=fancy.net=http \
 		--entrypoint bash \
 		$(CLI_PROJECT_NAME):latest

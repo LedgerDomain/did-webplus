@@ -19,3 +19,8 @@ sqlx = { version = "0.8.2", default-features = false, optional = true }
 storage-traits = { path = "../../storage-traits" }
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }
+tracing = "0.1.37"
+
+# TEMP HACK -- parallel validation of DID documents. -- TODO: maybe put this behind a feature flag
+tokio = { version = "1.41", features = ["rt-multi-thread"] } # TEMP HACK
+futures = "0.3.31"                                           # TEMP HACK

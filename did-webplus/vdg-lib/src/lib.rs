@@ -1,8 +1,9 @@
 pub(crate) mod services;
 mod spawn_vdg;
+mod vdg_app_state;
 mod vdg_config;
 
-pub use crate::{spawn_vdg::spawn_vdg, vdg_config::VDGConfig};
+pub use crate::{spawn_vdg::spawn_vdg, vdg_app_state::VDGAppState, vdg_config::VDGConfig};
 
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum LogFormat {

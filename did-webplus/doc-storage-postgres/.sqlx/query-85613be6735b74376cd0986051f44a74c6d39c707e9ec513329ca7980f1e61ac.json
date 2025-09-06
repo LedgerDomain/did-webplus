@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs\n                FROM did_document_records\n                WHERE did = $1 AND\n                      $2 < did_documents_jsonl_octet_length AND\n                      did_documents_jsonl_octet_length - (OCTET_LENGTH(did_document_jcs) + 1) < $3\n                ORDER BY version_id ASC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "did",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "version_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "valid_from",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "self_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "did_documents_jsonl_octet_length",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "did_document_jcs",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "85613be6735b74376cd0986051f44a74c6d39c707e9ec513329ca7980f1e61ac"
+}

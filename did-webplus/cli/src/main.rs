@@ -9,7 +9,7 @@ mod did_resolve;
 mod did_resolver_args;
 mod did_resolver_factory;
 mod did_webplus_verifier_resolver;
-mod http_scheme_args;
+mod http_scheme_override_args;
 mod jws_payload_args;
 mod jws_verify;
 mod newline_args;
@@ -42,7 +42,7 @@ pub use crate::{
     did_resolver_args::{DIDResolverArgs, DIDResolverType},
     did_resolver_factory::DIDResolverFactory,
     did_webplus_verifier_resolver::DIDWebplusVerifierResolver,
-    http_scheme_args::{HTTPScheme, HTTPSchemeArgs},
+    http_scheme_override_args::HTTPSchemeOverrideArgs,
     jws_payload_args::JWSPayloadArgs,
     jws_verify::JWSVerify,
     newline_args::NewlineArgs,
@@ -65,17 +65,6 @@ pub use crate::{
     wallet_list::WalletList,
 };
 pub use anyhow::{Error, Result};
-
-pub(crate) fn parse_url(s: &str) -> anyhow::Result<url::Url> {
-    let parsed_url = if !s.contains("://") {
-        // If no scheme was specified, slap "https://" on the front before parsing.
-        url::Url::parse(format!("https://{}", s).as_str())?
-    } else {
-        // Otherwise, parse directly.
-        url::Url::parse(s)?
-    };
-    Ok(parsed_url)
-}
 
 async fn get_uniquely_determinable_did(
     wallet: &did_webplus_software_wallet::SoftwareWallet,
@@ -104,13 +93,22 @@ async fn get_uniquely_determinable_did(
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // NOTE: We currently don't use dotenvy to load a .env file, but that could be added here.
+
     // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
     tracing_subscriber::fmt()
         .with_target(true)
+        .with_file(true)
         .with_line_number(true)
+        .with_thread_ids(true)
+        .with_thread_names(true)
+        .with_span_events(
+            tracing_subscriber::fmt::format::FmtSpan::NEW
+                | tracing_subscriber::fmt::format::FmtSpan::CLOSE,
+        )
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .compact()
         .with_writer(std::io::stderr)
+        .compact()
         .init();
 
     use clap::Parser;

@@ -55,6 +55,40 @@ impl DID {
         let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)?;
         Self::new(host, port_o, path_o.as_deref(), root_self_hash)
     }
+    /// Parse (the equivalent of) a did-documents.jsonl resolution URL to produce a DID.
+    // TEMP HACK
+    pub fn from_did_documents_jsonl_resolution_url(
+        host: &str,
+        port_o: Option<u16>,
+        path: &str,
+    ) -> Result<Self, Error> {
+        if path.starts_with('/') {
+            return Err(Error::Malformed(
+                "resolution URL path must not start with '/'",
+            ));
+        }
+        if !path.ends_with("/did-documents.jsonl") {
+            return Err(Error::Malformed(
+                "did-documents.jsonl resolution URL path must end with 'did-documents.jsonl'",
+            ));
+        }
+        let path_and_root_self_hash_str = path.strip_suffix("/did-documents.jsonl").unwrap();
+        let (path_o, root_self_hash_str) = match path_and_root_self_hash_str.rsplit_once('/') {
+            Some((path, root_self_hash_str)) => {
+                // Replace all the '/' chars with ':' chars.
+                let path = path.replace('/', ":");
+                // Self::new_with_self_hash_str(host, Some(path.as_str()), self_hash_str)
+                (Some(path), root_self_hash_str)
+            }
+            None => {
+                let root_self_hash_str = path_and_root_self_hash_str;
+                // return Self::new_with_self_hash_str(host, None, self_hash_str);
+                (None, root_self_hash_str)
+            }
+        };
+        let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)?;
+        Self::new(host, port_o, path_o.as_deref(), root_self_hash)
+    }
     /// Set the root self hash value to the given value.
     pub fn set_root_self_hash(&mut self, root_self_hash: &selfhash::KERIHashStr) {
         // Strip off the root self_hash portion, not including the ':' delimiter before it.

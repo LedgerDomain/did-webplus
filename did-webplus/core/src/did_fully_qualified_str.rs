@@ -1,4 +1,6 @@
-use crate::{DIDResourceFullyQualified, DIDStr, DIDWebplusURIComponents, Error, Fragment};
+use crate::{
+    DIDResourceFullyQualified, DIDStr, DIDWebplusURIComponents, Error, Fragment, HTTPSchemeOverride,
+};
 use std::{fmt::Write, str::FromStr};
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
@@ -57,8 +59,13 @@ impl DIDFullyQualifiedStr {
     }
     /// Produce the URL that addresses the specified DID document for this DID.  Note that the selfHash
     /// query param is used (and not the versionId query param) in the resolution URL.
-    pub fn resolution_url(&self, scheme: &'static str) -> String {
-        let mut url = format!("{}://{}", scheme, self.host());
+    pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
+            http_scheme_override_o,
+            self.host(),
+        )
+        .unwrap();
+        let mut url = format!("{}://{}", http_scheme, self.host());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }

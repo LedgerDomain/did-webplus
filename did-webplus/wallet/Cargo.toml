@@ -16,5 +16,6 @@ time = { version = "0.3", features = ["serde"] }
 [dev-dependencies]
 ctor = "0.4.1"
 dotenvy = "0.15.7"
+test-util = { path = "../../test-util" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

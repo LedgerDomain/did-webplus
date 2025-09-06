@@ -73,7 +73,7 @@ impl DIDDocument {
             ));
         }
         let did = DID::new(
-            did_document_create_params.did_host.as_ref(),
+            did_document_create_params.did_hostname.as_ref(),
             did_document_create_params.did_port_o,
             did_document_create_params
                 .did_path_o
@@ -264,20 +264,20 @@ impl DIDDocument {
             expected_prev_did_document.verify_self_signatures_and_hashes()?;
 
         // Check that id (i.e. the DID) matches the previous DID document's id (i.e. DID).
-        // Note that this also implies that the host, embedded in the id, matches the host of the previous
-        // DID document's id.
+        // Note that this also implies that the hostname (and port number if present) embedded
+        // in the id, matches that of the previous DID document's id.
         if self.did != expected_prev_did_document.did {
             return Err(Error::Malformed(
                 "Non-root DID document's id must match the previous DID document's id",
             ));
         }
 
-        // Check that prev_did_document_self_signature matches the expected_prev_did_document_b's self-signature.
+        // Check that prev_did_document_self_hash matches the expected_prev_did_document_b's self-hash.
         use selfhash::Hash;
         let prev_did_document_self_hash = self.prev_did_document_self_hash_o.as_ref().unwrap();
         if !prev_did_document_self_hash.equals(expected_prev_did_document_self_hash)? {
             return Err(Error::Malformed(
-                "Non-root DID document's prev_did_document_self_signature must match the self-signature of the previous DID document",
+                "Non-root DID document's prev_did_document_self_hash must match the self-hash of the previous DID document",
             ));
         }
 

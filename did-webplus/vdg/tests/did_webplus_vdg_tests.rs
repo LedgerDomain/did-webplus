@@ -9,17 +9,7 @@ use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
 fn overall_init() {
-    // Ignore errors, since there may not be a .env file (e.g. in docker image)
-    let _ = dotenvy::dotenv();
-
-    // It's necessary to specify EnvFilter::from_default_env in order to use RUST_LOG env var.
-    // TODO: Make env var to control full/compact/pretty/json formatting of logs
-    tracing_subscriber::fmt()
-        .with_target(true)
-        .with_line_number(true)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .compact()
-        .init();
+    test_util::ctor_overall_init();
 }
 
 const CACHE_DAYS: u64 = 365;
@@ -271,11 +261,15 @@ async fn update_did(
 }
 
 async fn get_did_response(did_query: &str) -> reqwest::Response {
+    let mut request_url = url::Url::parse("http://localhost:8086").unwrap();
+    request_url.path_segments_mut().unwrap().push("webplus");
+    request_url.path_segments_mut().unwrap().push("v1");
+    request_url.path_segments_mut().unwrap().push("resolve");
+    // NOTE: `push` will percent-encode did_query!
+    request_url.path_segments_mut().unwrap().push(did_query);
+    tracing::trace!(?request_url, "DID query URL for VDG");
     reqwest::Client::new()
-        .get(format!(
-            "http://localhost:8086/{}",
-            temp_hack_incomplete_percent_encoded(did_query)
-        ))
+        .get(request_url.as_str())
         .send()
         .await
         .expect("pass")
@@ -287,13 +281,4 @@ async fn get_did_response(did_query: &str) -> reqwest::Response {
 async fn test_vdg_wallet_operations() {
     test_vdg_wallet_operations_impl(false).await;
     test_vdg_wallet_operations_impl(true).await;
-}
-
-/// INCOMPLETE, TEMP HACK
-fn temp_hack_incomplete_percent_encoded(s: &str) -> String {
-    // Note that the '%' -> "%25" replacement must happen first.
-    s.replace('%', "%25")
-        .replace('?', "%3F")
-        .replace('=', "%3D")
-        .replace('&', "%26")
 }
