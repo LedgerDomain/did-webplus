@@ -1,36 +1,3 @@
-# Dockerfile for ledgerdomain/uni-resolver-driver-did-webplus
-
-# FROM rust:1.88.0-slim
-# MAINTAINER Victor Dods <victor.dods@ledgerdomain.com>
-
-# # build uni-resolver-driver-did-webplus
-
-# WORKDIR /usr/src/app
-# COPY . .
-# RUN cargo install --release
-
-# # variables
-
-# ENV uniresolver_driver_did_example_exampleSetting=exampleSetting
-
-# # done
-
-# EXPOSE 8080
-
-# CMD [ "node", "index.js" ]
-
-
-
-
-
-
-
-
-# ############
-
-
-
-
 ################################################################
 # Builder Image                                                #
 ################################################################
