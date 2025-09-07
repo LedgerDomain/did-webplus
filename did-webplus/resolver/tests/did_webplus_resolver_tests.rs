@@ -132,16 +132,14 @@ async fn test_did_resolver() {
     for update_count in [big_update_count, 1, 0] {
         tracing::info!("Updating DID {} times", update_count);
         // Start a timer just to see how long it takes to create the DID and update it many times.
-        let time_start = std::time::SystemTime::now();
+        let time_start = time::OffsetDateTime::now_utc();
         for _ in 0..update_count {
             controlled_did = software_wallet.update_did(&did, None).await.expect("pass");
         }
         // Stop the timer.
-        let duration = std::time::SystemTime::now()
-            .duration_since(time_start)
-            .expect("pass");
+        let duration = time::OffsetDateTime::now_utc() - time_start;
         tracing::info!(
-            "-- Time taken to update DID {} times: {:?} -------------------------",
+            "-- Time taken to update DID {} times: {:.3} -------------------------",
             update_count,
             duration
         );
@@ -173,7 +171,7 @@ async fn test_did_resolver() {
                     .expect("pass");
 
                 // Start the timer
-                let time_start = std::time::SystemTime::now();
+                let time_start = time::OffsetDateTime::now_utc();
 
                 // Resolve the DID.
                 use did_webplus_resolver::DIDResolver;
@@ -186,10 +184,8 @@ async fn test_did_resolver() {
                     .expect("pass");
 
                 // Stop the timer.
-                let duration = std::time::SystemTime::now()
-                    .duration_since(time_start)
-                    .expect("pass");
-                tracing::debug!("Time taken: {:?}", duration);
+                let duration = time::OffsetDateTime::now_utc() - time_start;
+                tracing::debug!("Time taken: {:.3}", duration);
                 timing_result_v.push((
                     format!(
                         "DIDResolverFull {{ fetch_pattern: {:?}, vdg_host_o: {:?} }}",
@@ -209,7 +205,7 @@ async fn test_did_resolver() {
                 did_webplus_resolver::DIDResolverThin::new(&vdg_host, None).expect("pass");
 
             // Start the timer
-            let time_start = std::time::SystemTime::now();
+            let time_start = time::OffsetDateTime::now_utc();
 
             // Resolve the DID.
             use did_webplus_resolver::DIDResolver;
@@ -222,10 +218,8 @@ async fn test_did_resolver() {
                 .expect("pass");
 
             // Stop the timer.
-            let duration = std::time::SystemTime::now()
-                .duration_since(time_start)
-                .expect("pass");
-            tracing::debug!("Time taken: {:?}", duration);
+            let duration = time::OffsetDateTime::now_utc() - time_start;
+            tracing::debug!("Time taken: {:.3}", duration);
             timing_result_v.push(("DIDResolverThin".to_string(), duration));
 
             // Verify that the DID document body is the expected value.
@@ -234,7 +228,7 @@ async fn test_did_resolver() {
 
         // Print the timing results.
         for (resolver_name, duration) in timing_result_v {
-            tracing::info!("{}: Time taken: {:?}", resolver_name, duration);
+            tracing::info!("{}: Time taken: {:.3}", resolver_name, duration);
         }
     }
 

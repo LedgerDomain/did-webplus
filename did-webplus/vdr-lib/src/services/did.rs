@@ -101,7 +101,7 @@ async fn get_did_document_jsonl(
     if let Some(range_header) = header_map.get(header::RANGE) {
         // Parse the "Range" header, if present, and then handle.
 
-        let time_start = std::time::SystemTime::now();
+        let time_start = time::OffsetDateTime::now_utc();
 
         tracing::debug!("Range header: {:?}", range_header);
         let range_header_str = range_header.to_str().unwrap();
@@ -158,9 +158,9 @@ async fn get_did_document_jsonl(
             .unwrap(),
         );
 
-        let duration = time_start.elapsed().unwrap();
+        let duration = time::OffsetDateTime::now_utc() - time_start;
         tracing::debug!(
-            "retrieved range `{}` of did-documents.jsonl in {:?}",
+            "retrieved range `{}` of did-documents.jsonl in {:.3}",
             range_header_str,
             duration
         );
@@ -169,7 +169,7 @@ async fn get_did_document_jsonl(
     } else {
         // No Range header present, so serve the whole did-documents.jsonl file.
 
-        let time_start = std::time::SystemTime::now();
+        let time_start = time::OffsetDateTime::now_utc();
 
         use storage_traits::StorageDynT;
         let mut transaction_b = vdr_app_state
@@ -186,9 +186,9 @@ async fn get_did_document_jsonl(
             .commit()
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        let duration = time_start.elapsed().unwrap();
+        let duration = time::OffsetDateTime::now_utc() - time_start;
         tracing::debug!(
-            "retrieved entire did-documents.jsonl file in {:?}",
+            "retrieved entire did-documents.jsonl file in {:.3}",
             duration
         );
 

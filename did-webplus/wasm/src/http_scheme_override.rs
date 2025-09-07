@@ -7,8 +7,8 @@ pub struct HTTPSchemeOverride(did_webplus_core::HTTPSchemeOverride);
 
 #[wasm_bindgen]
 impl HTTPSchemeOverride {
-    pub fn new() -> Result<Self> {
-        Ok(Self(did_webplus_core::HTTPSchemeOverride::new()))
+    pub fn new() -> Self {
+        Self(did_webplus_core::HTTPSchemeOverride::new())
     }
     pub fn parse_from_comma_separated_pairs(s: String) -> Result<Self> {
         let http_scheme_override =

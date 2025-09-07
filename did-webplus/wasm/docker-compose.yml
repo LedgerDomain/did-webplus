@@ -114,7 +114,7 @@ services:
       target: runtime
     environment:
       DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@vdr_did_webplus_wasm_test_database:5432/postgres?sslmode=disable
-      DID_WEBPLUS_VDR_DID_HOST: vdr.did-webplus-wasm.test
+      DID_WEBPLUS_VDR_DID_HOSTNAME: vdr.did-webplus-wasm.test
       DID_WEBPLUS_VDR_DID_PORT: 8085
       DID_WEBPLUS_VDR_GATEWAYS: http://vdg.did-webplus-wasm.test:8086
       DID_WEBPLUS_VDR_LISTEN_PORT: 8085

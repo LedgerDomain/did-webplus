@@ -322,7 +322,7 @@ impl SoftwareWalletIndexedDB {
     async fn fetch_did_internal(
         &self,
         did: &DIDStr,
-        vdr_scheme: &'static str,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> did_webplus_wallet::Result<did_webplus_core::DIDDocument> {
         // Note the version of the known latest DID document.  This will only differ from the actual latest
         // version if more than one wallet controls the DID.
@@ -331,10 +331,13 @@ impl SoftwareWalletIndexedDB {
         let did_doc_storage = self.clone();
         let did_doc_storage_a = std::sync::Arc::new(did_doc_storage);
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(did_doc_storage_a);
-        let did_resolver = did_webplus_resolver::DIDResolverFull {
+        let did_resolver = did_webplus_resolver::DIDResolverFull::new(
             did_doc_store,
-            http_scheme: vdr_scheme,
-        };
+            None,
+            http_scheme_override_o.cloned(),
+            did_webplus_resolver::FetchPattern::Batch,
+        )
+        .map_err(into_wallet_error)?;
         use did_webplus_resolver::DIDResolver;
         let (did_document, _did_doc_metadata) = did_resolver
             .resolve_did_document(
@@ -355,7 +358,7 @@ impl SoftwareWalletIndexedDB {
         operation: &'static str,
         did_document_jcs: &str,
         did: &DIDStr,
-        vdr_scheme: &'static str,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> did_webplus_wallet::Result<()> {
         if operation != "create" && operation != "update" {
             return Err(did_webplus_wallet::Error::Malformed(
@@ -378,11 +381,13 @@ impl SoftwareWalletIndexedDB {
         request_init.set_method(http_method);
         request_init.set_body(&JsValue::from_str(did_document_jcs));
 
-        let request =
-            web_sys::Request::new_with_str_and_init(&did.resolution_url(vdr_scheme), &request_init)
-                .map_err(|_| {
-                    did_webplus_wallet::Error::HTTPRequestError("Failed to create a request".into())
-                })?;
+        let request = web_sys::Request::new_with_str_and_init(
+            &did.resolution_url(http_scheme_override_o),
+            &request_init,
+        )
+        .map_err(|_| {
+            did_webplus_wallet::Error::HTTPRequestError("Failed to create a request".into())
+        })?;
         tracing::trace!("created HTTP request: {:?}", request);
         request
             .headers()
@@ -519,12 +524,34 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
             .transaction(&[Self::DID_DOCUMENTS_OBJECT_STORE])
             .rw()
             .run(async move |transaction| {
+                // Retrieve the latest DIDDocRecord to get the did_documents_jsonl_octet_length.
+                let latest_did_doc_record_cursor = transaction
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
+                    .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
+                    .cursor()
+                    .direction(indexed_db::CursorDirection::Prev)
+                    .open()
+                    .await?;
+                let did_documents_jsonl_octet_length = latest_did_doc_record_cursor
+                    .value()
+                    .map(|jsvalue| {
+                        serde_wasm_bindgen::from_value::<DIDDocumentBlob>(jsvalue)
+                            .map_err(into_doc_store_error)
+                            .map(|blob| blob.did_doc_record.did_documents_jsonl_octet_length)
+                    })
+                    .transpose()
+                    .map_err(|e| indexed_db::Error::User(Error::from(anyhow::anyhow!(e))))?
+                    .unwrap_or(0)
+                    + did_document_jcs.len() as i64
+                    + 1;
+
                 let did_document_blob = DIDDocumentBlob {
                     did_doc_record: DIDDocRecord {
                         self_hash,
                         did,
                         version_id,
                         valid_from,
+                        did_documents_jsonl_octet_length,
                         did_document_jcs,
                     },
                 };
@@ -537,6 +564,14 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
             .await
             .map_err(into_doc_store_error)?;
         Ok(())
+    }
+    async fn add_did_documents(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did_document_jcs_v: &[&str],
+        did_document_v: &[DIDDocument],
+    ) -> did_webplus_doc_store::Result<()> {
+        unimplemented!("SoftwareWalletIndexedDB::add_did_documents");
     }
     async fn get_did_doc_record_with_self_hash(
         &self,
@@ -574,6 +609,7 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
                     .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
                     .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
                     .cursor()
+                    // TODO: Is this range necessary?
                     .range(range_begin..range_end)?
                     // DID documents are stored in chronological order, so we need to go backwards.
                     .direction(indexed_db::CursorDirection::Prev)
@@ -611,6 +647,66 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
     ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
         unimplemented!("SoftwareWalletIndexedDB::get_did_doc_records");
     }
+    async fn get_known_did_documents_jsonl_octet_length(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+    ) -> did_webplus_doc_store::Result<u64> {
+        let did_documents_jsonl_octet_length = self
+            .db()
+            .await
+            .map_err(into_doc_store_error)?
+            .transaction(&[Self::DID_DOCUMENTS_OBJECT_STORE])
+            .run(async move |transaction| {
+                tracing::debug!(
+                    "starting transaction for get_known_did_documents_jsonl_octet_length"
+                );
+                let did_document_blob_cursor = transaction
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
+                    .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
+                    .cursor()
+                    // DID documents are stored in chronological order, so we need to go backwards.
+                    .direction(indexed_db::CursorDirection::Prev)
+                    .open()
+                    .await?;
+                tracing::trace!("got did_document_blob_cursor");
+                let did_document_blob_jsvalue_o = did_document_blob_cursor.value();
+                if let Some(did_document_blob_jsvalue) = did_document_blob_jsvalue_o {
+                    tracing::trace!(
+                        "got did_document_blob_jsvalue: {:?}",
+                        did_document_blob_jsvalue
+                    );
+                    let did_document_blob = serde_wasm_bindgen::from_value::<DIDDocumentBlob>(
+                        did_document_blob_jsvalue,
+                    )
+                    .map_err(|e| {
+                        Error::from(anyhow::anyhow!(
+                            "Database corruption in DID document; error was: {}",
+                            e
+                        ))
+                    })?;
+                    Ok(did_document_blob
+                        .did_doc_record
+                        .did_documents_jsonl_octet_length)
+                } else {
+                    Ok(0)
+                }
+            })
+            .await
+            .map_err(into_doc_store_error)?;
+        Ok(did_documents_jsonl_octet_length as u64)
+    }
+    async fn get_did_doc_records_for_did_documents_jsonl_range(
+        &self,
+        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did: &DIDStr,
+        range_begin_inclusive_o: Option<u64>,
+        range_end_exclusive_o: Option<u64>,
+    ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
+        unimplemented!(
+            "SoftwareWalletIndexedDB::get_did_doc_records_for_did_documents_jsonl_range"
+        );
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -619,6 +715,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     async fn create_did(
         &self,
         vdr_did_create_endpoint: &str,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> did_webplus_wallet::Result<DIDFullyQualified> {
         tracing::debug!(
             vdr_did_create_endpoint,
@@ -637,19 +734,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     .into(),
                 )
             })?;
-        let vdr_scheme: &'static str = match vdr_did_create_endpoint_url.scheme() {
-            "http" => "http",
-            "https" => "https",
-            _ => {
-                return Err(did_webplus_wallet::Error::InvalidVDRDIDCreateURL(
-                    format!(
-                        "VDR DID Create endpoint URL {:?} expected scheme \"http\" or \"https\"",
-                        vdr_did_create_endpoint
-                    )
-                    .into(),
-                ));
-            }
-        };
+        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         if vdr_did_create_endpoint_url.host_str().is_none() {
             return Err(did_webplus_wallet::Error::InvalidVDRDIDCreateURL(
                 format!(
@@ -702,7 +787,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // Form the self-signed-and-hashed root DID document.
         let did_document = DIDDocument::create_root(
             DIDDocumentCreateParams {
-                did_host: vdr_did_create_endpoint_url.host_str().unwrap().into(),
+                did_hostname: vdr_did_create_endpoint_url.host_str().unwrap().into(),
                 did_port_o: vdr_did_create_endpoint_url.port(),
                 did_path_o,
                 valid_from: time::OffsetDateTime::now_utc(),
@@ -764,6 +849,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         did: did_document.did.to_string(),
                         version_id: did_document.version_id.try_into().unwrap(),
                         valid_from: did_document.valid_from,
+                        did_documents_jsonl_octet_length: did_document_jcs_clone.len() as i64 + 1,
                         did_document_jcs: did_document_jcs_clone,
                     },
                 };
@@ -839,7 +925,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // POST the DID document to the VDR to create the DID.  If an error occurs, then delete the
         // provisional records.
         match self
-            .post_or_put_did_document("create", &did_document_jcs, &did, vdr_scheme)
+            .post_or_put_did_document("create", &did_document_jcs, &did, http_scheme_override_o)
             .await
         {
             Ok(()) => (),
@@ -957,27 +1043,28 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     async fn fetch_did(
         &self,
         _did: &DIDStr,
-        _vdr_scheme: &'static str,
+        _http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> did_webplus_wallet::Result<()> {
         todo!()
     }
     async fn update_did(
         &self,
         did: &DIDStr,
-        vdr_scheme: &'static str,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> did_webplus_wallet::Result<DIDFullyQualified> {
         tracing::debug!(
-            "SoftwareWalletIndexedDB::update_did; did: {}; vdr_scheme: {}",
+            "SoftwareWalletIndexedDB::update_did; did: {}; http_scheme_override_o: {:?}",
             did,
-            vdr_scheme
+            http_scheme_override_o
         );
-        assert!(vdr_scheme == "https" || vdr_scheme == "http");
 
         let did = did.to_owned();
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let latest_did_document = self.fetch_did_internal(&did, vdr_scheme).await?;
+        let latest_did_document = self
+            .fetch_did_internal(&did, http_scheme_override_o)
+            .await?;
         let did_fully_qualified = did.with_queries(
             latest_did_document.self_hash(),
             latest_did_document.version_id,
@@ -1016,6 +1103,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             .await
             .map_err(into_wallet_error)?
             .transaction(&[
+                Self::DID_DOCUMENTS_OBJECT_STORE,
                 Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
                 Self::PRIV_KEYS_OBJECT_STORE,
                 Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
@@ -1127,6 +1215,27 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     updated_did_document_jcs
                 );
 
+                // Retrieve the latest DIDDocRecord to get the did_documents_jsonl_octet_length.
+                let latest_did_doc_record_cursor = transaction
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
+                    .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
+                    .cursor()
+                    .direction(indexed_db::CursorDirection::Prev)
+                    .open()
+                    .await?;
+                let did_documents_jsonl_octet_length = latest_did_doc_record_cursor
+                    .value()
+                    .map(|jsvalue| {
+                        serde_wasm_bindgen::from_value::<DIDDocumentBlob>(jsvalue)
+                            .map_err(into_doc_store_error)
+                            .map(|blob| blob.did_doc_record.did_documents_jsonl_octet_length)
+                    })
+                    .transpose()
+                    .map_err(|e| indexed_db::Error::User(Error::from(anyhow::anyhow!(e))))?
+                    .unwrap_or(0)
+                    + updated_did_document_jcs.len() as i64
+                    + 1;
+
                 // Add the updated DID document.
                 let did_document_blob = DIDDocumentBlob {
                     did_doc_record: DIDDocRecord {
@@ -1134,6 +1243,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         did: updated_did_document.did.to_string(),
                         version_id: updated_did_document.version_id.try_into().unwrap(),
                         valid_from: updated_did_document.valid_from,
+                        did_documents_jsonl_octet_length,
                         did_document_jcs: updated_did_document_jcs.clone(),
                     },
                 };
@@ -1221,7 +1331,12 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // PUT the DID document to the VDR to update the DID.  If an error occurs, then delete the
         // provisional records.
         match self
-            .post_or_put_did_document("update", &updated_did_document_jcs, &did, vdr_scheme)
+            .post_or_put_did_document(
+                "update",
+                &updated_did_document_jcs,
+                &did,
+                http_scheme_override_o,
+            )
             .await
         {
             Ok(()) => (),

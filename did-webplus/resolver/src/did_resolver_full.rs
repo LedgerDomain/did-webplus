@@ -292,7 +292,7 @@ impl DIDResolverFull {
                     "got did-documents.jsonl update"
                 );
 
-                let time_start = std::time::SystemTime::now();
+                let time_start = time::OffsetDateTime::now_utc();
                 // TEMP HACK: Collate it all into memory
                 // TODO: This needs to be bounded in memory, since the version_id comes from external
                 // source and could be arbitrarily large.
@@ -326,11 +326,9 @@ impl DIDResolverFull {
                         did_documents_jsonl_octet_length += did_document_jcs.len() as i64 + 1;
                     }
                 }
-                let duration = std::time::SystemTime::now()
-                    .duration_since(time_start)
-                    .expect("pass");
+                let duration = time::OffsetDateTime::now_utc() - time_start;
                 tracing::debug!(
-                "Time taken to assemble predecessor DID documents (fetch_pattern: {:?}, vdg_base_url_o: {:?}): {:?}",
+                "Time taken to assemble predecessor DID documents (fetch_pattern: {:?}, vdg_base_url_o: {:?}): {:.3}",
                 self.fetch_pattern,
                 self.vdg_base_url_o.as_ref().map(|url| url.as_str()),
                 duration
@@ -343,7 +341,6 @@ impl DIDResolverFull {
                     "validating and storing predecessor DID documents"
                 );
 
-                // let time_start = std::time::SystemTime::now();
                 self.did_doc_store
                     .validate_and_add_did_docs(
                         Some(&mut *transaction),
@@ -352,11 +349,8 @@ impl DIDResolverFull {
                         original_prev_did_document_o.as_ref(),
                     )
                     .await?;
-                // let duration = std::time::SystemTime::now()
-                //     .duration_since(time_start)
-                //     .expect("pass");
                 // tracing::debug!(
-                //     "Time taken to store predecessor DID documents (fetch_pattern: {:?}): {:?}",
+                //     "Time taken to store predecessor DID documents (fetch_pattern: {:?}): {:.3}",
                 //     fetch_pattern,
                 //     duration
                 // );
@@ -364,7 +358,7 @@ impl DIDResolverFull {
             FetchPattern::Parallel => {
                 const PARALLEL_FETCH_LIMIT: usize = 0x100;
 
-                let time_start = std::time::SystemTime::now();
+                let time_start = time::OffsetDateTime::now_utc();
                 use futures::StreamExt;
                 let predecessor_did_document_body_rv =
                     futures::stream::iter(version_id_start..target_did_document.version_id)
@@ -387,18 +381,16 @@ impl DIDResolverFull {
                         .buffered(PARALLEL_FETCH_LIMIT)
                         .collect::<Vec<_>>()
                         .await;
-                let duration = std::time::SystemTime::now()
-                    .duration_since(time_start)
-                    .expect("pass");
+                let duration = time::OffsetDateTime::now_utc() - time_start;
                 tracing::debug!(
-                "Time taken to fetch predecessor DID documents (fetch_pattern: {:?}, vdg_base_url_o: {:?}): {:?}",
+                "Time taken to fetch predecessor DID documents (fetch_pattern: {:?}, vdg_base_url_o: {:?}): {:.3}",
                 self.fetch_pattern,
                 self.vdg_base_url_o.as_ref().map(|url| url.as_str()),
                 duration
             );
 
                 // Process the validation and storage of the predecessor DID documents serially -- this likely can't be fully parallelized.
-                let time_start = std::time::SystemTime::now();
+                let time_start = time::OffsetDateTime::now_utc();
                 for predecessor_did_document_body_r in predecessor_did_document_body_rv.into_iter()
                 {
                     let predecessor_did_document_body = predecessor_did_document_body_r?;
@@ -420,18 +412,16 @@ impl DIDResolverFull {
                         predecessor_did_document_body.len() as i64 + 1;
                     prev_did_document_o = Some(predecessor_did_document);
                 }
-                let duration = std::time::SystemTime::now()
-                    .duration_since(time_start)
-                    .expect("pass");
+                let duration = time::OffsetDateTime::now_utc() - time_start;
                 tracing::debug!(
-                "Time taken to validate and store predecessor DID documents (fetch_pattern: {:?}, vdg_base_url_o: {:?}): {:?}",
+                "Time taken to validate and store predecessor DID documents (fetch_pattern: {:?}, vdg_base_url_o: {:?}): {:.3}",
                 self.fetch_pattern,
                 self.vdg_base_url_o.as_ref().map(|url| url.as_str()),
                 duration
             );
             }
             FetchPattern::Serial => {
-                let time_start = std::time::SystemTime::now();
+                let time_start = time::OffsetDateTime::now_utc();
                 for version_id in version_id_start..target_did_document.version_id {
                     tracing::trace!(
                     "fetching, validating, and storing predecessor DID document with versionId {}",
@@ -458,11 +448,9 @@ impl DIDResolverFull {
                         predecessor_did_document_body.len() as i64 + 1;
                     prev_did_document_o = Some(predecessor_did_document);
                 }
-                let duration = std::time::SystemTime::now()
-                    .duration_since(time_start)
-                    .expect("pass");
+                let duration = time::OffsetDateTime::now_utc() - time_start;
                 tracing::debug!(
-                "Time taken to fetch, validate, and store predecessor DID documents (fetch_pattern: {:?}, vdg_base_url_o: {:?}): {:?}",
+                "Time taken to fetch, validate, and store predecessor DID documents (fetch_pattern: {:?}, vdg_base_url_o: {:?}): {:.3}",
                 self.fetch_pattern,
                 self.vdg_base_url_o.as_ref().map(|url| url.as_str()),
                 duration

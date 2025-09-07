@@ -47,16 +47,15 @@ impl DIDDocStore {
         }
 
         // This assumes that all stored DID documents have been validated inductively from the root!
-        let time_start = std::time::SystemTime::now();
+        let time_start = time::OffsetDateTime::now_utc();
         let prev_did_document_oi = std::iter::once(prev_did_document_o).chain(
             did_document_v[..did_document_v.len().checked_sub(1).unwrap()]
                 .iter()
                 .map(|did_document| Some(did_document)),
         );
 
-        const USE_PARALLEL_VALIDATION: bool = true;
-
-        if USE_PARALLEL_VALIDATION {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
             // Parallelize the validation of the sequence of DID documents.
             let handle_v = did_document_jcs_v
                 .iter()
@@ -78,7 +77,9 @@ impl DIDDocStore {
                 // TEMP HACK -- handle errors properly
                 result.unwrap().unwrap();
             }
-        } else {
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
             // Serial validation.
             for ((&did_document_jcs, did_document), prev_did_document_o) in did_document_jcs_v
                 .iter()
@@ -91,40 +92,33 @@ impl DIDDocStore {
                     "programmer error: body and did_document are inconsistent"
                 );
                 tracing::trace!(
-                "validating and storing predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}",
-                did_document.version_id(),
-                prev_did_document_o.map(|did_document| did_document.version_id())
-            );
-                let time_start = std::time::SystemTime::now();
+                    "validating and storing predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}",
+                    did_document.version_id(),
+                    prev_did_document_o.map(|did_document| did_document.version_id())
+                );
+                let time_start = time::OffsetDateTime::now_utc();
                 did_document.verify_nonrecursive(prev_did_document_o)?;
-                let duration = std::time::SystemTime::now()
-                    .duration_since(time_start)
-                    .expect("pass");
+                let duration = time::OffsetDateTime::now_utc() - time_start;
                 tracing::info!(
-                    "Time taken to validate predecessor DID document with versionId {}: {:?}",
+                    "Time taken to validate predecessor DID document with versionId {}: {:.3}",
                     did_document.version_id(),
                     duration
                 );
-                // prev_did_document_o = Some(did_document);
             }
         }
 
-        let duration = std::time::SystemTime::now()
-            .duration_since(time_start)
-            .expect("pass");
+        let duration = time::OffsetDateTime::now_utc() - time_start;
         tracing::info!(
-            "Time taken to validate predecessor DID documents: {:?}",
+            "Time taken to validate predecessor DID documents: {:.3}",
             duration
         );
 
-        let time_start = std::time::SystemTime::now();
+        let time_start = time::OffsetDateTime::now_utc();
         self.did_doc_storage_a
             .add_did_documents(transaction_o, did_document_jcs_v, did_document_v)
             .await?;
-        let duration = std::time::SystemTime::now()
-            .duration_since(time_start)
-            .expect("pass");
-        tracing::info!("Time taken to store DID documents: {:?}", duration);
+        let duration = time::OffsetDateTime::now_utc() - time_start;
+        tracing::info!("Time taken to store DID documents: {:.3}", duration);
         Ok(())
     }
     pub async fn get_did_doc_record_with_self_hash(

@@ -79,8 +79,16 @@ async fn test_software_wallet_indexeddb() {
         .expect("pass");
     tracing::debug!("wallet successfully created");
 
+    let mut http_scheme_override = did_webplus_wasm::HTTPSchemeOverride::new();
+    http_scheme_override
+        .add_override("vdr.did-webplus-wasm.test".to_string(), "http".to_string())
+        .expect("pass");
+
     let controlled_did = wallet
-        .create_did("http://vdr.did-webplus-wasm.test:8085".to_string())
+        .create_did(
+            "http://vdr.did-webplus-wasm.test:8085".to_string(),
+            Some(http_scheme_override.clone()),
+        )
         .await
         .expect("pass");
     tracing::debug!("controlled_did: {:?}", controlled_did);
@@ -92,7 +100,7 @@ async fn test_software_wallet_indexeddb() {
     tracing::debug!("did: {:?}", did);
 
     let controlled_did = wallet
-        .update_did(did.to_string(), "http".to_string())
+        .update_did(did.to_string(), Some(http_scheme_override))
         .await
         .expect("pass");
 }

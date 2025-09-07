@@ -102,7 +102,7 @@ pub async fn fetch_did_documents_jsonl_update(
     http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     known_did_documents_jsonl_octet_length: u64,
 ) -> HTTPResult<String> {
-    let time_start = std::time::SystemTime::now();
+    let time_start = time::OffsetDateTime::now_utc();
     let header_map = {
         let mut header_map = reqwest::header::HeaderMap::new();
         header_map.insert(
@@ -144,12 +144,10 @@ pub async fn fetch_did_documents_jsonl_update(
     };
     let did_documents_jsonl_update_r =
         http_get(did_documents_jsonl_url.as_str(), Some(header_map)).await;
-    let duration = std::time::SystemTime::now()
-        .duration_since(time_start)
-        .expect("pass");
+    let duration = time::OffsetDateTime::now_utc() - time_start;
     if let Ok(did_documents_jsonl_update) = &did_documents_jsonl_update_r {
         tracing::info!(
-            "Time taken to do a range-based GET of {} bytes of did-documents.jsonl starting at byte {}: {:?}",
+            "Time taken to do a range-based GET of {} bytes of did-documents.jsonl starting at byte {}: {:.3}",
             did_documents_jsonl_update.len(),
             known_did_documents_jsonl_octet_length,
             duration
