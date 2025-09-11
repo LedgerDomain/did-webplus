@@ -125,7 +125,7 @@ pub trait MicroledgerViewAsync<'v> {
             (None, None) => self.latest_did_document().await,
             (Some(version_id), Some(self_hash)) => {
                 let did_document = self.did_document_for_version_id(version_id).await?;
-                if did_document.self_hash().as_keri_hash_str() != self_hash {
+                if did_document.self_hash.as_keri_hash_str() != self_hash {
                     return Err(Error::Invalid("The self-hash of the DID document for given version_id does not match the given self-hash"));
                 }
                 did_document

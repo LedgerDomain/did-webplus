@@ -1,8 +1,6 @@
 mod did;
 mod did_document;
-mod did_document_create_params;
 mod did_document_metadata;
-mod did_document_update_params;
 mod did_fully_qualified;
 mod did_fully_qualified_str;
 mod did_resource;
@@ -31,18 +29,17 @@ mod public_key_params_okp;
 mod public_key_set;
 mod relative_resource;
 mod relative_resource_str;
+mod update_rules;
 mod verification_method;
 
 pub(crate) use crate::did_fully_qualified_str::parse_did_query_params;
 pub use crate::{
     did::DID,
     did_document::DIDDocument,
-    did_document_create_params::DIDDocumentCreateParams,
     did_document_metadata::{
         DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
         DIDDocumentMetadataIdempotent, RequestedDIDDocumentMetadata,
     },
-    did_document_update_params::DIDDocumentUpdateParams,
     did_fully_qualified::DIDFullyQualified,
     did_fully_qualified_str::DIDFullyQualifiedStr,
     did_resource::DIDResource,
@@ -67,6 +64,10 @@ pub use crate::{
     public_key_set::PublicKeySet,
     relative_resource::{Fragment, RelativeResource},
     relative_resource_str::RelativeResourceStr,
+    update_rules::{
+        All, Any, HashedUpdateKey, RootLevelUpdateRules, Threshold, UpdateKey, UpdateRules,
+        UpdatesDisallowed, ValidProofData, VerifyRules, WeightedUpdateRules,
+    },
     verification_method::VerificationMethod,
 };
 #[cfg(feature = "async-traits")]

@@ -407,7 +407,7 @@ async fn resolve_did_impl(
     // we can check that the target DID doc matches the query param constraints and return it.
     if let Some(self_hash_str) = query_self_hash_o.as_deref() {
         use std::ops::Deref;
-        if target_did_document.self_hash().deref() != self_hash_str {
+        if target_did_document.self_hash.deref() != self_hash_str {
             // Note: If there is a real signature by the DID which contains the conflicting selfHash and
             // versionId values, then that represents a fork in the DID document, which is considered
             // illegal and fraudulent.  However, simply receiving a request with conflicting selfHash and
@@ -419,7 +419,7 @@ async fn resolve_did_impl(
                 format!(
                     "DID document with versionId {} has selfHash {} which does not match the requested selfHash {}",
                     target_did_document.version_id,
-                    target_did_document.self_hash().deref(),
+                    target_did_document.self_hash.deref(),
                     self_hash_str,
                 ),
             ));
@@ -439,7 +439,7 @@ async fn resolve_did_impl(
     tracing::trace!(?did_query, "requested DID document was not already in database, so it had to be fetched from VDR; returning it now.");
     Ok((
         headers_for_did_document(
-            target_did_document.self_hash().as_str(),
+            target_did_document.self_hash.as_str(),
             target_did_document.valid_from(),
             false,
         ),

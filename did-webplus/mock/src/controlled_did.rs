@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 use did_webplus_core::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDKeyResourceFullyQualified,
-    Error, KeyPurpose, MicroledgerView, PublicKeySet, DID,
+    DIDDocument, DIDKeyResourceFullyQualified, Error, KeyPurpose, MicroledgerView, PublicKeySet,
+    RootLevelUpdateRules, UpdateKey, DID,
 };
 
 use crate::{Microledger, VDRClient};
@@ -10,6 +10,7 @@ use crate::{Microledger, VDRClient};
 pub struct ControlledDID {
     pub current_public_key_set: PublicKeySet<selfsign::KERIVerifier>,
     signer_m: HashMap<selfsign::KERIVerifier, Box<dyn selfsign::Signer>>,
+    update_signing_key: ed25519_dalek::SigningKey,
     microledger: Microledger,
 }
 
@@ -20,56 +21,64 @@ impl ControlledDID {
         did_path_o: Option<String>,
         vdr_client: &dyn VDRClient,
     ) -> Result<Self, Error> {
+        // Generate the key set for use in the root DID document.
         let (signer_m, current_public_key_set) = Self::generate_new_keys();
-        // Assume there's only one capability_invocation_v key, and use that to sign.
-        assert_eq!(current_public_key_set.capability_invocation_v.len(), 1);
-        let did_document_signer = signer_m
-            .get(
-                current_public_key_set
-                    .capability_invocation_v
-                    .first()
-                    .unwrap(),
-            )
-            .unwrap()
-            .as_ref();
 
-        let root_did_document = DIDDocument::create_root(
-            DIDDocumentCreateParams {
-                did_hostname: did_hostname.into(),
-                did_port_o,
-                did_path_o: did_path_o.map(|did_path| did_path.into()),
-                valid_from: time::OffsetDateTime::now_utc(),
-                public_key_set: PublicKeySet {
-                    authentication_v: current_public_key_set
-                        .authentication_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                    assertion_method_v: current_public_key_set
-                        .assertion_method_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                    key_agreement_v: current_public_key_set
-                        .key_agreement_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                    capability_invocation_v: current_public_key_set
-                        .capability_invocation_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                    capability_delegation_v: current_public_key_set
-                        .capability_delegation_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                },
-            },
+        // Generate the update signing key (for when the this root DID document is updated later).
+        let update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        let update_verifying_key = update_signing_key.verifying_key();
+        let update_pub_key = mbc::B64UPubKey::try_from(&update_verifying_key).expect("pass");
+
+        // Set the update rules.  In this case, just a single key.
+        let update_rules = RootLevelUpdateRules::from(UpdateKey {
+            key: update_pub_key.clone(),
+        });
+        let valid_from = time::OffsetDateTime::now_utc();
+        let public_key_set = PublicKeySet {
+            authentication_v: current_public_key_set
+                .authentication_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+            assertion_method_v: current_public_key_set
+                .assertion_method_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+            key_agreement_v: current_public_key_set
+                .key_agreement_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+            capability_invocation_v: current_public_key_set
+                .capability_invocation_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+            capability_delegation_v: current_public_key_set
+                .capability_delegation_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+        };
+        let mut root_did_document = DIDDocument::create_unsigned_root(
+            &did_hostname,
+            did_port_o,
+            did_path_o.as_deref(),
+            update_rules,
+            valid_from,
+            public_key_set,
             &selfhash::Blake3,
-            did_document_signer,
         )?;
+        // NOTE: There's no need to sign the root DID document, but it is allowed.
+        // Finalize the root DID document.  In particular, this will self-hash the DID document.
+        root_did_document.finalize(None)?;
+
+        // Sanity check.
+        root_did_document
+            .verify_root_nonrecursive()
+            .expect("programmer error");
+
         // Register the DID with the appropriate VDR.  The VDR mostly only has authority over if creation of a DID
         // is allowed.  Once the DID is being hosted by the VDR, all valid updates should be accepted by it.
         vdr_client.create_did(root_did_document.clone())?;
@@ -79,55 +88,83 @@ impl ControlledDID {
         Ok(Self {
             current_public_key_set,
             signer_m,
+            update_signing_key,
             microledger,
         })
     }
     pub fn update(&mut self, vdr_client: &dyn VDRClient) -> Result<(), Error> {
+        // Generate the new key set to rotate in during the DID update.
         let (new_signer_m, new_public_key_set) = Self::generate_new_keys();
 
-        let new_did_document = DIDDocument::update_from_previous(
-            self.microledger.view().latest_did_document(),
-            DIDDocumentUpdateParams {
-                valid_from: time::OffsetDateTime::now_utc(),
-                public_key_set: PublicKeySet {
-                    authentication_v: new_public_key_set
-                        .authentication_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                    assertion_method_v: new_public_key_set
-                        .assertion_method_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                    key_agreement_v: new_public_key_set
-                        .key_agreement_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                    capability_invocation_v: new_public_key_set
-                        .capability_invocation_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                    capability_delegation_v: new_public_key_set
-                        .capability_delegation_v
-                        .iter()
-                        .map(|v| v as &dyn selfsign::Verifier)
-                        .collect(),
-                },
-            },
+        // Generate the next update signing key (for when the this new DID document is updated later).
+        let next_update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        let next_update_verifying_key = next_update_signing_key.verifying_key();
+        let next_update_pub_key =
+            mbc::B64UPubKey::try_from(&next_update_verifying_key).expect("pass");
+
+        // Set the update rules for this new DID document.  In this case, just a single key.
+        let next_update_rules = RootLevelUpdateRules::from(UpdateKey {
+            key: next_update_pub_key.clone(),
+        });
+        let valid_from = time::OffsetDateTime::now_utc();
+        let public_key_set = PublicKeySet {
+            authentication_v: new_public_key_set
+                .authentication_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+            assertion_method_v: new_public_key_set
+                .assertion_method_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+            key_agreement_v: new_public_key_set
+                .key_agreement_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+            capability_invocation_v: new_public_key_set
+                .capability_invocation_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+            capability_delegation_v: new_public_key_set
+                .capability_delegation_v
+                .iter()
+                .map(|v| v as &dyn selfsign::Verifier)
+                .collect(),
+        };
+        let prev_did_document = self.microledger.view().latest_did_document();
+        let mut new_did_document = DIDDocument::create_unsigned_non_root(
+            prev_did_document,
+            next_update_rules,
+            valid_from,
+            public_key_set,
             &selfhash::Blake3,
-            self.signer_and_key_id_for_key_purpose(KeyPurpose::CapabilityInvocation)
-                .0,
         )?;
+
+        // Sign the new DID document using the existing update_signing_key (the one referenced in the
+        // previous DID document), and add the proof.
+        let jws = {
+            let update_verifying_key = self.update_signing_key.verifying_key();
+            let update_pub_key = mbc::B64UPubKey::try_from(&update_verifying_key).expect("pass");
+            new_did_document.sign(update_pub_key.to_string(), &self.update_signing_key)?
+        };
+        new_did_document.add_proof(jws.into_string());
+        // Finalize the new DID document.  In particular, this will self-hash the DID document.
+        new_did_document.finalize(Some(prev_did_document))?;
+
+        // Sanity check.
+        new_did_document.verify_non_root_nonrecursive(prev_did_document)?;
+
         vdr_client.update_did(new_did_document.clone())?;
         // If the VDR update succeeded, then update the local Microledger.
         use did_webplus_core::MicroledgerMutView;
         self.microledger.mut_view().update(new_did_document)?;
         // Now update the local signer and public key set.
-        self.signer_m = new_signer_m;
         self.current_public_key_set = new_public_key_set;
+        self.signer_m = new_signer_m;
+        self.update_signing_key = next_update_signing_key;
         Ok(())
     }
     pub fn did(&self) -> &DID {
@@ -157,9 +194,14 @@ impl ControlledDID {
             .as_ref();
         let did = self.microledger.view().did();
         let version_id = self.microledger.view().latest_did_document().version_id();
-        let self_hash = self.microledger.view().latest_did_document().self_hash();
+        let self_hash = self
+            .microledger
+            .view()
+            .latest_did_document()
+            .self_hash
+            .deref();
         let key_id = did
-            .with_queries(self_hash, version_id)
+            .with_queries(&self_hash, version_id)
             .with_fragment(public_key.as_keri_verifier_str());
         (signer, key_id)
     }

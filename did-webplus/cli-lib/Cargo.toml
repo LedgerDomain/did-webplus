@@ -24,7 +24,7 @@ did-webplus-jws = { path = "../jws" }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store" }
-ed25519-dalek = { version = "2.0.0", optional = true, features = ["rand_core"] }
+ed25519-dalek = { version = "2.2.0", optional = true, features = ["rand_core"] }
 k256 = { version = "0.13.1", optional = true }
 rand = "0.8"
 selfhash = { version = "0.4.0", features = ["blake3", "self-hashable-json"] }

@@ -25,7 +25,7 @@ impl DIDDocRecord {
                 )
             })?;
 
-        let did_document_self_hash = did_document.self_hash_o.as_ref().ok_or_else(|| {
+        let did_document_self_hash = did_document.self_hash_o().ok_or_else(|| {
             Error::RecordCorruption(
                 "Parsed DID doc is missing \"selfHash\" field".into(),
                 self.self_hash.to_string().into(),
@@ -65,19 +65,17 @@ impl DIDDocRecord {
             return Err(Error::RecordCorruption(format!("Inconsistent: DID doc record did_documents_jsonl_octet_length {} is less than did_document_jcs.len() + 1 (which is {})", self.did_documents_jsonl_octet_length, self.did_document_jcs.len() + 1).into(), self.self_hash.to_string().into()));
         }
 
-        use selfsign::SelfSignAndHashable;
-        did_document
-            .verify_self_signatures_and_hashes()
-            .map_err(|err| {
-                Error::RecordCorruption(
-                    format!(
-                        "Parsed DID doc failed to verify self-signatures and hashes: {}",
-                        err
-                    )
-                    .into(),
-                    self.self_hash.to_string().into(),
-                )
-            })?;
+        // Note that if this check succeeds, then in particular, all the self-hash slots are equal,
+        // and in particular, are equal to `did_document.self_hash`.
+        use selfhash::SelfHashable;
+        did_document.verify_self_hashes().map_err(|err| {
+            Error::RecordCorruption(
+                format!("Parsed DID doc failed to verify self-hashes: {}", err).into(),
+                self.self_hash.to_string().into(),
+            )
+        })?;
+        use selfhash::Hash;
+        assert!(!did_document.self_hash.is_placeholder());
 
         Ok(())
     }

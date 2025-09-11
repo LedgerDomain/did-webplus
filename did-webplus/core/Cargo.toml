@@ -10,8 +10,13 @@ edition = "2021"
 [features]
 async-traits = ["dep:async-trait"]
 clap = ["dep:clap"]
-ed25519-dalek = ["selfsign/ed25519-dalek"]
-k256 = ["selfsign/k256"]
+ed25519-dalek = [
+    "did-webplus-jws/ed25519-dalek",
+    "dep:ed25519-dalek",
+    "selfsign/ed25519-dalek",
+]
+k256 = ["did-webplus-jws/k256", "dep:k256", "selfsign/k256"]
+p256 = ["did-webplus-jws/p256", "dep:p256"]
 tracing = ["dep:tracing"]
 
 [dependencies]
@@ -23,8 +28,18 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "from",
     "into",
 ] }
+did-webplus-jws = { path = "../jws" }
+ed25519-dalek = { version = "2.2.0", optional = true }
 enum-map = "2.7.3"
 flagset = "0.4.6"
+k256 = { version = "0.13.1", optional = true }
+mbc = { path = "../../../mbc", features = [
+    "ed25519-dalek",
+    "k256",
+    "p256",
+    "serde",
+] }
+p256 = { version = "0.13.2", optional = true }
 pneutype = "0.5.1"
 selfhash = { version = "0.4.0", features = ["serde", "blake3"] }
 selfsign = { version = "0.6.0", features = ["serde", "jcs"] }
@@ -34,12 +49,20 @@ serde_json = "1.0.107"
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
+signature = "2.2.0"
+ssi-multicodec = "0.2.0"
 thiserror = { version = "1.0.60", default-features = false }
 time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 tracing = { version = "0.1.37", optional = true }
+verifier-resolver = { path = "../../verifier-resolver" }
 
 [dev-dependencies]
-ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
+ctor = "0.4.1"
+did-key = { path = "../../did-key", features = [
+    "ed25519-dalek",
+    "verifier-resolver",
+] }
+ed25519-dalek = { version = "2.2.0", features = ["digest", "rand_core"] }
 rand = "0.8"
 selfsign = { version = "0.6.0", features = ["ed25519-dalek"] }
 serde_json = { version = "1", default-features = false }
@@ -50,3 +73,4 @@ ssi-jwk = { version = "0.1.1", default-features = false, features = [
 ssi-jws = { version = "0.1.0", default-features = false, features = [
     "ed25519",
 ] }
+test-util = { path = "../../test-util" }

@@ -27,6 +27,8 @@ pub enum Error {
     SelfSignError(selfsign::Error),
     #[error("Serialization error: {0}")]
     Serialization(&'static str),
+    #[error("Signing error: {0}")]
+    SigningError(&'static str),
     #[error("Unrecognized: {0}")]
     Unrecognized(&'static str),
     #[error("Unsupported: {0}")]

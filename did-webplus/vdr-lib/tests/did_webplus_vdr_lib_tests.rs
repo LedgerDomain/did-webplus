@@ -164,7 +164,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
             );
             // Resolve the DID
             let alice_did_url_self_hash = alice_did.resolution_url_for_self_hash(
-                alice_did_document.self_hash().deref(),
+                alice_did_document.self_hash.deref(),
                 http_scheme_override_o,
             );
             tracing::trace!(

@@ -31,7 +31,7 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDo
     );
     assert_eq!(
         headers.get("ETag").unwrap().to_str().unwrap(),
-        did_document.self_hash().as_str()
+        did_document.self_hash.as_str()
     );
 }
 
@@ -163,7 +163,7 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
         .view()
         .latest_did_document();
     let alice_did_self_hash_query =
-        format!("{}?selfHash={}", alice_did, alice_did_document.self_hash());
+        format!("{}?selfHash={}", alice_did, alice_did_document.self_hash);
     let response = get_did_response(&alice_did_self_hash_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "true");
@@ -171,9 +171,7 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
     // Ask for both self-hash and version_id which are consistent.
     let alice_did_self_hash_version_query = format!(
         "{}?selfHash={}&versionId={}",
-        alice_did,
-        alice_did_document.self_hash(),
-        alice_did_document.version_id
+        alice_did, alice_did_document.self_hash, alice_did_document.version_id
     );
     let response = get_did_response(&alice_did_self_hash_version_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
@@ -183,9 +181,7 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
     assert!(alice_did_document.version_id != 0);
     let alice_did_self_hash_version_inconsistent_query = format!(
         "{}?selfHash={}&versionId={}",
-        alice_did,
-        alice_did_document.self_hash(),
-        0
+        alice_did, alice_did_document.self_hash, 0
     );
     let response = get_did_response(&alice_did_self_hash_version_inconsistent_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);

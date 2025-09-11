@@ -72,6 +72,9 @@ impl<F: 'static + Fragment + ?Sized> selfhash::Hash for DIDResource<F> {
     fn hash_function(&self) -> selfhash::Result<&'static dyn selfhash::HashFunction> {
         self.root_self_hash().hash_function()
     }
+    fn is_placeholder(&self) -> bool {
+        self.root_self_hash().is_placeholder()
+    }
     fn as_preferred_hash_format<'s: 'h, 'h>(
         &'s self,
     ) -> selfhash::Result<selfhash::PreferredHashFormat<'h>> {

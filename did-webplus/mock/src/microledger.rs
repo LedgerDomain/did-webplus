@@ -23,10 +23,8 @@ impl Microledger {
     /// root DID document.
     pub fn create(root_did_document: DIDDocument) -> Result<Self, Error> {
         root_did_document.verify_root_nonrecursive()?;
-        assert!(root_did_document.self_hash_o.is_some());
-        assert!(root_did_document.self_signature_o.is_some());
-        assert!(root_did_document.self_signature_verifier_o.is_some());
-        let self_hash = root_did_document.self_hash_o.as_ref().unwrap();
+        assert!(root_did_document.self_hash_o().is_some());
+        let self_hash = root_did_document.self_hash_o().unwrap();
         let version_id = root_did_document.version_id;
         let valid_from = root_did_document.valid_from;
 
@@ -57,8 +55,8 @@ impl Microledger {
             let root_did_document = did_document_v.first().unwrap();
             {
                 root_did_document.verify_root_nonrecursive()?;
-                assert!(root_did_document.self_hash_o.is_some());
-                let self_hash = root_did_document.self_hash_o.as_ref().unwrap();
+                assert!(root_did_document.self_hash_o().is_some());
+                let self_hash = root_did_document.self_hash_o().unwrap();
                 let version_id = root_did_document.version_id;
                 let valid_from = root_did_document.valid_from;
 
@@ -69,8 +67,8 @@ impl Microledger {
             let mut prev_did_document = root_did_document;
             for non_root_did_document in did_document_v.iter().skip(1) {
                 non_root_did_document.verify_non_root_nonrecursive(prev_did_document)?;
-                assert!(non_root_did_document.self_hash_o.is_some());
-                let self_hash = non_root_did_document.self_hash_o.as_ref().unwrap();
+                assert!(non_root_did_document.self_hash_o().is_some());
+                let self_hash = non_root_did_document.self_hash_o().unwrap();
                 let version_id = non_root_did_document.version_id;
                 let valid_from = non_root_did_document.valid_from;
 
@@ -175,10 +173,7 @@ impl<'m> MicroledgerMutView<'m> for &'m mut Microledger {
         new_did_document: did_webplus_core::DIDDocument,
     ) -> Result<(), did_webplus_core::Error> {
         new_did_document.verify_non_root_nonrecursive(self.view().latest_did_document())?;
-        let self_hash = new_did_document
-            .self_hash_o
-            .as_ref()
-            .expect("programmer error");
+        let self_hash = new_did_document.self_hash_o().unwrap();
         let version_id = new_did_document.version_id;
         let valid_from = new_did_document.valid_from;
 

@@ -492,7 +492,7 @@ impl DIDResolverFull {
         // we can check that the target DID doc matches the query param constraints and return it.
         if let Some(self_hash_str) = query_self_hash_o.as_deref() {
             use std::ops::Deref;
-            if target_did_document.self_hash().deref() != self_hash_str {
+            if target_did_document.self_hash.deref() != self_hash_str {
                 // Note: If there is a real signature by the DID which contains the conflicting selfHash and
                 // versionId values, then that represents a fork in the DID document, which is considered
                 // illegal and fraudulent.  However, simply receiving a request with conflicting selfHash and
@@ -502,7 +502,7 @@ impl DIDResolverFull {
                 return Err(Error::FailedConstraint(format!(
                 "DID document with versionId {} has selfHash {} which does not match requested selfHash {}",
                 target_did_document.version_id,
-                target_did_document.self_hash().deref(),
+                target_did_document.self_hash.deref(),
                 self_hash_str,
             ).into()));
             }
@@ -514,7 +514,7 @@ impl DIDResolverFull {
         }
 
         let target_did_doc_record = DIDDocRecord {
-            self_hash: target_did_document.self_hash().to_string(),
+            self_hash: target_did_document.self_hash.to_string(),
             did: did.to_string(),
             version_id: target_did_document.version_id as i64,
             valid_from: target_did_document.valid_from(),

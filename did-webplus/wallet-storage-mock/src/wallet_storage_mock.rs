@@ -293,7 +293,7 @@ impl WalletStorageMockState {
             .map(|(_, did_document_row)| did_document_row.did_documents_jsonl_octet_length)
             .unwrap_or(0);
         let row = DIDDocumentRow {
-            self_hash: did_document.self_hash().clone(),
+            self_hash: did_document.self_hash.clone(),
             did: did_document.did.clone(),
             version_id: did_document.version_id,
             valid_from: did_document.valid_from,

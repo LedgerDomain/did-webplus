@@ -32,7 +32,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         did_document_jcs: &str,
     ) -> Result<()> {
         assert!(
-            did_document.self_hash_o.is_some(),
+            did_document.self_hash_o().is_some(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
         // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
@@ -62,7 +62,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             did_document.did.as_str(),
             did_document.version_id() as i64,
             did_document.valid_from(),
-            did_document.self_hash().as_str(),
+            did_document.self_hash.as_str(),
             did_document_jcs,
         );
         if let Some(transaction) = transaction_o {

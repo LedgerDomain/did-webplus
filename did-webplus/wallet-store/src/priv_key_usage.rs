@@ -7,7 +7,7 @@ use did_webplus_core::{DIDFullyQualified, DIDKeyResourceFullyQualified, DID};
 pub enum PrivKeyUsage {
     /// Optionally contains the DID that was created.
     DIDCreate { created_did_o: Option<DID> },
-    /// Optionally contains the DIDWithQuery with selfHash and versionId that was used in the update.
+    /// Optionally contains the DIDFullyQualified that resulted from the update.
     DIDUpdate {
         updated_did_fully_qualified_o: Option<DIDFullyQualified>,
     },

@@ -12,8 +12,9 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "into",
 ] }
 did-webplus-core = { path = "../core", features = ["ed25519-dalek"] }
-ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 log = "0.4.21"
+mbc = { path = "../../../mbc", features = ["ed25519-dalek"] }
 rand = "0.8"
 selfhash = "0.4.0"
 selfsign = "0.6.0"

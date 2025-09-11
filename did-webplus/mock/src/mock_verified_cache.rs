@@ -254,7 +254,7 @@ impl<'v> did_webplus_core::MicroledgerMutView<'v> for MockVerifiedCacheMicroledg
         // Verify that it is a valid update first.
         new_did_document.verify_non_root_nonrecursive(self.latest_did_document())?;
         assert!(!self.mock_verified_cache.self_hash_primary_key_m.contains_key(
-            new_did_document.self_hash_o.as_ref().expect("programmer error")
+            new_did_document.self_hash_o().expect("programmer error")
         ), "programmer error: it should not be practically possible (i.e. it should not be computationally feasible) for a valid update to have the same self-hash as an existing DID document -- this almost certainly means there's a bug somewhere.");
 
         // Now append it and update all relevant indexes.
@@ -268,7 +268,7 @@ impl<'v> did_webplus_core::MicroledgerMutView<'v> for MockVerifiedCacheMicroledg
         let did_document = self
             .mock_verified_cache
             .did_document(did_document_primary_key);
-        let did_document_self_hash = did_document.self_hash().clone();
+        let did_document_self_hash = did_document.self_hash_o().unwrap().clone();
         let did_document_version_id = did_document.version_id();
         let did_document_valid_from = did_document.valid_from();
         // Insert into self-hash table.
@@ -412,7 +412,7 @@ impl MockVerifiedCache {
             let did_document = self.did_document(did_document_primary_key);
             (
                 did_document.did.clone(),
-                did_document.self_hash().clone(),
+                did_document.self_hash_o().unwrap().clone(),
                 did_document.version_id(),
                 did_document.valid_from(),
             )

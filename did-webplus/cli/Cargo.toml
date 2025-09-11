@@ -28,7 +28,7 @@ did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
-ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 expanduser = "1.2.2"
 k256 = "0.13.1"
 # Enable all the hash function features to support them all.

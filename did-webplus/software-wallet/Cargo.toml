@@ -14,7 +14,7 @@ did-webplus-resolver = { path = "../resolver" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store" }
 # TEMP: probably abstract behind selfsign or even ssi_jwk
-ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 enum-map = "2.7.3"
 lazy_static = "1.4.0"
 rand = "0.8"

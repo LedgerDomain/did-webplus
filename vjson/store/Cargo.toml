@@ -32,7 +32,7 @@ vjson-core = { path = "../core" }
 [dev-dependencies]
 ctor = "0.4.1"
 did-key = { path = "../../did-key", features = ["ed25519-dalek", "k256"] }
-ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
+ed25519-dalek = { version = "2.2.0", features = ["digest", "rand_core"] }
 env_logger = "0.11.3"
 rand = "0.8"
 selfhash = { version = "0.4.0", features = ["blake3", "self-hashable-json"] }

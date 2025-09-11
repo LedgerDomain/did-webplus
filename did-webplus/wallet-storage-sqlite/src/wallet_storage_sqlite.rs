@@ -40,13 +40,13 @@ impl DIDDocStorage for WalletStorageSQLite {
         did_document_jcs: &str,
     ) -> did_webplus_doc_store::Result<()> {
         assert!(
-            did_document.self_hash_o.is_some(),
+            did_document.self_hash_o().is_some(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
         let did_str = did_document.did.as_str();
         let version_id = did_document.version_id() as i64;
         let valid_from = did_document.valid_from();
-        let self_hash_str = did_document.self_hash().as_str();
+        let self_hash_str = did_document.self_hash.as_str();
         // TODO: Figure out if ON CONFLICT DO NOTHING is appropriate here -- not sure how returning the rowid
         // would interact with that.
         let query = sqlx::query!(
