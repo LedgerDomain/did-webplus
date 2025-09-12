@@ -49,14 +49,18 @@ impl SigilT for PrivKeys {}
 struct PrivKeyRow {
     // This awkwardness is so that the primary key can be returned by reference without any gymnastics.
     wallets_rowid_pub_key: (RowId<Wallets>, selfsign::KERIVerifier),
+    hashed_pub_key: String,
     key_type: selfsign::KeyType,
+    did_restriction_o: Option<String>,
     key_purpose_restriction_o: Option<did_webplus_core::KeyPurposeFlags>,
     created_at: time::OffsetDateTime,
     last_used_at_o: Option<time::OffsetDateTime>,
+    max_usage_count_o: Option<u32>,
     usage_count: u32,
     deleted_at_o: Option<time::OffsetDateTime>,
     priv_key_format_o: Option<String>,
     priv_key_bytes_o: Option<Vec<u8>>,
+    comment_o: Option<String>,
 }
 
 impl PrivKeyRow {
@@ -74,14 +78,18 @@ impl PrivKeyRow {
             };
         PrivKeyRow {
             wallets_rowid_pub_key: (wallets_row_id, priv_key_record.pub_key),
+            hashed_pub_key: priv_key_record.hashed_pub_key,
             key_type,
+            did_restriction_o: priv_key_record.did_restriction_o,
             key_purpose_restriction_o: priv_key_record.key_purpose_restriction_o,
             created_at: priv_key_record.created_at,
             last_used_at_o: priv_key_record.last_used_at_o,
+            max_usage_count_o: priv_key_record.max_usage_count_o,
             usage_count: priv_key_record.usage_count,
             deleted_at_o: priv_key_record.deleted_at_o,
             priv_key_format_o,
             priv_key_bytes_o,
+            comment_o: priv_key_record.comment_o,
         }
     }
 }
@@ -109,12 +117,16 @@ impl TryFrom<PrivKeyRow> for PrivKeyRecord {
         };
         Ok(PrivKeyRecord {
             pub_key: priv_key_row.wallets_rowid_pub_key.1,
+            hashed_pub_key: priv_key_row.hashed_pub_key,
+            did_restriction_o: priv_key_row.did_restriction_o,
             key_purpose_restriction_o: priv_key_row.key_purpose_restriction_o,
             created_at: priv_key_row.created_at,
             last_used_at_o: priv_key_row.last_used_at_o,
+            max_usage_count_o: priv_key_row.max_usage_count_o,
             usage_count: priv_key_row.usage_count,
             deleted_at_o: priv_key_row.deleted_at_o,
             private_key_bytes_o,
+            comment_o: priv_key_row.comment_o,
         })
     }
 }

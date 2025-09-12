@@ -40,6 +40,8 @@ pub enum PrivKeyUsage {
     KeyExchangeWithDID {
         other_o: Option<DIDKeyResourceFullyQualified>,
     },
+    /// Generic usage data for usage that doesn't fit into the other categories.
+    Generic { usage_spec_o: Option<Vec<u8>> },
 }
 
 impl PrivKeyUsage {
@@ -54,6 +56,7 @@ impl PrivKeyUsage {
             Self::SignVP { .. } => PrivKeyUsageType::SignVP,
             Self::KeyExchange { .. } => PrivKeyUsageType::KeyExchange,
             Self::KeyExchangeWithDID { .. } => PrivKeyUsageType::KeyExchangeWithDID,
+            Self::Generic { .. } => PrivKeyUsageType::Generic,
         }
     }
     // TODO: When everything is a proper newtype, then this could return &[u8]
@@ -90,6 +93,9 @@ impl PrivKeyUsage {
             Self::KeyExchangeWithDID { other_o } => other_o
                 .as_ref()
                 .map(|other| other.to_string().as_bytes().to_vec()),
+            Self::Generic { usage_spec_o } => {
+                usage_spec_o.as_ref().map(|usage_spec| usage_spec.to_vec())
+            }
         }
     }
     pub fn try_from_priv_key_usage_type_and_spec(

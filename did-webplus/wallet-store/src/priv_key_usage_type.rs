@@ -20,6 +20,8 @@ pub enum PrivKeyUsageType {
     KeyExchange,
     /// Use this key in a key exchange operation with a given versioned DID's key.
     KeyExchangeWithDID,
+    /// Generic usage data for usage that doesn't fit into the other categories.
+    Generic,
 }
 
 impl PrivKeyUsageType {
@@ -34,6 +36,7 @@ impl PrivKeyUsageType {
             Self::SignVP => "SignVP",
             Self::KeyExchange => "KeyExchange",
             Self::KeyExchangeWithDID => "KeyExchangeWithDID",
+            Self::Generic => "Generic",
         }
     }
 }
@@ -57,6 +60,7 @@ impl std::str::FromStr for PrivKeyUsageType {
             "SignVP" => Ok(Self::SignVP),
             "KeyExchange" => Ok(Self::KeyExchange),
             "KeyExchangeWithDID" => Ok(Self::KeyExchangeWithDID),
+            "Generic" => Ok(Self::Generic),
             _ => Err(Error::Malformed(
                 format!("Unrecognized PrivKeyUsageType {:?}", s).into(),
             )),

@@ -1,4 +1,4 @@
-use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageRow};
+use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageInsert, PrivKeyUsageSelect};
 use did_webplus_core::{DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, DIDDocStorage};
 use did_webplus_wallet_store::{
@@ -556,19 +556,38 @@ impl WalletStorage for WalletStorageSQLite {
         let priv_key_row = PrivKeyRow::try_from_priv_key_record(ctx, priv_key_record)?;
         let query = sqlx::query!(
             r#"
-                INSERT INTO priv_keys(wallets_rowid, pub_key, key_type, key_purpose_restriction_o, created_at, last_used_at_o, usage_count, deleted_at_o, priv_key_format_o, priv_key_bytes_o)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                INSERT INTO priv_keys(
+                    wallets_rowid,
+                    pub_key,
+                    hashed_pub_key,
+                    key_type,
+                    did_restriction_o,
+                    key_purpose_restriction_o,
+                    created_at,
+                    last_used_at_o,
+                    max_usage_count_o,
+                    usage_count,
+                    deleted_at_o,
+                    priv_key_format_o,
+                    priv_key_bytes_o,
+                    comment_o
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             "#,
             priv_key_row.wallets_rowid,
             priv_key_row.pub_key,
+            priv_key_row.hashed_pub_key,
             priv_key_row.key_type,
+            priv_key_row.did_restriction_o,
             priv_key_row.key_purpose_restriction_o,
             priv_key_row.created_at,
             priv_key_row.last_used_at_o,
+            priv_key_row.max_usage_count_o,
             priv_key_row.usage_count,
             priv_key_row.deleted_at_o,
             priv_key_row.priv_key_format_o,
             priv_key_row.priv_key_bytes_o,
+            priv_key_row.comment_o,
         );
         if let Some(transaction) = transaction_o {
             query
@@ -591,9 +610,9 @@ impl WalletStorage for WalletStorageSQLite {
         ctx: &WalletStorageCtx,
         pub_key: &selfsign::KERIVerifierStr,
     ) -> Result<()> {
-        // This will only update if the priv key is not already deleted.
         let deleted_at_o = Some(time::OffsetDateTime::now_utc());
         let pub_key_str = pub_key.as_str();
+        // This will only update if the priv key is not already deleted.
         let query = sqlx::query!(
             r#"
                 UPDATE priv_keys
@@ -629,7 +648,21 @@ impl WalletStorage for WalletStorageSQLite {
         let query = sqlx::query_as!(
             PrivKeyRow,
             r#"
-                SELECT wallets_rowid, pub_key, key_type, key_purpose_restriction_o, created_at, last_used_at_o, usage_count, deleted_at_o, priv_key_format_o, priv_key_bytes_o
+                SELECT 
+                    wallets_rowid,
+                    pub_key,
+                    hashed_pub_key,
+                    key_type,
+                    did_restriction_o,
+                    key_purpose_restriction_o,
+                    created_at,
+                    last_used_at_o,
+                    max_usage_count_o,
+                    usage_count,
+                    deleted_at_o,
+                    priv_key_format_o,
+                    priv_key_bytes_o,
+                    comment_o
                 FROM priv_keys
                 WHERE wallets_rowid = $1 AND pub_key = $2
             "#,
@@ -658,32 +691,70 @@ impl WalletStorage for WalletStorageSQLite {
         ctx: &WalletStorageCtx,
         priv_key_record_filter: &PrivKeyRecordFilter,
     ) -> Result<Vec<PrivKeyRecord>> {
+        tracing::trace!(?priv_key_record_filter, "getting priv keys");
+
         let filter_on_pub_key = priv_key_record_filter.pub_key_o.is_some();
         let pub_key_str_o = priv_key_record_filter
             .pub_key_o
             .as_ref()
             .map(|pub_key| pub_key.as_str());
-        let filter_on_key_purpose = priv_key_record_filter.key_purpose_o.is_some();
-        let key_purpose_str_o = priv_key_record_filter
-            .key_purpose_o
+
+        let filter_on_hashed_pub_key = priv_key_record_filter.hashed_pub_key_o.is_some();
+        let hashed_pub_key_str_o = priv_key_record_filter
+            .hashed_pub_key_o
             .as_ref()
-            .map(|key_purpose| key_purpose.as_str());
+            .map(|hashed_pub_key| hashed_pub_key.as_str());
+
+        let filter_on_did = priv_key_record_filter.did_o.is_some();
+        let did_str_o = priv_key_record_filter
+            .did_o
+            .as_ref()
+            .map(|did| did.as_str());
+
+        let filter_on_key_purpose_flags = priv_key_record_filter.key_purpose_flags_o.is_some();
+        let key_purpose_flags_integer_o = priv_key_record_filter
+            .key_purpose_flags_o
+            .map(|key_purpose_flags| key_purpose_flags.integer_value() as i64);
+
         let filter_on_is_not_deleted = priv_key_record_filter.is_not_deleted_o.is_some();
+
+        tracing::trace!(?filter_on_key_purpose_flags, ?key_purpose_flags_integer_o);
+
         let query = sqlx::query_as!(
             PrivKeyRow,
             r#"
-                SELECT wallets_rowid, pub_key, key_type, key_purpose_restriction_o, created_at, last_used_at_o, usage_count, deleted_at_o, priv_key_format_o, priv_key_bytes_o
+                SELECT 
+                    wallets_rowid,
+                    pub_key,
+                    hashed_pub_key,
+                    key_type,
+                    did_restriction_o,
+                    key_purpose_restriction_o,
+                    created_at,
+                    last_used_at_o,
+                    max_usage_count_o,
+                    usage_count,
+                    deleted_at_o,
+                    priv_key_format_o,
+                    priv_key_bytes_o,
+                    comment_o
                 FROM priv_keys
                 WHERE wallets_rowid = $1
                     AND (NOT $2 OR pub_key = $3)
-                    AND (NOT $4 OR key_purpose_restriction_o IS NULL OR key_purpose_restriction_o = $5)
-                    AND (NOT $6 OR deleted_at_o = $7)
+                    AND (NOT $4 OR hashed_pub_key = $5)
+                    AND (NOT $6 OR did_restriction_o IS NULL OR did_restriction_o = $7)
+                    AND (NOT $8 OR key_purpose_restriction_o IS NULL OR (key_purpose_restriction_o & $9) != 0)
+                    AND (NOT $10 OR (deleted_at_o IS NULL) = $11)
             "#,
             ctx.wallets_rowid,
             filter_on_pub_key,
             pub_key_str_o,
-            filter_on_key_purpose,
-            key_purpose_str_o,
+            filter_on_hashed_pub_key,
+            hashed_pub_key_str_o,
+            filter_on_did,
+            did_str_o,
+            filter_on_key_purpose_flags,
+            key_purpose_flags_integer_o,
             filter_on_is_not_deleted,
             priv_key_record_filter.is_not_deleted_o,
         );
@@ -713,27 +784,36 @@ impl WalletStorage for WalletStorageSQLite {
         ctx: &WalletStorageCtx,
         priv_key_usage_record: &PrivKeyUsageRecord,
     ) -> Result<()> {
-        let priv_key_usage_row =
-            PrivKeyUsageRow::try_from_priv_key_usage_record(ctx, priv_key_usage_record)?;
+        let priv_key_usage_insert =
+            PrivKeyUsageInsert::try_from_priv_key_usage_record(ctx, priv_key_usage_record)?;
         let query = sqlx::query!(
             r#"
-                INSERT INTO priv_key_usages(wallets_rowid, pub_key, used_at, usage_type, usage_spec_o, did_resource_fully_qualified_o, key_purpose_o)
-                VALUES ($1, $2, $3, $4, $5, $6, $7);
+                INSERT INTO priv_key_usages(
+                    wallets_rowid,
+                    priv_keys_rowid,
+                    used_at,
+                    usage_type,
+                    usage_spec_o,
+                    verification_method_o,
+                    key_purpose_o
+                )
+                VALUES ($1, (SELECT rowid FROM priv_keys WHERE wallets_rowid = $1 AND pub_key = $2), $3, $4, $5, $6, $7);
 
                 UPDATE priv_keys
                 SET last_used_at_o = $8, usage_count = usage_count+1
                 WHERE wallets_rowid = $9 AND pub_key = $10
             "#,
-            priv_key_usage_row.wallets_rowid,
-            priv_key_usage_row.pub_key,
-            priv_key_usage_row.used_at,
-            priv_key_usage_row.usage_type,
-            priv_key_usage_row.usage_spec_o,
-            priv_key_usage_row.did_resource_fully_qualified_o,
-            priv_key_usage_row.key_purpose_o,
-            priv_key_usage_row.used_at,
-            priv_key_usage_row.wallets_rowid,
-            priv_key_usage_row.pub_key,
+            priv_key_usage_insert.wallets_rowid,
+            priv_key_usage_insert.pub_key,
+            priv_key_usage_insert.used_at,
+            priv_key_usage_insert.usage_type,
+            priv_key_usage_insert.usage_spec_o,
+            priv_key_usage_insert.verification_method_o,
+            priv_key_usage_insert.key_purpose_o,
+            // NOTE: The redundancy here seems to be necessary due to an apparent limitation of sqlx.
+            priv_key_usage_insert.used_at,
+            priv_key_usage_insert.wallets_rowid,
+            priv_key_usage_insert.pub_key,
         );
         if let Some(transaction) = transaction_o {
             query
@@ -761,24 +841,39 @@ impl WalletStorage for WalletStorageSQLite {
             .pub_key_o
             .as_ref()
             .map(|pub_key| pub_key.as_str());
+
         let filter_on_usage_type = priv_key_usage_record_filter.usage_type_o.is_some();
         let usage_type_str_o = priv_key_usage_record_filter
             .usage_type_o
             .as_ref()
             .map(|usage_type| usage_type.as_str());
+
         let filter_on_used_at_or_after = priv_key_usage_record_filter.used_at_or_after_o.is_some();
+
         let filter_on_used_at_or_before =
             priv_key_usage_record_filter.used_at_or_before_o.is_some();
+
         let query = sqlx::query_as!(
-            PrivKeyUsageRow,
+            PrivKeyUsageSelect,
             r#"
-                SELECT wallets_rowid, pub_key, used_at, usage_type, usage_spec_o, did_resource_fully_qualified_o, key_purpose_o
+                SELECT 
+                    priv_key_usages.rowid,
+                    priv_key_usages.wallets_rowid,
+                    priv_keys.pub_key,
+                    priv_keys.hashed_pub_key,
+                    priv_key_usages.used_at,
+                    priv_key_usages.usage_type,
+                    priv_key_usages.usage_spec_o,
+                    priv_key_usages.verification_method_o,
+                    priv_key_usages.key_purpose_o
                 FROM priv_key_usages
-                WHERE wallets_rowid = $1
-                    AND (NOT $2 OR pub_key = $3)
-                    AND (NOT $4 OR usage_type = $5)
-                    AND (NOT $6 OR used_at >= $7)
-                    AND (NOT $8 OR used_at <= $9)
+                INNER JOIN priv_keys
+                    ON priv_key_usages.priv_keys_rowid = priv_keys.rowid
+                WHERE priv_key_usages.wallets_rowid = $1
+                    AND (NOT $2 OR priv_keys.pub_key = $3)
+                    AND (NOT $4 OR priv_key_usages.usage_type = $5)
+                    AND (NOT $6 OR priv_key_usages.used_at >= $7)
+                    AND (NOT $8 OR priv_key_usages.used_at <= $9)
             "#,
             ctx.wallets_rowid,
             filter_on_pub_key,
@@ -833,12 +928,15 @@ impl WalletStorage for WalletStorageSQLite {
             .did_o
             .as_ref()
             .map(|did| did.as_str());
+
         let filter_on_version_id = locally_controlled_verification_method_filter
             .version_id_o
             .is_some();
+
         let filter_on_key_purpose = locally_controlled_verification_method_filter
             .key_purpose_o
             .is_some();
+
         let key_purpose_integer_o = locally_controlled_verification_method_filter
             .key_purpose_o
             .map(|key_purpose| key_purpose.as_key_purpose_flags().integer_value() as i64);
@@ -849,19 +947,23 @@ impl WalletStorage for WalletStorageSQLite {
                     verification_methods.did_document_records_rowid,
                     verification_methods.key_id_fragment,
                     verification_methods.controller,
-                    verification_methods.pub_key,
                     verification_methods.key_purpose_flags,
                     did_document_records.did,
                     did_document_records.self_hash,
                     did_document_records.version_id,
+                    priv_keys.pub_key,
+                    priv_keys.hashed_pub_key,
                     priv_keys.key_type,
+                    priv_keys.did_restriction_o,
                     priv_keys.key_purpose_restriction_o,
                     priv_keys.created_at,
                     priv_keys.last_used_at_o,
+                    priv_keys.max_usage_count_o,
                     priv_keys.usage_count,
                     priv_keys.deleted_at_o,
                     priv_keys.priv_key_format_o,
-                    priv_keys.priv_key_bytes_o
+                    priv_keys.priv_key_bytes_o,
+                    priv_keys.comment_o
                 FROM verification_methods
                 INNER JOIN did_document_records
                     ON verification_methods.did_document_records_rowid = did_document_records.rowid
@@ -964,14 +1066,18 @@ impl WalletStorage for WalletStorageSQLite {
             let priv_key_row = PrivKeyRow {
                 wallets_rowid: ctx.wallets_rowid,
                 pub_key: query_result.pub_key,
+                hashed_pub_key: query_result.hashed_pub_key,
                 key_type: query_result.key_type,
+                did_restriction_o: query_result.did_restriction_o,
                 key_purpose_restriction_o: query_result.key_purpose_restriction_o,
                 created_at: query_result.created_at,
                 last_used_at_o: query_result.last_used_at_o,
+                max_usage_count_o: query_result.max_usage_count_o,
                 usage_count: query_result.usage_count,
                 deleted_at_o: query_result.deleted_at_o,
                 priv_key_format_o: query_result.priv_key_format_o,
                 priv_key_bytes_o: query_result.priv_key_bytes_o,
+                comment_o: query_result.comment_o,
             };
             let priv_key_record = priv_key_row.try_into_priv_key_record()?;
 

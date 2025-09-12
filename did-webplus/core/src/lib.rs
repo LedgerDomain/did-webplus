@@ -66,7 +66,7 @@ pub use crate::{
     relative_resource_str::RelativeResourceStr,
     update_rules::{
         All, Any, HashedUpdateKey, RootLevelUpdateRules, Threshold, UpdateKey, UpdateRules,
-        UpdatesDisallowed, ValidProofData, VerifyRules, WeightedUpdateRules,
+        UpdatesDisallowed, ValidProofData, VerifyRulesT, WeightedUpdateRules,
     },
     verification_method::VerificationMethod,
 };

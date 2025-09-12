@@ -552,6 +552,10 @@ async fn create_did(
     })?;
 
     tracing::debug!(?did);
+    tracing::trace!(
+        "received request to create DID using DID document: {}",
+        did_document_body
+    );
 
     let root_did_document = parse_did_document(&did_document_body)?;
     if root_did_document.did != did {
@@ -732,10 +736,11 @@ async fn send_vdg_updates(
 fn parse_did_document(
     did_document_body: &str,
 ) -> Result<did_webplus_core::DIDDocument, (axum::http::StatusCode, String)> {
-    serde_json::from_str(did_document_body).map_err(|_| {
+    serde_json::from_str(did_document_body).map_err(|e| {
+        tracing::error!(?e, "error parsing DID document");
         (
             axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-            "malformed DID document".to_string(),
+            format!("malformed DID document: {}", e),
         )
     })
 }

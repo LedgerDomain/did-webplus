@@ -36,7 +36,7 @@ pub struct DIDDocument {
     /// This is a list of the proofs that will be used to verify the authorization rules to update this DID
     /// while this DID document is current.
     #[serde(rename = "proofs")]
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::new")]
     pub proof_v: Vec<String>,
     /// This defines the timestamp at which this DID document becomes valid.
     #[serde(rename = "validFrom")]
@@ -295,21 +295,31 @@ impl DIDDocument {
         use selfhash::Hash;
         assert!(!self.self_hash.is_placeholder());
 
+        tracing::trace!(?self.self_hash, "verified self-hashes");
+
         if let Some(expected_prev_did_document) = expected_prev_did_document_o {
             // If this is a non-root DIDDocument, verify all proofs, storing the key IDs of the valid proofs.
             let mut valid_proof_data_v = Vec::with_capacity(self.proof_v.len());
             self.verify_proofs(Some(&mut valid_proof_data_v))?;
 
+            tracing::trace!(?valid_proof_data_v, "verified proofs");
+
             // Verify the update rules using the valid proof data.
-            use crate::VerifyRules;
+            use crate::VerifyRulesT;
             expected_prev_did_document
                 .update_rules
                 .verify_rules(&valid_proof_data_v)?;
+
+            tracing::trace!(?valid_proof_data_v, "verified update rules");
         } else {
             // Even though the root DID document doesn't require any proofs, we will verify them anyway,
             // since it would not make sense to produce a root DID document with invalid proofs.
             self.verify_proofs(None)?;
+
+            tracing::trace!("verified proofs for root DID document");
         }
+
+        tracing::trace!("verified self-hashes and update rules");
 
         Ok(())
     }
@@ -335,12 +345,17 @@ impl DIDDocument {
         .map_err(|_| Error::SigningError("Error while signing DID document"))?)
     }
     /// If valid_proof_did_vo is Some, then it will be cleared and the DIDs of the valid proofs will be appended to it.
+    // Note that the allow attributes on valid_proof_data_vo is necessary if the below feature flags are not enabled.
     fn verify_proofs(
         &self,
-        mut valid_proof_data_vo: Option<&mut Vec<ValidProofData>>,
+        #[allow(unused_mut, unused_variables)] mut valid_proof_data_vo: Option<
+            &mut Vec<ValidProofData>,
+        >,
     ) -> Result<()> {
         // Form the detached payload bytes.  This is done by removing all the proofs from the DID document,
         // setting all the self-hash slots to the placeholder hash value, and then serializing the DID document.
+        // This allow attribute is necessary if the below feature flags are not enabled.
+        #[allow(unused_variables)]
         let detached_payload_bytes = self.bytes_to_sign()?;
 
         for proof in self.proof_v.iter() {
@@ -353,7 +368,9 @@ impl DIDDocument {
             })?;
             // TEMP HACK.  Ideally there would be a dyn version of signature::Verifier.
             let pub_key_decoded = pub_key.decoded().unwrap();
-            let verified = match pub_key_decoded.codec() {
+            // This allow attribute is necessary if the below feature flags are not enabled.
+            #[allow(unused_variables)]
+            let proof_was_verified = match pub_key_decoded.codec() {
                 ssi_multicodec::ED25519_PUB => {
                     #[cfg(feature = "ed25519-dalek")]
                     {
@@ -361,14 +378,16 @@ impl DIDDocument {
                             pub_key_decoded.data(),
                         )
                         .map_err(|_| {
-                            Error::Malformed("Failed to parse ED25519 public key from bytes")
+                            Error::Malformed("Failed to parse Ed25519 public key from bytes")
                         })?;
-                        jws.verify2(&verifier, Some(&mut detached_payload_bytes.as_slice()))
-                            .is_ok()
+                        let proof_was_verified = jws
+                            .verify2(&verifier, Some(&mut detached_payload_bytes.as_slice()))
+                            .is_ok();
+                        proof_was_verified
                     }
                     #[cfg(not(feature = "ed25519-dalek"))]
                     {
-                        return Err(Error::Unsupported("Must enable the `ed25519-dalek` feature to verify using ED25519 public keys"));
+                        panic!("Must enable the `ed25519-dalek` feature to verify using Ed25519 public keys");
                     }
                 }
                 ssi_multicodec::SECP256K1_PUB => {
@@ -376,19 +395,21 @@ impl DIDDocument {
                     {
                         let verifier = k256::ecdsa::VerifyingKey::try_from(pub_key_decoded.data())
                             .map_err(|_| {
-                                Error::Malformed("Failed to parse SECP256K1 public key from bytes")
+                                Error::Malformed("Failed to parse Secp256k1 public key from bytes")
                             })?;
-                        jws.verify2::<k256::ecdsa::Signature, _>(
-                            &verifier,
-                            Some(&mut detached_payload_bytes.as_slice()),
-                        )
-                        .is_ok()
+                        let proof_was_verified = jws
+                            .verify2::<k256::ecdsa::Signature, _>(
+                                &verifier,
+                                Some(&mut detached_payload_bytes.as_slice()),
+                            )
+                            .is_ok();
+                        proof_was_verified
                     }
                     #[cfg(not(feature = "k256"))]
                     {
-                        return Err(Error::Unsupported(
-                            "Must enable the `k256` feature to verify using SECP256K1 public keys",
-                        ));
+                        panic!(
+                            "Must enable the `k256` feature to verify using Secp256k1 public keys"
+                        );
                     }
                 }
                 ssi_multicodec::P256_PUB => {
@@ -396,26 +417,28 @@ impl DIDDocument {
                     {
                         let verifier = p256::ecdsa::VerifyingKey::try_from(pub_key_decoded.data())
                             .map_err(|_| {
-                                Error::Malformed("Failed to parse P256 public key from bytes")
+                                Error::Malformed("Failed to parse P-256 public key from bytes")
                             })?;
-                        jws.verify2::<p256::ecdsa::Signature, _>(
-                            &verifier,
-                            Some(&mut detached_payload_bytes.as_slice()),
-                        )
-                        .is_ok()
+                        let proof_was_verified = jws
+                            .verify2::<p256::ecdsa::Signature, _>(
+                                &verifier,
+                                Some(&mut detached_payload_bytes.as_slice()),
+                            )
+                            .is_ok();
+                        proof_was_verified
                     }
                     #[cfg(not(feature = "p256"))]
                     {
-                        return Err(Error::Unsupported(
-                            "Must enable the `p256` feature to verify using P256 public keys",
-                        ));
+                        panic!("Must enable the `p256` feature to verify using P-256 public keys");
                     }
                 }
                 _ => {
                     return Err(Error::Unsupported("Unsupported public key codec"));
                 }
             };
-            if verified {
+            // This allow attribute is necessary if the above feature flags are not enabled.
+            #[allow(unreachable_code)]
+            if proof_was_verified {
                 if let Some(valid_proof_data_vo) = valid_proof_data_vo.as_mut() {
                     valid_proof_data_vo.push(ValidProofData::from_key(pub_key));
                 }

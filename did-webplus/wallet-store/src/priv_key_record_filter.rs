@@ -1,15 +1,26 @@
-use did_webplus_core::KeyPurpose;
+use did_webplus_core::KeyPurposeFlags;
 
 use crate::PrivKeyRecord;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PrivKeyRecordFilter {
     /// If this is Some(pub_key), then only the priv key for that pub key will be returned.  Because priv keys
-    /// are keyed primarily by pub key, this is a way to select a single priv key.
+    /// are indexed by pub key, this is a way to select a single priv key.  If this is None, then priv keys
+    /// will not be filtered by pub key.
     pub pub_key_o: Option<selfsign::KERIVerifier>,
-    /// If this is Some(key_purpose), then only priv keys that are usable for that purpose will be returned.
-    /// In particular, this means keys that have a key_purpose_restriction_o field that is Some(key_purpose) or None.
-    pub key_purpose_o: Option<KeyPurpose>,
+    /// If this is Some(hashed_pub_key), then only the priv key for that hashed pub key will be returned.
+    /// Because priv keys are indexed by hashed pub key, this is a way to select a single priv key.
+    /// If this is None, then priv keys will not be filtered by hashed pub key.
+    pub hashed_pub_key_o: Option<String>,
+    /// If this is Some(did), then only priv keys that are usable for that DID will be returned.
+    /// In particular, this means keys that have a did_restriction_o field that is Some(did) or None.
+    /// If this is None, then priv keys will not be filtered by DID restriction.
+    pub did_o: Option<String>,
+    /// If this is Some(key_purpose_flags), then only priv keys that are usable for those purposes will be returned.
+    /// In particular, this means keys that have a key_purpose_restriction_o field that is None or is Some(_) and
+    /// have having a nonzero intersection with key_purpose_flags.  If this is None, then priv keys will not be
+    /// filtered by key purpose.
+    pub key_purpose_flags_o: Option<KeyPurposeFlags>,
     /// If this is Some(is_not_deleted), then only priv keys with matching deletion status will be returned.
     pub is_not_deleted_o: Option<bool>,
     // /// If this is Some(time), then only priv keys created after that time will be returned.
@@ -37,9 +48,9 @@ impl PrivKeyRecordFilter {
                 return false;
             }
         }
-        if let Some(key_purpose) = self.key_purpose_o {
+        if let Some(key_purpose_flags) = self.key_purpose_flags_o {
             if let Some(key_purpose_restriction) = priv_key_record.key_purpose_restriction_o {
-                if !key_purpose_restriction.contains(key_purpose) {
+                if !key_purpose_restriction.intersects(key_purpose_flags) {
                     return false;
                 }
             }

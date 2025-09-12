@@ -17,6 +17,7 @@ did-webplus-wallet-store = { path = "../wallet-store" }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 enum-map = "2.7.3"
 lazy_static = "1.4.0"
+mbc = { path = "../../../mbc" }
 rand = "0.8"
 reqwest = { version = "0.12.5", features = ["json"] }
 selfhash = "0.4.0"

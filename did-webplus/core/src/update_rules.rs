@@ -2,6 +2,7 @@ use crate::{Error, Result};
 use mbc::{B64UHash, B64UHashStr, B64UPubKey, B64UPubKeyStr};
 use std::{cell::OnceCell, collections::HashMap, ops::Deref};
 
+#[derive(Clone, Debug)]
 pub struct ValidProofData {
     key: B64UPubKey,
     #[allow(dead_code)]
@@ -52,14 +53,14 @@ impl ValidProofData {
     }
 }
 
-pub trait VerifyRules {
+pub trait VerifyRulesT {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()>;
 }
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct UpdatesDisallowed {}
 
-impl VerifyRules for UpdatesDisallowed {
+impl VerifyRulesT for UpdatesDisallowed {
     fn verify_rules(&self, _valid_proof_key_v: &[ValidProofData]) -> Result<()> {
         Err(Error::InvalidDIDUpdateOperation("UpdatesDisallowed"))
     }
@@ -70,7 +71,7 @@ pub struct UpdateKey {
     pub key: B64UPubKey,
 }
 
-impl VerifyRules for UpdateKey {
+impl VerifyRulesT for UpdateKey {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         for valid_proof_key in valid_proof_data_v.iter() {
             if valid_proof_key.key() == self.key.deref() {
@@ -88,7 +89,7 @@ pub struct HashedUpdateKey {
     pub hashed_key: B64UHash,
 }
 
-impl VerifyRules for HashedUpdateKey {
+impl VerifyRulesT for HashedUpdateKey {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         let hash_codec = self.hashed_key.decoded().unwrap().codec();
         for valid_proof_key in valid_proof_data_v.iter() {
@@ -106,7 +107,7 @@ pub struct Any {
     pub any: Vec<UpdateRules>,
 }
 
-impl VerifyRules for Any {
+impl VerifyRulesT for Any {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         // Simple recursive definition.
         for update_rules in self.any.iter() {
@@ -133,7 +134,7 @@ impl All {
     }
 }
 
-impl VerifyRules for All {
+impl VerifyRulesT for All {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         // Simple recursive definition.
         for update_rules in self.all.iter() {
@@ -189,7 +190,7 @@ impl Threshold {
     }
 }
 
-impl VerifyRules for Threshold {
+impl VerifyRulesT for Threshold {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         let mut weight_sum = 0;
         for weighted_update_rules in self.of.iter() {
@@ -273,7 +274,7 @@ impl From<Threshold> for UpdateRules {
     }
 }
 
-impl VerifyRules for UpdateRules {
+impl VerifyRulesT for UpdateRules {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         match self {
             UpdateRules::Key(key) => key.verify_rules(valid_proof_data_v),
@@ -287,11 +288,13 @@ impl VerifyRules for UpdateRules {
 
 /// Defines the update rules for a DID document.  Note that if the value is UpdatesDisallowed,
 /// then no updates to the DID are allowed, meaning that the DID is "tombstoned".
+/// NOTE: In order for serialization roundtrip to work, the UpdatesDisallowed variant must be LAST.
+/// This could be fixed by causing UpdatesDisallowed to be serialized as the string "UpdatesDisallowed".
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 #[serde(untagged)]
 pub enum RootLevelUpdateRules {
-    UpdatesDisallowed(UpdatesDisallowed),
     UpdateRules(UpdateRules),
+    UpdatesDisallowed(UpdatesDisallowed),
 }
 
 impl From<UpdatesDisallowed> for RootLevelUpdateRules {
@@ -307,7 +310,7 @@ impl<T: Into<UpdateRules>> From<T> for RootLevelUpdateRules {
     }
 }
 
-impl VerifyRules for RootLevelUpdateRules {
+impl VerifyRulesT for RootLevelUpdateRules {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         match self {
             RootLevelUpdateRules::UpdatesDisallowed(updates_disallowed) => {
@@ -317,5 +320,86 @@ impl VerifyRules for RootLevelUpdateRules {
                 update_rules.verify_rules(valid_proof_data_v)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
+    struct Stuff {
+        update_rules: RootLevelUpdateRules,
+    }
+
+    fn test_update_rules_serde_json_roundtrip_case(update_rules: RootLevelUpdateRules) {
+        let stuff = Stuff { update_rules };
+
+        // Test ordinary JSON
+        tracing::debug!("stuff: {:?}", stuff);
+        let json = serde_json::to_string(&stuff).unwrap();
+        tracing::debug!("json: {}", json);
+        let parsed_json = serde_json::from_str::<Stuff>(&json).unwrap();
+        tracing::debug!("parsed_json: {:?}", parsed_json);
+        assert_eq!(parsed_json, stuff);
+
+        // Also test JCS.
+        let jcs = serde_json_canonicalizer::to_string(&stuff).unwrap();
+        tracing::debug!("jcs: {}", jcs);
+        let parsed_jcs = serde_json::from_str::<Stuff>(&jcs).unwrap();
+        tracing::debug!("parsed_jcs: {:?}", parsed_jcs);
+        assert_eq!(parsed_jcs, stuff);
+    }
+
+    #[test]
+    fn test_update_rules_serde_json_roundtrip() {
+        test_util::ctor_overall_init();
+
+        test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(UpdateKey {
+            key: B64UPubKey::try_from("7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
+        }));
+        test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(HashedUpdateKey {
+            hashed_key: B64UHash::try_from("EhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe").unwrap(),
+        }));
+        test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(Any {
+            any: vec![UpdateKey {
+                key: B64UPubKey::try_from("7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
+                    .unwrap(),
+            }
+            .into()],
+        }));
+        test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(All {
+            all: vec![UpdateKey {
+                key: B64UPubKey::try_from("7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
+                    .unwrap(),
+            }
+            .into()],
+        }));
+        test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(Threshold {
+            at_least: 2,
+            of: vec![
+                WeightedUpdateRules {
+                    weight: 3,
+                    update_rules: UpdateKey {
+                        key: B64UPubKey::try_from("7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
+                            .unwrap(),
+                    }
+                    .into(),
+                },
+                WeightedUpdateRules {
+                    weight: 1,
+                    update_rules: HashedUpdateKey {
+                        hashed_key: B64UHash::try_from(
+                            "EhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe",
+                        )
+                        .unwrap(),
+                    }
+                    .into(),
+                },
+            ],
+        }));
+        test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::UpdatesDisallowed(
+            UpdatesDisallowed {},
+        ));
     }
 }

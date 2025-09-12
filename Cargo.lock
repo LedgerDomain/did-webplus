@@ -1155,6 +1155,7 @@ dependencies = [
  "ed25519-dalek",
  "enum-map",
  "lazy_static",
+ "mbc",
  "rand",
  "reqwest",
  "selfhash",

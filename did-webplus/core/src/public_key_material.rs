@@ -85,6 +85,9 @@ impl PublicKeyMaterial {
             KeyPurpose::KeyAgreement => &self.key_agreement_relative_key_resource_v,
             KeyPurpose::CapabilityInvocation => &self.capability_invocation_relative_key_resource_v,
             KeyPurpose::CapabilityDelegation => &self.capability_delegation_relative_key_resource_v,
+            _ => {
+                panic!("programmer error: UpdateDIDDocument is not a valid KeyPurpose for a verification method");
+            }
         };
         relative_key_resource_v
             .iter()
@@ -99,7 +102,7 @@ impl PublicKeyMaterial {
         key_id_fragment: &KERIVerifierStr,
     ) -> KeyPurposeFlags {
         let mut key_purpose_flags = KeyPurposeFlags::NONE;
-        for key_purpose in KeyPurpose::VARIANTS {
+        for key_purpose in KeyPurpose::VERIFICATION_METHOD_VARIANTS {
             if self
                 .relative_key_resources_for_purpose(key_purpose)
                 .any(|relative_key_resource| relative_key_resource.fragment() == key_id_fragment)
@@ -118,7 +121,7 @@ impl PublicKeyMaterial {
             .iter()
             .map(|verification_method| verification_method.id.relative_resource())
             .collect::<HashSet<&RelativeKeyResourceStr>>();
-        for key_purpose in KeyPurpose::VARIANTS {
+        for key_purpose in KeyPurpose::VERIFICATION_METHOD_VARIANTS {
             for relative_key_resource in self.relative_key_resources_for_purpose(key_purpose) {
                 if !relative_key_resource_s.contains(relative_key_resource) {
                     return Err(Error::MalformedKeyId(
