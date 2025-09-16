@@ -11,6 +11,7 @@ edition = "2021"
 async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
+mbc = { path = "../../../mbc" }
 selfhash = "0.4.0"
 sqlx = { version = "0.8.2", features = [
     "runtime-tokio-rustls",

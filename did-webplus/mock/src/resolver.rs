@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
-use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
+use did_webplus_core::{
+    DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata,
+};
 
 /// Trait defining the DID Resolver data model.  The two mock implementations of this are
 /// MockResolverFull (keeps a local MockVerifiedCache of all DIDs it has resolved) and
@@ -33,7 +35,7 @@ pub trait Resolver {
     fn resolve_did_document<'s>(
         &'s mut self,
         did: &DIDStr,
-        self_hash_o: Option<&selfhash::KERIHashStr>,
+        self_hash_o: Option<&mbc::MBHashStr>,
         version_id_o: Option<u32>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error>;

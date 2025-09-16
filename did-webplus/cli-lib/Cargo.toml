@@ -18,7 +18,7 @@ did-key = { path = "../../did-key", features = [
     "k256",
     "verifier-resolver",
 ] }
-did-webplus-core = { path = "../core", features = ["tracing"] }
+did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-jws = { path = "../jws" }
 did-webplus-resolver = { path = "../resolver" }

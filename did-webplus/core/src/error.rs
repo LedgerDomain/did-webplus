@@ -21,6 +21,8 @@ pub enum Error {
     NotFound(&'static str),
     #[error("Generic error: {0}")]
     Generic(&'static str),
+    #[error("MBC error: {0}")]
+    MBCError(mbc::Error),
     #[error("Self-hash error: {0}")]
     SelfHashError(selfhash::Error),
     #[error("Self-sign error: {0}")]
@@ -38,6 +40,12 @@ pub enum Error {
 impl From<&'static str> for Error {
     fn from(s: &'static str) -> Self {
         Self::Generic(s)
+    }
+}
+
+impl From<mbc::Error> for Error {
+    fn from(e: mbc::Error) -> Self {
+        Self::MBCError(e)
     }
 }
 

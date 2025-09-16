@@ -92,7 +92,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbc::MBHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         let query = sqlx::query_as!(
             DIDDocRecord,

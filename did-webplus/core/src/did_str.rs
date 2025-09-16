@@ -41,11 +41,11 @@ impl DIDStr {
     pub fn path_o(&self) -> Option<&str> {
         self.uri_components().path_o
     }
-    /// This is the self-hash (as a KERIHash) of the root DID document, which is what makes it a unique ID.
-    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+    /// This is the self-hash (as a MBHashStr) of the root DID document, which is what makes it a unique ID.
+    pub fn root_self_hash(&self) -> &mbc::MBHashStr {
         self.uri_components().root_self_hash
     }
-    pub fn with_query_self_hash(&self, query_self_hash: &selfhash::KERIHashStr) -> DIDWithQuery {
+    pub fn with_query_self_hash(&self, query_self_hash: &mbc::MBHashStr) -> DIDWithQuery {
         DIDWithQuery::new(
             self.host(),
             self.port_o(),
@@ -69,7 +69,7 @@ impl DIDStr {
     }
     pub fn with_queries(
         &self,
-        query_self_hash: &selfhash::KERIHashStr,
+        query_self_hash: &mbc::MBHashStr,
         query_version_id: u32,
     ) -> DIDFullyQualified {
         DIDFullyQualified::new(
@@ -138,7 +138,7 @@ impl DIDStr {
     /// Produce the URL that addresses the DID document for this DID that has the given self-hash.
     pub fn resolution_url_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbc::MBHashStr,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
@@ -237,7 +237,7 @@ impl DIDStr {
     /// this DID that has the given self-hash.
     pub fn resolution_url_for_metadata_idempotent_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbc::MBHashStr,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(

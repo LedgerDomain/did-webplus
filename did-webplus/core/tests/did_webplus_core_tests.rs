@@ -12,9 +12,9 @@ fn overall_init() {
 #[serial_test::serial]
 fn test_roundtrip_did_basic() {
     let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ",
+        "did:webplus:example.com:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q",
+        "did:webplus:example.com:user:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q",
+        "did:webplus:example.com:user:thingy:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q",
     ];
     for s in str_v {
         let did = did_webplus_core::DID::from_str(s).expect("pass");
@@ -32,17 +32,17 @@ fn test_roundtrip_did_with_query() {
     // Note that the String -> String roundtrip depends on the specific order of selfHash
     // then versionId in the query params.
     let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?versionId=3",
+        "did:webplus:example.com:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?versionId=3",
+        "did:webplus:example.com:user:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?versionId=3",
+        "did:webplus:example.com:user:thingy:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?versionId=3",
 
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE",
+        "did:webplus:example.com:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe",
+        "did:webplus:example.com:user:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe",
+        "did:webplus:example.com:user:thingy:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe",
 
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3",
+        "did:webplus:example.com:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe&versionId=3",
+        "did:webplus:example.com:user:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe&versionId=3",
+        "did:webplus:example.com:user:thingy:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe&versionId=3",
 
     ];
     for s in str_v {
@@ -59,9 +59,9 @@ fn test_roundtrip_did_with_query() {
 #[serial_test::serial]
 fn test_roundtrip_did_key_resource_fully_qualified() {
     let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?selfHash=E3-h7xVBXBvX07yyiev5TPx8OH-oF9CY6D_DwWnkEUAE&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:thingy:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q?selfHash=uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe&versionId=3#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
     ];
     for s in str_v {
         let did = did_webplus_core::DIDKeyResourceFullyQualified::from_str(s).expect("pass");
@@ -77,9 +77,9 @@ fn test_roundtrip_did_key_resource_fully_qualified() {
 #[serial_test::serial]
 fn test_roundtrip_did_key_resource() {
     let str_v = [
-        "did:webplus:example.com:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
-        "did:webplus:example.com:user:thingy:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
+        "did:webplus:example.com:user:thingy:uHkodlQTcceVhzJUgX68-bReDvW-omVrYvU4ZccxIrg0Q#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU",
     ];
     for s in str_v {
         let did = did_webplus_core::DIDKeyResource::from_str(s).expect("pass");
@@ -91,6 +91,8 @@ fn test_roundtrip_did_key_resource() {
     }
 }
 
+// TODO: How to enable this feature in dev-dependencies?
+#[cfg(feature = "ed25519-dalek")]
 #[test]
 #[serial_test::serial]
 fn test_root_did_document_sign_and_verify() {
@@ -122,7 +124,7 @@ fn test_root_did_document_sign_and_verify() {
                     capability_invocation_v: vec![&verifying_key],
                     capability_delegation_v: vec![&verifying_key],
                 },
-                &selfhash::Blake3,
+                &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
             )
             .expect("pass");
 
@@ -151,6 +153,7 @@ fn test_root_did_document_sign_and_verify() {
     }
 }
 
+#[cfg(feature = "ed25519-dalek")]
 #[test]
 #[serial_test::serial]
 fn test_did_update_sign_and_verify() {
@@ -179,7 +182,7 @@ fn test_did_update_sign_and_verify() {
             capability_invocation_v: vec![&verifying_key_0],
             capability_delegation_v: vec![&verifying_key_0],
         },
-        &selfhash::Blake3,
+        &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
     )
     .expect("pass");
 
@@ -226,13 +229,13 @@ fn test_did_update_sign_and_verify() {
             capability_invocation_v: vec![&verifying_key_1],
             capability_delegation_v: vec![&verifying_key_0],
         },
-        &selfhash::Blake3,
+        &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
     )
     .expect("pass");
 
     // Sign the DID document.
     let jws = did_document_1
-        .sign(update_pub_key_1.to_string(), &update_signing_key_1)
+        .sign(update_pub_key_0.to_string(), &update_signing_key_0)
         .expect("pass");
 
     // Add the proof to the DID document.

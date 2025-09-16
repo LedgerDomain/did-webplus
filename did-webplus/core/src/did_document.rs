@@ -1,7 +1,8 @@
+use std::ops::Deref;
+
 use crate::{
     Error, PublicKeyMaterial, PublicKeySet, Result, RootLevelUpdateRules, ValidProofData, DID,
 };
-use selfhash::SelfHashable;
 
 /// The generic data model for did:webplus DID documents.  There are additional constraints on the
 /// data (it must be a root DID document or a non-root DID document), and there are conversion
@@ -24,12 +25,12 @@ pub struct DIDDocument {
     /// This is the self-hash of the document.  The self-hash functions as the globally unique identifier
     /// for the DID document.
     #[serde(rename = "selfHash")]
-    pub self_hash: selfhash::KERIHash,
+    pub self_hash: mbc::MBHash,
     /// This should be the self-hash of the previous DID document.  This relationship is what forms
     /// the microledger.
     #[serde(rename = "prevDIDDocumentSelfHash")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_did_document_self_hash_o: Option<selfhash::KERIHash>,
+    pub prev_did_document_self_hash_o: Option<mbc::MBHash>,
     /// This defines the update authorization rules for this DID while this DID document is current.
     #[serde(rename = "updateRules")]
     pub update_rules: RootLevelUpdateRules,
@@ -59,20 +60,17 @@ impl DIDDocument {
         update_rules: RootLevelUpdateRules,
         valid_from: time::OffsetDateTime,
         public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
-        hash_function: &dyn selfhash::HashFunction,
+        hash_function: &impl selfhash::HashFunctionT<HashRef = mbc::MBHashStr>,
     ) -> Result<Self> {
+        let self_hash_placeholder = hash_function.placeholder_hash();
         let did = DID::new(
             did_hostname,
             did_port_o,
             did_path_o,
-            hash_function.placeholder_hash().to_keri_hash()?.as_ref(),
+            self_hash_placeholder.as_ref(),
         )
         .expect("pass");
-        let self_hash_placeholder = hash_function
-            .placeholder_hash()
-            .to_keri_hash()?
-            .as_ref()
-            .to_owned();
+        let self_hash_placeholder = self_hash_placeholder.into_owned();
         Ok(Self {
             did: did.clone(),
             self_hash: self_hash_placeholder,
@@ -89,21 +87,17 @@ impl DIDDocument {
         update_rules: RootLevelUpdateRules,
         valid_from: time::OffsetDateTime,
         public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
-        hash_function: &dyn selfhash::HashFunction,
+        hash_function: &impl selfhash::HashFunctionT<HashRef = mbc::MBHashStr>,
     ) -> Result<Self> {
-        use selfhash::Hash;
-        if prev_did_document.self_hash.is_placeholder() {
+        use selfhash::HashRefT;
+        if prev_did_document.self_hash.deref().is_placeholder() {
             return Err(Error::Malformed(
                 "Previous DID document self-hash is a placeholder",
             ));
         }
         let did = prev_did_document.did.clone();
         let prev_did_document_self_hash = prev_did_document.self_hash.clone();
-        let self_hash_placeholder = hash_function
-            .placeholder_hash()
-            .to_keri_hash()?
-            .as_ref()
-            .to_owned();
+        let self_hash_placeholder = hash_function.placeholder_hash().into_owned();
         Ok(Self {
             did: did.clone(),
             self_hash: self_hash_placeholder,
@@ -121,15 +115,12 @@ impl DIDDocument {
         // Maybe this is only a debug check.
         self.proof_v.push(proof);
     }
-    pub fn finalize(
-        &mut self,
-        prev_did_document_o: Option<&DIDDocument>,
-        // verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-    ) -> Result<&selfhash::KERIHash> {
-        use selfhash::Hash;
-        let hash_function = self.self_hash.hash_function()?;
-        let hasher_b = hash_function.new_hasher();
-        <Self as selfhash::SelfHashable>::self_hash(self, hasher_b)?.to_keri_hash()?;
+    pub fn finalize(&mut self, prev_did_document_o: Option<&DIDDocument>) -> Result<&mbc::MBHash> {
+        use selfhash::HashRefT;
+        let hash_function = self.self_hash.hash_function();
+        use selfhash::HashFunctionT;
+        let hasher = hash_function.new_hasher();
+        <Self as selfhash::SelfHashableT<mbc::MBHashStr>>::self_hash(self, hasher)?;
         self.verify_nonrecursive(prev_did_document_o)?;
         Ok(&self.self_hash)
     }
@@ -155,16 +146,15 @@ impl DIDDocument {
     }
 
     // TEMP METHODS (maybe?)
-    // NOTE: This assumes this DIDDocument is self-hashed.
-    pub fn self_hash_o(&self) -> Option<&selfhash::KERIHash> {
-        use selfhash::Hash;
-        if self.self_hash.is_placeholder() {
+    pub fn self_hash_o(&self) -> Option<&mbc::MBHash> {
+        use selfhash::HashRefT;
+        if self.self_hash.deref().is_placeholder() {
             None
         } else {
             Some(&self.self_hash)
         }
     }
-    pub fn prev_did_document_self_hash_o(&self) -> Option<&selfhash::KERIHash> {
+    pub fn prev_did_document_self_hash_o(&self) -> Option<&mbc::MBHash> {
         self.prev_did_document_self_hash_o.as_ref()
     }
     pub fn valid_from(&self) -> time::OffsetDateTime {
@@ -179,7 +169,7 @@ impl DIDDocument {
     pub fn verify_nonrecursive(
         &self,
         expected_prev_did_document_o: Option<&DIDDocument>,
-    ) -> Result<&selfhash::KERIHash> {
+    ) -> Result<&mbc::MBHash> {
         if self.is_root_did_document() {
             if expected_prev_did_document_o.is_some() {
                 return Err(Error::Malformed(
@@ -196,7 +186,7 @@ impl DIDDocument {
             self.verify_non_root_nonrecursive(expected_prev_did_document_o.unwrap())
         }
     }
-    pub fn verify_root_nonrecursive(&self) -> Result<&selfhash::KERIHash> {
+    pub fn verify_root_nonrecursive(&self) -> Result<&mbc::MBHash> {
         if !self.is_root_did_document() {
             return Err(Error::Malformed(
                 "Expected a root DID document, but this is a non-root DID document.",
@@ -227,13 +217,13 @@ impl DIDDocument {
     pub fn verify_non_root_nonrecursive(
         &self,
         expected_prev_did_document: &DIDDocument,
-    ) -> Result<&selfhash::KERIHash> {
+    ) -> Result<&mbc::MBHash> {
         if self.is_root_did_document() {
             return Err(Error::Malformed(
                 "Expected a non-root DID document, but this is a root DID document.",
             ));
         }
-        use selfhash::SelfHashable;
+        use selfhash::SelfHashableT;
         let expected_prev_did_document_self_hash = expected_prev_did_document
             .verify_self_hashes()
             .map_err(|_| Error::Malformed("Previous DID document self-hash not valid"))?;
@@ -248,9 +238,8 @@ impl DIDDocument {
         }
 
         // Check that prev_did_document_self_hash matches the expected_prev_did_document_b's self-hash.
-        use selfhash::Hash;
         let prev_did_document_self_hash = self.prev_did_document_self_hash_o.as_ref().unwrap();
-        if !prev_did_document_self_hash.equals(expected_prev_did_document_self_hash)? {
+        if prev_did_document_self_hash.deref() != expected_prev_did_document_self_hash {
             return Err(Error::Malformed(
                 "Non-root DID document's prev_did_document_self_hash must match the self-hash of the previous DID document",
             ));
@@ -291,9 +280,10 @@ impl DIDDocument {
     ) -> Result<()> {
         // Note that if this check succeeds, then in particular, all the self-hash slots are equal,
         // and in particular, are equal to `self.self_hash`.
+        use selfhash::SelfHashableT;
         self.verify_self_hashes()?;
-        use selfhash::Hash;
-        assert!(!self.self_hash.is_placeholder());
+        use selfhash::HashRefT;
+        assert!(!self.self_hash.deref().is_placeholder());
 
         tracing::trace!(?self.self_hash, "verified self-hashes");
 
@@ -452,32 +442,36 @@ impl DIDDocument {
         let mut self_clone = self.clone();
         self_clone.proof_v.clear();
         // NOTE: All this could really be replaced with self.write_digest_data once that method accepts std::io::Write.
-        use selfhash::Hash;
-        let hash_function = self.self_hash.hash_function()?;
-        self_clone.set_self_hash_slots_to(hash_function.placeholder_hash())?;
+        use selfhash::HashRefT;
+        let hash_function = self.self_hash.hash_function();
+        use selfhash::{HashFunctionT, SelfHashableT};
+        self_clone.set_self_hash_slots_to(&hash_function.placeholder_hash())?;
         Ok(self_clone.serialize_canonically()?.as_bytes().to_vec())
     }
 }
 
-impl selfhash::SelfHashable for DIDDocument {
-    fn write_digest_data(&self, hasher: &mut dyn selfhash::Hasher) -> selfhash::Result<()> {
-        selfhash::write_digest_data_using_jcs(self, hasher)
+impl selfhash::SelfHashableT<mbc::MBHashStr> for DIDDocument {
+    fn write_digest_data(
+        &self,
+        hasher: &mut <<mbc::MBHashStr as selfhash::HashRefT>::HashFunction as selfhash::HashFunctionT>::Hasher,
+    ) -> selfhash::Result<()> {
+        selfhash::write_digest_data_using_jcs_2(self, hasher)
     }
     fn self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> selfhash::Result<Box<dyn std::iter::Iterator<Item = Option<&'b dyn selfhash::Hash>> + 'a>>
+    ) -> selfhash::Result<Box<dyn std::iter::Iterator<Item = Option<&'b mbc::MBHashStr>> + 'a>>
     {
-        use selfhash::Hash;
-        let self_hash_o = if self.self_hash.is_placeholder() {
+        use selfhash::HashRefT;
+        let self_hash_o = if self.self_hash.deref().is_placeholder() {
             None
         } else {
-            Some(&self.self_hash as &dyn selfhash::Hash)
+            Some(self.self_hash.deref())
         };
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to return.
         if self.is_root_did_document() {
             Ok(Box::new(
-                std::iter::once(Some(&self.did as &dyn selfhash::Hash))
+                std::iter::once(Some(self.did.root_self_hash()))
                     .chain(std::iter::once(self_hash_o))
                     .chain(self.public_key_material.root_did_document_self_hash_oi()),
             ))
@@ -485,18 +479,17 @@ impl selfhash::SelfHashable for DIDDocument {
             Ok(Box::new(std::iter::once(self_hash_o)))
         }
     }
-    fn set_self_hash_slots_to(&mut self, hash: &dyn selfhash::Hash) -> selfhash::Result<()> {
-        let keri_hash = hash.to_keri_hash()?.into_owned();
+    fn set_self_hash_slots_to(&mut self, hash: &mbc::MBHashStr) -> selfhash::Result<()> {
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to assign to.
         if self.is_root_did_document() {
             self.public_key_material
-                .set_root_did_document_self_hash_slots_to(&keri_hash)
+                .set_root_did_document_self_hash_slots_to(hash)
                 .map_err(|e| e.to_string())?;
-            self.did.set_root_self_hash(&keri_hash);
-            self.self_hash = keri_hash;
+            self.did.set_root_self_hash(hash);
+            self.self_hash = hash.to_owned();
         } else {
-            self.self_hash = keri_hash;
+            self.self_hash = hash.to_owned();
         }
         Ok(())
     }

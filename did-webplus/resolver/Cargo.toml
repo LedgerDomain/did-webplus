@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.80"
-did-webplus-core = { path = "../core", features = ["tracing"] }
+did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional = true }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }

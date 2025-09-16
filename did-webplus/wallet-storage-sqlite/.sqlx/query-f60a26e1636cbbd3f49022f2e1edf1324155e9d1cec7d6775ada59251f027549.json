@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT \n                    wallets_rowid,\n                    pub_key,\n                    hashed_pub_key,\n                    key_type,\n                    did_restriction_o,\n                    key_purpose_restriction_o,\n                    created_at,\n                    last_used_at_o,\n                    max_usage_count_o,\n                    usage_count,\n                    deleted_at_o,\n                    priv_key_format_o,\n                    priv_key_bytes_o,\n                    comment_o\n                FROM priv_keys\n                WHERE wallets_rowid = $1 AND pub_key = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "wallets_rowid",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "pub_key",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "hashed_pub_key",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_type",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "did_restriction_o",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_purpose_restriction_o",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "last_used_at_o",
+        "ordinal": 7,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "max_usage_count_o",
+        "ordinal": 8,
+        "type_info": "Integer"
+      },
+      {
+        "name": "usage_count",
+        "ordinal": 9,
+        "type_info": "Integer"
+      },
+      {
+        "name": "deleted_at_o",
+        "ordinal": 10,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "priv_key_format_o",
+        "ordinal": 11,
+        "type_info": "Text"
+      },
+      {
+        "name": "priv_key_bytes_o",
+        "ordinal": 12,
+        "type_info": "Blob"
+      },
+      {
+        "name": "comment_o",
+        "ordinal": 13,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "f60a26e1636cbbd3f49022f2e1edf1324155e9d1cec7d6775ada59251f027549"
+}

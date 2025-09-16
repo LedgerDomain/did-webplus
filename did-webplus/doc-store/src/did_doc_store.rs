@@ -131,7 +131,7 @@ impl DIDDocStore {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbc::MBHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         self.did_doc_storage_a
             .get_did_doc_record_with_self_hash(transaction_o, did, self_hash)

@@ -1,5 +1,4 @@
 use crate::{DIDResourceStr, DIDWebplusURIComponents, Error, Fragment};
-use std::borrow::Cow;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(
@@ -26,7 +25,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
         host: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
-        root_self_hash: &selfhash::KERIHashStr,
+        root_self_hash: &mbc::MBHashStr,
         fragment: &F,
     ) -> Result<Self, Error> {
         // TODO: Complete validation of host
@@ -53,7 +52,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
     }
     /// Set the root self-hash value to the given value.  This assumes that the new root self-hash has
     /// the same str len as the existing one, and therefore doesn't allocate.
-    pub fn set_root_self_hash(&mut self, root_self_hash: &selfhash::KERIHashStr) {
+    pub fn set_root_self_hash(&mut self, root_self_hash: &mbc::MBHashStr) {
         assert_eq!(self.root_self_hash().len(), root_self_hash.len(), "programmer error: hash function must already be known, producing a known, fixed length for the DID's root self-hash component");
         let end = self.find('#').unwrap();
         assert!(end > self.root_self_hash().len());
@@ -62,22 +61,5 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
         debug_assert!(
             <DIDResourceStr::<F> as pneutype::Validate>::validate(self.1.as_str()).is_ok()
         );
-    }
-}
-
-/// This implementation is to allow a `&DIDResource` to function as a `&dyn selfhash::Hash`, which is necessary
-/// for the self-hashing functionality.  A DIDResource isn't strictly "a Hash", more like it "has a Hash", but
-/// this semantic difference isn't worth doing anything about.
-impl<F: 'static + Fragment + ?Sized> selfhash::Hash for DIDResource<F> {
-    fn hash_function(&self) -> selfhash::Result<&'static dyn selfhash::HashFunction> {
-        self.root_self_hash().hash_function()
-    }
-    fn is_placeholder(&self) -> bool {
-        self.root_self_hash().is_placeholder()
-    }
-    fn as_preferred_hash_format<'s: 'h, 'h>(
-        &'s self,
-    ) -> selfhash::Result<selfhash::PreferredHashFormat<'h>> {
-        Ok(Cow::Borrowed(self.root_self_hash()).into())
     }
 }

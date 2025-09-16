@@ -25,7 +25,7 @@ did-webplus-cli-lib = { path = "../cli-lib", features = [
     "ed25519-dalek",
     "k256",
 ] }
-did-webplus-core = { path = "../core", features = ["tracing"] }
+did-webplus-core = { path = "../core" }
 did-webplus-doc-storage-mock = { path = "../doc-storage-mock" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-jws = { path = "../jws", features = ["wasm-bindgen"] }

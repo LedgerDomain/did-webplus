@@ -8,6 +8,7 @@ edition = "2021"
 async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
+mbc = { path = "../../../mbc" }
 selfhash = "0.4.0"
 storage-traits = { path = "../../storage-traits" }
 time = "0.3"

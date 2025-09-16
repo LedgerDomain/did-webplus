@@ -1,5 +1,4 @@
 use crate::{DIDStr, DIDWebplusURIComponents, Error};
-use std::borrow::Cow;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, pneutype::PneuString)]
 #[pneu_string(as_pneu_str = "as_did_str", borrow = "DIDStr", deserialize, serialize)]
@@ -11,7 +10,7 @@ impl DID {
         host: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
-        root_self_hash: &selfhash::KERIHashStr,
+        root_self_hash: &mbc::MBHashStr,
     ) -> Result<Self, Error> {
         let s = DIDWebplusURIComponents {
             host,
@@ -52,7 +51,7 @@ impl DID {
                 (None, root_self_hash_str)
             }
         };
-        let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)?;
+        let root_self_hash = mbc::MBHashStr::new_ref(root_self_hash_str)?;
         Self::new(host, port_o, path_o.as_deref(), root_self_hash)
     }
     /// Parse (the equivalent of) a did-documents.jsonl resolution URL to produce a DID.
@@ -86,11 +85,11 @@ impl DID {
                 (None, root_self_hash_str)
             }
         };
-        let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)?;
+        let root_self_hash = mbc::MBHashStr::new_ref(root_self_hash_str)?;
         Self::new(host, port_o, path_o.as_deref(), root_self_hash)
     }
     /// Set the root self hash value to the given value.
-    pub fn set_root_self_hash(&mut self, root_self_hash: &selfhash::KERIHashStr) {
+    pub fn set_root_self_hash(&mut self, root_self_hash: &mbc::MBHashStr) {
         // Strip off the root self_hash portion, not including the ':' delimiter before it.
         self.0.truncate(self.0.rfind(':').unwrap() + 1);
         self.0.push_str(root_self_hash.as_str());
@@ -99,22 +98,5 @@ impl DID {
             DIDStr::validate(self.0.as_str()).is_ok(),
             "programmer error"
         );
-    }
-}
-
-/// This implementation is to allow a `&DID` to function as a `&dyn selfhash::Hash`, which is necessary
-/// for the self-hashing functionality.  A DID isn't strictly "a Hash", more like it "has a Hash", but
-/// this semantic difference isn't worth doing anything about.
-impl selfhash::Hash for DID {
-    fn hash_function(&self) -> selfhash::Result<&'static dyn selfhash::HashFunction> {
-        self.root_self_hash().hash_function()
-    }
-    fn is_placeholder(&self) -> bool {
-        self.root_self_hash().is_placeholder()
-    }
-    fn as_preferred_hash_format<'s: 'h, 'h>(
-        &'s self,
-    ) -> selfhash::Result<selfhash::PreferredHashFormat<'h>> {
-        Ok(Cow::Borrowed(self.root_self_hash()).into())
     }
 }

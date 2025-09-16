@@ -439,7 +439,7 @@ async fn get_did_document_metadata_self_hash_or_version_id(
         )
         .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
         let filename_self_hash_str = filename.strip_suffix(".json").unwrap();
-        let filename_self_hash = selfhash::KERIHashStr::new_ref(filename_self_hash_str)
+        let filename_self_hash = mbc::MBHashStr::new_ref(filename_self_hash_str)
             .map_err(|_| (StatusCode::BAD_REQUEST, "".to_string()))?;
         let did_document_record = vdr_app_state
             .did_doc_store

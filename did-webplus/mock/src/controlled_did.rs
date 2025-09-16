@@ -68,7 +68,7 @@ impl ControlledDID {
             update_rules,
             valid_from,
             public_key_set,
-            &selfhash::Blake3,
+            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
         )?;
         // NOTE: There's no need to sign the root DID document, but it is allowed.
         // Finalize the root DID document.  In particular, this will self-hash the DID document.
@@ -140,7 +140,7 @@ impl ControlledDID {
             next_update_rules,
             valid_from,
             public_key_set,
-            &selfhash::Blake3,
+            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
         )?;
 
         // Sign the new DID document using the existing update_signing_key (the one referenced in the

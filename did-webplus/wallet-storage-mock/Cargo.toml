@@ -9,6 +9,7 @@ async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-wallet-store = { path = "../wallet-store" }
+mbc = { path = "../../../mbc" }
 selfhash = "0.4.0"
 selfsign = "0.6.0"
 serde_json = "1.0.107"

@@ -17,7 +17,6 @@ ed25519-dalek = [
 ]
 k256 = ["did-webplus-jws/k256", "dep:k256", "selfsign/k256"]
 p256 = ["did-webplus-jws/p256", "dep:p256"]
-tracing = ["dep:tracing"]
 
 [dependencies]
 async-trait = { version = "0.1.80", optional = true }
@@ -41,7 +40,7 @@ mbc = { path = "../../../mbc", features = [
 ] }
 p256 = { version = "0.13.2", optional = true }
 pneutype = "0.5.1"
-selfhash = { version = "0.4.0", features = ["serde", "blake3"] }
+selfhash = { version = "0.4.0", features = ["blake3", "mbc", "serde"] }
 selfsign = { version = "0.6.0", features = ["serde", "jcs"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json_canonicalizer = "0.3.0"
@@ -53,7 +52,7 @@ signature = "2.2.0"
 ssi-multicodec = "0.2.0"
 thiserror = { version = "1.0.60", default-features = false }
 time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
-tracing = { version = "0.1.37", optional = true }
+tracing = "0.1.37"
 verifier-resolver = { path = "../../verifier-resolver" }
 
 [dev-dependencies]
@@ -62,6 +61,7 @@ did-key = { path = "../../did-key", features = [
     "ed25519-dalek",
     "verifier-resolver",
 ] }
+did-webplus-jws = { path = "../jws", features = ["ed25519-dalek"] }
 ed25519-dalek = { version = "2.2.0", features = ["digest", "rand_core"] }
 rand = "0.8"
 selfsign = { version = "0.6.0", features = ["ed25519-dalek"] }

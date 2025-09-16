@@ -15,7 +15,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
     }
     pub fn with_queries(
         &self,
-        query_self_hash: &selfhash::KERIHashStr,
+        query_self_hash: &mbc::MBHashStr,
         query_version_id: u32,
     ) -> DIDResourceFullyQualified<F> {
         DIDResourceFullyQualified::new(
@@ -51,7 +51,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+    pub fn root_self_hash(&self) -> &mbc::MBHashStr {
         self.uri_components().root_self_hash
     }
     /// This is the relative resource portion of the DID URI, which is the '#' char and everything following.

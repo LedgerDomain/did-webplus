@@ -194,7 +194,7 @@ impl Wallet for SoftwareWallet {
                 capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
                 capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
             },
-            &selfhash::Blake3,
+            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
         )
         .expect("programmer error");
 
@@ -436,7 +436,7 @@ impl Wallet for SoftwareWallet {
                 capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
                 capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
             },
-            &selfhash::Blake3,
+            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
         )
         .expect("programmer error");
 

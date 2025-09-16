@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO priv_keys(\n                    wallets_rowid,\n                    pub_key,\n                    hashed_pub_key,\n                    key_type,\n                    did_restriction_o,\n                    key_purpose_restriction_o,\n                    created_at,\n                    last_used_at_o,\n                    max_usage_count_o,\n                    usage_count,\n                    deleted_at_o,\n                    priv_key_format_o,\n                    priv_key_bytes_o,\n                    comment_o\n                )\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 14
+    },
+    "nullable": []
+  },
+  "hash": "767788d2f99182a5ba82c01a96f80ffeca7abd036f0db27dbdca260f9091c988"
+}

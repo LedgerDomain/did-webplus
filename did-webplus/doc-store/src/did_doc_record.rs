@@ -67,14 +67,14 @@ impl DIDDocRecord {
 
         // Note that if this check succeeds, then in particular, all the self-hash slots are equal,
         // and in particular, are equal to `did_document.self_hash`.
-        use selfhash::SelfHashable;
+        use selfhash::SelfHashableT;
         did_document.verify_self_hashes().map_err(|err| {
             Error::RecordCorruption(
                 format!("Parsed DID doc failed to verify self-hashes: {}", err).into(),
                 self.self_hash.to_string().into(),
             )
         })?;
-        use selfhash::Hash;
+        use selfhash::HashRefT;
         assert!(!did_document.self_hash.is_placeholder());
 
         Ok(())

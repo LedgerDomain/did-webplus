@@ -88,7 +88,6 @@ impl HTTPSchemeOverride {
         match self.0.get(hostname) {
             // Override was specified, so use it.
             Some(&scheme) => {
-                #[cfg(feature = "tracing")]
                 tracing::debug!(
                     "HTTPSchemeOverride::determine_http_scheme_for_host; self: {:?}; host: {}; overriding with scheme {}",
                     self,
@@ -120,14 +119,12 @@ impl HTTPSchemeOverride {
     pub fn default_http_scheme_for_host(host: &str) -> Result<&'static str> {
         let (hostname, _port_o) = Self::parse_host_and_port_o(host)?;
         if hostname == "localhost" {
-            #[cfg(feature = "tracing")]
             tracing::trace!(
                 "HTTPSchemeOverride::default_http_scheme_for_host; host: {}; returning \"http\"",
                 host
             );
             Ok("http")
         } else {
-            #[cfg(feature = "tracing")]
             tracing::trace!(
                 "HTTPSchemeOverride::default_http_scheme_for_host; host: {}; returning \"https\"",
                 host

@@ -145,7 +145,7 @@ impl DIDDocStorage for WalletStorageSQLite {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbc::MBHashStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
         let self_hash_str = self_hash.as_str();
@@ -1009,8 +1009,8 @@ impl WalletStorage for WalletStorageSQLite {
                     .into(),
                 )
             })?;
-            let self_hash = selfhash::KERIHashStr::new_ref(query_result.self_hash.as_str())
-                .map_err(|e| {
+            let self_hash =
+                mbc::MBHashStr::new_ref(query_result.self_hash.as_str()).map_err(|e| {
                     Error::RecordCorruption(
                         format!(
                             "invalid did_document_records.self_hash value {}; error was: {}",

@@ -1,0 +1,98 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT \n                    wallets_rowid,\n                    pub_key,\n                    hashed_pub_key,\n                    key_type,\n                    did_restriction_o,\n                    key_purpose_restriction_o,\n                    created_at,\n                    last_used_at_o,\n                    max_usage_count_o,\n                    usage_count,\n                    deleted_at_o,\n                    priv_key_format_o,\n                    priv_key_bytes_o,\n                    comment_o\n                FROM priv_keys\n                WHERE wallets_rowid = $1\n                    AND (NOT $2 OR pub_key = $3)\n                    AND (NOT $4 OR hashed_pub_key = $5)\n                    AND (NOT $6 OR did_restriction_o IS NULL OR did_restriction_o = $7)\n                    AND (NOT $8 OR key_purpose_restriction_o IS NULL OR (key_purpose_restriction_o & $9) != 0)\n                    AND (NOT $10 OR (deleted_at_o IS NULL) = $11)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "wallets_rowid",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "pub_key",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "hashed_pub_key",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_type",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "did_restriction_o",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_purpose_restriction_o",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "last_used_at_o",
+        "ordinal": 7,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "max_usage_count_o",
+        "ordinal": 8,
+        "type_info": "Integer"
+      },
+      {
+        "name": "usage_count",
+        "ordinal": 9,
+        "type_info": "Integer"
+      },
+      {
+        "name": "deleted_at_o",
+        "ordinal": 10,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "priv_key_format_o",
+        "ordinal": 11,
+        "type_info": "Text"
+      },
+      {
+        "name": "priv_key_bytes_o",
+        "ordinal": 12,
+        "type_info": "Blob"
+      },
+      {
+        "name": "comment_o",
+        "ordinal": 13,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 11
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "a91e7b30447d7cc4d8212f57ca4671bea10ea19b2e2f76b468ffdd0acfdcf76b"
+}

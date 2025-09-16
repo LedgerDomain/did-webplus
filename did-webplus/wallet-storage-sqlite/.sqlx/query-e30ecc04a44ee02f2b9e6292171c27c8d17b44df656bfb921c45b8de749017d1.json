@@ -1,0 +1,134 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT\n                    verification_methods.did_document_records_rowid,\n                    verification_methods.key_id_fragment,\n                    verification_methods.controller,\n                    verification_methods.key_purpose_flags,\n                    did_document_records.did,\n                    did_document_records.self_hash,\n                    did_document_records.version_id,\n                    priv_keys.pub_key,\n                    priv_keys.hashed_pub_key,\n                    priv_keys.key_type,\n                    priv_keys.did_restriction_o,\n                    priv_keys.key_purpose_restriction_o,\n                    priv_keys.created_at,\n                    priv_keys.last_used_at_o,\n                    priv_keys.max_usage_count_o,\n                    priv_keys.usage_count,\n                    priv_keys.deleted_at_o,\n                    priv_keys.priv_key_format_o,\n                    priv_keys.priv_key_bytes_o,\n                    priv_keys.comment_o\n                FROM verification_methods\n                INNER JOIN did_document_records\n                    ON verification_methods.did_document_records_rowid = did_document_records.rowid\n                INNER JOIN priv_keys\n                    ON verification_methods.pub_key = priv_keys.pub_key\n                WHERE\n                    priv_keys.wallets_rowid = $1\n                    AND priv_keys.deleted_at_o IS NULL\n                    AND (NOT $2 OR did_document_records.did = $3)\n                    AND (NOT $4 OR did_document_records.version_id = $5)\n                    AND (NOT $6 OR (verification_methods.key_purpose_flags & $7 != 0))\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "did_document_records_rowid",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "key_id_fragment",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "controller",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_purpose_flags",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "did",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "self_hash",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "version_id",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "pub_key",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "hashed_pub_key",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_type",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "did_restriction_o",
+        "ordinal": 10,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_purpose_restriction_o",
+        "ordinal": 11,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 12,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "last_used_at_o",
+        "ordinal": 13,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "max_usage_count_o",
+        "ordinal": 14,
+        "type_info": "Integer"
+      },
+      {
+        "name": "usage_count",
+        "ordinal": 15,
+        "type_info": "Integer"
+      },
+      {
+        "name": "deleted_at_o",
+        "ordinal": 16,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "priv_key_format_o",
+        "ordinal": 17,
+        "type_info": "Text"
+      },
+      {
+        "name": "priv_key_bytes_o",
+        "ordinal": 18,
+        "type_info": "Blob"
+      },
+      {
+        "name": "comment_o",
+        "ordinal": 19,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "e30ecc04a44ee02f2b9e6292171c27c8d17b44df656bfb921c45b8de749017d1"
+}

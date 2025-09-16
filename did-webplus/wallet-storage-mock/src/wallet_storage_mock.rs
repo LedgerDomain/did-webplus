@@ -171,7 +171,7 @@ impl SigilT for DIDDocuments {}
 /// Corresponds to `did_documents` table in sqlite impl.
 #[derive(Clone, Debug)]
 struct DIDDocumentRow {
-    self_hash: selfhash::KERIHash,
+    self_hash: mbc::MBHash,
     did: did_webplus_core::DID,
     version_id: u32,
     valid_from: time::OffsetDateTime,
@@ -201,14 +201,14 @@ struct DIDDocumentsDIDSelfHash;
 impl SigilT for DIDDocumentsDIDSelfHash {}
 
 impl IndexedRowT<DIDDocumentsDIDSelfHash> for DIDDocumentRow {
-    type IndexKey = (did_webplus_core::DID, selfhash::KERIHash);
+    type IndexKey = (did_webplus_core::DID, mbc::MBHash);
     fn index_key(&self) -> Self::IndexKey {
         (self.did.clone(), self.self_hash.clone())
     }
 }
 
 type DIDDocumentsDIDSelfHashIndex =
-    Index<DIDDocumentsDIDSelfHash, DIDDocuments, (did_webplus_core::DID, selfhash::KERIHash)>;
+    Index<DIDDocumentsDIDSelfHash, DIDDocuments, (did_webplus_core::DID, mbc::MBHash)>;
 
 /// Sigil representing the did_documents table's (did, version_id) index.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -351,7 +351,7 @@ impl WalletStorageMockState {
     fn get_did_document_with_self_hash(
         &self,
         did: &DIDStr,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbc::MBHashStr,
     ) -> TableResult<Option<(RowId<DIDDocuments>, &DIDDocumentRow)>> {
         Ok(
             self.did_documents_did_self_hash_index.select(
@@ -660,7 +660,7 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbc::MBHashStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let state_g = self.state_la.read().unwrap();
         Ok(state_g

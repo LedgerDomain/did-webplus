@@ -1,8 +1,8 @@
 use crate::{DIDWebplusURIComponents, DIDWithQueryStr, Error};
 
 // pub enum DIDQueryParams<'a> {
-//     SelfHash(&'a selfhash::KERIHashStr),
-//     FullyQualified(&'a selfhash::KERIHashStr, u32),
+//     SelfHash(&'a mbc::MBHashStr),
+//     FullyQualified(&'a mbc::MBHashStr, u32),
 //     VersionId(u32),
 // }
 
@@ -21,8 +21,8 @@ impl DIDWithQuery {
         host: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
-        root_self_hash: &selfhash::KERIHashStr,
-        query_self_hash_o: Option<&selfhash::KERIHashStr>,
+        root_self_hash: &mbc::MBHashStr,
+        query_self_hash_o: Option<&mbc::MBHashStr>,
         query_version_id_o: Option<u32>,
     ) -> Result<Self, Error> {
         // TODO: Complete validation of host
@@ -63,16 +63,13 @@ impl DIDWithQuery {
         if path.ends_with("/did/selfHash") {
             let path = path.strip_suffix("/did/selfHash").unwrap();
             let query_self_hash_str = filename.strip_suffix(".json").unwrap();
-            let query_self_hash =
-                selfhash::KERIHashStr::new_ref(query_self_hash_str).map_err(|_| {
-                    Error::Malformed(
-                        "invalid query self-hash in filename component of resolution URL",
-                    )
-                })?;
+            let query_self_hash = mbc::MBHashStr::new_ref(query_self_hash_str).map_err(|_| {
+                Error::Malformed("invalid query self-hash in filename component of resolution URL")
+            })?;
             match path.rsplit_once('/') {
                 Some((path, root_self_hash_str)) => {
-                    let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)
-                        .map_err(|_| {
+                    let root_self_hash =
+                        mbc::MBHashStr::new_ref(root_self_hash_str).map_err(|_| {
                             Error::Malformed("invalid root self-hash component of resolution URL")
                         })?;
                     Ok(Self::new(
@@ -85,7 +82,7 @@ impl DIDWithQuery {
                     )?)
                 }
                 None => {
-                    let root_self_hash = selfhash::KERIHashStr::new_ref(path).map_err(|_| {
+                    let root_self_hash = mbc::MBHashStr::new_ref(path).map_err(|_| {
                         Error::Malformed("invalid root self-hash component of resolution URL")
                     })?;
                     Ok(Self::new(
@@ -106,8 +103,8 @@ impl DIDWithQuery {
             })?;
             match path.rsplit_once('/') {
                 Some((path, root_self_hash_str)) => {
-                    let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)
-                        .map_err(|_| {
+                    let root_self_hash =
+                        mbc::MBHashStr::new_ref(root_self_hash_str).map_err(|_| {
                             Error::Malformed("invalid root self-hash component of resolution URL")
                         })?;
                     Ok(Self::new(
@@ -120,7 +117,7 @@ impl DIDWithQuery {
                     )?)
                 }
                 None => {
-                    let root_self_hash = selfhash::KERIHashStr::new_ref(path).map_err(|_| {
+                    let root_self_hash = mbc::MBHashStr::new_ref(path).map_err(|_| {
                         Error::Malformed("invalid root self-hash component of resolution URL")
                     })?;
                     Ok(Self::new(
