@@ -881,12 +881,14 @@ dependencies = [
  "async-trait",
  "ctor",
  "ed25519-dalek",
- "env_logger",
  "k256",
+ "mbc",
  "multibase",
  "pneutype",
  "selfsign",
  "serde",
+ "ssi-multicodec",
+ "test-util",
  "tracing",
  "verifier-resolver",
 ]
@@ -918,6 +920,7 @@ dependencies = [
  "serde_json",
  "serde_json_canonicalizer 0.3.0",
  "sqlx",
+ "ssi-multicodec",
  "storage-traits",
  "tokio",
  "tracing",
@@ -1082,6 +1085,7 @@ dependencies = [
  "serde",
  "serde_json",
  "signature",
+ "ssi-multicodec",
  "wasm-bindgen",
 ]
 
@@ -1114,6 +1118,7 @@ dependencies = [
 name = "did-webplus-resolver"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "ctor",
  "did-webplus-core",
@@ -1128,10 +1133,12 @@ dependencies = [
  "did-webplus-wallet-store",
  "futures",
  "lazy_static",
+ "mbc",
  "reqwest",
  "selfsign",
  "serde_json",
  "sqlx",
+ "ssi-multicodec",
  "storage-traits",
  "test-util",
  "thiserror",
@@ -1390,6 +1397,7 @@ dependencies = [
  "async-trait",
  "did-webplus-core",
  "did-webplus-doc-store",
+ "mbc",
  "selfhash",
  "selfsign",
  "serde",
@@ -3373,10 +3381,11 @@ checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
 
 [[package]]
 name = "serde"
-version = "1.0.219"
+version = "1.0.225"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
+checksum = "fd6c24dee235d0da097043389623fb913daddf92c76e9f5a1db88607a0bcbd1d"
 dependencies = [
+ "serde_core",
  "serde_derive",
 ]
 
@@ -3392,10 +3401,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_derive"
-version = "1.0.219"
+name = "serde_core"
+version = "1.0.225"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
+checksum = "659356f9a0cb1e529b24c01e43ad2bdf520ec4ceaf83047b83ddcc2251f96383"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.225"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ea936adf78b1f766949a4977b91d2f5595825bd6ec079aa9543ad2685fc4516"
 dependencies = [
  "proc-macro2",
  "quote",

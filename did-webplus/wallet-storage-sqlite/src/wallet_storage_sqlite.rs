@@ -101,7 +101,7 @@ impl DIDDocStorage for WalletStorageSQLite {
             let key_id_fragment_str = verification_method.id.fragment();
             let controller = verification_method.controller.as_str();
             let pub_key =
-                selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?.to_string();
+                mbc::MBPubKey::try_from(&verification_method.public_key_jwk)?.to_string();
             let key_purpose_flags = did_document
                 .public_key_material
                 .key_purpose_flags_for_key_id_fragment(verification_method.id.fragment());
@@ -608,7 +608,7 @@ impl WalletStorage for WalletStorageSQLite {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifierStr,
+        pub_key: &mbc::MBPubKeyStr,
     ) -> Result<()> {
         let deleted_at_o = Some(time::OffsetDateTime::now_utc());
         let pub_key_str = pub_key.as_str();
@@ -642,7 +642,7 @@ impl WalletStorage for WalletStorageSQLite {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifierStr,
+        pub_key: &mbc::MBPubKeyStr,
     ) -> Result<Option<PrivKeyRecord>> {
         let pub_key_str = pub_key.as_str();
         let query = sqlx::query_as!(

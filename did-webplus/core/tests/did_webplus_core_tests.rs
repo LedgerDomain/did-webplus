@@ -100,14 +100,16 @@ fn test_root_did_document_sign_and_verify() {
     let update_verifying_key = update_signing_key.verifying_key();
     let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let verifying_key = signing_key.verifying_key();
+    let pub_key =
+        mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &verifying_key);
 
     // Determine the update rules; just the one key.
-    let pub_key = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+    let update_pub_key = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
         mbc::Base::Base64Url,
         &update_verifying_key,
     );
     let update_rules = did_webplus_core::RootLevelUpdateRules::from(did_webplus_core::UpdateKey {
-        key: pub_key.clone(),
+        key: update_pub_key.clone(),
     });
 
     let did_hostname = "example.com";
@@ -121,11 +123,11 @@ fn test_root_did_document_sign_and_verify() {
                 update_rules.clone(),
                 time::OffsetDateTime::now_utc(),
                 PublicKeySet {
-                    authentication_v: vec![&verifying_key],
-                    assertion_method_v: vec![&verifying_key],
-                    key_agreement_v: vec![&verifying_key],
-                    capability_invocation_v: vec![&verifying_key],
-                    capability_delegation_v: vec![&verifying_key],
+                    authentication_v: vec![&pub_key],
+                    assertion_method_v: vec![&pub_key],
+                    key_agreement_v: vec![&pub_key],
+                    capability_invocation_v: vec![&pub_key],
+                    capability_delegation_v: vec![&pub_key],
                 },
                 &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
             )
@@ -133,7 +135,7 @@ fn test_root_did_document_sign_and_verify() {
 
             // Sign the root DID document.
             let jws = root_did_document
-                .sign(pub_key.to_string(), &update_signing_key)
+                .sign(update_pub_key.to_string(), &update_signing_key)
                 .expect("pass");
 
             println!("jws: {}", jws);
@@ -162,9 +164,6 @@ fn test_root_did_document_sign_and_verify() {
 fn test_did_update_sign_and_verify() {
     let update_signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let update_verifying_key_0 = update_signing_key_0.verifying_key();
-    let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-    let verifying_key_0 = signing_key_0.verifying_key();
-
     // Determine the update rules; just the one key, and just use did:key to identify it.
     let update_pub_key_0 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
         mbc::Base::Base64Url,
@@ -174,6 +173,12 @@ fn test_did_update_sign_and_verify() {
         key: update_pub_key_0.clone(),
     });
 
+    // Create the keypair for the verification method.
+    let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let verifying_key_0 = signing_key_0.verifying_key();
+    let pub_key_0 =
+        mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &verifying_key_0);
+
     // Create the root DID document.
     let mut root_did_document = DIDDocument::create_unsigned_root(
         "example.com",
@@ -182,11 +187,11 @@ fn test_did_update_sign_and_verify() {
         update_rules,
         time::OffsetDateTime::now_utc(),
         PublicKeySet {
-            authentication_v: vec![&verifying_key_0],
-            assertion_method_v: vec![&verifying_key_0],
-            key_agreement_v: vec![&verifying_key_0],
-            capability_invocation_v: vec![&verifying_key_0],
-            capability_delegation_v: vec![&verifying_key_0],
+            authentication_v: vec![&pub_key_0],
+            assertion_method_v: vec![&pub_key_0],
+            key_agreement_v: vec![&pub_key_0],
+            capability_invocation_v: vec![&pub_key_0],
+            capability_delegation_v: vec![&pub_key_0],
         },
         &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
     )
@@ -225,18 +230,22 @@ fn test_did_update_sign_and_verify() {
         key: update_pub_key_1.clone(),
     });
 
+    // Create the new keypair for the verification method.
     let signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let verifying_key_1 = signing_key_1.verifying_key();
+    let pub_key_1 =
+        mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &verifying_key_1);
+
     let mut did_document_1 = DIDDocument::create_unsigned_non_root(
         &root_did_document,
         update_rules,
         time::OffsetDateTime::now_utc(),
         PublicKeySet {
-            authentication_v: vec![&verifying_key_1],
-            assertion_method_v: vec![&verifying_key_0],
-            key_agreement_v: vec![&verifying_key_0],
-            capability_invocation_v: vec![&verifying_key_1],
-            capability_delegation_v: vec![&verifying_key_0],
+            authentication_v: vec![&pub_key_1],
+            assertion_method_v: vec![&pub_key_0],
+            key_agreement_v: vec![&pub_key_0],
+            capability_invocation_v: vec![&pub_key_1],
+            capability_delegation_v: vec![&pub_key_0],
         },
         &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
     )

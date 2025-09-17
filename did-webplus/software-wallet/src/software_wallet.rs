@@ -165,20 +165,17 @@ impl Wallet for SoftwareWallet {
         };
         // TODO: Somehow iterate?
         let pub_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => priv_key_m[KeyPurpose::Authentication].verifying_key(),
-            KeyPurpose::AssertionMethod => priv_key_m[KeyPurpose::AssertionMethod].verifying_key(),
-            KeyPurpose::KeyAgreement => priv_key_m[KeyPurpose::KeyAgreement].verifying_key(),
-            KeyPurpose::CapabilityInvocation => priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key(),
-            KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key(),
-            KeyPurpose::UpdateDIDDocument => priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key(),
+            KeyPurpose::Authentication => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::Authentication].verifying_key()),
+            KeyPurpose::AssertionMethod => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::AssertionMethod].verifying_key()),
+            KeyPurpose::KeyAgreement => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::KeyAgreement].verifying_key()),
+            KeyPurpose::CapabilityInvocation => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key()),
+            KeyPurpose::CapabilityDelegation => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key()),
+            KeyPurpose::UpdateDIDDocument => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key()),
         };
 
         // Define the update rules.  For now, just a single key.
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                mbc::Base::Base64Url,
-                &pub_key_m[KeyPurpose::UpdateDIDDocument],
-            ),
+            key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
         });
 
         // Form the unsigned root DID document.
@@ -192,7 +189,6 @@ impl Wallet for SoftwareWallet {
                 authentication_v: vec![&pub_key_m[KeyPurpose::Authentication]],
                 assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod]],
                 key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement]],
-                // Note that this is the one being used to self-sign the root DIDDocument.
                 capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
                 capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
             },
@@ -262,10 +258,7 @@ impl Wallet for SoftwareWallet {
 
         // Store the priv keys
         for key_purpose in KeyPurpose::VARIANTS {
-            let pub_key = priv_key_m[key_purpose]
-                .verifying_key()
-                .to_keri_verifier()
-                .into_owned();
+            let pub_key = pub_key_m[key_purpose].clone();
             let hashed_pub_key = format!("PlaceholderHash({})", pub_key).to_string();
             let max_usage_count_o = if key_purpose == KeyPurpose::UpdateDIDDocument {
                 Some(1)
@@ -273,7 +266,6 @@ impl Wallet for SoftwareWallet {
                 None
             };
             let comment_o = Some("generated during DID create".to_string());
-            use selfsign::Verifier;
             self.wallet_storage_a
                 .add_priv_key(
                     Some(transaction_b.as_mut()),
@@ -337,14 +329,13 @@ impl Wallet for SoftwareWallet {
             KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
         };
         // TODO: Somehow iterate?
-        use selfsign::Verifier;
         let pub_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => priv_key_m[KeyPurpose::Authentication].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::AssertionMethod => priv_key_m[KeyPurpose::AssertionMethod].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::KeyAgreement => priv_key_m[KeyPurpose::KeyAgreement].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::CapabilityInvocation => priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::UpdateDIDDocument => priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::Authentication => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::Authentication].verifying_key()),
+            KeyPurpose::AssertionMethod => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::AssertionMethod].verifying_key()),
+            KeyPurpose::KeyAgreement => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::KeyAgreement].verifying_key()),
+            KeyPurpose::CapabilityInvocation => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key()),
+            KeyPurpose::CapabilityDelegation => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key()),
+            KeyPurpose::UpdateDIDDocument => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key()),
         };
 
         let mut transaction_b = self
@@ -419,10 +410,7 @@ impl Wallet for SoftwareWallet {
 
         // Define the update rules.  For now, just a single key.
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                mbc::Base::Base64Url,
-                &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key(),
-            ),
+            key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
         });
 
         // Form the unsigned non-root DID document.
@@ -434,7 +422,6 @@ impl Wallet for SoftwareWallet {
                 authentication_v: vec![&pub_key_m[KeyPurpose::Authentication]],
                 assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod]],
                 key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement]],
-                // Note that this is the one being used to self-sign the root DIDDocument.
                 capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
                 capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
             },
@@ -502,10 +489,7 @@ impl Wallet for SoftwareWallet {
 
         // Store the priv keys
         for key_purpose in KeyPurpose::VARIANTS {
-            let pub_key = priv_key_m[key_purpose]
-                .verifying_key()
-                .to_keri_verifier()
-                .into_owned();
+            let pub_key = pub_key_m[key_purpose].clone();
             let hashed_pub_key = format!("PlaceholderHash({})", pub_key);
             let max_usage_count_o = if key_purpose == KeyPurpose::UpdateDIDDocument {
                 Some(1)

@@ -11,6 +11,7 @@ sqlx = ["dep:sqlx"]
 async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
+mbc = { path = "../../../mbc" }
 selfhash = "0.4.0"
 selfsign = "0.6.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }

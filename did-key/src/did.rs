@@ -1,5 +1,4 @@
-use crate::{DIDStr, Error, DID_KEY_ED25519_PREFIX, DID_KEY_SECP256K1_PREFIX};
-use pneutype::Validate;
+use crate::{DIDStr, Error};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(as_pneu_str = "as_did_key_str", borrow = "DIDStr")]
@@ -9,26 +8,22 @@ pub struct DID(String);
 impl TryFrom<&selfsign::VerifierBytes<'_>> for DID {
     type Error = Error;
     fn try_from(verifier_bytes: &selfsign::VerifierBytes<'_>) -> Result<Self, Self::Error> {
-        // Create the byte array that has the two prefix bytes.
-        let mut byte_v = Vec::with_capacity(2 + verifier_bytes.verifying_key_byte_v.len());
-        match verifier_bytes.key_type {
+        let multibase_string = match verifier_bytes.key_type {
             selfsign::KeyType::Ed25519 => {
-                byte_v.extend_from_slice(&DID_KEY_ED25519_PREFIX);
-                byte_v.extend_from_slice(&verifier_bytes.verifying_key_byte_v);
+                let verifier_encoded = ssi_multicodec::MultiEncodedBuf::encode_bytes(
+                    ssi_multicodec::ED25519_PUB,
+                    verifier_bytes.verifying_key_byte_v.as_ref(),
+                );
+                multibase::encode(multibase::Base::Base58Btc, &verifier_encoded)
             }
             selfsign::KeyType::Secp256k1 => {
-                byte_v.extend_from_slice(&DID_KEY_SECP256K1_PREFIX);
-                byte_v.extend_from_slice(&verifier_bytes.verifying_key_byte_v);
+                let verifier_encoded = ssi_multicodec::MultiEncodedBuf::encode_bytes(
+                    ssi_multicodec::SECP256K1_PUB,
+                    verifier_bytes.verifying_key_byte_v.as_ref(),
+                );
+                multibase::encode(multibase::Base::Base58Btc, &verifier_encoded)
             }
-        }
-        let did_key_string = format!(
-            "did:key:{}",
-            multibase::encode(multibase::Base::Base58Btc, byte_v)
-        );
-        debug_assert!(
-            DIDStr::validate(&did_key_string).is_ok(),
-            "programmer error"
-        );
-        Ok(Self(did_key_string))
+        };
+        Ok(Self(format!("did:key:{}", multibase_string)))
     }
 }

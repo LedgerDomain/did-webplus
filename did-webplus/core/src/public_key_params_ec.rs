@@ -45,7 +45,7 @@ impl PublicKeyParamsEC {
     }
 }
 
-impl TryFrom<&PublicKeyParamsEC> for selfsign::KERIVerifier {
+impl TryFrom<&PublicKeyParamsEC> for mbc::MBPubKey {
     type Error = Error;
     fn try_from(public_key_params_ec: &PublicKeyParamsEC) -> Result<Self, Self::Error> {
         match public_key_params_ec.crv.as_str() {
@@ -82,6 +82,25 @@ impl TryFrom<&dyn selfsign::Verifier> for PublicKeyParamsEC {
             // selfsign::KeyType::P521 => {
             //     unimplemented!("blah");
             // }
+            _ => Err(Error::Unrecognized("EC curve")),
+        }
+    }
+}
+
+impl TryFrom<&mbc::MBPubKeyStr> for PublicKeyParamsEC {
+    type Error = Error;
+    fn try_from(pub_key: &mbc::MBPubKeyStr) -> Result<Self, Self::Error> {
+        let decoded = pub_key.decoded().unwrap();
+        match decoded.codec() {
+            ssi_multicodec::ED25519_PUB => {
+                unimplemented!("blah");
+            }
+            ssi_multicodec::SECP256K1_PUB => {
+                unimplemented!("blah");
+            }
+            ssi_multicodec::P256_PUB => {
+                unimplemented!("blah");
+            }
             _ => Err(Error::Unrecognized("EC curve")),
         }
     }

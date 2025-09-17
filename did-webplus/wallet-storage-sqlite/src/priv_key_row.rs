@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use did_webplus_core::KeyPurposeFlags;
 use did_webplus_wallet_store::{Error, PrivKeyRecord, Result, WalletStorageCtx};
-use selfsign::Verifier;
 
 pub struct PrivKeyRow {
     pub wallets_rowid: i64,
@@ -24,7 +23,7 @@ pub struct PrivKeyRow {
 impl PrivKeyRow {
     /// Validate constraints on this priv key row.  Mostly regarding deletion.
     pub fn validate(&self) -> Result<()> {
-        selfsign::KeyType::from_str(self.key_type.as_str())
+        mbc::KeyType::from_str(self.key_type.as_str())
             .map_err(|e| Error::RecordCorruption(e.to_string().into()))?;
         // TODO: Validate hashed_pub_key and did_restriction_o, and maybe max_usage_count_o.
         if let Some(key_purpose_restriction) = self.key_purpose_restriction_o {
@@ -119,7 +118,19 @@ impl PrivKeyRow {
     pub fn try_into_priv_key_record(self) -> Result<PrivKeyRecord> {
         self.validate()?;
 
-        let key_type = selfsign::KeyType::from_str(self.key_type.as_str()).unwrap();
+        let key_type = mbc::KeyType::from_str(self.key_type.as_str()).unwrap();
+        // TEMP HACK: Convert mbc::KeyType to selfsign::KeyType
+        let key_type = match key_type {
+            mbc::KeyType::Ed25519 => selfsign::KeyType::Ed25519,
+            // mbc::KeyType::P256 => selfsign::KeyType::P256,
+            // mbc::KeyType::P384 => selfsign::KeyType::P384,
+            // mbc::KeyType::P521 => selfsign::KeyType::P521,
+            // mbc::KeyType::RSA => selfsign::KeyType::RSA,
+            mbc::KeyType::Secp256k1 => selfsign::KeyType::Secp256k1,
+            // mbc::KeyType::Sr25519 => selfsign::KeyType::Sr25519,
+            // mbc::KeyType::X25519 => selfsign::KeyType::X25519,
+            _ => panic!("unsupported key type: {:?}", key_type),
+        };
 
         let priv_key_bytes_o = match (self.priv_key_format_o, self.priv_key_bytes_o) {
             (Some(priv_key_format), Some(priv_key_bytes)) => match priv_key_format.as_str() {
@@ -143,7 +154,7 @@ impl PrivKeyRow {
         };
 
         Ok(PrivKeyRecord {
-            pub_key: selfsign::KERIVerifier::try_from(self.pub_key)
+            pub_key: mbc::MBPubKey::try_from(self.pub_key)
                 .map_err(|e| Error::RecordCorruption(e.to_string().into()))?,
             hashed_pub_key: self.hashed_pub_key,
             did_restriction_o: self.did_restriction_o,

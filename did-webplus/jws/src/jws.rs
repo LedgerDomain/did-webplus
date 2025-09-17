@@ -1,5 +1,5 @@
 use crate::{
-    error, require, Error, JOSEAlgorithmT, JWSHeader, JWSPayloadEncoding, JWSPayloadPresence,
+    bail, error, require, Error, JOSEAlgorithmT, JWSHeader, JWSPayloadEncoding, JWSPayloadPresence,
     Result,
 };
 use base64::Engine;
@@ -462,6 +462,7 @@ impl<'j> JWS<'j> {
                 .map_err(|e| error!("error while writing attached payload: {}", e))?;
         }
 
+        // Deserialize the signature bytes into the specific Signature type.
         let signature = Signature::try_from(self.signature_bytes.signature_byte_v.as_ref())
             .map_err(|_| error!("error while deserializing signature bytes to Signature",))?;
 
@@ -471,6 +472,138 @@ impl<'j> JWS<'j> {
             .map_err(|e| error!("JWS failed to verify; error was: {}", e))?;
 
         Ok(())
+    }
+    /// Generate a JWS Compact Serialization from the given header and payload, optionally encoding the given
+    /// payload bytes, and then signing the signing input using the given MBPrivKeyStr.
+    #[cfg(feature = "mbc")]
+    pub fn signed3(
+        kid: String,
+        payload_bytes: &mut dyn std::io::Read,
+        payload_presence: JWSPayloadPresence,
+        payload_encoding: JWSPayloadEncoding,
+        priv_key: &mbc::MBPrivKeyStr,
+    ) -> Result<Self> {
+        // Ideally there would be a dyn version of signature::Verifier, but for now, we have
+        // to branch on the different, supported key types.
+        let priv_key_decoded = priv_key.decoded().unwrap();
+        match priv_key_decoded.codec() {
+            ssi_multicodec::ED25519_PRIV => {
+                #[cfg(feature = "ed25519-dalek")]
+                {
+                    let signer = ed25519_dalek::SigningKey::try_from(priv_key_decoded.data())
+                        .map_err(|_| error!("Failed to parse Ed25519 private key from bytes"))?;
+                    Self::signed2(
+                        kid,
+                        payload_bytes,
+                        payload_presence,
+                        payload_encoding,
+                        &signer,
+                    )
+                }
+                #[cfg(not(feature = "ed25519-dalek"))]
+                {
+                    panic!("Must enable the `ed25519-dalek` feature to sign using Ed25519 private keys");
+                }
+            }
+            ssi_multicodec::SECP256K1_PRIV => {
+                #[cfg(feature = "k256")]
+                {
+                    let signer = k256::ecdsa::SigningKey::try_from(priv_key_decoded.data())
+                        .map_err(|_| error!("Failed to parse Secp256k1 private key from bytes"))?;
+                    Self::signed2::<k256::ecdsa::Signature, _>(
+                        kid,
+                        payload_bytes,
+                        payload_presence,
+                        payload_encoding,
+                        &signer,
+                    )
+                }
+                #[cfg(not(feature = "k256"))]
+                {
+                    panic!("Must enable the `k256` feature to sign using Secp256k1 private keys");
+                }
+            }
+            ssi_multicodec::P256_PRIV => {
+                #[cfg(feature = "p256")]
+                {
+                    let signer = p256::ecdsa::SigningKey::try_from(priv_key_decoded.data())
+                        .map_err(|_| error!("Failed to parse P-256 private key from bytes"))?;
+                    Self::signed2::<p256::ecdsa::Signature, _>(
+                        kid,
+                        payload_bytes,
+                        payload_presence,
+                        payload_encoding,
+                        &signer,
+                    )
+                }
+                #[cfg(not(feature = "p256"))]
+                {
+                    panic!("Must enable the `p256` feature to sign using P-256 private keys");
+                }
+            }
+            _ => {
+                bail!(
+                    "Unsupported private key codec 0x{:02x}",
+                    priv_key_decoded.codec()
+                );
+            }
+        }
+    }
+    /// Verifies the JWS using the given MBPubKeyStr.  detached_payload_bytes_o should be Some(_) if it's a
+    /// detached payload, and None if it's an attached payload.
+    #[cfg(feature = "mbc")]
+    pub fn verify3(
+        &self,
+        pub_key: &mbc::MBPubKeyStr,
+        detached_payload_bytes_o: Option<&mut dyn std::io::Read>,
+    ) -> Result<()> {
+        // Ideally there would be a dyn version of signature::Verifier, but for now, we have
+        // to branch on the different, supported key types.
+        let pub_key_decoded = pub_key.decoded().unwrap();
+        match pub_key_decoded.codec() {
+            ssi_multicodec::ED25519_PUB => {
+                #[cfg(feature = "ed25519-dalek")]
+                {
+                    let verifier = ed25519_dalek::VerifyingKey::try_from(pub_key_decoded.data())
+                        .map_err(|_| error!("Failed to parse Ed25519 public key from bytes"))?;
+                    self.verify2(&verifier, detached_payload_bytes_o)
+                }
+                #[cfg(not(feature = "ed25519-dalek"))]
+                {
+                    panic!("Must enable the `ed25519-dalek` feature to verify using Ed25519 public keys");
+                }
+            }
+            ssi_multicodec::SECP256K1_PUB => {
+                #[cfg(feature = "k256")]
+                {
+                    let verifier = k256::ecdsa::VerifyingKey::try_from(pub_key_decoded.data())
+                        .map_err(|_| error!("Failed to parse Secp256k1 public key from bytes"))?;
+                    self.verify2::<k256::ecdsa::Signature, _>(&verifier, detached_payload_bytes_o)
+                }
+                #[cfg(not(feature = "k256"))]
+                {
+                    panic!("Must enable the `k256` feature to verify using Secp256k1 public keys");
+                }
+            }
+            ssi_multicodec::P256_PUB => {
+                #[cfg(feature = "p256")]
+                {
+                    let verifier = p256::ecdsa::VerifyingKey::try_from(pub_key_decoded.data())
+                        .map_err(|_| error!("Failed to parse P-256 public key from bytes"))?;
+                    self.verify2::<p256::ecdsa::Signature, _>(&verifier, detached_payload_bytes_o)
+                }
+                #[cfg(not(feature = "p256"))]
+                {
+                    panic!("Must enable the `p256` feature to verify using P-256 public keys");
+                }
+            }
+            _ => {
+                bail!(
+                    "Unsupported public key codec 0x{:02x}",
+                    pub_key_decoded.codec()
+                );
+            }
+        }
     }
 }
 

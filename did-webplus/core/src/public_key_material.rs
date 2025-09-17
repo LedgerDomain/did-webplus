@@ -23,13 +23,8 @@ pub struct PublicKeyMaterial {
 }
 
 impl PublicKeyMaterial {
-    pub fn new<'a>(
-        did: DID,
-        public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
-    ) -> Result<Self> {
-        // TODO: Replace KERIVerifier with mbc::B64UPubKey.
-        let mut verification_method_m: HashMap<selfsign::KERIVerifier, VerificationMethod> =
-            HashMap::new();
+    pub fn new<'a>(did: DID, public_key_set: PublicKeySet<&'a mbc::MBPubKey>) -> Result<Self> {
+        let mut verification_method_m: HashMap<mbc::MBPubKey, VerificationMethod> = HashMap::new();
 
         let mut authentication_relative_key_resource_v = Vec::new();
         let mut assertion_method_relative_key_resource_v = Vec::new();
@@ -39,12 +34,11 @@ impl PublicKeyMaterial {
 
         // Define a closure insert appropriate verification methods and key-purpose-specific relative key resources.
         let mut insert_verification_method_and_relative_key_resource =
-            |verifier_v: &Vec<&dyn selfsign::Verifier>,
+            |pub_key_v: &Vec<&mbc::MBPubKey>,
              relative_key_resource_v: &mut Vec<RelativeKeyResource>| {
-                for &public_key in verifier_v.iter() {
-                    let keri_verifier = public_key.to_keri_verifier().into_owned();
+                for &pub_key in pub_key_v.iter() {
                     let i = verification_method_m.len();
-                    match verification_method_m.entry(keri_verifier) {
+                    match verification_method_m.entry(pub_key.clone()) {
                         std::collections::hash_map::Entry::Occupied(occupied) => {
                             // No need to add anything, but retrieve the key id fragment.
                             let key_id_fragment = occupied.get().id.fragment();
@@ -56,7 +50,7 @@ impl PublicKeyMaterial {
                             let verification_method = VerificationMethod::json_web_key_2020(
                                 did.clone(),
                                 &key_id_fragment,
-                                public_key,
+                                pub_key,
                             );
                             let key_id_fragment = vacant.insert(verification_method).id.fragment();
                             relative_key_resource_v

@@ -77,6 +77,19 @@ pub async fn verifier_resolver_impl(
     let verification_method = did_document
         .public_key_material
         .verification_method_for_key_id_fragment(did_key_resource_fully_qualified.fragment())?;
-    let keri_verifier = selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?;
-    Ok(Box::new(keri_verifier))
+    // TEMP HACK: Convert
+    let pub_key = mbc::MBPubKey::try_from(&verification_method.public_key_jwk)?;
+    let pub_key_decoded = pub_key.decoded().unwrap();
+    let key_type = match pub_key_decoded.codec() {
+        ssi_multicodec::ED25519_PUB => selfsign::KeyType::Ed25519,
+        ssi_multicodec::SECP256K1_PUB => selfsign::KeyType::Secp256k1,
+        _ => {
+            anyhow::bail!("unsupported key type: {:?}", pub_key_decoded.codec());
+        }
+    };
+    let verifier_bytes = selfsign::VerifierBytes {
+        key_type,
+        verifying_key_byte_v: pub_key_decoded.data().to_vec().into(),
+    };
+    Ok(Box::new(verifier_bytes))
 }

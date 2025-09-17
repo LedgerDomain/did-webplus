@@ -4,7 +4,7 @@ use did_webplus_core::KeyPurposeFlags;
 #[derive(Debug)]
 pub struct PrivKeyRecord {
     /// The pub key corresponding to this priv key.
-    pub pub_key: selfsign::KERIVerifier,
+    pub pub_key: mbc::MBPubKey,
     /// The hash of the pub key, used in pre-rotation schemes.
     // TODO: Make this an appropriate type.
     pub hashed_pub_key: String,

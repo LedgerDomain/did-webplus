@@ -8,20 +8,29 @@ pub enum PublicKeyParams {
     OKP(PublicKeyParamsOKP),
 }
 
-impl From<&dyn selfsign::Verifier> for PublicKeyParams {
-    fn from(verifier: &dyn selfsign::Verifier) -> Self {
-        match verifier.key_type() {
-            selfsign::KeyType::Ed25519 => PublicKeyParamsOKP::try_from(verifier)
+impl From<&mbc::MBPubKey> for PublicKeyParams {
+    fn from(pub_key: &mbc::MBPubKey) -> Self {
+        use std::ops::Deref;
+        Self::from(pub_key.deref())
+    }
+}
+
+impl From<&mbc::MBPubKeyStr> for PublicKeyParams {
+    fn from(pub_key: &mbc::MBPubKeyStr) -> Self {
+        let decoded = pub_key.decoded().unwrap();
+        match decoded.codec() {
+            ssi_multicodec::ED25519_PUB => PublicKeyParamsOKP::try_from(pub_key)
                 .expect("programmer error")
                 .into(),
-            selfsign::KeyType::Secp256k1 => PublicKeyParamsEC::try_from(verifier)
+            ssi_multicodec::SECP256K1_PUB => PublicKeyParamsEC::try_from(pub_key)
                 .expect("programmer error")
                 .into(),
+            _ => panic!("programmer error: unsupported codec"),
         }
     }
 }
 
-impl TryFrom<&PublicKeyParams> for selfsign::KERIVerifier {
+impl TryFrom<&PublicKeyParams> for mbc::MBPubKey {
     type Error = Error;
     fn try_from(public_key_params: &PublicKeyParams) -> Result<Self, Self::Error> {
         match public_key_params {

@@ -29,12 +29,12 @@ impl PrivKeyUsageSelect {
             panic!("ctx.wallets_rowid {} doesn't match priv_key_usages.wallets_rowid {}; this is a programmer error", ctx.wallets_rowid, self.wallets_rowid);
         }
 
-        let pub_key = selfsign::KERIVerifier::try_from(
+        let pub_key = mbc::MBPubKey::try_from(
             self.pub_key.as_str()
         ).map_err(|e| {
             Error::RecordCorruption(
                 format!(
-                    "priv_key_usages.pub_key column contains invalid KERIVerifier {:?}; error was: {}",
+                    "priv_key_usages.pub_key column contains invalid MBPubKey {:?}; error was: {}",
                     self.pub_key,
                     e).into()
                 )

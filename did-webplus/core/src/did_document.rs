@@ -59,7 +59,7 @@ impl DIDDocument {
         did_path_o: Option<&str>,
         update_rules: RootLevelUpdateRules,
         valid_from: time::OffsetDateTime,
-        public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
+        public_key_set: PublicKeySet<&'a mbc::MBPubKey>,
         hash_function: &impl selfhash::HashFunctionT<HashRef = mbc::MBHashStr>,
     ) -> Result<Self> {
         let self_hash_placeholder = hash_function.placeholder_hash();
@@ -86,7 +86,7 @@ impl DIDDocument {
         prev_did_document: &DIDDocument,
         update_rules: RootLevelUpdateRules,
         valid_from: time::OffsetDateTime,
-        public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
+        public_key_set: PublicKeySet<&'a mbc::MBPubKey>,
         hash_function: &impl selfhash::HashFunctionT<HashRef = mbc::MBHashStr>,
     ) -> Result<Self> {
         use selfhash::HashRefT;
@@ -333,79 +333,7 @@ impl DIDDocument {
                     "Failed to parse JWS header \"kid\" field as base64url-encoded multicodec-encoded public key",
                 )
             })?;
-            // TEMP HACK.  Ideally there would be a dyn version of signature::Verifier.
-            let pub_key_decoded = pub_key.decoded().unwrap();
-            // This allow attribute is necessary if the below feature flags are not enabled.
-            #[allow(unused_variables)]
-            let proof_was_verified = match pub_key_decoded.codec() {
-                ssi_multicodec::ED25519_PUB => {
-                    #[cfg(feature = "ed25519-dalek")]
-                    {
-                        let verifier = ed25519_dalek::VerifyingKey::try_from(
-                            pub_key_decoded.data(),
-                        )
-                        .map_err(|_| {
-                            Error::Malformed("Failed to parse Ed25519 public key from bytes")
-                        })?;
-                        let proof_was_verified = jws
-                            .verify2(&verifier, Some(&mut detached_payload_bytes.as_slice()))
-                            .is_ok();
-                        proof_was_verified
-                    }
-                    #[cfg(not(feature = "ed25519-dalek"))]
-                    {
-                        panic!("Must enable the `ed25519-dalek` feature to verify using Ed25519 public keys");
-                    }
-                }
-                ssi_multicodec::SECP256K1_PUB => {
-                    #[cfg(feature = "k256")]
-                    {
-                        let verifier = k256::ecdsa::VerifyingKey::try_from(pub_key_decoded.data())
-                            .map_err(|_| {
-                                Error::Malformed("Failed to parse Secp256k1 public key from bytes")
-                            })?;
-                        let proof_was_verified = jws
-                            .verify2::<k256::ecdsa::Signature, _>(
-                                &verifier,
-                                Some(&mut detached_payload_bytes.as_slice()),
-                            )
-                            .is_ok();
-                        proof_was_verified
-                    }
-                    #[cfg(not(feature = "k256"))]
-                    {
-                        panic!(
-                            "Must enable the `k256` feature to verify using Secp256k1 public keys"
-                        );
-                    }
-                }
-                ssi_multicodec::P256_PUB => {
-                    #[cfg(feature = "p256")]
-                    {
-                        let verifier = p256::ecdsa::VerifyingKey::try_from(pub_key_decoded.data())
-                            .map_err(|_| {
-                                Error::Malformed("Failed to parse P-256 public key from bytes")
-                            })?;
-                        let proof_was_verified = jws
-                            .verify2::<p256::ecdsa::Signature, _>(
-                                &verifier,
-                                Some(&mut detached_payload_bytes.as_slice()),
-                            )
-                            .is_ok();
-                        proof_was_verified
-                    }
-                    #[cfg(not(feature = "p256"))]
-                    {
-                        panic!("Must enable the `p256` feature to verify using P-256 public keys");
-                    }
-                }
-                _ => {
-                    return Err(Error::Unsupported("Unsupported public key codec"));
-                }
-            };
-            // This allow attribute is necessary if the above feature flags are not enabled.
-            #[allow(unreachable_code)]
-            if proof_was_verified {
+            if let Ok(()) = jws.verify3(&pub_key, Some(&mut detached_payload_bytes.as_slice())) {
                 if let Some(valid_proof_data_vo) = valid_proof_data_vo.as_mut() {
                     valid_proof_data_vo.push(ValidProofData::from_key(pub_key));
                 }

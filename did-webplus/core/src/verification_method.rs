@@ -17,12 +17,12 @@ impl VerificationMethod {
     pub fn json_web_key_2020(
         controller: DID,
         key_id_fragment: &str,
-        verifier: &dyn selfsign::Verifier,
+        pub_key: &mbc::MBPubKey,
     ) -> Self {
         let did_key_resource: DIDKeyResource = controller.with_fragment(key_id_fragment);
         let public_key_jwk = PublicKeyJWK {
             kid_o: Some(did_key_resource.clone().into()),
-            public_key_params: PublicKeyParams::from(verifier),
+            public_key_params: PublicKeyParams::from(pub_key),
         };
         Self {
             id: did_key_resource,

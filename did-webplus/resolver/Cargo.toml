@@ -5,6 +5,7 @@ authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.94"
 async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
@@ -12,9 +13,11 @@ did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional 
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }
 futures = "0.3.31"                                                                       # TEMP HACK
 lazy_static = "1.4.0"
+mbc = { path = "../../../mbc" }
 reqwest = "0.12.5"
 selfsign = "0.6.0"
 serde_json = "1.0.107"
+ssi-multicodec = "0.2.0"
 storage-traits = { path = "../../storage-traits" }
 thiserror = "1.0.60"
 tracing = "0.1.37"

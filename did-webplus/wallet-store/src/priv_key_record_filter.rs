@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use did_webplus_core::KeyPurposeFlags;
 
 use crate::PrivKeyRecord;
@@ -7,7 +9,7 @@ pub struct PrivKeyRecordFilter {
     /// If this is Some(pub_key), then only the priv key for that pub key will be returned.  Because priv keys
     /// are indexed by pub key, this is a way to select a single priv key.  If this is None, then priv keys
     /// will not be filtered by pub key.
-    pub pub_key_o: Option<selfsign::KERIVerifier>,
+    pub pub_key_o: Option<mbc::MBPubKey>,
     /// If this is Some(hashed_pub_key), then only the priv key for that hashed pub key will be returned.
     /// Because priv keys are indexed by hashed pub key, this is a way to select a single priv key.
     /// If this is None, then priv keys will not be filtered by hashed pub key.
@@ -44,7 +46,7 @@ pub struct PrivKeyRecordFilter {
 impl PrivKeyRecordFilter {
     pub fn matches(&self, priv_key_record: &PrivKeyRecord) -> bool {
         if let Some(pub_key) = self.pub_key_o.as_deref() {
-            if priv_key_record.pub_key.as_keri_verifier_str() != pub_key {
+            if priv_key_record.pub_key.deref() != pub_key {
                 return false;
             }
         }

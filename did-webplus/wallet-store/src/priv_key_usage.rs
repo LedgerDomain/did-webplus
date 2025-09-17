@@ -29,9 +29,7 @@ pub enum PrivKeyUsage {
     // priv key and the other pub key.  Because encrypted communication typically involves generating an ephemeral
     // keypair for the session, and only using the shared secret to encrypt that, this would only be a risk if the
     // comms channel could be monitored (past or future).
-    KeyExchange {
-        other_o: Option<selfsign::KERIVerifier>,
-    },
+    KeyExchange { other_o: Option<mbc::MBPubKey> },
     /// Contains the DID URI for the other pub key that was used in the key exchange.
     // TODO: Is this a risk?  Since the wallet contains this priv key, the shared secret could be derived from this
     // priv key and the other pub key.  Because encrypted communication typically involves generating an ephemeral

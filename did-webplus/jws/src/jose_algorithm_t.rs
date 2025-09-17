@@ -50,6 +50,38 @@ impl JOSEAlgorithmT for k256::ecdsa::VerifyingKey {
     }
 }
 
+// #[cfg(feature = "mbc")]
+// impl JOSEAlgorithmT for mbc::MBPubKey {
+//     fn alg(&self) -> String {
+//         use std::ops::Deref;
+//         self.deref().alg()
+//     }
+//     fn crv_o(&self) -> Option<String> {
+//         use std::ops::Deref;
+//         self.deref().crv_o()
+//     }
+// }
+
+// #[cfg(feature = "mbc")]
+// impl JOSEAlgorithmT for mbc::MBPubKeyStr {
+//     fn alg(&self) -> String {
+//         match self.decoded().unwrap().codec() {
+//             ssi_multicodec::ED25519_PUB => "EdDSA".to_string(),
+//             ssi_multicodec::SECP256K1_PUB => "ES256K".to_string(),
+//             ssi_multicodec::P256_PUB => "ES256".to_string(),
+//             _ => panic!("programmer error: unsupported codec"),
+//         }
+//     }
+//     fn crv_o(&self) -> Option<String> {
+//         match self.decoded().unwrap().codec() {
+//             ssi_multicodec::ED25519_PUB => Some("Ed25519".to_string()),
+//             ssi_multicodec::SECP256K1_PUB => None,
+//             ssi_multicodec::P256_PUB => None,
+//             _ => panic!("programmer error: unsupported codec"),
+//         }
+//     }
+// }
+
 #[cfg(feature = "p256")]
 impl JOSEAlgorithmT for p256::ecdsa::SigningKey {
     fn alg(&self) -> String {

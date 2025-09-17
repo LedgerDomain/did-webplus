@@ -11,7 +11,6 @@ use did_webplus_wallet_store::{
     PrivKeyUsageRecord, PrivKeyUsageRecordFilter, VerificationMethodRecord, WalletRecord,
     WalletRecordFilter, WalletStorageCtx,
 };
-use selfsign::Verifier;
 use std::sync::{Arc, RwLock};
 
 /// Sigil representing the wallets table.
@@ -48,9 +47,9 @@ impl SigilT for PrivKeys {}
 #[derive(Clone, Debug)]
 struct PrivKeyRow {
     // This awkwardness is so that the primary key can be returned by reference without any gymnastics.
-    wallets_rowid_pub_key: (RowId<Wallets>, selfsign::KERIVerifier),
+    wallets_rowid_pub_key: (RowId<Wallets>, mbc::MBPubKey),
     hashed_pub_key: String,
-    key_type: selfsign::KeyType,
+    key_type: mbc::KeyType,
     did_restriction_o: Option<String>,
     key_purpose_restriction_o: Option<did_webplus_core::KeyPurposeFlags>,
     created_at: time::OffsetDateTime,
@@ -94,8 +93,8 @@ impl PrivKeyRow {
     }
 }
 
-impl RowT<(RowId<Wallets>, selfsign::KERIVerifier)> for PrivKeyRow {
-    fn primary_key(&self) -> &(RowId<Wallets>, selfsign::KERIVerifier) {
+impl RowT<(RowId<Wallets>, mbc::MBPubKey)> for PrivKeyRow {
+    fn primary_key(&self) -> &(RowId<Wallets>, mbc::MBPubKey) {
         &self.wallets_rowid_pub_key
     }
 }
@@ -107,9 +106,21 @@ impl TryFrom<PrivKeyRow> for PrivKeyRecord {
             priv_key_row.priv_key_format_o.as_deref(),
             Some("selfsign::PrivateKeyBytes")
         );
+        // TEMP HACK: Convert mbc::KeyType to selfsign::KeyType
+        let key_type = match priv_key_row.key_type {
+            mbc::KeyType::Ed25519 => selfsign::KeyType::Ed25519,
+            // mbc::KeyType::P256 => selfsign::KeyType::P256,
+            // mbc::KeyType::P384 => selfsign::KeyType::P384,
+            // mbc::KeyType::P521 => selfsign::KeyType::P521,
+            // mbc::KeyType::RSA => selfsign::KeyType::RSA,
+            mbc::KeyType::Secp256k1 => selfsign::KeyType::Secp256k1,
+            // mbc::KeyType::Sr25519 => selfsign::KeyType::Sr25519,
+            // mbc::KeyType::X25519 => selfsign::KeyType::X25519,
+            _ => panic!("unsupported key type: {:?}", priv_key_row.key_type),
+        };
         let private_key_bytes_o = if let Some(priv_key_bytes) = priv_key_row.priv_key_bytes_o {
             Some(
-                selfsign::PrivateKeyBytes::new(priv_key_row.key_type, priv_key_bytes.into())
+                selfsign::PrivateKeyBytes::new(key_type, priv_key_bytes.into())
                     .map_err(|e| did_webplus_wallet_store::Error::RecordCorruption(e.into()))?,
             )
         } else {
@@ -131,8 +142,7 @@ impl TryFrom<PrivKeyRow> for PrivKeyRecord {
     }
 }
 
-type PrivKeysTable =
-    TableWithPrimaryKey<PrivKeys, (RowId<Wallets>, selfsign::KERIVerifier), PrivKeyRow>;
+type PrivKeysTable = TableWithPrimaryKey<PrivKeys, (RowId<Wallets>, mbc::MBPubKey), PrivKeyRow>;
 
 /// Sigil representing the priv_key_usages table.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -254,7 +264,7 @@ struct VerificationMethodRow {
     // This awkwardness is so that the primary key can be returned by reference without any gymnastics.
     did_documents_row_id_and_key_id_fragment: (RowId<DIDDocuments>, String),
     controller: DID,
-    pub_key: selfsign::KERIVerifier,
+    pub_key: mbc::MBPubKey,
     key_purpose_flags: did_webplus_core::KeyPurposeFlags,
 }
 
@@ -325,7 +335,7 @@ impl WalletStorageMockState {
             .iter()
         {
             let key_id_fragment = verification_method.id.fragment();
-            let pub_key = selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)
+            let pub_key = mbc::MBPubKey::try_from(&verification_method.public_key_jwk)
                 .map_err(|x| x.to_string())?;
             let key_purpose_flags = did_document
                 .public_key_material
@@ -452,7 +462,7 @@ impl WalletStorageMockState {
     fn delete_priv_key(
         &mut self,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifierStr,
+        pub_key: &mbc::MBPubKeyStr,
     ) -> TableResult<()> {
         let wallets_row_id = RowId::from(ctx.wallets_rowid as usize);
         let pub_key = pub_key.to_owned();
@@ -468,7 +478,7 @@ impl WalletStorageMockState {
     fn get_priv_key(
         &self,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifierStr,
+        pub_key: &mbc::MBPubKeyStr,
     ) -> TableResult<Option<(RowId<PrivKeys>, &PrivKeyRow)>> {
         let wallets_row_id = RowId::from(ctx.wallets_rowid as usize);
         let pub_key = pub_key.to_owned();
@@ -810,7 +820,7 @@ impl did_webplus_wallet_store::WalletStorage for WalletStorageMock {
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifierStr,
+        pub_key: &mbc::MBPubKeyStr,
     ) -> did_webplus_wallet_store::Result<()> {
         let mut state_g = self.state_la.write().unwrap();
         state_g.delete_priv_key(ctx, pub_key)?;
@@ -820,7 +830,7 @@ impl did_webplus_wallet_store::WalletStorage for WalletStorageMock {
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifierStr,
+        pub_key: &mbc::MBPubKeyStr,
     ) -> did_webplus_wallet_store::Result<Option<PrivKeyRecord>> {
         let state_g = self.state_la.read().unwrap();
         if let Some((_row_id, row)) = state_g.get_priv_key(ctx, pub_key)? {

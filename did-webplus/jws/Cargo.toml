@@ -9,7 +9,7 @@ clap = ["dep:clap"]
 ed25519-dalek = ["dep:ed25519-dalek"]
 wasm-bindgen = ["dep:wasm-bindgen"]
 k256 = ["dep:k256"]
-mbc = ["dep:mbc"]
+mbc = ["dep:mbc", "dep:ssi-multicodec"]
 p256 = ["dep:p256"]
 
 [dependencies]
@@ -29,6 +29,7 @@ selfsign = "0.6.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1"
 signature = { version = "2.2.0", features = ["alloc"] }
+ssi-multicodec = { version = "0.2.0", optional = true }
 wasm-bindgen = { version = "0.2.99", optional = true }
 
 [dev-dependencies]
