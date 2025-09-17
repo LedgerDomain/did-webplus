@@ -78,8 +78,8 @@ pub use crate::{
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub type RelativeKeyResource = RelativeResource<selfsign::KERIVerifierStr>;
-pub type RelativeKeyResourceStr = RelativeResourceStr<selfsign::KERIVerifierStr>;
-pub type DIDKeyResource = DIDResource<selfsign::KERIVerifierStr>;
-pub type DIDKeyResourceFullyQualified = DIDResourceFullyQualified<selfsign::KERIVerifierStr>;
-pub type DIDKeyResourceFullyQualifiedStr = DIDResourceFullyQualifiedStr<selfsign::KERIVerifierStr>;
+pub type RelativeKeyResource = RelativeResource<str>;
+pub type RelativeKeyResourceStr = RelativeResourceStr<str>;
+pub type DIDKeyResource = DIDResource<str>;
+pub type DIDKeyResourceFullyQualified = DIDResourceFullyQualified<str>;
+pub type DIDKeyResourceFullyQualifiedStr = DIDResourceFullyQualifiedStr<str>;

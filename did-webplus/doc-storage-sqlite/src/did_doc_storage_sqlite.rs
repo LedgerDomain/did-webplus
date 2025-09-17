@@ -31,13 +31,14 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         did_document: &DIDDocument,
         did_document_jcs: &str,
     ) -> Result<()> {
+        use selfhash::HashRefT;
         assert!(
-            did_document.self_hash_o().is_some(),
+            !did_document.self_hash.is_placeholder(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
         let did_str = did_document.did.as_str();
-        let version_id = did_document.version_id() as i64;
-        let valid_from = did_document.valid_from();
+        let version_id = did_document.version_id as i64;
+        let valid_from = did_document.valid_from;
         let self_hash_str = did_document.self_hash.as_str();
         // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
         // and that means that the DID document is verifiably already present in the database.
@@ -101,13 +102,14 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
 
             // TEMP HACK -- should just call add_did_document, but there's some compiler error regarding lifetimes of transaction_o
 
+            use selfhash::HashRefT;
             assert!(
-                did_document.self_hash_o().is_some(),
+                !did_document.self_hash.is_placeholder(),
                 "programmer error: self_hash is expected to be present on a valid DID document"
             );
             let did_str = did_document.did.as_str();
-            let version_id = did_document.version_id() as i64;
-            let valid_from = did_document.valid_from();
+            let version_id = did_document.version_id as i64;
+            let valid_from = did_document.valid_from;
             let self_hash_str = did_document.self_hash.as_str();
             // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
             // and that means that the DID document is verifiably already present in the database.

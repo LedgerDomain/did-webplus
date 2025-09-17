@@ -309,7 +309,7 @@ async fn wallet_did_select_key(
     wallet: &dyn did_webplus_wallet::Wallet,
     controlled_did_o: Option<&did_webplus_core::DIDStr>,
     key_purpose_o: Option<did_webplus_core::KeyPurpose>,
-    key_id_o: Option<&selfsign::KERIVerifierStr>,
+    key_id_o: Option<&str>,
 ) -> Result<(
     did_webplus_wallet_store::VerificationMethodRecord,
     Box<dyn selfsign::Signer>,
@@ -365,7 +365,7 @@ pub async fn wallet_did_sign_jws(
     wallet: &dyn did_webplus_wallet::Wallet,
     controlled_did_o: Option<&did_webplus_core::DIDStr>,
     key_purpose_o: Option<did_webplus_core::KeyPurpose>,
-    key_id_o: Option<&selfsign::KERIVerifierStr>,
+    key_id_o: Option<&str>,
 ) -> Result<did_webplus_jws::JWS<'static>> {
     // Get the specified signing key.
     let (verification_method_record, signer_b) =
@@ -394,7 +394,7 @@ pub async fn wallet_did_sign_vjson(
     wallet: &dyn did_webplus_wallet::Wallet,
     controlled_did_o: Option<&did_webplus_core::DIDStr>,
     key_purpose_o: Option<did_webplus_core::KeyPurpose>,
-    key_id_o: Option<&selfsign::KERIVerifierStr>,
+    key_id_o: Option<&str>,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
 ) -> Result<selfhash::KERIHash> {

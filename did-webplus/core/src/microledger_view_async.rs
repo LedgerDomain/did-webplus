@@ -64,7 +64,7 @@ pub trait MicroledgerViewAsync<'v> {
     ) -> DIDDocumentMetadata {
         let constant_o = if requested_did_document_metadata.constant {
             Some(DIDDocumentMetadataConstant {
-                created: self.root_did_document().await.valid_from(),
+                created: self.root_did_document().await.valid_from,
             })
         } else {
             None
@@ -79,9 +79,9 @@ pub trait MicroledgerViewAsync<'v> {
                 None
             };
             let next_update_o =
-                next_did_document_o.map(|next_did_document| next_did_document.valid_from());
+                next_did_document_o.map(|next_did_document| next_did_document.valid_from);
             let next_version_id_o =
-                next_did_document_o.map(|next_did_document| next_did_document.version_id());
+                next_did_document_o.map(|next_did_document| next_did_document.version_id);
             Some(DIDDocumentMetadataIdempotent {
                 next_update_o,
                 next_version_id_o,
@@ -92,8 +92,8 @@ pub trait MicroledgerViewAsync<'v> {
         let currency_o = if requested_did_document_metadata.currency {
             let latest_did_document = self.latest_did_document().await;
             Some(DIDDocumentMetadataCurrency {
-                most_recent_update: latest_did_document.valid_from(),
-                most_recent_version_id: latest_did_document.version_id(),
+                most_recent_update: latest_did_document.valid_from,
+                most_recent_version_id: latest_did_document.version_id,
             })
         } else {
             None

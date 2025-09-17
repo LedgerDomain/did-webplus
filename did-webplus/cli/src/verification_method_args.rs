@@ -1,5 +1,3 @@
-use crate::Result;
-
 /// Arguments for specifying a verification method associated with a controlled DID in a wallet.
 #[derive(clap::Args)]
 pub struct VerificationMethodArgs {
@@ -25,13 +23,7 @@ pub struct VerificationMethodArgs {
         env = "DID_WEBPLUS_KEY_ID",
         short = 'k',
         long,
-        value_name = "KEY_ID",
-        value_parser = parse_keri_verifier
+        value_name = "KEY_ID"
     )]
-    pub key_id_o: Option<selfsign::KERIVerifier>,
-}
-
-fn parse_keri_verifier(s: &str) -> Result<selfsign::KERIVerifier> {
-    selfsign::KERIVerifier::try_from(s)
-        .map_err(|e| anyhow::anyhow!("Parse error in --key-id argument; error was: {}", e))
+    pub key_id_o: Option<String>,
 }

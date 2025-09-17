@@ -115,8 +115,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         //     "DIDDocStorageMock attempting to add DIDDocRecord with self-hash {}",
         //     did_doc_record.self_hash,
         // );
+        use selfhash::HashRefT;
         assert!(
-            did_document.self_hash_o().is_some(),
+            !did_document.self_hash.is_placeholder(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
         let mut state_g = self.state_la.write().unwrap();
@@ -137,8 +138,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         for (&did_document_jcs, did_document) in
             did_document_jcs_v.iter().zip(did_document_v.iter())
         {
+            use selfhash::HashRefT;
             assert!(
-                did_document.self_hash_o().is_some(),
+                !did_document.self_hash.is_placeholder(),
                 "programmer error: self_hash is expected to be present on a valid DID document"
             );
             state_g.add(did_document, did_document_jcs.to_string());

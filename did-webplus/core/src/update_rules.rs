@@ -1,22 +1,22 @@
 use crate::{Error, Result};
-use mbc::{B64UHash, B64UHashStr, B64UPubKey, B64UPubKeyStr};
+use mbc::{MBHash, MBHashStr, MBPubKey, MBPubKeyStr};
 use std::{cell::OnceCell, collections::HashMap, ops::Deref};
 
 #[derive(Clone, Debug)]
 pub struct ValidProofData {
-    key: B64UPubKey,
+    key: MBPubKey,
     #[allow(dead_code)]
-    hashed_key_mc: OnceCell<HashMap<u64, B64UHash>>,
+    hashed_key_mc: OnceCell<HashMap<u64, MBHash>>,
 }
 
 impl ValidProofData {
-    pub fn from_key(key: B64UPubKey) -> Self {
+    pub fn from_key(key: MBPubKey) -> Self {
         Self {
             key,
             hashed_key_mc: OnceCell::new(),
         }
     }
-    // pub fn from_hashed_key(hashed_key: B64UHash) -> Self {
+    // pub fn from_hashed_key(hashed_key: MBHash) -> Self {
     //     let hashed_key_mc = OnceCell::new();
     //     let hashed_key_m = hashed_key_mc.get_mut().unwrap();
     //     let hash_codec = hashed_key.decoded().unwrap().codec();
@@ -26,10 +26,10 @@ impl ValidProofData {
     //         hashed_key_mc,
     //     }
     // }
-    pub fn key(&self) -> &B64UPubKeyStr {
+    pub fn key(&self) -> &MBPubKeyStr {
         self.key.deref()
     }
-    pub fn hashed_key(&self, _hash_codec: u64) -> &B64UHashStr {
+    pub fn hashed_key(&self, _hash_codec: u64) -> &MBHashStr {
         todo!("ValidProofData::hashed_key");
         // if let Some(hashed_key_m) = self.hashed_key_mc.get() {
         //     if let Some(hashed_key) = hashed_key_m.get(&hash_codec) {
@@ -42,7 +42,7 @@ impl ValidProofData {
         // }
         // // We don't yet have a hash for this codec, so compute it from the key.
         // use selfhash::HashFunctionT;
-        // let hasher = selfhash::B64UHashFunction::new(hash_codec)
+        // let hasher = selfhash::MBHashFunction::new(hash_codec)
         //     .expect("programmer error")
         //     .new_hasher();
         // hasher.update(key.as_bytes());
@@ -68,7 +68,7 @@ impl VerifyRulesT for UpdatesDisallowed {
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct UpdateKey {
-    pub key: B64UPubKey,
+    pub key: MBPubKey,
 }
 
 impl VerifyRulesT for UpdateKey {
@@ -86,7 +86,7 @@ impl VerifyRulesT for UpdateKey {
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct HashedUpdateKey {
     #[serde(rename = "hashedKey")]
-    pub hashed_key: B64UHash,
+    pub hashed_key: MBHash,
 }
 
 impl VerifyRulesT for HashedUpdateKey {
@@ -356,22 +356,20 @@ mod tests {
         test_util::ctor_overall_init();
 
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(UpdateKey {
-            key: B64UPubKey::try_from("7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
+            key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(HashedUpdateKey {
-            hashed_key: B64UHash::try_from("EhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe").unwrap(),
+            hashed_key: MBHash::try_from("uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe").unwrap(),
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(Any {
             any: vec![UpdateKey {
-                key: B64UPubKey::try_from("7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
-                    .unwrap(),
+                key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
             }
             .into()],
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(All {
             all: vec![UpdateKey {
-                key: B64UPubKey::try_from("7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
-                    .unwrap(),
+                key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
             }
             .into()],
         }));
@@ -381,7 +379,7 @@ mod tests {
                 WeightedUpdateRules {
                     weight: 3,
                     update_rules: UpdateKey {
-                        key: B64UPubKey::try_from("7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
+                        key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
                             .unwrap(),
                     }
                     .into(),
@@ -389,8 +387,8 @@ mod tests {
                 WeightedUpdateRules {
                     weight: 1,
                     update_rules: HashedUpdateKey {
-                        hashed_key: B64UHash::try_from(
-                            "EhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe",
+                        hashed_key: MBHash::try_from(
+                            "uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe",
                         )
                         .unwrap(),
                     }

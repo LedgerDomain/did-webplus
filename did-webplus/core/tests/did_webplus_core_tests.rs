@@ -102,7 +102,10 @@ fn test_root_did_document_sign_and_verify() {
     let verifying_key = signing_key.verifying_key();
 
     // Determine the update rules; just the one key.
-    let pub_key = mbc::B64UPubKey::try_from(&update_verifying_key).expect("pass");
+    let pub_key = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbc::Base::Base64Url,
+        &update_verifying_key,
+    );
     let update_rules = did_webplus_core::RootLevelUpdateRules::from(did_webplus_core::UpdateKey {
         key: pub_key.clone(),
     });
@@ -163,7 +166,10 @@ fn test_did_update_sign_and_verify() {
     let verifying_key_0 = signing_key_0.verifying_key();
 
     // Determine the update rules; just the one key, and just use did:key to identify it.
-    let update_pub_key_0 = mbc::B64UPubKey::try_from(&update_verifying_key_0).expect("pass");
+    let update_pub_key_0 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbc::Base::Base64Url,
+        &update_verifying_key_0,
+    );
     let update_rules = did_webplus_core::RootLevelUpdateRules::from(did_webplus_core::UpdateKey {
         key: update_pub_key_0.clone(),
     });
@@ -211,7 +217,10 @@ fn test_did_update_sign_and_verify() {
     // Determine the update rules; just the one key, and just use did:key to identify it.
     let update_signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let update_verifying_key_1 = update_signing_key_1.verifying_key();
-    let update_pub_key_1 = mbc::B64UPubKey::try_from(&update_verifying_key_1).expect("pass");
+    let update_pub_key_1 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbc::Base::Base64Url,
+        &update_verifying_key_1,
+    );
     let update_rules = did_webplus_core::RootLevelUpdateRules::from(did_webplus_core::UpdateKey {
         key: update_pub_key_1.clone(),
     });

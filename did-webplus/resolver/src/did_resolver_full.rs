@@ -517,7 +517,7 @@ impl DIDResolverFull {
             self_hash: target_did_document.self_hash.to_string(),
             did: did.to_string(),
             version_id: target_did_document.version_id as i64,
-            valid_from: target_did_document.valid_from(),
+            valid_from: target_did_document.valid_from,
             did_documents_jsonl_octet_length: did_documents_jsonl_octet_length,
             did_document_jcs: target_did_doc_body,
         };

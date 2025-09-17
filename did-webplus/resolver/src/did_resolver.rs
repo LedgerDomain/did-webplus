@@ -66,17 +66,17 @@ pub async fn verifier_resolver_impl(
     let did_key_resource_fully_qualified =
         did_webplus_core::DIDKeyResourceFullyQualifiedStr::new_ref(verifier_str).map_err(|_| verifier_resolver::Error::InvalidVerifier(format!("if did:webplus DID is used as verifier, it must be fully qualified, i.e. it must contain the selfHash and versionId query parameters and a fragment specifying the key ID, but it was {:?}", verifier_str).into()))?;
 
-    let (_did_document, _did_doc_metadata) = did_resolver
+    let (did_document, _did_doc_metadata) = did_resolver
         .resolve_did_document(
             did_key_resource_fully_qualified.without_fragment().as_str(),
             did_webplus_core::RequestedDIDDocumentMetadata::none(),
         )
         .await?;
-    // Part of DID doc verification is ensuring that the key ID represents the same public key as
-    // the JsonWebKey2020 value.  So we can use the key ID KERIVerifier value as the public key.
-    // TODO: Assert that this is actually the case.
 
-    Ok(Box::new(
-        did_key_resource_fully_qualified.fragment().to_owned(),
-    ))
+    // Retrieve the appropriate verifier from the DID document -- identified by the key_id_fragment.
+    let verification_method = did_document
+        .public_key_material
+        .verification_method_for_key_id_fragment(did_key_resource_fully_qualified.fragment())?;
+    let keri_verifier = selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?;
+    Ok(Box::new(keri_verifier))
 }

@@ -172,7 +172,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
                 alice_did_url_self_hash
             );
             let alice_did_url_version_id = alice_did.resolution_url_for_version_id(
-                alice_did_document.version_id(),
+                alice_did_document.version_id,
                 http_scheme_override_o,
             );
             tracing::trace!(

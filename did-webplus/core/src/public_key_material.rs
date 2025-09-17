@@ -2,7 +2,6 @@ use crate::{
     DIDStr, Error, KeyPurpose, KeyPurposeFlags, PublicKeySet, RelativeKeyResource,
     RelativeKeyResourceStr, Result, VerificationMethod, DID,
 };
-use selfsign::KERIVerifierStr;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
@@ -19,6 +18,8 @@ pub struct PublicKeyMaterial {
     pub capability_invocation_relative_key_resource_v: Vec<RelativeKeyResource>,
     #[serde(rename = "capabilityDelegation")]
     pub capability_delegation_relative_key_resource_v: Vec<RelativeKeyResource>,
+    #[serde(skip)]
+    verification_method_m: std::sync::OnceLock<HashMap<String, VerificationMethod>>,
 }
 
 impl PublicKeyMaterial {
@@ -26,43 +27,67 @@ impl PublicKeyMaterial {
         did: DID,
         public_key_set: PublicKeySet<&'a dyn selfsign::Verifier>,
     ) -> Result<Self> {
+        // TODO: Replace KERIVerifier with mbc::B64UPubKey.
         let mut verification_method_m: HashMap<selfsign::KERIVerifier, VerificationMethod> =
             HashMap::new();
-        for &public_key in public_key_set.iter() {
-            let verification_method =
-                VerificationMethod::json_web_key_2020(did.clone(), public_key);
-            verification_method_m.insert(
-                public_key.to_keri_verifier().into_owned(),
-                verification_method,
-            );
-        }
-        let verification_method_v = verification_method_m.into_values().collect();
 
-        let authentication_relative_key_resource_v = public_key_set
-            .authentication_v
-            .into_iter()
-            .map(|v| RelativeKeyResource::from_fragment(&v.to_keri_verifier()))
-            .collect();
-        let assertion_method_relative_key_resource_v = public_key_set
-            .assertion_method_v
-            .into_iter()
-            .map(|v| RelativeKeyResource::from_fragment(&v.to_keri_verifier()))
-            .collect();
-        let key_agreement_relative_key_resource_v = public_key_set
-            .key_agreement_v
-            .into_iter()
-            .map(|v| RelativeKeyResource::from_fragment(&v.to_keri_verifier()))
-            .collect();
-        let capability_invocation_relative_key_resource_v = public_key_set
-            .capability_invocation_v
-            .into_iter()
-            .map(|v| RelativeKeyResource::from_fragment(&v.to_keri_verifier()))
-            .collect();
-        let capability_delegation_relative_key_resource_v = public_key_set
-            .capability_delegation_v
-            .into_iter()
-            .map(|v| RelativeKeyResource::from_fragment(&v.to_keri_verifier()))
-            .collect();
+        let mut authentication_relative_key_resource_v = Vec::new();
+        let mut assertion_method_relative_key_resource_v = Vec::new();
+        let mut key_agreement_relative_key_resource_v = Vec::new();
+        let mut capability_invocation_relative_key_resource_v = Vec::new();
+        let mut capability_delegation_relative_key_resource_v = Vec::new();
+
+        // Define a closure insert appropriate verification methods and key-purpose-specific relative key resources.
+        let mut insert_verification_method_and_relative_key_resource =
+            |verifier_v: &Vec<&dyn selfsign::Verifier>,
+             relative_key_resource_v: &mut Vec<RelativeKeyResource>| {
+                for &public_key in verifier_v.iter() {
+                    let keri_verifier = public_key.to_keri_verifier().into_owned();
+                    let i = verification_method_m.len();
+                    match verification_method_m.entry(keri_verifier) {
+                        std::collections::hash_map::Entry::Occupied(occupied) => {
+                            // No need to add anything, but retrieve the key id fragment.
+                            let key_id_fragment = occupied.get().id.fragment();
+                            relative_key_resource_v
+                                .push(RelativeKeyResource::from_fragment(&key_id_fragment));
+                        }
+                        std::collections::hash_map::Entry::Vacant(vacant) => {
+                            let key_id_fragment = format!("{}", i);
+                            let verification_method = VerificationMethod::json_web_key_2020(
+                                did.clone(),
+                                &key_id_fragment,
+                                public_key,
+                            );
+                            let key_id_fragment = vacant.insert(verification_method).id.fragment();
+                            relative_key_resource_v
+                                .push(RelativeKeyResource::from_fragment(&key_id_fragment));
+                        }
+                    };
+                }
+            };
+
+        insert_verification_method_and_relative_key_resource(
+            &public_key_set.authentication_v,
+            &mut authentication_relative_key_resource_v,
+        );
+        insert_verification_method_and_relative_key_resource(
+            &public_key_set.assertion_method_v,
+            &mut assertion_method_relative_key_resource_v,
+        );
+        insert_verification_method_and_relative_key_resource(
+            &public_key_set.key_agreement_v,
+            &mut key_agreement_relative_key_resource_v,
+        );
+        insert_verification_method_and_relative_key_resource(
+            &public_key_set.capability_invocation_v,
+            &mut capability_invocation_relative_key_resource_v,
+        );
+        insert_verification_method_and_relative_key_resource(
+            &public_key_set.capability_delegation_v,
+            &mut capability_delegation_relative_key_resource_v,
+        );
+
+        let verification_method_v = verification_method_m.into_values().collect();
 
         Ok(Self {
             verification_method_v,
@@ -71,6 +96,7 @@ impl PublicKeyMaterial {
             key_agreement_relative_key_resource_v,
             capability_invocation_relative_key_resource_v,
             capability_delegation_relative_key_resource_v,
+            verification_method_m: std::sync::OnceLock::new(),
         })
     }
     /// Returns the key ids for the given KeyPurpose, i.e. the elements of the "authentication", "assertionMethod",
@@ -97,10 +123,7 @@ impl PublicKeyMaterial {
     /// This is defined by the the presence of the key id in the list of key ids for the specified purpose
     /// (i.e. "authentication", "assertionMethod", "keyAgreement", "capabilityInvocation", and "capabilityDelegation"
     /// fields of the DID document).
-    pub fn key_purpose_flags_for_key_id_fragment(
-        &self,
-        key_id_fragment: &KERIVerifierStr,
-    ) -> KeyPurposeFlags {
+    pub fn key_purpose_flags_for_key_id_fragment(&self, key_id_fragment: &str) -> KeyPurposeFlags {
         let mut key_purpose_flags = KeyPurposeFlags::NONE;
         for key_purpose in KeyPurpose::VERIFICATION_METHOD_VARIANTS {
             if self
@@ -111,6 +134,26 @@ impl PublicKeyMaterial {
             }
         }
         key_purpose_flags
+    }
+    pub fn verification_method_for_key_id_fragment(
+        &self,
+        key_id_fragment: &str,
+    ) -> Result<&VerificationMethod> {
+        let verification_method_m = self.verification_method_m.get_or_init(|| {
+            let mut verification_method_m = HashMap::new();
+            for verification_method in &self.verification_method_v {
+                verification_method_m.insert(
+                    verification_method.id.fragment().to_string(),
+                    verification_method.clone(),
+                );
+            }
+            verification_method_m
+        });
+        verification_method_m
+            .get(key_id_fragment)
+            .ok_or(Error::NotFound(
+                "verification method referenced by key id fragment",
+            ))
     }
     pub fn verify(&self, expected_controller: &DIDStr) -> Result<()> {
         for verification_method in &self.verification_method_v {

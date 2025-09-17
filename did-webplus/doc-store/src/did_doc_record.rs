@@ -25,17 +25,23 @@ impl DIDDocRecord {
                 )
             })?;
 
-        let did_document_self_hash = did_document.self_hash_o().ok_or_else(|| {
+        // Note that if this check succeeds, then in particular, all the self-hash slots are equal,
+        // and in particular, are equal to `did_document.self_hash`.
+        use selfhash::SelfHashableT;
+        did_document.verify_self_hashes().map_err(|err| {
             Error::RecordCorruption(
-                "Parsed DID doc is missing \"selfHash\" field".into(),
+                format!("Parsed DID doc failed to verify self-hashes: {}", err).into(),
                 self.self_hash.to_string().into(),
             )
         })?;
-        if did_document_self_hash.as_str() != self.self_hash.as_str() {
+        use selfhash::HashRefT;
+        assert!(!did_document.self_hash.is_placeholder());
+
+        if did_document.self_hash.as_str() != self.self_hash.as_str() {
             return Err(Error::RecordCorruption(
                 format!(
                     "Parsed DID doc \"selfHash\" field {} doesn't match that of stored record",
-                    did_document_self_hash
+                    did_document.self_hash.as_str()
                 )
                 .into(),
                 self.self_hash.to_string().into(),
@@ -64,18 +70,6 @@ impl DIDDocRecord {
         if self.did_documents_jsonl_octet_length < self.did_document_jcs.len() as i64 + 1 {
             return Err(Error::RecordCorruption(format!("Inconsistent: DID doc record did_documents_jsonl_octet_length {} is less than did_document_jcs.len() + 1 (which is {})", self.did_documents_jsonl_octet_length, self.did_document_jcs.len() + 1).into(), self.self_hash.to_string().into()));
         }
-
-        // Note that if this check succeeds, then in particular, all the self-hash slots are equal,
-        // and in particular, are equal to `did_document.self_hash`.
-        use selfhash::SelfHashableT;
-        did_document.verify_self_hashes().map_err(|err| {
-            Error::RecordCorruption(
-                format!("Parsed DID doc failed to verify self-hashes: {}", err).into(),
-                self.self_hash.to_string().into(),
-            )
-        })?;
-        use selfhash::HashRefT;
-        assert!(!did_document.self_hash.is_placeholder());
 
         Ok(())
     }

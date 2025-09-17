@@ -27,7 +27,7 @@ impl ControlledDID {
         // Generate the update signing key (for when the this root DID document is updated later).
         let update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
         let update_verifying_key = update_signing_key.verifying_key();
-        let update_pub_key = mbc::B64UPubKey::try_from(&update_verifying_key).expect("pass");
+        let update_pub_key = mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &update_verifying_key);
 
         // Set the update rules.  In this case, just a single key.
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
@@ -100,7 +100,7 @@ impl ControlledDID {
         let next_update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
         let next_update_verifying_key = next_update_signing_key.verifying_key();
         let next_update_pub_key =
-            mbc::B64UPubKey::try_from(&next_update_verifying_key).expect("pass");
+            mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &next_update_verifying_key);
 
         // Set the update rules for this new DID document.  In this case, just a single key.
         let next_update_rules = RootLevelUpdateRules::from(UpdateKey {
@@ -147,7 +147,7 @@ impl ControlledDID {
         // previous DID document), and add the proof.
         let jws = {
             let update_verifying_key = self.update_signing_key.verifying_key();
-            let update_pub_key = mbc::B64UPubKey::try_from(&update_verifying_key).expect("pass");
+            let update_pub_key = mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &update_verifying_key);
             new_did_document.sign(update_pub_key.to_string(), &self.update_signing_key)?
         };
         new_did_document.add_proof(jws.into_string());
@@ -193,16 +193,18 @@ impl ControlledDID {
             .expect("programmer error")
             .as_ref();
         let did = self.microledger.view().did();
-        let version_id = self.microledger.view().latest_did_document().version_id();
+        let version_id = self.microledger.view().latest_did_document().version_id;
         let self_hash = self
             .microledger
             .view()
             .latest_did_document()
             .self_hash
             .deref();
+        // NOTE: The use of key_purpose.integer_value() to determine the key id fragment depends
+        // on the fact that there is exactly 1 key per KeyPurpose (see assertion above).
         let key_id = did
             .with_queries(&self_hash, version_id)
-            .with_fragment(public_key.as_keri_verifier_str());
+            .with_fragment(format!("{}", key_purpose.integer_value()).as_str());
         (signer, key_id)
     }
     fn generate_new_keys() -> (

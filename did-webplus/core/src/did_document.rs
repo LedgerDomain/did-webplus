@@ -104,7 +104,7 @@ impl DIDDocument {
             update_rules,
             proof_v: vec![],
             prev_did_document_self_hash_o: Some(prev_did_document_self_hash),
-            version_id: prev_did_document.version_id() + 1,
+            version_id: prev_did_document.version_id + 1,
             valid_from,
             public_key_material: PublicKeyMaterial::new(did, public_key_set)?,
         })
@@ -124,7 +124,6 @@ impl DIDDocument {
         self.verify_nonrecursive(prev_did_document_o)?;
         Ok(&self.self_hash)
     }
-
     pub fn is_root_did_document(&self) -> bool {
         self.prev_did_document_self_hash_o.is_none()
     }
@@ -143,28 +142,6 @@ impl DIDDocument {
                 "Failed to serialize DID document to canonical JSON (into std::io::Write)",
             )
         })
-    }
-
-    // TEMP METHODS (maybe?)
-    pub fn self_hash_o(&self) -> Option<&mbc::MBHash> {
-        use selfhash::HashRefT;
-        if self.self_hash.deref().is_placeholder() {
-            None
-        } else {
-            Some(&self.self_hash)
-        }
-    }
-    pub fn prev_did_document_self_hash_o(&self) -> Option<&mbc::MBHash> {
-        self.prev_did_document_self_hash_o.as_ref()
-    }
-    pub fn valid_from(&self) -> time::OffsetDateTime {
-        self.valid_from
-    }
-    pub fn version_id(&self) -> u32 {
-        self.version_id
-    }
-    pub fn public_key_material(&self) -> &PublicKeyMaterial {
-        &self.public_key_material
     }
     pub fn verify_nonrecursive(
         &self,
@@ -253,13 +230,13 @@ impl DIDDocument {
         }
 
         // Check monotonicity of version_time.
-        if self.valid_from <= expected_prev_did_document.valid_from() {
+        if self.valid_from <= expected_prev_did_document.valid_from {
             return Err(Error::Malformed(
                 "Non-initial DID document must have version_time > prev_did_document.version_time",
             ));
         }
         // Check strict succession of version_id.
-        if self.version_id != expected_prev_did_document.version_id() + 1 {
+        if self.version_id != expected_prev_did_document.version_id + 1 {
             return Err(Error::Malformed(
                 "Non-root DID document must have version_id exactly equal to 1 plus the previous DID document's version_id",
             ));
@@ -272,8 +249,8 @@ impl DIDDocument {
 
         Ok(&self.self_hash)
     }
-    /// This method verifies the self-hashes, verifies all included proofs, and then verifies the
-    /// update rules against the valid proof data.
+    /// This method verifies the self-hashes, verifies all included proofs, and then verifies the previous
+    /// DID document's update rules against the valid proof data (if there is a previous DID document).
     fn verify_self_hashes_and_update_rules(
         &self,
         expected_prev_did_document_o: Option<&DIDDocument>,
@@ -351,7 +328,7 @@ impl DIDDocument {
         for proof in self.proof_v.iter() {
             let jws = did_webplus_jws::JWS::try_from(proof.as_str())
                 .map_err(|_| Error::Malformed("Failed to parse proof as JWS"))?;
-            let pub_key: mbc::B64UPubKey = jws.header().kid.as_str().try_into().map_err(|_| {
+            let pub_key: mbc::MBPubKey = jws.header().kid.as_str().try_into().map_err(|_| {
                 Error::Malformed(
                     "Failed to parse JWS header \"kid\" field as base64url-encoded multicodec-encoded public key",
                 )

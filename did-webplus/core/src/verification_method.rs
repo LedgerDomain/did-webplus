@@ -7,17 +7,19 @@ pub struct VerificationMethod {
     pub r#type: String,
     pub controller: DID,
     /// We only support jsonWebKey2020 here.
+    // TODO: Support arbitrary types via map.
     #[serde(rename = "publicKeyJwk")]
     pub public_key_jwk: PublicKeyJWK,
 }
 
 impl VerificationMethod {
-    /// Convenience method for making a well-formed JsonWebKey2020 entry for a DID document.  Note
-    /// that the fragment and the key_id of the PublicKeyJWK will both be set to the KERIVerifier
-    /// value of the verifier.
-    pub fn json_web_key_2020(controller: DID, verifier: &dyn selfsign::Verifier) -> Self {
-        let key_id = verifier.to_keri_verifier();
-        let did_key_resource: DIDKeyResource = controller.with_fragment(&key_id);
+    /// Convenience method for making a well-formed JsonWebKey2020 entry for a DID document.
+    pub fn json_web_key_2020(
+        controller: DID,
+        key_id_fragment: &str,
+        verifier: &dyn selfsign::Verifier,
+    ) -> Self {
+        let did_key_resource: DIDKeyResource = controller.with_fragment(key_id_fragment);
         let public_key_jwk = PublicKeyJWK {
             kid_o: Some(did_key_resource.clone().into()),
             public_key_params: PublicKeyParams::from(verifier),
@@ -54,20 +56,6 @@ impl VerificationMethod {
         if self.id != *self.public_key_jwk.kid_o.as_ref().unwrap() {
             return Err(Error::Malformed(
                 "VerificationMethod id does not match publicKeyJwk 'kid' field",
-            ));
-        }
-
-        // Verify that the id's fragment is actually the KERIVerifier corresponding to the key material.
-        // Note that this constraint allows certain parallelization of checks during verification of signatures.
-        // In particular, in a JWS/JWT, the kid field is a URI whose fragment specifies the KERIVerifier
-        // for the pub key, and that can be used to verify the signature, and then the fact that that pub key
-        // is a valid verification method for the DID can be checked in parallel.
-        // NOTE: This constraint might be infeasible for some key types that have very large public keys
-        // (e.g. some post-quantum crypto schemes).  So this constraint may not stay around.
-        let keri_verifier = selfsign::KERIVerifier::try_from(&self.public_key_jwk)?;
-        if keri_verifier.as_keri_verifier_str() != self.id.fragment() {
-            return Err(Error::Malformed(
-                "VerificationMethod id fragment does not match publicKeyJwk key material",
             ));
         }
 

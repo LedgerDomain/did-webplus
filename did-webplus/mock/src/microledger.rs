@@ -23,8 +23,9 @@ impl Microledger {
     /// root DID document.
     pub fn create(root_did_document: DIDDocument) -> Result<Self, Error> {
         root_did_document.verify_root_nonrecursive()?;
-        assert!(root_did_document.self_hash_o().is_some());
-        let self_hash = root_did_document.self_hash_o().unwrap();
+        use selfhash::HashRefT;
+        assert!(!root_did_document.self_hash.is_placeholder());
+        let self_hash = &root_did_document.self_hash;
         let version_id = root_did_document.version_id;
         let valid_from = root_did_document.valid_from;
 
@@ -55,8 +56,9 @@ impl Microledger {
             let root_did_document = did_document_v.first().unwrap();
             {
                 root_did_document.verify_root_nonrecursive()?;
-                assert!(root_did_document.self_hash_o().is_some());
-                let self_hash = root_did_document.self_hash_o().unwrap();
+                use selfhash::HashRefT;
+                assert!(!root_did_document.self_hash.is_placeholder());
+                let self_hash = &root_did_document.self_hash;
                 let version_id = root_did_document.version_id;
                 let valid_from = root_did_document.valid_from;
 
@@ -67,8 +69,9 @@ impl Microledger {
             let mut prev_did_document = root_did_document;
             for non_root_did_document in did_document_v.iter().skip(1) {
                 non_root_did_document.verify_non_root_nonrecursive(prev_did_document)?;
-                assert!(non_root_did_document.self_hash_o().is_some());
-                let self_hash = non_root_did_document.self_hash_o().unwrap();
+                use selfhash::HashRefT;
+                assert!(!non_root_did_document.self_hash.is_placeholder());
+                let self_hash = &non_root_did_document.self_hash;
                 let version_id = non_root_did_document.version_id;
                 let valid_from = non_root_did_document.valid_from;
 
@@ -120,7 +123,7 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
         let version_id_begin = version_id_begin_o.unwrap_or(0) as usize;
         let version_id_end = version_id_end_o
             .map(|version_id_end| version_id_end as usize)
-            .unwrap_or(self.latest_did_document().version_id() as usize);
+            .unwrap_or(self.latest_did_document().version_id as usize);
         if version_id_begin > version_id_end {
             // No DID documents requested.
             return (0, Box::new(std::iter::empty()));
@@ -173,7 +176,7 @@ impl<'m> MicroledgerMutView<'m> for &'m mut Microledger {
         new_did_document: did_webplus_core::DIDDocument,
     ) -> Result<(), did_webplus_core::Error> {
         new_did_document.verify_non_root_nonrecursive(self.view().latest_did_document())?;
-        let self_hash = new_did_document.self_hash_o().unwrap();
+        let self_hash = &new_did_document.self_hash;
         let version_id = new_did_document.version_id;
         let valid_from = new_did_document.valid_from;
 

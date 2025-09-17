@@ -69,7 +69,7 @@ impl DIDDocStore {
                     let did_document = did_document.clone();
                     tokio::task::spawn(async move {
                         let validate_r = did_document.verify_nonrecursive(prev_did_document_o.as_ref()).map(|_keri_hash| ());
-                        tracing::trace!("validating predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}; result: {:?}", did_document.version_id(), prev_did_document_o.as_ref().map(|did_document| did_document.version_id()), validate_r);
+                        tracing::trace!("validating predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}; result: {:?}", did_document.version_id, prev_did_document_o.as_ref().map(|did_document| did_document.version_id), validate_r);
                         validate_r
                     })
                 }).collect::<Vec<_>>();
@@ -92,8 +92,8 @@ impl DIDDocStore {
                 );
                 tracing::trace!(
                 "validating and storing predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}",
-                did_document.version_id(),
-                prev_did_document_o.map(|did_document| did_document.version_id())
+                did_document.version_id,
+                prev_did_document_o.map(|did_document| did_document.version_id)
             );
                 let time_start = std::time::SystemTime::now();
                 did_document.verify_nonrecursive(prev_did_document_o)?;
@@ -102,7 +102,7 @@ impl DIDDocStore {
                     .expect("pass");
                 tracing::info!(
                     "Time taken to validate predecessor DID document with versionId {}: {:?}",
-                    did_document.version_id(),
+                    did_document.version_id,
                     duration
                 );
                 // prev_did_document_o = Some(did_document);

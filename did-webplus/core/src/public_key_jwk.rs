@@ -33,15 +33,8 @@ impl PublicKeyJWK {
 impl TryFrom<&PublicKeyJWK> for selfsign::KERIVerifier {
     type Error = Error;
     fn try_from(public_key_jwk: &PublicKeyJWK) -> Result<Self, Self::Error> {
-        let keri_verifier = selfsign::KERIVerifier::try_from(&public_key_jwk.public_key_params)?;
-        // Verify that the kid fragment matches the KERIVerifier corresponding to the key material.
-        if let Some(kid) = &public_key_jwk.kid_o {
-            if kid.fragment() != keri_verifier.as_keri_verifier_str() {
-                return Err(Error::Malformed(
-                    "publicKeyJwk kid fragment does not match publicKeyJwk key material",
-                ));
-            }
-        }
-        Ok(keri_verifier)
+        Ok(selfsign::KERIVerifier::try_from(
+            &public_key_jwk.public_key_params,
+        )?)
     }
 }

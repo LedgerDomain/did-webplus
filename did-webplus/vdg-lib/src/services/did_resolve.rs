@@ -440,7 +440,7 @@ async fn resolve_did_impl(
     Ok((
         headers_for_did_document(
             target_did_document.self_hash.as_str(),
-            target_did_document.valid_from(),
+            target_did_document.valid_from,
             false,
         ),
         target_did_document_body,

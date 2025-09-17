@@ -6,7 +6,6 @@ use did_webplus_wallet_store::{
     PrivKeyUsageRecord, PrivKeyUsageRecordFilter, Result, VerificationMethodRecord, WalletRecord,
     WalletRecordFilter, WalletStorage, WalletStorageCtx,
 };
-use selfsign::KERIVerifierStr;
 use sqlx::SqlitePool;
 use std::sync::Arc;
 
@@ -39,13 +38,14 @@ impl DIDDocStorage for WalletStorageSQLite {
         did_document: &DIDDocument,
         did_document_jcs: &str,
     ) -> did_webplus_doc_store::Result<()> {
+        use selfhash::HashRefT;
         assert!(
-            did_document.self_hash_o().is_some(),
+            !did_document.self_hash.is_placeholder(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
         let did_str = did_document.did.as_str();
-        let version_id = did_document.version_id() as i64;
-        let valid_from = did_document.valid_from();
+        let version_id = did_document.version_id as i64;
+        let valid_from = did_document.valid_from;
         let self_hash_str = did_document.self_hash.as_str();
         // TODO: Figure out if ON CONFLICT DO NOTHING is appropriate here -- not sure how returning the rowid
         // would interact with that.
@@ -98,7 +98,7 @@ impl DIDDocStorage for WalletStorageSQLite {
             .verification_method_v
             .iter()
         {
-            let key_id_fragment_str = verification_method.id.fragment().as_str();
+            let key_id_fragment_str = verification_method.id.fragment();
             let controller = verification_method.controller.as_str();
             let pub_key =
                 selfsign::KERIVerifier::try_from(&verification_method.public_key_jwk)?.to_string();
@@ -1028,19 +1028,9 @@ impl WalletStorage for WalletStorageSQLite {
                     .into(),
                 )
             })?;
-            let key_id_fragment = KERIVerifierStr::new_ref(query_result.key_id_fragment.as_str())
-                .map_err(|e| {
-                Error::RecordCorruption(
-                    format!(
-                        "invalid verification_methods.key_id_fragment value {:?}; error was: {}",
-                        query_result.key_id_fragment, e
-                    )
-                    .into(),
-                )
-            })?;
             let did_key_resource_fully_qualified = did
                 .with_queries(self_hash, version_id)
-                .with_fragment(key_id_fragment);
+                .with_fragment(query_result.key_id_fragment.as_str());
 
             let key_purpose_flags = KeyPurposeFlags::try_from(
                 u8::try_from(query_result.key_purpose_flags).map_err(|e| {

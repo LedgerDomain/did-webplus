@@ -252,23 +252,20 @@ impl SigilT for VerificationMethods {}
 #[derive(Clone, Debug)]
 struct VerificationMethodRow {
     // This awkwardness is so that the primary key can be returned by reference without any gymnastics.
-    did_documents_row_id_and_key_id_fragment: (RowId<DIDDocuments>, selfsign::KERIVerifier),
+    did_documents_row_id_and_key_id_fragment: (RowId<DIDDocuments>, String),
     controller: DID,
     pub_key: selfsign::KERIVerifier,
     key_purpose_flags: did_webplus_core::KeyPurposeFlags,
 }
 
-impl RowT<(RowId<DIDDocuments>, selfsign::KERIVerifier)> for VerificationMethodRow {
-    fn primary_key(&self) -> &(RowId<DIDDocuments>, selfsign::KERIVerifier) {
+impl RowT<(RowId<DIDDocuments>, String)> for VerificationMethodRow {
+    fn primary_key(&self) -> &(RowId<DIDDocuments>, String) {
         &self.did_documents_row_id_and_key_id_fragment
     }
 }
 
-type VerificationMethodsTable = TableWithPrimaryKey<
-    VerificationMethods,
-    (RowId<DIDDocuments>, selfsign::KERIVerifier),
-    VerificationMethodRow,
->;
+type VerificationMethodsTable =
+    TableWithPrimaryKey<VerificationMethods, (RowId<DIDDocuments>, String), VerificationMethodRow>;
 
 #[derive(Clone, Debug)]
 struct WalletStorageMockState {
@@ -561,7 +558,7 @@ impl WalletStorageMockState {
                 if verification_method_row
                     .did_documents_row_id_and_key_id_fragment
                     .1
-                    .as_keri_verifier_str()
+                    .as_str()
                     != key_id
                 {
                     continue;
@@ -577,7 +574,7 @@ impl WalletStorageMockState {
                             verification_method_row
                                 .did_documents_row_id_and_key_id_fragment
                                 .1
-                                .as_keri_verifier_str(),
+                                .as_str(),
                         ),
                     key_purpose_flags: verification_method_row.key_purpose_flags,
                     pub_key: verification_method_row.pub_key.clone(),

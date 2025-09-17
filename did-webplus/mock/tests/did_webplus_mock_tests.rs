@@ -6,13 +6,14 @@ use std::{
 };
 
 use did_webplus_core::{
-    DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualifiedStr, Error, KeyPurpose,
-    RequestedDIDDocumentMetadata,
+    DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
+    DIDKeyResourceFullyQualifiedStr, Error, KeyPurpose, MicroledgerMutView, MicroledgerView,
+    PublicKeySet, RequestedDIDDocumentMetadata, RootLevelUpdateRules, UpdateKey,
 };
 use did_webplus_jws::{JWSPayloadEncoding, JWSPayloadPresence, JWS};
 use did_webplus_mock::{
-    MockResolverFull, MockResolverThin, MockVDG, MockVDR, MockVDRClient, MockVerifiedCache,
-    MockWallet,
+    Microledger, MockResolverFull, MockResolverThin, MockVDG, MockVDR, MockVDRClient,
+    MockVerifiedCache, MockWallet,
 };
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -21,18 +22,36 @@ fn overall_init() {
     env_logger::init();
 }
 
-// fn priv_jwk_from_ed25519_signing_key(
-//     ed25519_signing_key: &ed25519_dalek::SigningKey,
-// ) -> ssi_jwk::JWK {
-//     let ed25519_verifying_key = ed25519_signing_key.verifying_key();
-//     ssi_jwk::JWK::from(ssi_jwk::Params::OKP(ssi_jwk::OctetParams {
-//         curve: "Ed25519".to_string(),
-//         public_key: ssi_jwk::Base64urlUInt(ed25519_verifying_key.to_bytes().to_vec()),
-//         private_key: Some(ssi_jwk::Base64urlUInt(
-//             ed25519_signing_key.to_bytes().to_vec(),
-//         )),
-//     }))
-// }
+#[derive(serde::Serialize)]
+struct DecodedDetachedJWS {
+    header: serde_json::Value,
+    payload: serde_json::Value,
+    signature: String,
+}
+
+fn decode_detached_jws(jws: &JWS<'_>) -> DecodedDetachedJWS {
+    let header = serde_json::to_value(jws.header()).expect("pass");
+    let payload = serde_json::Value::Null;
+    let signature = jws.raw_signature_base64().to_string();
+    DecodedDetachedJWS {
+        header,
+        payload,
+        signature,
+    }
+}
+
+fn priv_jwk_from_ed25519_signing_key(
+    ed25519_signing_key: &ed25519_dalek::SigningKey,
+) -> ssi_jwk::JWK {
+    let ed25519_verifying_key = ed25519_signing_key.verifying_key();
+    ssi_jwk::JWK::from(ssi_jwk::Params::OKP(ssi_jwk::OctetParams {
+        curve: "Ed25519".to_string(),
+        public_key: ssi_jwk::Base64urlUInt(ed25519_verifying_key.to_bytes().to_vec()),
+        private_key: Some(ssi_jwk::Base64urlUInt(
+            ed25519_signing_key.to_bytes().to_vec(),
+        )),
+    }))
+}
 
 /// Resolves the DID of the signer to the appropriate DID document, then uses the appropriate public key
 /// to verify the signature.  If the verification succeeds, then the resolved DID document is returned, along
@@ -71,7 +90,7 @@ fn resolve_did_and_verify_jws<'r, 'p>(
     // key purpose is present in the verification method list of the DID document.
 
     if !did_document
-        .public_key_material()
+        .public_key_material
         .relative_key_resources_for_purpose(verification_key_purpose)
         .any(|relative_key_resource| relative_key_resource.fragment() == key_id_fragment)
     {
@@ -82,7 +101,7 @@ fn resolve_did_and_verify_jws<'r, 'p>(
 
     // Retrieve the appropriate verifier from the DID document.
     let verification_method = did_document
-        .public_key_material()
+        .public_key_material
         .verification_method_v
         .iter()
         .find(|&verification_method| verification_method.id.fragment() == key_id_fragment)
@@ -97,191 +116,237 @@ fn resolve_did_and_verify_jws<'r, 'p>(
     Ok((did_document, did_document_metadata))
 }
 
-// // NOTE: This test is a rather low-level test of Microledger.  It's more complex than the one that uses MockWallet,
-// // but it's probably still useful to do these lower-level tests.
-// #[test]
-// #[serial_test::serial]
-// fn test_example_creating_and_updating_a_did() {
-//     println!("# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n");
+// NOTE: This test is a rather low-level test of Microledger.  It's more complex than the one that uses MockWallet,
+// but it's probably still useful to do these lower-level tests.
+#[test]
+#[serial_test::serial]
+fn test_example_creating_and_updating_a_did() {
+    println!("# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n");
 
-//     let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-//     let verifying_key_0 = signing_key_0.verifying_key();
+    let update_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_pub_key_0 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbc::Base::Base64Url,
+        &update_key_0.verifying_key(),
+    );
 
-//     // Create a DID and its associated Microledger
-//     let (mut microledger, mut priv_jwk_0) = {
-//         let mut priv_jwk_0 = priv_jwk_from_ed25519_signing_key(&signing_key_0);
-//         println!(
-//             "For now, let's generate a single Ed25519 key to use in all the verification methods for the DID we will create.  In JWK format, the private key is:\n\n```json\n{}\n```\n",
-//             serde_json::to_string_pretty(&priv_jwk_0).expect("pass")
-//         );
-//         let microledger = Microledger::create(
-//             DIDDocument::create_root(
-//                 DIDDocumentCreateParams {
-//                     did_hostname: "example.com".into(),
-//                     did_port_o: None,
-//                     did_path_o: Some("hey".into()),
-//                     valid_from: time::OffsetDateTime::now_utc(),
-//                     public_key_set: PublicKeySet {
-//                         authentication_v: vec![&verifying_key_0],
-//                         assertion_method_v: vec![&verifying_key_0],
-//                         key_agreement_v: vec![&verifying_key_0],
-//                         // Note that this is the one being used to self-sign the root DIDDocument.
-//                         capability_invocation_v: vec![&verifying_key_0],
-//                         capability_delegation_v: vec![&verifying_key_0],
-//                     },
-//                 },
-//                 &selfhash::Blake3,
-//                 &signing_key_0,
-//             )
-//             .expect("pass"),
-//         )
-//         .expect("pass");
-//         let did = microledger.view().did();
-//         use selfsign::Verifier;
-//         let latest_did_document = microledger.view().latest_did_document();
-//         println!("Creating a DID produces the root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is a public key that is also found in the `capabilityInvocation` field.  This is the initial proof of control over the DID.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));
-//         println!("The associated DID document metadata (at the time of DID creation) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
-//         // Add query params to bind this JWK to the latest DID doc.
-//         // Add (key ID) fragment to identify which key it is.
-//         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-//             .with_queries(
-//                 latest_did_document.self_hash(),
-//                 latest_did_document.version_id(),
-//             )
-//             .with_fragment(&verifying_key_0.to_keri_verifier());
-//         priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
-//         println!("We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
-//         (microledger, priv_jwk_0)
-//     };
+    let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let verifying_key_0 = signing_key_0.verifying_key();
 
-//     let signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-//     let verifying_key_1 = signing_key_1.verifying_key();
-//     println!("## Updating the DID\n");
-//     // Update the Microledger.
-//     let mut priv_jwk_1 = {
-//         let mut priv_jwk_1 = priv_jwk_from_ed25519_signing_key(&signing_key_1);
-//         println!(
-//             "Let's generate another key to rotate in for some verification methods.  In JWK format, the new private key is:\n\n```json\n{}\n```\n",
-//             serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
-//         );
-//         let did_document_update_params = DIDDocumentUpdateParams {
-//             valid_from: time::OffsetDateTime::now_utc(),
-//             public_key_set: PublicKeySet {
-//                 authentication_v: vec![&verifying_key_0, &verifying_key_1],
-//                 assertion_method_v: vec![&verifying_key_0],
-//                 key_agreement_v: vec![&verifying_key_0],
-//                 capability_invocation_v: vec![&verifying_key_1],
-//                 capability_delegation_v: vec![&verifying_key_0],
-//             },
-//         };
-//         let new_did_document = DIDDocument::update_from_previous(
-//             microledger.view().latest_did_document(),
-//             did_document_update_params,
-//             &selfhash::Blake3,
-//             &signing_key_0,
-//         )
-//         .expect("pass");
-//         microledger
-//             .mut_view()
-//             .update(new_did_document)
-//             .expect("pass");
-//         let did = microledger.view().did();
-//         use selfsign::Verifier;
-//         let latest_did_document = microledger.view().latest_did_document();
-//         println!("Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is present in the previous (root) DID document's `capabilityInvocation` field.  This proves that the DID document was updated by an authorized entity.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));
-//         println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
-//         println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
-//         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-//             .with_queries(
-//                 latest_did_document.self_hash(),
-//                 latest_did_document.version_id(),
-//             )
-//             .with_fragment(&verifying_key_1.to_keri_verifier());
-//         priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
-//         println!(
-//             "We set the new private JWK's `kid` field as earlier:\n\n```json\n{}\n```\n",
-//             serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
-//         );
-//         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-//             .with_queries(
-//                 latest_did_document.self_hash(),
-//                 latest_did_document.version_id(),
-//             )
-//             .with_fragment(&verifying_key_0.to_keri_verifier());
-//         priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
-//         println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
-//         priv_jwk_1
-//     };
+    // Create a DID and its associated Microledger
+    let (mut microledger, mut priv_jwk_0) = {
+        let mut priv_jwk_0 = priv_jwk_from_ed25519_signing_key(&signing_key_0);
+        println!(
+            "For now, let's generate a single Ed25519 key to use in all the verification methods for the DID we will create.  In JWK format, the private key is:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_0).expect("pass")
+        );
+        println!("We'll also need a key that is authorized to update the DID document.  In publicKeyMultibase format, the public key is:\n\n```\n{}\n```\n", update_pub_key_0);
+        let update_rules = RootLevelUpdateRules::from(UpdateKey {
+            key: update_pub_key_0.clone(),
+        });
+        let mut did_document = DIDDocument::create_unsigned_root(
+            "example.com",
+            None,
+            Some("hey"),
+            update_rules,
+            time::OffsetDateTime::now_utc(),
+            PublicKeySet {
+                authentication_v: vec![&verifying_key_0],
+                assertion_method_v: vec![&verifying_key_0],
+                key_agreement_v: vec![&verifying_key_0],
+                capability_invocation_v: vec![&verifying_key_0],
+                capability_delegation_v: vec![&verifying_key_0],
+            },
+            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+        )
+        .expect("pass");
+        // No need to sign the root DID document, but it is allowed.
+        did_document.finalize(None).expect("pass");
+        did_document.verify_root_nonrecursive().expect("pass");
+        let microledger = Microledger::create(did_document).expect("pass");
+        let did = microledger.view().did();
+        use selfsign::Verifier;
+        let latest_did_document = microledger.view().latest_did_document();
+        println!("Creating a DID produces the root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `updateRules` field is what defines update authorization for this DID document.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID creation) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
+        // Add query params to bind this JWK to the latest DID doc.
+        // Add (key ID) fragment to identify which key it is.
+        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+            .with_queries(
+                &latest_did_document.self_hash,
+                latest_did_document.version_id,
+            )
+            .with_fragment(&verifying_key_0.to_keri_verifier());
+        priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
+        println!("We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
+        (microledger, priv_jwk_0)
+    };
 
-//     let signing_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-//     let verifying_key_2 = signing_key_2.verifying_key();
+    let update_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_pub_key_1 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbc::Base::Base64Url,
+        &update_key_1.verifying_key(),
+    );
 
-//     println!("## Updating the DID Again\n");
-//     // Update the Microledger.
-//     let _priv_jwk_2 = {
-//         let mut priv_jwk_2 = priv_jwk_from_ed25519_signing_key(&signing_key_2);
-//         println!(
-//             "Let's generate a third key to rotate in for some verification methods.  In JWK format, the new private key is:\n\n```json\n{}\n```\n",
-//             serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
-//         );
-//         let did_document_update_params = DIDDocumentUpdateParams {
-//             valid_from: time::OffsetDateTime::now_utc(),
-//             public_key_set: PublicKeySet {
-//                 authentication_v: vec![&verifying_key_0, &verifying_key_1],
-//                 assertion_method_v: vec![&verifying_key_2],
-//                 key_agreement_v: vec![&verifying_key_2],
-//                 capability_invocation_v: vec![&verifying_key_2],
-//                 capability_delegation_v: vec![&verifying_key_0],
-//             },
-//         };
-//         let new_did_document = DIDDocument::update_from_previous(
-//             microledger.view().latest_did_document(),
-//             did_document_update_params,
-//             &selfhash::Blake3,
-//             &signing_key_1,
-//         )
-//         .expect("pass");
-//         microledger
-//             .mut_view()
-//             .update(new_did_document)
-//             .expect("pass");
-//         let did = microledger.view().did();
-//         use selfsign::Verifier;
-//         let latest_did_document = microledger.view().latest_did_document();
-//         println!("Updated DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `selfSignatureVerifier` field is present in the previous (root) DID document's `capabilityInvocation` field.  This proves that the DID document was updated by an authorized entity.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));
-//         println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
-//         println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"), RequestedDIDDocumentMetadata::all())).expect("pass"));
-//         println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
-//         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-//             .with_queries(
-//                 latest_did_document.self_hash(),
-//                 latest_did_document.version_id(),
-//             )
-//             .with_fragment(&verifying_key_2.to_keri_verifier());
-//         priv_jwk_2.key_id = Some(did_key_resource_fully_qualified.to_string());
-//         println!(
-//             "We set the new private JWK's `kid` field as earlier:\n\n```json\n{}\n```\n",
-//             serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
-//         );
-//         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-//             .with_queries(
-//                 latest_did_document.self_hash(),
-//                 latest_did_document.version_id(),
-//             )
-//             .with_fragment(&verifying_key_0.to_keri_verifier());
-//         priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
-//         println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
-//         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-//             .with_queries(
-//                 latest_did_document.self_hash(),
-//                 latest_did_document.version_id(),
-//             )
-//             .with_fragment(&verifying_key_1.to_keri_verifier());
-//         priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
-//         println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_1).expect("pass"));
-//         priv_jwk_2
-//     };
-// }
+    let signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let verifying_key_1 = signing_key_1.verifying_key();
+
+    println!("## Updating the DID\n");
+    // Update the Microledger.
+    let mut priv_jwk_1 = {
+        let mut priv_jwk_1 = priv_jwk_from_ed25519_signing_key(&signing_key_1);
+        println!(
+            "Let's generate another key to rotate in for some verification methods.  In JWK format, the new private key is:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
+        );
+        println!("A new update key is also needed.  In publicKeyMultibase format, the new public key is:\n\n```\n{}\n```\n", update_pub_key_1);
+
+        let update_rules = RootLevelUpdateRules::from(UpdateKey {
+            key: update_pub_key_1.clone(),
+        });
+        let mut new_did_document = DIDDocument::create_unsigned_non_root(
+            microledger.view().latest_did_document(),
+            update_rules,
+            time::OffsetDateTime::now_utc(),
+            PublicKeySet {
+                authentication_v: vec![&verifying_key_0, &verifying_key_1],
+                assertion_method_v: vec![&verifying_key_0],
+                key_agreement_v: vec![&verifying_key_0],
+                capability_invocation_v: vec![&verifying_key_1],
+                capability_delegation_v: vec![&verifying_key_0],
+            },
+            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+        )
+        .expect("pass");
+        // Sign the updated DID document.
+        let jws = new_did_document
+            .sign(update_pub_key_0.to_string(), &update_key_0)
+            .expect("pass");
+        // Add the proof to the DID document.
+        new_did_document.add_proof(jws.as_str().to_string());
+        // Finalize the updated DID document.
+        new_did_document
+            .finalize(Some(microledger.view().latest_did_document()))
+            .expect("pass");
+        new_did_document
+            .verify_non_root_nonrecursive(microledger.view().latest_did_document())
+            .expect("pass");
+        microledger
+            .mut_view()
+            .update(new_did_document)
+            .expect("pass");
+        let did = microledger.view().did();
+        use selfsign::Verifier;
+        let latest_did_document = microledger.view().latest_did_document();
+        println!("Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"), serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
+        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+            .with_queries(
+                &latest_did_document.self_hash,
+                latest_did_document.version_id,
+            )
+            .with_fragment(&verifying_key_1.to_keri_verifier());
+        priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
+        println!(
+            "We set the new private JWK's `kid` field as earlier:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
+        );
+        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+            .with_queries(
+                &latest_did_document.self_hash,
+                latest_did_document.version_id,
+            )
+            .with_fragment(&verifying_key_0.to_keri_verifier());
+        priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
+        println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
+        priv_jwk_1
+    };
+
+    let update_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_pub_key_2 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbc::Base::Base64Url,
+        &update_key_2.verifying_key(),
+    );
+
+    let signing_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let verifying_key_2 = signing_key_2.verifying_key();
+
+    println!("## Updating the DID Again\n");
+    // Update the Microledger.
+    let _priv_jwk_2 = {
+        let mut priv_jwk_2 = priv_jwk_from_ed25519_signing_key(&signing_key_2);
+        println!(
+            "Let's generate a third key to rotate in for some verification methods.  In JWK format, the new private key is:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
+        );
+        let update_rules = RootLevelUpdateRules::from(UpdateKey {
+            key: update_pub_key_2.clone(),
+        });
+        let mut new_did_document = DIDDocument::create_unsigned_non_root(
+            microledger.view().latest_did_document(),
+            update_rules,
+            time::OffsetDateTime::now_utc(),
+            PublicKeySet {
+                authentication_v: vec![&verifying_key_0, &verifying_key_1],
+                assertion_method_v: vec![&verifying_key_2],
+                key_agreement_v: vec![&verifying_key_2],
+                capability_invocation_v: vec![&verifying_key_2],
+                capability_delegation_v: vec![&verifying_key_0],
+            },
+            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+        )
+        .expect("pass");
+        let jws = new_did_document
+            .sign(update_pub_key_1.to_string(), &update_key_1)
+            .expect("pass");
+        new_did_document.add_proof(jws.as_str().to_string());
+        new_did_document
+            .finalize(Some(microledger.view().latest_did_document()))
+            .expect("pass");
+        new_did_document
+            .verify_non_root_nonrecursive(microledger.view().latest_did_document())
+            .expect("pass");
+        microledger
+            .mut_view()
+            .update(new_did_document)
+            .expect("pass");
+        let did = microledger.view().did();
+        use selfsign::Verifier;
+        let latest_did_document = microledger.view().latest_did_document();
+        println!("Updated DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"), serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"), RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
+        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+            .with_queries(
+                &latest_did_document.self_hash,
+                latest_did_document.version_id,
+            )
+            .with_fragment(&verifying_key_2.to_keri_verifier());
+        priv_jwk_2.key_id = Some(did_key_resource_fully_qualified.to_string());
+        println!(
+            "We set the new private JWK's `kid` field as earlier:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
+        );
+        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+            .with_queries(
+                &latest_did_document.self_hash,
+                latest_did_document.version_id,
+            )
+            .with_fragment(&verifying_key_0.to_keri_verifier());
+        priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
+        println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
+        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+            .with_queries(
+                &latest_did_document.self_hash,
+                latest_did_document.version_id,
+            )
+            .with_fragment(&verifying_key_1.to_keri_verifier());
+        priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
+        println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_1).expect("pass"));
+        priv_jwk_2
+    };
+}
 
 #[test]
 #[serial_test::serial]
@@ -533,7 +598,7 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) = mock_verified_cache
                     .resolve_did_document(
                         &alice_did,
-                        Some(did_document.version_id()),
+                        Some(did_document.version_id),
                         None,
                         RequestedDIDDocumentMetadata::all(),
                         &mut mock_resolver_full,
@@ -559,7 +624,7 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve_did_document(&alice_did, Some(did_document.version_id()), Some(did_document.self_hash.deref()), RequestedDIDDocumentMetadata::all(), &mut mock_resolver_full)
+                .resolve_did_document(&alice_did, Some(did_document.version_id), Some(did_document.self_hash.deref()), RequestedDIDDocumentMetadata::all(), &mut mock_resolver_full)
                 .expect("pass");
                 assert_eq!(*did_document_query, did_document);
                 assert_eq!(did_document_metadata_query, did_document_metadata);

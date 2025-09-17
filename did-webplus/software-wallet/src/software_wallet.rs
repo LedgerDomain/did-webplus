@@ -175,8 +175,10 @@ impl Wallet for SoftwareWallet {
 
         // Define the update rules.  For now, just a single key.
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: mbc::B64UPubKey::try_from(&pub_key_m[KeyPurpose::UpdateDIDDocument])
-                .expect("pass"),
+            key: mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+                mbc::Base::Base64Url,
+                &pub_key_m[KeyPurpose::UpdateDIDDocument],
+            ),
         });
 
         // Form the unsigned root DID document.
@@ -417,10 +419,10 @@ impl Wallet for SoftwareWallet {
 
         // Define the update rules.  For now, just a single key.
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: mbc::B64UPubKey::try_from(
+            key: mbc::MBPubKey::from_ed25519_dalek_verifying_key(
+                mbc::Base::Base64Url,
                 &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key(),
-            )
-            .expect("pass"),
+            ),
         });
 
         // Form the unsigned non-root DID document.
@@ -447,9 +449,9 @@ impl Wallet for SoftwareWallet {
             ed25519_dalek::SigningKey::try_from(priv_key_for_update.private_key_bytes())
                 .expect("programmer error");
         let verifying_key = signing_key.verifying_key();
-        let signing_kid = mbc::B64UPubKey::try_from(&verifying_key)
-            .expect("programmer error")
-            .to_string();
+        let signing_kid =
+            mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &verifying_key)
+                .to_string();
 
         // The updated DID document must be signed by the UpdateDIDDocument key specified in the latest DID document.
         let jws = updated_did_document

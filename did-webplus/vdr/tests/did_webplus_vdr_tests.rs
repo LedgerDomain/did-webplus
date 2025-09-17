@@ -138,7 +138,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
             // The replace calls are hacky, but effective.
             let alice_did_url_version_id = alice_did
                 .resolution_url_for_version_id(
-                    alice_did_document.version_id(),
+                    alice_did_document.version_id,
                     http_scheme_override_o,
                 )
                 .replace("fancy.net", "localhost:8085")
