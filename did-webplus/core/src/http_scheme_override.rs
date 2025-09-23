@@ -17,10 +17,18 @@ impl HTTPSchemeOverride {
     /// override, and it is the same as the given scheme, no error is returned.  If the hostname already
     /// has an override, and it is different from the given scheme, an error is returned.
     pub fn with_override(mut self, hostname: String, scheme: &str) -> Result<Self> {
+        tracing::trace!(?hostname, ?scheme, "HTTPSchemeOverride::with_override");
+
         self.add_override(hostname, scheme)?;
         Ok(self)
     }
     pub fn add_override(&mut self, hostname: String, scheme: &str) -> Result<()> {
+        tracing::trace!(
+            ?hostname,
+            ?scheme,
+            "HTTPSchemeOverride::add_override: adding override"
+        );
+
         let scheme = Self::parse_scheme_static_str(scheme)?;
         if let Some(&existing_scheme) = self.0.get(&hostname) {
             if existing_scheme == scheme {
@@ -41,6 +49,11 @@ impl HTTPSchemeOverride {
     }
     /// Parse a comma-separated list of `hostname=scheme` pairs into a `HTTPSchemeOverride` data structure.
     pub fn parse_from_comma_separated_pairs(s: &str) -> Result<Self> {
+        tracing::trace!(
+            ?s,
+            "HTTPSchemeOverride::parse_from_comma_separated_pairs: parsing"
+        );
+
         // Trim whitespace before processing.
         let s = s.trim();
 
@@ -71,8 +84,14 @@ impl HTTPSchemeOverride {
                         ));
                     }
                 }
+                tracing::trace!(
+                    ?hostname,
+                    ?http_scheme,
+                    "HTTPSchemeOverride::parse_from_comma_separated_pairs: inserting"
+                );
                 m.insert(hostname.to_string(), http_scheme);
             } else {
+                tracing::error!(?pair, "HTTPSchemeOverride::parse_from_comma_separated_pairs: malformed hostname=scheme pair: {}", pair);
                 return Err(Error::Malformed("Malformed hostname=scheme pair"));
             }
         }
@@ -84,6 +103,8 @@ impl HTTPSchemeOverride {
     /// this data structure, and the mapping for the given hostname is returned.  Note that
     /// "host" means hostname with optional port number (e.g. "fancy.com" or "localhost:8080").
     pub fn determine_http_scheme_for_host(&self, host: &str) -> Result<&'static str> {
+        tracing::trace!(?host, "HTTPSchemeOverride::determine_http_scheme_for_host");
+
         let (hostname, _port_o) = Self::parse_host_and_port_o(host)?;
         match self.0.get(hostname) {
             // Override was specified, so use it.
@@ -107,6 +128,12 @@ impl HTTPSchemeOverride {
         http_scheme_override_o: Option<&Self>,
         host: &str,
     ) -> Result<&'static str> {
+        tracing::trace!(
+            ?http_scheme_override_o,
+            ?host,
+            "HTTPSchemeOverride::determine_http_scheme_for_host_from"
+        );
+
         if let Some(http_scheme_override) = http_scheme_override_o {
             http_scheme_override.determine_http_scheme_for_host(host)
         } else {

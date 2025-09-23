@@ -10,7 +10,7 @@ impl DID {
         host: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
-        root_self_hash: &mbc::MBHashStr,
+        root_self_hash: &mbx::MBHashStr,
     ) -> Result<Self, Error> {
         let s = DIDWebplusURIComponents {
             host,
@@ -51,7 +51,7 @@ impl DID {
                 (None, root_self_hash_str)
             }
         };
-        let root_self_hash = mbc::MBHashStr::new_ref(root_self_hash_str)?;
+        let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str)?;
         Self::new(host, port_o, path_o.as_deref(), root_self_hash)
     }
     /// Parse (the equivalent of) a did-documents.jsonl resolution URL to produce a DID.
@@ -85,11 +85,11 @@ impl DID {
                 (None, root_self_hash_str)
             }
         };
-        let root_self_hash = mbc::MBHashStr::new_ref(root_self_hash_str)?;
+        let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str)?;
         Self::new(host, port_o, path_o.as_deref(), root_self_hash)
     }
     /// Set the root self hash value to the given value.
-    pub fn set_root_self_hash(&mut self, root_self_hash: &mbc::MBHashStr) {
+    pub fn set_root_self_hash(&mut self, root_self_hash: &mbx::MBHashStr) {
         // Strip off the root self_hash portion, not including the ':' delimiter before it.
         self.0.truncate(self.0.rfind(':').unwrap() + 1);
         self.0.push_str(root_self_hash.as_str());

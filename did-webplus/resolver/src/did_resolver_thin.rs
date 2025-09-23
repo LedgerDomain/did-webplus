@@ -137,7 +137,7 @@ impl verifier_resolver::VerifierResolver for DIDResolverThin {
     async fn resolve(
         &self,
         verifier_str: &str,
-    ) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
+    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
         verifier_resolver_impl(verifier_str, self).await
     }
 }

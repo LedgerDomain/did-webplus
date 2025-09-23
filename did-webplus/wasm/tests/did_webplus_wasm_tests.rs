@@ -52,8 +52,8 @@ async fn test_vjson_sign_and_verify() {
     let verifier_resolver = did_webplus_wasm::VerifierResolver::new_with_did_key();
 
     // Generate a private key to sign with.
-    let signer =
-        did_webplus_wasm::Signer::did_key_generate(selfsign::KeyType::Ed25519).expect("pass");
+    let signer = did_webplus_wasm::Signer::did_key_generate(did_webplus_wasm::KeyType::Ed25519)
+        .expect("pass");
 
     let vjson_string = JsFuture::from(did_webplus_wasm::vjson_sign_and_self_hash(
         r#"{"blah":123, "$id":"vjson:///"}"#.to_string(),

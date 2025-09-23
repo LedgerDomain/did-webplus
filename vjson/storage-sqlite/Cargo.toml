@@ -6,7 +6,8 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.80"
-selfhash = "0.4.0"
+mbx = "0.1.0"
+selfhash = "0.5.0"
 sqlx = { version = "0.8.2", features = ["sqlite", "time"] }
 storage-traits = { path = "../../storage-traits", features = ["sqlx-sqlite"] }
 time = "0.3"

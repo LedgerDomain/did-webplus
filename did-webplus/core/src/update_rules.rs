@@ -1,55 +1,30 @@
 use crate::{Error, Result};
-use mbc::{MBHash, MBHashStr, MBPubKey, MBPubKeyStr};
-use std::{cell::OnceCell, collections::HashMap, ops::Deref};
+use mbx::{MBHash, MBHashStr, MBPubKey, MBPubKeyStr};
 
 #[derive(Clone, Debug)]
 pub struct ValidProofData {
-    key: MBPubKey,
-    #[allow(dead_code)]
-    hashed_key_mc: OnceCell<HashMap<u64, MBHash>>,
+    pub_key: MBPubKey,
+    // NOTE: For now we always assume Base64Url encoding on a Blake3 hash.
+    hashed_pub_key: MBHash,
 }
 
 impl ValidProofData {
-    pub fn from_key(key: MBPubKey) -> Self {
+    pub fn from_pub_key(pub_key: MBPubKey) -> Self {
+        use selfhash::HashFunctionT;
+        let mut hasher = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url).new_hasher();
+        use selfhash::HasherT;
+        hasher.update(pub_key.as_bytes());
+        let hashed_pub_key = hasher.finalize();
         Self {
-            key,
-            hashed_key_mc: OnceCell::new(),
+            pub_key,
+            hashed_pub_key,
         }
     }
-    // pub fn from_hashed_key(hashed_key: MBHash) -> Self {
-    //     let hashed_key_mc = OnceCell::new();
-    //     let hashed_key_m = hashed_key_mc.get_mut().unwrap();
-    //     let hash_codec = hashed_key.decoded().unwrap().codec();
-    //     hashed_key_m.insert(hash_codec, hashed_key);
-    //     Self {
-    //         key: None,
-    //         hashed_key_mc,
-    //     }
-    // }
-    pub fn key(&self) -> &MBPubKeyStr {
-        self.key.deref()
+    pub fn pub_key(&self) -> &MBPubKeyStr {
+        self.pub_key.as_mb_pub_key_str()
     }
-    pub fn hashed_key(&self, _hash_codec: u64) -> &MBHashStr {
-        todo!("ValidProofData::hashed_key");
-        // if let Some(hashed_key_m) = self.hashed_key_mc.get() {
-        //     if let Some(hashed_key) = hashed_key_m.get(&hash_codec) {
-        //         // If we already have a hash for this codec, return it.
-        //         return hashed_key;
-        //     }
-        // } else {
-        //     // If hashed_key_mc isn't yet initialized, initialize it.
-        //     self.hashed_key_mc.get_or_init(|| HashMap::new());
-        // }
-        // // We don't yet have a hash for this codec, so compute it from the key.
-        // use selfhash::HashFunctionT;
-        // let hasher = selfhash::MBHashFunction::new(hash_codec)
-        //     .expect("programmer error")
-        //     .new_hasher();
-        // hasher.update(key.as_bytes());
-        // let hash = hasher.finalize();
-        // let hashed_key_m = self.hashed_key_mc.get_mut().unwrap();
-        // hashed_key_m.insert(hash_codec, hash);
-        // hashed_key_m.get(&hash_codec).unwrap()
+    pub fn hashed_pub_key(&self) -> &MBHashStr {
+        self.hashed_pub_key.as_mb_hash_str()
     }
 }
 
@@ -68,13 +43,14 @@ impl VerifyRulesT for UpdatesDisallowed {
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct UpdateKey {
-    pub key: MBPubKey,
+    #[serde(rename = "key")]
+    pub pub_key: MBPubKey,
 }
 
 impl VerifyRulesT for UpdateKey {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         for valid_proof_key in valid_proof_data_v.iter() {
-            if valid_proof_key.key() == self.key.deref() {
+            if valid_proof_key.pub_key() == self.pub_key.as_mb_pub_key_str() {
                 return Ok(());
             }
         }
@@ -86,14 +62,30 @@ impl VerifyRulesT for UpdateKey {
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct HashedUpdateKey {
     #[serde(rename = "hashedKey")]
-    pub hashed_key: MBHash,
+    hashed_pub_key: MBHash,
+}
+
+impl HashedUpdateKey {
+    pub fn from_pub_key(pub_key: &MBPubKeyStr) -> Self {
+        use selfhash::HashFunctionT;
+        let mut hasher = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url).new_hasher();
+        use selfhash::HasherT;
+        hasher.update(pub_key.as_bytes());
+        let hashed_pub_key = hasher.finalize();
+        Self { hashed_pub_key }
+    }
+    pub fn from_hashed_pub_key(hashed_pub_key: MBHash) -> Self {
+        Self { hashed_pub_key }
+    }
+    pub fn hashed_pub_key(&self) -> &MBHashStr {
+        self.hashed_pub_key.as_mb_hash_str()
+    }
 }
 
 impl VerifyRulesT for HashedUpdateKey {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
-        let hash_codec = self.hashed_key.decoded().unwrap().codec();
         for valid_proof_key in valid_proof_data_v.iter() {
-            if valid_proof_key.hashed_key(hash_codec) == self.hashed_key.deref() {
+            if valid_proof_key.hashed_pub_key() == self.hashed_pub_key.as_mb_hash_str() {
                 return Ok(());
             }
         }
@@ -356,20 +348,23 @@ mod tests {
         test_util::ctor_overall_init();
 
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(UpdateKey {
-            key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
+            pub_key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(HashedUpdateKey {
-            hashed_key: MBHash::try_from("uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe").unwrap(),
+            hashed_pub_key: MBHash::try_from("uEiAWCleApqPkQg-DKbql-C5OOyZ7ydUgq7G_rHepYEukHg")
+                .unwrap(),
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(Any {
             any: vec![UpdateKey {
-                key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
+                pub_key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
+                    .unwrap(),
             }
             .into()],
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(All {
             all: vec![UpdateKey {
-                key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg").unwrap(),
+                pub_key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
+                    .unwrap(),
             }
             .into()],
         }));
@@ -379,16 +374,18 @@ mod tests {
                 WeightedUpdateRules {
                     weight: 3,
                     update_rules: UpdateKey {
-                        key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
-                            .unwrap(),
+                        pub_key: MBPubKey::try_from(
+                            "u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg",
+                        )
+                        .unwrap(),
                     }
                     .into(),
                 },
                 WeightedUpdateRules {
                     weight: 1,
                     update_rules: HashedUpdateKey {
-                        hashed_key: MBHash::try_from(
-                            "uEhYKV4Cmo-RCD4MpuqX4Lk47JnvJ1SCrsb-sd6lgS6Qe",
+                        hashed_pub_key: MBHash::try_from(
+                            "uEiAWCleApqPkQg-DKbql-C5OOyZ7ydUgq7G_rHepYEukHg",
                         )
                         .unwrap(),
                     }

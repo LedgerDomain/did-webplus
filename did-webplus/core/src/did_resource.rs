@@ -25,7 +25,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
         host: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
-        root_self_hash: &mbc::MBHashStr,
+        root_self_hash: &mbx::MBHashStr,
         fragment: &F,
     ) -> Result<Self, Error> {
         // TODO: Complete validation of host
@@ -52,7 +52,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
     }
     /// Set the root self-hash value to the given value.  This assumes that the new root self-hash has
     /// the same str len as the existing one, and therefore doesn't allocate.
-    pub fn set_root_self_hash(&mut self, root_self_hash: &mbc::MBHashStr) {
+    pub fn set_root_self_hash(&mut self, root_self_hash: &mbx::MBHashStr) {
         assert_eq!(self.root_self_hash().len(), root_self_hash.len(), "programmer error: hash function must already be known, producing a known, fixed length for the DID's root self-hash component");
         let end = self.find('#').unwrap();
         assert!(end > self.root_self_hash().len());

@@ -13,11 +13,11 @@ pub struct VJSONStoreGet {
 }
 
 impl VJSONStoreGet {
-    pub fn vjson_specifier_self_hash(&self) -> Result<&selfhash::KERIHashStr> {
-        if let Ok(self_hash) = selfhash::KERIHashStr::new_ref(&self.vjson_specifier) {
+    pub fn vjson_specifier_self_hash(&self) -> Result<&mbx::MBHashStr> {
+        if let Ok(self_hash) = mbx::MBHashStr::new_ref(&self.vjson_specifier) {
             Ok(self_hash)
         } else if let Ok(self_hash_url) = selfhash::SelfHashURLStr::new_ref(&self.vjson_specifier) {
-            self_hash_url.keri_hash_o().ok_or_else(|| {
+            self_hash_url.mb_hash_o().ok_or_else(|| {
                 anyhow::anyhow!("Self-hash URL must have a well-formed self-hash component")
             })
         } else {

@@ -45,10 +45,10 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceFullyQualifiedStr<F> {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn root_self_hash(&self) -> &mbc::MBHashStr {
+    pub fn root_self_hash(&self) -> &mbx::MBHashStr {
         self.uri_components().root_self_hash
     }
-    pub fn query_self_hash(&self) -> &mbc::MBHashStr {
+    pub fn query_self_hash(&self) -> &mbx::MBHashStr {
         self.uri_components().query_self_hash_o.expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
     }
     pub fn query_version_id(&self) -> u32 {

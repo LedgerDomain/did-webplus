@@ -22,11 +22,11 @@ pub enum Error {
     #[error("Generic error: {0}")]
     Generic(&'static str),
     #[error("MBC error: {0}")]
-    MBCError(mbc::Error),
+    MBCError(mbx::Error),
     #[error("Self-hash error: {0}")]
     SelfHashError(selfhash::Error),
-    #[error("Self-sign error: {0}")]
-    SelfSignError(selfsign::Error),
+    #[error("Signature error: {0}")]
+    SignatureError(signature_dyn::Error),
     #[error("Serialization error: {0}")]
     Serialization(&'static str),
     #[error("Signing error: {0}")]
@@ -43,8 +43,8 @@ impl From<&'static str> for Error {
     }
 }
 
-impl From<mbc::Error> for Error {
-    fn from(e: mbc::Error) -> Self {
+impl From<mbx::Error> for Error {
+    fn from(e: mbx::Error) -> Self {
         Self::MBCError(e)
     }
 }
@@ -55,8 +55,8 @@ impl From<selfhash::Error> for Error {
     }
 }
 
-impl From<selfsign::Error> for Error {
-    fn from(e: selfsign::Error) -> Self {
-        Self::SelfSignError(e)
+impl From<signature_dyn::Error> for Error {
+    fn from(e: signature_dyn::Error) -> Self {
+        Self::SignatureError(e)
     }
 }

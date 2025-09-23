@@ -8,7 +8,7 @@ use did_webplus_wallet_store::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter, PrivKeyUsage,
     PrivKeyUsageRecord, VerificationMethodRecord, WalletStorage, WalletStorageCtx,
 };
-use selfsign::Signer;
+use signature_dyn::SignerDynT;
 use std::{borrow::Cow, sync::Arc};
 
 #[derive(Clone)]
@@ -165,17 +165,17 @@ impl Wallet for SoftwareWallet {
         };
         // TODO: Somehow iterate?
         let pub_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::Authentication].verifying_key()),
-            KeyPurpose::AssertionMethod => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::AssertionMethod].verifying_key()),
-            KeyPurpose::KeyAgreement => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::KeyAgreement].verifying_key()),
-            KeyPurpose::CapabilityInvocation => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key()),
-            KeyPurpose::CapabilityDelegation => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key()),
-            KeyPurpose::UpdateDIDDocument => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key()),
+            KeyPurpose::Authentication => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::Authentication].verifying_key()),
+            KeyPurpose::AssertionMethod => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::AssertionMethod].verifying_key()),
+            KeyPurpose::KeyAgreement => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::KeyAgreement].verifying_key()),
+            KeyPurpose::CapabilityInvocation => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key()),
+            KeyPurpose::CapabilityDelegation => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key()),
+            KeyPurpose::UpdateDIDDocument => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key()),
         };
 
         // Define the update rules.  For now, just a single key.
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
+            pub_key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
         });
 
         // Form the unsigned root DID document.
@@ -192,7 +192,7 @@ impl Wallet for SoftwareWallet {
                 capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
                 capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
             },
-            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
         )
         .expect("programmer error");
 
@@ -266,6 +266,7 @@ impl Wallet for SoftwareWallet {
                 None
             };
             let comment_o = Some("generated during DID create".to_string());
+            use signature_dyn::SignerDynT;
             self.wallet_storage_a
                 .add_priv_key(
                     Some(transaction_b.as_mut()),
@@ -281,7 +282,7 @@ impl Wallet for SoftwareWallet {
                         usage_count: 0,
                         deleted_at_o: None,
                         private_key_bytes_o: Some(
-                            priv_key_m[key_purpose].to_private_key_bytes().to_owned(),
+                            priv_key_m[key_purpose].to_signer_bytes().to_owned(),
                         ),
                         comment_o,
                     },
@@ -330,12 +331,12 @@ impl Wallet for SoftwareWallet {
         };
         // TODO: Somehow iterate?
         let pub_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::Authentication].verifying_key()),
-            KeyPurpose::AssertionMethod => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::AssertionMethod].verifying_key()),
-            KeyPurpose::KeyAgreement => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::KeyAgreement].verifying_key()),
-            KeyPurpose::CapabilityInvocation => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key()),
-            KeyPurpose::CapabilityDelegation => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key()),
-            KeyPurpose::UpdateDIDDocument => mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key()),
+            KeyPurpose::Authentication => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::Authentication].verifying_key()),
+            KeyPurpose::AssertionMethod => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::AssertionMethod].verifying_key()),
+            KeyPurpose::KeyAgreement => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::KeyAgreement].verifying_key()),
+            KeyPurpose::CapabilityInvocation => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key()),
+            KeyPurpose::CapabilityDelegation => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key()),
+            KeyPurpose::UpdateDIDDocument => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key()),
         };
 
         let mut transaction_b = self
@@ -410,7 +411,7 @@ impl Wallet for SoftwareWallet {
 
         // Define the update rules.  For now, just a single key.
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
+            pub_key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
         });
 
         // Form the unsigned non-root DID document.
@@ -425,24 +426,20 @@ impl Wallet for SoftwareWallet {
                 capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
                 capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
             },
-            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
         )
         .expect("programmer error");
 
-        // TEMP HACK until the signing capabilities are integrated with mbc.
-        assert_eq!(priv_key_for_update.key_type(), selfsign::KeyType::Ed25519);
-        // For now, we're only using ed25519 keys.
-        let signing_key =
-            ed25519_dalek::SigningKey::try_from(priv_key_for_update.private_key_bytes())
-                .expect("programmer error");
-        let verifying_key = signing_key.verifying_key();
-        let signing_kid =
-            mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &verifying_key)
-                .to_string();
+        let signing_kid = mbx::MBPubKey::try_from_verifier_bytes(
+            mbx::Base::Base64Url,
+            &priv_key_for_update.verifier_bytes()?,
+        )
+        .expect("programmer error")
+        .to_string();
 
         // The updated DID document must be signed by the UpdateDIDDocument key specified in the latest DID document.
         let jws = updated_did_document
-            .sign(signing_kid, &signing_key)
+            .sign(signing_kid, priv_key_for_update)
             .expect("programmer error");
 
         // Add the proof to the DID document.
@@ -515,7 +512,7 @@ impl Wallet for SoftwareWallet {
                         usage_count: 0,
                         deleted_at_o: None,
                         private_key_bytes_o: Some(
-                            priv_key_m[key_purpose].to_private_key_bytes().to_owned(),
+                            priv_key_m[key_purpose].to_signer_bytes().into_owned(),
                         ),
                         comment_o,
                     },
@@ -577,7 +574,12 @@ impl Wallet for SoftwareWallet {
     async fn get_locally_controlled_verification_methods(
         &self,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Vec<(VerificationMethodRecord, Box<dyn selfsign::Signer>)>> {
+    ) -> Result<
+        Vec<(
+            VerificationMethodRecord,
+            signature_dyn::SignerBytes<'static>,
+        )>,
+    > {
         let mut transaction_b = self
             .wallet_storage_a
             .begin_transaction()
@@ -598,9 +600,8 @@ impl Wallet for SoftwareWallet {
         Ok(query_result_v
             .into_iter()
             .map(|(verification_method_record, priv_key_record)| {
-                let signer_b: Box<dyn selfsign::Signer> =
-                    Box::new(priv_key_record.private_key_bytes_o.unwrap());
-                (verification_method_record, signer_b)
+                let signer_bytes = priv_key_record.private_key_bytes_o.unwrap();
+                (verification_method_record, signer_bytes)
             })
             .collect())
     }

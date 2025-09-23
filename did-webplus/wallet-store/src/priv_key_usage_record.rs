@@ -6,7 +6,7 @@ use did_webplus_core::{DIDKeyResourceFullyQualified, KeyPurpose};
 pub struct PrivKeyUsageRecord {
     // TODO: rowid (this might need to be optional to account for insertions)
     /// The pub key corresponding to this priv key.
-    pub pub_key: mbc::MBPubKey,
+    pub pub_key: mbx::MBPubKey,
     /// The hash of the pub key, used in pre-rotation schemes.
     pub hashed_pub_key: String,
     /// The time at which this priv key was used in a cryptographic operation.

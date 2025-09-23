@@ -38,7 +38,7 @@ pub trait MicroledgerView<'v> {
     /// Returns the node whose DID document has the given self-hash.
     fn did_document_for_self_hash(
         &self,
-        self_hash: &mbc::MBHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<&'v DIDDocument, Error>;
     /// Returns the node that is valid at the given time.
     fn did_document_valid_at_time(
@@ -113,7 +113,7 @@ pub trait MicroledgerView<'v> {
     fn resolve(
         &self,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&mbc::MBHashStr>,
+        self_hash_o: Option<&mbx::MBHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(&'v DIDDocument, DIDDocumentMetadata), Error> {
         let did_document = match (version_id_o, self_hash_o) {

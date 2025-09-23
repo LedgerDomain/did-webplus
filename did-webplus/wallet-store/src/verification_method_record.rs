@@ -9,5 +9,5 @@ pub struct VerificationMethodRecord {
     // pub key_purpose_s: HashSet<KeyPurpose>,
     pub key_purpose_flags: KeyPurposeFlags,
     /// Specifies the pub key itself.
-    pub pub_key: mbc::MBPubKey,
+    pub pub_key: mbx::MBPubKey,
 }

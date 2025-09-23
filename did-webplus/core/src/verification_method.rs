@@ -17,7 +17,7 @@ impl VerificationMethod {
     pub fn json_web_key_2020(
         controller: DID,
         key_id_fragment: &str,
-        pub_key: &mbc::MBPubKey,
+        pub_key: &mbx::MBPubKey,
     ) -> Self {
         let did_key_resource: DIDKeyResource = controller.with_fragment(key_id_fragment);
         let public_key_jwk = PublicKeyJWK {
@@ -63,8 +63,8 @@ impl VerificationMethod {
     }
     pub fn root_did_document_self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b mbc::MBHashStr>> + 'a> {
-        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&'b mbc::MBHashStr>> + 'a> =
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> {
+        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> =
             Box::new(
                 std::iter::once(Some(self.id.root_self_hash()))
                     .chain(std::iter::once(Some(self.controller.root_self_hash()))),
@@ -76,7 +76,7 @@ impl VerificationMethod {
     }
     pub fn set_root_did_document_self_hash_slots_to(
         &mut self,
-        hash: &mbc::MBHashStr,
+        hash: &mbx::MBHashStr,
     ) -> Result<()> {
         self.controller.set_root_self_hash(hash);
         if let Some(kid) = self.public_key_jwk.kid_o.as_mut() {

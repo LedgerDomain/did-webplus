@@ -161,7 +161,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &mbc::MBHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
         let self_hash_str = self_hash.as_str();

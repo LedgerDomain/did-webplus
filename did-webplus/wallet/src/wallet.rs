@@ -93,7 +93,12 @@ pub trait Wallet: Send + Sync {
     async fn get_locally_controlled_verification_methods(
         &self,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Vec<(VerificationMethodRecord, Box<dyn selfsign::Signer>)>>;
+    ) -> Result<
+        Vec<(
+            VerificationMethodRecord,
+            signature_dyn::SignerBytes<'static>,
+        )>,
+    >;
     /// Calls get_locally_controlled_verification_methods and returns the single result if there is exactly one.
     /// Otherwise, returns an error.  Note that this method will ignore the result_limit_o field of the filter.
     // TODO: Make a LocallyControlledVerificationMethodsFilter separate from LocallyControlledVerificationMethodFilter,
@@ -101,7 +106,10 @@ pub trait Wallet: Send + Sync {
     async fn get_locally_controlled_verification_method(
         &self,
         mut locally_controlled_verification_method_filter: LocallyControlledVerificationMethodFilter,
-    ) -> Result<(VerificationMethodRecord, Box<dyn selfsign::Signer>)> {
+    ) -> Result<(
+        VerificationMethodRecord,
+        signature_dyn::SignerBytes<'static>,
+    )> {
         locally_controlled_verification_method_filter.result_limit_o = Some(2);
         let query_result_v = self
             .get_locally_controlled_verification_methods(

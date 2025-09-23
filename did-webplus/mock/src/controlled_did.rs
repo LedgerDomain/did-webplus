@@ -4,12 +4,13 @@ use did_webplus_core::{
     DIDDocument, DIDKeyResourceFullyQualified, Error, KeyPurpose, MicroledgerView, PublicKeySet,
     RootLevelUpdateRules, UpdateKey, DID,
 };
+use signature_dyn::SignerDynT;
 
 use crate::{Microledger, VDRClient};
 
 pub struct ControlledDID {
-    pub current_public_key_set: PublicKeySet<mbc::MBPubKey>,
-    signer_m: HashMap<mbc::MBPubKey, mbc::MBPrivKey>,
+    pub current_public_key_set: PublicKeySet<mbx::MBPubKey>,
+    signer_bytes_m: HashMap<mbx::MBPubKey, signature_dyn::SignerBytes<'static>>,
     update_signing_key: ed25519_dalek::SigningKey,
     microledger: Microledger,
 }
@@ -22,19 +23,19 @@ impl ControlledDID {
         vdr_client: &dyn VDRClient,
     ) -> Result<Self, Error> {
         // Generate the key set for use in the root DID document.
-        let (signer_m, current_public_key_set) = Self::generate_new_keys();
+        let (signer_bytes_m, current_public_key_set) = Self::generate_new_keys();
 
         // Generate the update signing key (for when the this root DID document is updated later).
         let update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
         let update_verifying_key = update_signing_key.verifying_key();
-        let update_pub_key = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-            mbc::Base::Base64Url,
+        let update_pub_key = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+            mbx::Base::Base64Url,
             &update_verifying_key,
         );
 
         // Set the update rules.  In this case, just a single key.
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: update_pub_key.clone(),
+            pub_key: update_pub_key.clone(),
         });
         let valid_from = time::OffsetDateTime::now_utc();
         let public_key_set = PublicKeySet {
@@ -57,7 +58,7 @@ impl ControlledDID {
             update_rules,
             valid_from,
             public_key_set,
-            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
         )?;
         // NOTE: There's no need to sign the root DID document, but it is allowed.
         // Finalize the root DID document.  In particular, this will self-hash the DID document.
@@ -76,26 +77,26 @@ impl ControlledDID {
         let microledger = Microledger::create(root_did_document)?;
         Ok(Self {
             current_public_key_set,
-            signer_m,
+            signer_bytes_m,
             update_signing_key,
             microledger,
         })
     }
     pub fn update(&mut self, vdr_client: &dyn VDRClient) -> Result<(), Error> {
         // Generate the new key set to rotate in during the DID update.
-        let (new_signer_m, new_public_key_set) = Self::generate_new_keys();
+        let (new_signer_bytes_m, new_public_key_set) = Self::generate_new_keys();
 
         // Generate the next update signing key (for when the this new DID document is updated later).
         let next_update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
         let next_update_verifying_key = next_update_signing_key.verifying_key();
-        let next_update_pub_key = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-            mbc::Base::Base64Url,
+        let next_update_pub_key = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+            mbx::Base::Base64Url,
             &next_update_verifying_key,
         );
 
         // Set the update rules for this new DID document.  In this case, just a single key.
         let next_update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: next_update_pub_key.clone(),
+            pub_key: next_update_pub_key.clone(),
         });
         let valid_from = time::OffsetDateTime::now_utc();
         let public_key_set = PublicKeySet {
@@ -111,15 +112,15 @@ impl ControlledDID {
             next_update_rules,
             valid_from,
             public_key_set,
-            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
         )?;
 
         // Sign the new DID document using the existing update_signing_key (the one referenced in the
         // previous DID document), and add the proof.
         let jws = {
             let update_verifying_key = self.update_signing_key.verifying_key();
-            let update_pub_key = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                mbc::Base::Base64Url,
+            let update_pub_key = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                mbx::Base::Base64Url,
                 &update_verifying_key,
             );
             new_did_document.sign(update_pub_key.to_string(), &self.update_signing_key)?
@@ -137,7 +138,7 @@ impl ControlledDID {
         self.microledger.mut_view().update(new_did_document)?;
         // Now update the local signer and public key set.
         self.current_public_key_set = new_public_key_set;
-        self.signer_m = new_signer_m;
+        self.signer_bytes_m = new_signer_bytes_m;
         self.update_signing_key = next_update_signing_key;
         Ok(())
     }
@@ -155,17 +156,19 @@ impl ControlledDID {
     pub fn signer_and_key_id_for_key_purpose(
         &self,
         key_purpose: KeyPurpose,
-    ) -> (&mbc::MBPrivKeyStr, DIDKeyResourceFullyQualified) {
+    ) -> (
+        &signature_dyn::SignerBytes<'_>,
+        DIDKeyResourceFullyQualified,
+    ) {
         let public_key_v = self
             .current_public_key_set
             .public_keys_for_purpose(key_purpose);
         assert_eq!(public_key_v.len(), 1);
         let public_key = public_key_v.first().unwrap();
-        let signer = self
-            .signer_m
+        let signer_bytes = self
+            .signer_bytes_m
             .get(public_key)
-            .expect("programmer error")
-            .as_ref();
+            .expect("programmer error");
         let did = self.microledger.view().did();
         let version_id = self.microledger.view().latest_did_document().version_id;
         let self_hash = self
@@ -179,11 +182,11 @@ impl ControlledDID {
         let key_id = did
             .with_queries(&self_hash, version_id)
             .with_fragment(format!("{}", key_purpose.integer_value()).as_str());
-        (signer, key_id)
+        (signer_bytes, key_id)
     }
     fn generate_new_keys() -> (
-        HashMap<mbc::MBPubKey, mbc::MBPrivKey>,
-        PublicKeySet<mbc::MBPubKey>,
+        HashMap<mbx::MBPubKey, signature_dyn::SignerBytes<'static>>,
+        PublicKeySet<mbx::MBPubKey>,
     ) {
         // Generate a full set of private keys.
 
@@ -213,82 +216,78 @@ impl ControlledDID {
             ed25519_signing_key_capability_delegation.verifying_key();
 
         let current_public_key_set = PublicKeySet {
-            authentication_v: vec![mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                mbc::Base::Base64Url,
+            authentication_v: vec![mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                mbx::Base::Base64Url,
                 &ed25519_verifying_key_authentication,
             )],
-            assertion_method_v: vec![mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                mbc::Base::Base64Url,
+            assertion_method_v: vec![mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                mbx::Base::Base64Url,
                 &ed25519_verifying_key_assertion_method,
             )],
-            key_agreement_v: vec![mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                mbc::Base::Base64Url,
+            key_agreement_v: vec![mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                mbx::Base::Base64Url,
                 &ed25519_verifying_key_key_agreement,
             )],
-            capability_invocation_v: vec![mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                mbc::Base::Base64Url,
+            capability_invocation_v: vec![mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                mbx::Base::Base64Url,
                 &ed25519_verifying_key_capability_invocation,
             )],
-            capability_delegation_v: vec![mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                mbc::Base::Base64Url,
+            capability_delegation_v: vec![mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                mbx::Base::Base64Url,
                 &ed25519_verifying_key_capability_delegation,
             )],
         };
-        let signer_m = {
-            let mut signer_m: HashMap<mbc::MBPubKey, mbc::MBPrivKey> = HashMap::new();
-            signer_m.insert(
-                mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                    mbc::Base::Base64Url,
+        let signer_bytes_m = {
+            let mut signer_bytes_m: HashMap<mbx::MBPubKey, signature_dyn::SignerBytes<'static>> =
+                HashMap::new();
+            signer_bytes_m.insert(
+                mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                    mbx::Base::Base64Url,
                     &ed25519_verifying_key_authentication,
                 ),
-                mbc::MBPrivKey::from_ed25519_dalek_signing_key(
-                    mbc::Base::Base64Url,
-                    &ed25519_signing_key_authentication,
-                ),
+                ed25519_signing_key_authentication
+                    .to_signer_bytes()
+                    .into_owned(),
             );
-            signer_m.insert(
-                mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                    mbc::Base::Base64Url,
+            signer_bytes_m.insert(
+                mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                    mbx::Base::Base64Url,
                     &ed25519_verifying_key_assertion_method,
                 ),
-                mbc::MBPrivKey::from_ed25519_dalek_signing_key(
-                    mbc::Base::Base64Url,
-                    &ed25519_signing_key_assertion_method,
-                ),
+                ed25519_signing_key_assertion_method
+                    .to_signer_bytes()
+                    .into_owned(),
             );
-            signer_m.insert(
-                mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                    mbc::Base::Base64Url,
+            signer_bytes_m.insert(
+                mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                    mbx::Base::Base64Url,
                     &ed25519_verifying_key_key_agreement,
                 ),
-                mbc::MBPrivKey::from_ed25519_dalek_signing_key(
-                    mbc::Base::Base64Url,
-                    &ed25519_signing_key_key_agreement,
-                ),
+                ed25519_signing_key_key_agreement
+                    .to_signer_bytes()
+                    .into_owned(),
             );
-            signer_m.insert(
-                mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                    mbc::Base::Base64Url,
+            signer_bytes_m.insert(
+                mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                    mbx::Base::Base64Url,
                     &ed25519_verifying_key_capability_invocation,
                 ),
-                mbc::MBPrivKey::from_ed25519_dalek_signing_key(
-                    mbc::Base::Base64Url,
-                    &ed25519_signing_key_capability_invocation,
-                ),
+                ed25519_signing_key_capability_invocation
+                    .to_signer_bytes()
+                    .into_owned(),
             );
-            signer_m.insert(
-                mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-                    mbc::Base::Base64Url,
+            signer_bytes_m.insert(
+                mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+                    mbx::Base::Base64Url,
                     &ed25519_verifying_key_capability_delegation,
                 ),
-                mbc::MBPrivKey::from_ed25519_dalek_signing_key(
-                    mbc::Base::Base64Url,
-                    &ed25519_signing_key_capability_delegation,
-                ),
+                ed25519_signing_key_capability_delegation
+                    .to_signer_bytes()
+                    .into_owned(),
             );
-            signer_m
+            signer_bytes_m
         };
 
-        (signer_m, current_public_key_set)
+        (signer_bytes_m, current_public_key_set)
     }
 }

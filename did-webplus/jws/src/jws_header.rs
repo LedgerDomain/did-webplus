@@ -5,9 +5,6 @@
 pub struct JWSHeader {
     /// Signature algorithm used to sign the JWS.
     pub alg: String,
-    /// Some algorithms require a "crv" field (in particular, EdDSA) to fully specify the algorithm.
-    #[serde(rename = "crv", skip_serializing_if = "Option::is_none")]
-    pub crv_o: Option<String>,
     /// Specifies the public key in some way.  This could be using a DID, or a multibase-encoded key.
     /// If it is a DID, then it could include any query parameters that are required by the DID method.
     pub kid: String,

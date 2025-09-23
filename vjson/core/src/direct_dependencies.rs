@@ -12,7 +12,7 @@ pub trait DirectDependencies {
     async fn direct_dependency_iter(
         &self,
         vjson_resolver: &dyn VJSONResolver,
-    ) -> Result<Vec<selfhash::KERIHash>>;
+    ) -> Result<Vec<mbx::MBHash>>;
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -22,7 +22,7 @@ impl DirectDependencies for serde_json::Value {
     async fn direct_dependency_iter(
         &self,
         vjson_resolver: &dyn VJSONResolver,
-    ) -> Result<Vec<selfhash::KERIHash>> {
+    ) -> Result<Vec<mbx::MBHash>> {
         // log::trace!("serde_json::Value::direct_dependency_iter; self: {:?}", self);
 
         if self.get("$schema").is_none() {
@@ -53,13 +53,13 @@ impl DirectDependencies for serde_json::Value {
                 )
             })?;
         // log::debug!("serde_json::Value::direct_dependency_iter; schema_self_hash_url: {:?}", schema_self_hash_url);
-        if schema_self_hash_url.keri_hash_o().is_none() {
+        if schema_self_hash_url.mb_hash_o().is_none() {
             return Err(Error::Malformed(
                 "VJSON \"$schema\" URL must be a valid VJSONURL".into(),
             ));
         }
         let schema_value = vjson_resolver
-            .resolve_vjson_value(schema_self_hash_url.keri_hash_o().unwrap())
+            .resolve_vjson_value(schema_self_hash_url.mb_hash_o().unwrap())
             .await?;
         // log::debug!("serde_json::Value::direct_dependency_iter; schema_json:\n{}", serde_json::to_string_pretty(&schema_json).unwrap());
         // Validate this JSON against its schema just to be safe.
@@ -110,12 +110,12 @@ impl DirectDependencies for serde_json::Value {
                 )?;
                 let self_hash_url = selfhash::SelfHashURLStr::new_ref(query_result_str)
                     .map_err(|_| Error::Malformed(format!("JSON schema (\"title\": {:?}) \"directDependencies\" field is expected to be an array of valid JSONPath queries that each return a valid VJSONURL, but the {}th value was {}", vjson_schema.title, query_result_index, query_result_str).into()))?;
-                if self_hash_url.keri_hash_o().is_none() {
+                if self_hash_url.mb_hash_o().is_none() {
                     return Err(Error::Malformed(format!("JSON schema (\"title\": {:?}) \"directDependencies\" field is expected to be an array of valid JSONPath queries that each return a valid, fully-specified VJSONURL",
                     vjson_schema.title).into())
                 );
                 }
-                direct_dependency_v.push(self_hash_url.keri_hash_o().unwrap().to_owned());
+                direct_dependency_v.push(self_hash_url.mb_hash_o().unwrap().to_owned());
             }
         }
         Ok(direct_dependency_v)

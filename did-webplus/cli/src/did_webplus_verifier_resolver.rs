@@ -2,7 +2,7 @@
 /// DIDResolver lazily, which matters if loading the resolver involves opening a connection to
 /// a database.
 ///
-/// This will turn a did:webplus DIDResource[FullyQualified] into a Box<dyn selfsign::Verifier>.
+/// This will turn a did:webplus DIDResource[FullyQualified] into a Box<dyn signature_dyn::VerifierDynT>.
 pub struct DIDWebplusVerifierResolver {
     pub did_resolver_factory_b: Box<dyn did_webplus_resolver::DIDResolverFactory>,
 }
@@ -13,7 +13,7 @@ impl verifier_resolver::VerifierResolver for DIDWebplusVerifierResolver {
     async fn resolve(
         &self,
         verifier_str: &str,
-    ) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
+    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
         if !verifier_str.starts_with("did:webplus:") {
             Err(verifier_resolver::Error::InvalidVerifier(
                 format!(
@@ -43,18 +43,9 @@ impl verifier_resolver::VerifierResolver for DIDWebplusVerifierResolver {
         let verification_method = did_document
             .public_key_material
             .verification_method_for_key_id_fragment(did_key_resource_fully_qualified.fragment())?;
-        // TEMP HACK: Convert
-        let pub_key = mbc::MBPubKey::try_from(&verification_method.public_key_jwk)?;
-        let pub_key_decoded = pub_key.decoded().unwrap();
-        let key_type = match pub_key_decoded.codec() {
-            ssi_multicodec::ED25519_PUB => selfsign::KeyType::Ed25519,
-            ssi_multicodec::SECP256K1_PUB => selfsign::KeyType::Secp256k1,
-            _ => anyhow::bail!("unsupported key type: {:?}", pub_key_decoded.codec()),
-        };
-        let verifier_bytes = selfsign::VerifierBytes {
-            key_type,
-            verifying_key_byte_v: pub_key_decoded.data().to_vec().into(),
-        };
+        // TODO: Convert directly to VerifierBytes instead of going through MBPubKey.
+        let pub_key = mbx::MBPubKey::try_from(&verification_method.public_key_jwk)?;
+        let verifier_bytes = signature_dyn::VerifierBytes::try_from(&pub_key)?;
         Ok(Box::new(verifier_bytes))
     }
 }

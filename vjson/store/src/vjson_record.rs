@@ -1,14 +1,14 @@
 use std::ops::Deref;
 
 use crate::{error_invalid_vjson, Error, Result};
-use selfhash::SelfHashable;
+use selfhash::SelfHashableT;
 
 #[derive(Clone, Debug)]
 pub struct VJSONRecord {
-    pub self_hash: selfhash::KERIHash,
+    pub self_hash: mbx::MBHash,
     pub added_at: time::OffsetDateTime,
     // TODO
-    // pub schema_self_hash_o: Option<selfhash::KERIHash>,
+    // pub schema_self_hash_o: Option<mbx::MBHash>,
     pub vjson_jcs: String,
 }
 
@@ -34,8 +34,7 @@ impl VJSONRecord {
         let self_hash = vjson_value
             .verify_self_hashes()
             .map_err(error_invalid_vjson)?
-            .to_keri_hash()
-            .map_err(error_invalid_vjson)?;
+            .to_owned();
         if self_hash.deref() != self.self_hash.deref() {
             return Err(Error::InvalidVJSON(
                 "VJSONRecord self_hash field doesn't match that of vjson_jcs field".into(),

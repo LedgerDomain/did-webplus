@@ -5,25 +5,18 @@ use crate::{DIDStr, Error};
 #[cfg_attr(feature = "serde", pneu_string(deserialize, serialize))]
 pub struct DID(String);
 
-impl TryFrom<&selfsign::VerifierBytes<'_>> for DID {
+impl TryFrom<&mbx::MBPubKeyStr> for DID {
     type Error = Error;
-    fn try_from(verifier_bytes: &selfsign::VerifierBytes<'_>) -> Result<Self, Self::Error> {
-        let multibase_string = match verifier_bytes.key_type {
-            selfsign::KeyType::Ed25519 => {
-                let verifier_encoded = ssi_multicodec::MultiEncodedBuf::encode_bytes(
-                    ssi_multicodec::ED25519_PUB,
-                    verifier_bytes.verifying_key_byte_v.as_ref(),
-                );
-                multibase::encode(multibase::Base::Base58Btc, &verifier_encoded)
-            }
-            selfsign::KeyType::Secp256k1 => {
-                let verifier_encoded = ssi_multicodec::MultiEncodedBuf::encode_bytes(
-                    ssi_multicodec::SECP256K1_PUB,
-                    verifier_bytes.verifying_key_byte_v.as_ref(),
-                );
-                multibase::encode(multibase::Base::Base58Btc, &verifier_encoded)
-            }
-        };
-        Ok(Self(format!("did:key:{}", multibase_string)))
+    fn try_from(pub_key: &mbx::MBPubKeyStr) -> Result<Self, Self::Error> {
+        Ok(Self(format!("did:key:{}", pub_key.as_str())))
+    }
+}
+
+impl TryFrom<&signature_dyn::VerifierBytes<'_>> for DID {
+    type Error = Error;
+    fn try_from(verifier_bytes: &signature_dyn::VerifierBytes<'_>) -> Result<Self, Self::Error> {
+        let pub_key = mbx::MBPubKey::try_from_verifier_bytes(mbx::Base::Base58Btc, verifier_bytes)
+            .map_err(|e| anyhow::anyhow!("could not decode verifier bytes: {}", e))?;
+        Ok(Self(format!("did:key:{}", pub_key.as_str())))
     }
 }

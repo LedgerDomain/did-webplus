@@ -11,9 +11,9 @@ pub struct PublicKeyJWK {
     pub public_key_params: PublicKeyParams,
 }
 
-impl TryFrom<&PublicKeyJWK> for mbc::MBPubKey {
+impl TryFrom<&PublicKeyJWK> for mbx::MBPubKey {
     type Error = Error;
     fn try_from(public_key_jwk: &PublicKeyJWK) -> Result<Self, Self::Error> {
-        Ok(mbc::MBPubKey::try_from(&public_key_jwk.public_key_params)?)
+        Ok(mbx::MBPubKey::try_from(&public_key_jwk.public_key_params)?)
     }
 }

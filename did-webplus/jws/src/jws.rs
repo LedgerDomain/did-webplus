@@ -1,7 +1,4 @@
-use crate::{
-    bail, error, require, Error, JOSEAlgorithmT, JWSHeader, JWSPayloadEncoding, JWSPayloadPresence,
-    Result,
-};
+use crate::{error, require, Error, JWSHeader, JWSPayloadEncoding, JWSPayloadPresence, Result};
 use base64::Engine;
 use std::{borrow::Cow, io::Write};
 
@@ -19,7 +16,7 @@ pub struct JWS<'j> {
     /// Parsed header.
     header: JWSHeader,
     /// Parsed signature.
-    signature_bytes: selfsign::SignatureBytes<'static>,
+    signature_bytes: signature_dyn::SignatureBytes<'static>,
 }
 
 impl<'j> JWS<'j> {
@@ -32,50 +29,6 @@ impl<'j> JWS<'j> {
     /// Return a reference to the str representation of the JWS Compact Serialization.
     pub fn as_str(&self) -> &str {
         self.string.as_ref()
-    }
-    /// This is the input to the signature algorithm: the concatenation of the base64url-encoded header,
-    /// a period ('.') and the payload (which comes from detached_payload_bytes_o if Some(_), otherwise
-    /// from the JWS itself).  If detached_payload_bytes_o is Some(_), then self.payload() must be the
-    /// empty string.
-    fn write_signing_input(
-        &self,
-        writer: &mut dyn std::io::Write,
-        detached_payload_bytes_o: Option<&mut dyn std::io::Read>,
-    ) -> Result<()> {
-        // Write the base64url-encoded header.
-        writer
-            .write_all(self.raw_header_base64().as_bytes())
-            .map_err(|e| error!("error while writing header: {}", e))?;
-
-        // Write the '.' separator.
-        writer
-            .write_all(b".".as_slice())
-            .map_err(|e| error!("error while writing '.' separator: {}", e))?;
-
-        if let Some(detached_payload_bytes) = detached_payload_bytes_o {
-            require!(
-                self.raw_attached_payload_str().is_empty(),
-                "if the JWS payload is not empty, then no detached payload may be specified"
-            );
-            if self.payload_is_base64url_encoded() {
-                let mut base64url_encoder = base64::write::EncoderWriter::new(
-                    writer,
-                    &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                );
-                std::io::copy(detached_payload_bytes, &mut base64url_encoder)
-                    .map_err(|e| error!("error while writing base64url-encoded payload: {}", e))?;
-            } else {
-                std::io::copy(detached_payload_bytes, writer)
-                    .map_err(|e| error!("error while writing payload: {}", e))?;
-            }
-        } else {
-            // Here, because the payload is attached, it's already in its signing input form,
-            // so just write it.
-            writer
-                .write_all(self.raw_attached_payload_str().as_bytes())
-                .map_err(|e| error!("error while writing attached payload: {}", e))?;
-        }
-        Ok(())
     }
     /// This is the base64url-encoded header, which is the substring of the JWS Compact Serialization up to the
     /// first '.' separator.
@@ -148,147 +101,17 @@ impl<'j> JWS<'j> {
         self.string.split('.').nth(2).unwrap()
     }
     /// This is the parsed signature.
-    pub fn signature_bytes(&self) -> &selfsign::SignatureBytes {
+    pub fn signature_bytes(&self) -> &signature_dyn::SignatureBytes {
         &self.signature_bytes
     }
     /// Generate a JWS Compact Serialization from the given header and payload, optionally encoding the given
     /// payload bytes, and then signing the signing input using the given signer.
     pub fn signed(
         kid: String,
-        // kid: DIDKeyResourceFullyQualified,
         payload_bytes: &mut dyn std::io::Read,
         payload_presence: JWSPayloadPresence,
         payload_encoding: JWSPayloadEncoding,
-        signer: &dyn selfsign::Signer,
-    ) -> Result<Self> {
-        let alg = signer
-            .signature_algorithm()
-            .named_signature_algorithm()
-            .as_jws_alg()
-            .to_string();
-
-        let (crit, b64) = if payload_encoding == JWSPayloadEncoding::Base64 {
-            (None, None)
-        } else {
-            (Some(vec![String::from("b64")]), Some(false))
-        };
-        let header = JWSHeader {
-            alg,
-            crv_o: None,
-            kid,
-            crit,
-            b64,
-        };
-
-        // The signing input is `base64url(json(header)) || '.' || base64url(payload)`
-        // if the payload is encoded (see RFC 7515, https://datatracker.ietf.org/doc/html/rfc7515)
-        // or `base64url(json(header)) || '.' || payload` if the payload is not encoded.
-
-        // This will be the buffer that holds the JWS compact serialization representation.
-        let mut jws_string_byte_v = Vec::new();
-        // This will accept the signing input.
-        let mut hasher_b = signer
-            .signature_algorithm()
-            .message_digest_hash_function()
-            .new_hasher();
-
-        // Write the header and separator into the hasher and into the jws_string_byte_v array.
-        {
-            let mut tee_writer = TeeWriter(&mut hasher_b, &mut jws_string_byte_v);
-            {
-                let mut base64url_encoder = base64::write::EncoderWriter::new(
-                    &mut tee_writer,
-                    &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                );
-                serde_json::to_writer(&mut base64url_encoder, &header)
-                    .map_err(|e| error!("error while writing JWS header: {}", e))?;
-            }
-            // Write the concatenation separator
-            tee_writer
-                .write_all(&[0x2Eu8])
-                .map_err(|e| error!("error in writing JWS separator: {}", e))?;
-        }
-        // Write the payload
-        {
-            // Decide which writers the payload should be written to.
-            let writer_b: Box<dyn std::io::Write> = match payload_presence {
-                JWSPayloadPresence::Attached => {
-                    Box::new(TeeWriter(&mut hasher_b, &mut jws_string_byte_v))
-                }
-                JWSPayloadPresence::Detached => Box::new(hasher_b.as_mut()),
-            };
-            // Apply an encoder, if necessary.
-            let mut writer_b = match payload_encoding {
-                JWSPayloadEncoding::None => writer_b,
-                JWSPayloadEncoding::Base64 => Box::new(base64::write::EncoderWriter::new(
-                    writer_b,
-                    &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-                )),
-            };
-            // Write the payload.
-            std::io::copy(payload_bytes, writer_b.as_mut())
-                .map_err(|e| error!("error in reading JWS payload bytes: {}", e))?;
-        }
-
-        // Sign the digest.
-        let signature_bytes = signer
-            .sign_digest(hasher_b)
-            .map_err(|e| error!("error while signing JWS digest: {}", e))?
-            .to_signature_bytes()
-            .into_owned();
-
-        // Append the separator character and base64url-encoded signature.
-        {
-            jws_string_byte_v.push(0x2Eu8);
-            base64::write::EncoderWriter::new(
-                &mut jws_string_byte_v,
-                &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-            )
-            .write_all(signature_bytes.as_ref())
-            .map_err(|e| error!("error in base64url-encoding JWS signature: {}", e))?;
-        }
-
-        // Convert the byte vector to a string.  By construction, this should not fail.
-        let jws_string = String::from_utf8(jws_string_byte_v).unwrap();
-
-        Ok(Self {
-            string: jws_string.into(),
-            header,
-            signature_bytes,
-        })
-    }
-    /// Verifies the JWS using the given verifier.  detached_payload_bytes_o should be Some(_) if it's a
-    /// detached payload, and None if it's an attached payload.
-    pub fn verify(
-        &self,
-        verifier: &dyn selfsign::Verifier,
-        detached_payload_bytes_o: Option<&mut dyn std::io::Read>,
-    ) -> Result<()> {
-        let named_signature_algorithm =
-            selfsign::NamedSignatureAlgorithm::try_from_jws_alg(self.header.alg.as_str())
-                .map_err(|e| error!("JWS alg not supported: {}", e))?;
-        let mut hasher_b = named_signature_algorithm
-            .as_signature_algorithm()
-            .message_digest_hash_function()
-            .new_hasher();
-        self.write_signing_input(&mut hasher_b, detached_payload_bytes_o)
-            .map_err(|e| error!("error while writing JWS signing input: {}", e))?;
-        verifier
-            .verify_digest(hasher_b, &self.signature_bytes)
-            .map_err(|e| error!("JWS failed to verify; error was: {}", e))?;
-        Ok(())
-    }
-    /// Generate a JWS Compact Serialization from the given header and payload, optionally encoding the given
-    /// payload bytes, and then signing the signing input using the given signer.
-    pub fn signed2<
-        Signature: std::fmt::Debug + signature::SignatureEncoding,
-        Signer: signature::Signer<Signature> + JOSEAlgorithmT,
-    >(
-        kid: String,
-        payload_bytes: &mut dyn std::io::Read,
-        payload_presence: JWSPayloadPresence,
-        payload_encoding: JWSPayloadEncoding,
-        signer: &Signer,
+        signer: &dyn signature_dyn::SignerDynT,
     ) -> Result<Self> {
         let (crit, b64) = if payload_encoding == JWSPayloadEncoding::Base64 {
             (None, None)
@@ -296,8 +119,7 @@ impl<'j> JWS<'j> {
             (Some(vec![String::from("b64")]), Some(false))
         };
         let header = JWSHeader {
-            alg: signer.alg(),
-            crv_o: signer.crv_o(),
+            alg: signer.jose_algorithm().to_string(),
             kid,
             crit,
             b64,
@@ -361,8 +183,8 @@ impl<'j> JWS<'j> {
         }
 
         // Sign the signing_input.
-        let signature = signer.sign(signing_input.as_slice());
-        let signature_byte_v = signature.to_vec();
+        let signature = signer.sign_message(signing_input.as_slice());
+        let signature_bytes = signature.to_signature_bytes().into_owned();
 
         // Write the concatenation separator '.' into the JWS.
         jws.push(b'.');
@@ -372,55 +194,31 @@ impl<'j> JWS<'j> {
             &mut jws,
             &base64::engine::general_purpose::URL_SAFE_NO_PAD,
         )
-        .write_all(signature_byte_v.as_ref())
+        .write_all(signature_bytes.bytes())
         .map_err(|e| error!("error in base64url-encoding JWS signature: {}", e))?;
 
         // Convert the byte vector to a string.  By construction, this should not fail.
         let jws_string = String::from_utf8(jws).unwrap();
 
-        let named_signature_algorithm = match header.alg.as_str() {
-            // "ES256" => selfsign::NamedSignatureAlgorithm::...
-            "ES256K" => selfsign::NamedSignatureAlgorithm::SECP256K1_SHA_256,
-            "EdDSA" => match header.crv_o.as_deref() {
-                Some("Ed25519") => selfsign::NamedSignatureAlgorithm::ED25519_SHA_512,
-                // Some("Ed448") => selfsign::NamedSignatureAlgorithm::...
-                Some(crv) => return Err(error!("Unsupported JWS EdDSA crv: {:?}", crv)),
-                None => return Err(error!("JWS EdDSA crv is required")),
-            },
-            _ => return Err(error!("Unsupported JWS alg: {}", header.alg)),
-        };
-
         Ok(Self {
             string: jws_string.into(),
             header,
-            signature_bytes: selfsign::SignatureBytes {
-                named_signature_algorithm,
-                signature_byte_v: std::borrow::Cow::Owned(signature_byte_v),
-            },
+            signature_bytes,
         })
     }
     /// Verifies the JWS using the given verifier.  detached_payload_bytes_o should be Some(_) if it's a
     /// detached payload, and None if it's an attached payload.
-    pub fn verify2<
-        Signature: std::fmt::Debug + signature::SignatureEncoding,
-        Verifier: signature::Verifier<Signature> + JOSEAlgorithmT,
-    >(
+    pub fn verify(
         &self,
-        verifier: &Verifier,
+        verifier: &dyn signature_dyn::VerifierDynT,
         detached_payload_bytes_o: Option<&mut dyn std::io::Read>,
     ) -> Result<()> {
         // Verify the JWS alg and crv fields match the verifier.
         require!(
-            self.header.alg == verifier.alg(),
+            self.header.alg.as_str() == verifier.jose_algorithm(),
             "JWS alg {:?} does not match that of the verifier {:?}",
             self.header.alg,
-            verifier.alg()
-        );
-        require!(
-            self.header.crv_o == verifier.crv_o(),
-            "JWS crv {:?} does not match that of the verifier {:?}",
-            self.header.crv_o,
-            verifier.crv_o()
+            verifier.jose_algorithm()
         );
 
         // The signing input is `base64url(json(header)) || '.' || base64url(payload)`
@@ -462,148 +260,12 @@ impl<'j> JWS<'j> {
                 .map_err(|e| error!("error while writing attached payload: {}", e))?;
         }
 
-        // Deserialize the signature bytes into the specific Signature type.
-        let signature = Signature::try_from(self.signature_bytes.signature_byte_v.as_ref())
-            .map_err(|_| error!("error while deserializing signature bytes to Signature",))?;
-
         // Verify the signature.
         verifier
-            .verify(signing_input.as_slice(), &signature)
+            .verify_message(signing_input.as_slice(), &self.signature_bytes)
             .map_err(|e| error!("JWS failed to verify; error was: {}", e))?;
 
         Ok(())
-    }
-    /// Generate a JWS Compact Serialization from the given header and payload, optionally encoding the given
-    /// payload bytes, and then signing the signing input using the given MBPrivKeyStr.
-    #[cfg(feature = "mbc")]
-    pub fn signed3(
-        kid: String,
-        payload_bytes: &mut dyn std::io::Read,
-        payload_presence: JWSPayloadPresence,
-        payload_encoding: JWSPayloadEncoding,
-        priv_key: &mbc::MBPrivKeyStr,
-    ) -> Result<Self> {
-        // Ideally there would be a dyn version of signature::Verifier, but for now, we have
-        // to branch on the different, supported key types.
-        let priv_key_decoded = priv_key.decoded().unwrap();
-        match priv_key_decoded.codec() {
-            ssi_multicodec::ED25519_PRIV => {
-                #[cfg(feature = "ed25519-dalek")]
-                {
-                    let signer = ed25519_dalek::SigningKey::try_from(priv_key_decoded.data())
-                        .map_err(|_| error!("Failed to parse Ed25519 private key from bytes"))?;
-                    Self::signed2(
-                        kid,
-                        payload_bytes,
-                        payload_presence,
-                        payload_encoding,
-                        &signer,
-                    )
-                }
-                #[cfg(not(feature = "ed25519-dalek"))]
-                {
-                    panic!("Must enable the `ed25519-dalek` feature to sign using Ed25519 private keys");
-                }
-            }
-            ssi_multicodec::SECP256K1_PRIV => {
-                #[cfg(feature = "k256")]
-                {
-                    let signer = k256::ecdsa::SigningKey::try_from(priv_key_decoded.data())
-                        .map_err(|_| error!("Failed to parse Secp256k1 private key from bytes"))?;
-                    Self::signed2::<k256::ecdsa::Signature, _>(
-                        kid,
-                        payload_bytes,
-                        payload_presence,
-                        payload_encoding,
-                        &signer,
-                    )
-                }
-                #[cfg(not(feature = "k256"))]
-                {
-                    panic!("Must enable the `k256` feature to sign using Secp256k1 private keys");
-                }
-            }
-            ssi_multicodec::P256_PRIV => {
-                #[cfg(feature = "p256")]
-                {
-                    let signer = p256::ecdsa::SigningKey::try_from(priv_key_decoded.data())
-                        .map_err(|_| error!("Failed to parse P-256 private key from bytes"))?;
-                    Self::signed2::<p256::ecdsa::Signature, _>(
-                        kid,
-                        payload_bytes,
-                        payload_presence,
-                        payload_encoding,
-                        &signer,
-                    )
-                }
-                #[cfg(not(feature = "p256"))]
-                {
-                    panic!("Must enable the `p256` feature to sign using P-256 private keys");
-                }
-            }
-            _ => {
-                bail!(
-                    "Unsupported private key codec 0x{:02x}",
-                    priv_key_decoded.codec()
-                );
-            }
-        }
-    }
-    /// Verifies the JWS using the given MBPubKeyStr.  detached_payload_bytes_o should be Some(_) if it's a
-    /// detached payload, and None if it's an attached payload.
-    #[cfg(feature = "mbc")]
-    pub fn verify3(
-        &self,
-        pub_key: &mbc::MBPubKeyStr,
-        detached_payload_bytes_o: Option<&mut dyn std::io::Read>,
-    ) -> Result<()> {
-        // Ideally there would be a dyn version of signature::Verifier, but for now, we have
-        // to branch on the different, supported key types.
-        let pub_key_decoded = pub_key.decoded().unwrap();
-        match pub_key_decoded.codec() {
-            ssi_multicodec::ED25519_PUB => {
-                #[cfg(feature = "ed25519-dalek")]
-                {
-                    let verifier = ed25519_dalek::VerifyingKey::try_from(pub_key_decoded.data())
-                        .map_err(|_| error!("Failed to parse Ed25519 public key from bytes"))?;
-                    self.verify2(&verifier, detached_payload_bytes_o)
-                }
-                #[cfg(not(feature = "ed25519-dalek"))]
-                {
-                    panic!("Must enable the `ed25519-dalek` feature to verify using Ed25519 public keys");
-                }
-            }
-            ssi_multicodec::SECP256K1_PUB => {
-                #[cfg(feature = "k256")]
-                {
-                    let verifier = k256::ecdsa::VerifyingKey::try_from(pub_key_decoded.data())
-                        .map_err(|_| error!("Failed to parse Secp256k1 public key from bytes"))?;
-                    self.verify2::<k256::ecdsa::Signature, _>(&verifier, detached_payload_bytes_o)
-                }
-                #[cfg(not(feature = "k256"))]
-                {
-                    panic!("Must enable the `k256` feature to verify using Secp256k1 public keys");
-                }
-            }
-            ssi_multicodec::P256_PUB => {
-                #[cfg(feature = "p256")]
-                {
-                    let verifier = p256::ecdsa::VerifyingKey::try_from(pub_key_decoded.data())
-                        .map_err(|_| error!("Failed to parse P-256 public key from bytes"))?;
-                    self.verify2::<p256::ecdsa::Signature, _>(&verifier, detached_payload_bytes_o)
-                }
-                #[cfg(not(feature = "p256"))]
-                {
-                    panic!("Must enable the `p256` feature to verify using P-256 public keys");
-                }
-            }
-            _ => {
-                bail!(
-                    "Unsupported public key codec 0x{:02x}",
-                    pub_key_decoded.codec()
-                );
-            }
-        }
     }
 }
 
@@ -680,17 +342,13 @@ impl<'j> TryFrom<Cow<'j, str>> for JWS<'j> {
             )
         })?;
 
-        let named_signature_algorithm =
-            selfsign::NamedSignatureAlgorithm::try_from_jws_alg(header.alg.as_str())
-                .map_err(|_| error!("Unsupported JWS alg"))?;
         let signature_byte_v = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(signature_base64.as_bytes())
             .map_err(|_| error!("JWS signature failed to parse"))?;
 
-        let signature_bytes = selfsign::SignatureBytes {
-            named_signature_algorithm,
-            signature_byte_v: signature_byte_v.into(),
-        };
+        let signature_bytes =
+            signature_dyn::SignatureBytes::new(header.alg.as_str(), signature_byte_v.into())
+                .map_err(|e| error!("error while creating signature bytes: {}", e))?;
 
         Ok(JWS {
             string: jws_str,

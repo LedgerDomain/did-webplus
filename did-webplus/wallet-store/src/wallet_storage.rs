@@ -78,13 +78,13 @@ pub trait WalletStorage:
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &mbc::MBPubKeyStr,
+        pub_key: &mbx::MBPubKeyStr,
     ) -> Result<()>;
     async fn get_priv_key(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &mbc::MBPubKeyStr,
+        pub_key: &mbx::MBPubKeyStr,
     ) -> Result<Option<PrivKeyRecord>>;
     async fn get_priv_keys(
         &self,

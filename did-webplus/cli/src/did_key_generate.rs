@@ -7,7 +7,7 @@ use std::io::Write;
 pub struct DIDKeyGenerate {
     /// Specify the type of key to be generated.
     #[arg(short, long, value_enum)]
-    pub key_type: selfsign::KeyType,
+    pub key_type: signature_dyn::KeyType,
     #[command(flatten)]
     pub private_key_file_args: PrivateKeyFileArgs,
     #[command(flatten)]
@@ -22,10 +22,8 @@ impl DIDKeyGenerate {
 
         // Do the processing
         let signer_b = did_webplus_cli_lib::private_key_generate(self.key_type);
-        did_webplus_cli_lib::private_key_write_to_pkcs8_pem_file(
-            signer_b.as_ref(),
-            &private_key_path,
-        )?;
+        let signer_bytes = signer_b.to_signer_bytes();
+        did_webplus_cli_lib::private_key_write_to_pkcs8_pem_file(&signer_bytes, &private_key_path)?;
         let did = did_webplus_cli_lib::did_key_from_private(signer_b.as_ref())?;
 
         // Print the did:key representation of the public key corresponding to the generated priv key.

@@ -29,7 +29,7 @@ impl PrivKeyUsageSelect {
             panic!("ctx.wallets_rowid {} doesn't match priv_key_usages.wallets_rowid {}; this is a programmer error", ctx.wallets_rowid, self.wallets_rowid);
         }
 
-        let pub_key = mbc::MBPubKey::try_from(
+        let pub_key = mbx::MBPubKey::try_from(
             self.pub_key.as_str()
         ).map_err(|e| {
             Error::RecordCorruption(

@@ -40,7 +40,7 @@ shell:
 		--env RUST_BACKTRACE=1 \
 		--env RUST_LOG=error \
 		--env DID_WEBPLUS_VDG=witness.org \
-		--env DID_WEBPLUS_VDR=http://fancy.net \
-		--env DID_WEBPLUS_HTTP_SCHEME_OVERRIDE=fancy.net=http \
+		--env DID_WEBPLUS_VDR=fancy.net \
+		--env DID_WEBPLUS_HTTP_SCHEME_OVERRIDE=fancy.net=http,witness.org=http \
 		--entrypoint bash \
 		$(CLI_PROJECT_NAME):latest

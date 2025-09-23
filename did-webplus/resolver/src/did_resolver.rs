@@ -48,7 +48,7 @@ pub trait DIDResolver: Send + Sync + verifier_resolver::VerifierResolver {
 pub async fn verifier_resolver_impl(
     verifier_str: &str,
     did_resolver: &dyn DIDResolver,
-) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
+) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
     if !verifier_str.starts_with("did:webplus:") {
         Err(verifier_resolver::Error::InvalidVerifier(
             format!(
@@ -77,19 +77,9 @@ pub async fn verifier_resolver_impl(
     let verification_method = did_document
         .public_key_material
         .verification_method_for_key_id_fragment(did_key_resource_fully_qualified.fragment())?;
-    // TEMP HACK: Convert
-    let pub_key = mbc::MBPubKey::try_from(&verification_method.public_key_jwk)?;
-    let pub_key_decoded = pub_key.decoded().unwrap();
-    let key_type = match pub_key_decoded.codec() {
-        ssi_multicodec::ED25519_PUB => selfsign::KeyType::Ed25519,
-        ssi_multicodec::SECP256K1_PUB => selfsign::KeyType::Secp256k1,
-        _ => {
-            anyhow::bail!("unsupported key type: {:?}", pub_key_decoded.codec());
-        }
-    };
-    let verifier_bytes = selfsign::VerifierBytes {
-        key_type,
-        verifying_key_byte_v: pub_key_decoded.data().to_vec().into(),
-    };
+    // TODO: Go directly to the verifier bytes (maybe)
+    let pub_key = mbx::MBPubKey::try_from(&verification_method.public_key_jwk)?;
+    let verifier_bytes = signature_dyn::VerifierBytes::try_from(&pub_key)
+        .map_err(|e| verifier_resolver::Error::InvalidVerifier(e.to_string().into()))?;
     Ok(Box::new(verifier_bytes))
 }

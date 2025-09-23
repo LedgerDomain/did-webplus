@@ -1,4 +1,4 @@
-use selfhash::{HashFunction, SelfHashable};
+use selfhash::{HashFunctionT, SelfHashableT};
 use std::{borrow::Cow, collections::HashSet};
 
 lazy_static::lazy_static! {
@@ -8,7 +8,7 @@ lazy_static::lazy_static! {
 pub struct DefaultSchema {
     pub value: serde_json::Value,
     pub jcs: String,
-    pub self_hash: selfhash::KERIHash,
+    pub self_hash: mbx::MBHash,
     // TODO: Make this VJSONURL.
     pub vjson_url: String,
 }
@@ -34,12 +34,11 @@ impl DefaultSchema {
         )
         .unwrap();
 
+        let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
         let self_hash = self_hashable_json
-            .self_hash(selfhash::Blake3.new_hasher())
+            .self_hash(mb_hash_function.new_hasher())
             .unwrap()
-            .to_keri_hash()
-            .unwrap()
-            .into_owned();
+            .to_owned();
         let vjson_url = format!("vjson:///{}", self_hash);
         let value = self_hashable_json.into_value();
         let jcs = serde_json_canonicalizer::to_string(&value).unwrap();

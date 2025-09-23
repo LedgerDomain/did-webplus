@@ -40,6 +40,8 @@ pub enum Error {
     NoSuitablePrivKeyFound(Cow<'static, str>),
     #[error("No uniquely determinable controlled DID found: {0}")]
     NoUniquelyDeterminableControlledDIDFound(Cow<'static, str>),
+    #[error("{0}")]
+    SignatureDynError(signature_dyn::Error),
     #[error(transparent)]
     WalletStorageError(did_webplus_wallet_store::Error),
 }
@@ -55,6 +57,12 @@ impl From<did_webplus_core::Error> for Error {
 impl From<did_webplus_doc_store::Error> for Error {
     fn from(e: did_webplus_doc_store::Error) -> Self {
         Self::DIDDocStoreError(e)
+    }
+}
+
+impl From<signature_dyn::Error> for Error {
+    fn from(e: signature_dyn::Error) -> Self {
+        Self::SignatureDynError(e)
     }
 }
 

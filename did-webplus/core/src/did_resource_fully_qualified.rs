@@ -28,8 +28,8 @@ impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
         host: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
-        root_self_hash: &mbc::MBHashStr,
-        query_self_hash: &mbc::MBHashStr,
+        root_self_hash: &mbx::MBHashStr,
+        query_self_hash: &mbx::MBHashStr,
         query_version_id: u32,
         fragment: &F,
     ) -> Result<Self, Error> {

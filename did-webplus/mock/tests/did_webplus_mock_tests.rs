@@ -106,10 +106,11 @@ fn resolve_did_and_verify_jws<'r, 'p>(
         .iter()
         .find(|&verification_method| verification_method.id.fragment() == key_id_fragment)
         .expect("programmer error: this key_id should be present in the verification method list; this should have been guaranteed by the resolver");
-    let pub_key = mbc::MBPubKey::try_from(&verification_method.public_key_jwk).expect("pass");
+    let pub_key = mbx::MBPubKey::try_from(&verification_method.public_key_jwk).expect("pass");
+    let verifier_bytes = signature_dyn::VerifierBytes::try_from(&pub_key).expect("pass");
 
     // Finally, verify the signature using the resolved verifier.
-    jws.verify3(&pub_key, detached_payload_bytes_o)
+    jws.verify(&verifier_bytes, detached_payload_bytes_o)
         .expect("pass");
 
     Ok((did_document, did_document_metadata))
@@ -123,15 +124,15 @@ fn test_example_creating_and_updating_a_did() {
     println!("# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n");
 
     let update_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-    let update_pub_key_0 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-        mbc::Base::Base64Url,
+    let update_pub_key_0 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbx::Base::Base64Url,
         &update_key_0.verifying_key(),
     );
 
     let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let verifying_key_0 = signing_key_0.verifying_key();
     let pub_key_0 =
-        mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &verifying_key_0);
+        mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_0);
 
     // Create a DID and its associated Microledger
     let (mut microledger, mut priv_jwk_0) = {
@@ -142,7 +143,7 @@ fn test_example_creating_and_updating_a_did() {
         );
         println!("We'll also need a key that is authorized to update the DID document.  In publicKeyMultibase format, the public key is:\n\n```\n{}\n```\n", update_pub_key_0);
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: update_pub_key_0.clone(),
+            pub_key: update_pub_key_0.clone(),
         });
         let mut did_document = DIDDocument::create_unsigned_root(
             "example.com",
@@ -157,7 +158,7 @@ fn test_example_creating_and_updating_a_did() {
                 capability_invocation_v: vec![&pub_key_0],
                 capability_delegation_v: vec![&pub_key_0],
             },
-            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
         )
         .expect("pass");
         // No need to sign the root DID document, but it is allowed.
@@ -183,15 +184,15 @@ fn test_example_creating_and_updating_a_did() {
     };
 
     let update_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-    let update_pub_key_1 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-        mbc::Base::Base64Url,
+    let update_pub_key_1 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbx::Base::Base64Url,
         &update_key_1.verifying_key(),
     );
 
     let signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let verifying_key_1 = signing_key_1.verifying_key();
     let pub_key_1 =
-        mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &verifying_key_1);
+        mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_1);
 
     println!("## Updating the DID\n");
     // Update the Microledger.
@@ -204,7 +205,7 @@ fn test_example_creating_and_updating_a_did() {
         println!("A new update key is also needed.  In publicKeyMultibase format, the new public key is:\n\n```\n{}\n```\n", update_pub_key_1);
 
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: update_pub_key_1.clone(),
+            pub_key: update_pub_key_1.clone(),
         });
         let mut new_did_document = DIDDocument::create_unsigned_non_root(
             microledger.view().latest_did_document(),
@@ -217,7 +218,7 @@ fn test_example_creating_and_updating_a_did() {
                 capability_invocation_v: vec![&pub_key_1],
                 capability_delegation_v: vec![&pub_key_0],
             },
-            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
         )
         .expect("pass");
         // Sign the updated DID document.
@@ -238,7 +239,7 @@ fn test_example_creating_and_updating_a_did() {
             .update(new_did_document)
             .expect("pass");
         let did = microledger.view().did();
-        use selfsign::Verifier;
+
         let latest_did_document = microledger.view().latest_did_document();
         println!("Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"), serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass"));
         println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
@@ -260,22 +261,23 @@ fn test_example_creating_and_updating_a_did() {
                 &latest_did_document.self_hash,
                 latest_did_document.version_id,
             )
-            .with_fragment(&verifying_key_0.to_keri_verifier());
+            // NOTE: This is hardcoded, and depends on the order the keys were added to the DID document.
+            .with_fragment("0");
         priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
         println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
         priv_jwk_1
     };
 
     let update_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-    let update_pub_key_2 = mbc::MBPubKey::from_ed25519_dalek_verifying_key(
-        mbc::Base::Base64Url,
+    let update_pub_key_2 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbx::Base::Base64Url,
         &update_key_2.verifying_key(),
     );
 
     let signing_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let verifying_key_2 = signing_key_2.verifying_key();
     let pub_key_2 =
-        mbc::MBPubKey::from_ed25519_dalek_verifying_key(mbc::Base::Base64Url, &verifying_key_2);
+        mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_2);
 
     println!("## Updating the DID Again\n");
     // Update the Microledger.
@@ -286,7 +288,7 @@ fn test_example_creating_and_updating_a_did() {
             serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
         );
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            key: update_pub_key_2.clone(),
+            pub_key: update_pub_key_2.clone(),
         });
         let mut new_did_document = DIDDocument::create_unsigned_non_root(
             microledger.view().latest_did_document(),
@@ -299,7 +301,7 @@ fn test_example_creating_and_updating_a_did() {
                 capability_invocation_v: vec![&pub_key_2],
                 capability_delegation_v: vec![&pub_key_0],
             },
-            &selfhash::MBHashFunction::blake3(mbc::Base::Base64Url),
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
         )
         .expect("pass");
         let jws = new_did_document
@@ -404,22 +406,23 @@ fn test_did_operations() {
     // Sign and verify a JWS.
     {
         let message = "This Alice is the best Alice.";
-        let (priv_key, kid) = alice_wallet
+        let (signer_bytes, kid) = alice_wallet
             .controlled_did(&alice_did)
             .expect("pass")
             .signer_and_key_id_for_key_purpose(KeyPurpose::Authentication);
-        let jws = JWS::signed3(
+        let jws = JWS::signed(
             kid.to_string(),
             &mut message.as_bytes(),
             JWSPayloadPresence::Attached,
             JWSPayloadEncoding::Base64,
-            priv_key,
+            signer_bytes,
         )
         .expect("pass");
 
         // Directly verify the JWS
-        let pub_key = priv_key.pub_key().expect("pass");
-        jws.verify3(&pub_key, None).expect("pass");
+        use signature_dyn::SignerDynT;
+        let verifier_bytes = signer_bytes.verifier_bytes().expect("pass");
+        jws.verify(&verifier_bytes, None).expect("pass");
 
         let jws_signing_time = time::OffsetDateTime::now_utc();
         println!("jws_string: {}", jws);

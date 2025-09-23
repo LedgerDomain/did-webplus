@@ -8,15 +8,15 @@ pub enum PublicKeyParams {
     OKP(PublicKeyParamsOKP),
 }
 
-impl From<&mbc::MBPubKey> for PublicKeyParams {
-    fn from(pub_key: &mbc::MBPubKey) -> Self {
+impl From<&mbx::MBPubKey> for PublicKeyParams {
+    fn from(pub_key: &mbx::MBPubKey) -> Self {
         use std::ops::Deref;
         Self::from(pub_key.deref())
     }
 }
 
-impl From<&mbc::MBPubKeyStr> for PublicKeyParams {
-    fn from(pub_key: &mbc::MBPubKeyStr) -> Self {
+impl From<&mbx::MBPubKeyStr> for PublicKeyParams {
+    fn from(pub_key: &mbx::MBPubKeyStr) -> Self {
         let decoded = pub_key.decoded().unwrap();
         match decoded.codec() {
             ssi_multicodec::ED25519_PUB => PublicKeyParamsOKP::try_from(pub_key)
@@ -30,7 +30,7 @@ impl From<&mbc::MBPubKeyStr> for PublicKeyParams {
     }
 }
 
-impl TryFrom<&PublicKeyParams> for mbc::MBPubKey {
+impl TryFrom<&PublicKeyParams> for mbx::MBPubKey {
     type Error = Error;
     fn try_from(public_key_params: &PublicKeyParams) -> Result<Self, Self::Error> {
         match public_key_params {

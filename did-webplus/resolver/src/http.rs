@@ -1,4 +1,4 @@
-use did_webplus_core::{DIDStr, DIDWithQueryStr};
+use did_webplus_core::{DIDStr, DIDWithQueryStr, HTTPSchemeOverride};
 use reqwest::StatusCode;
 use std::borrow::Cow;
 
@@ -55,8 +55,23 @@ pub async fn fetch_latest_did_document_body(
     vdg_base_url_o: Option<&url::Url>,
     http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
 ) -> HTTPResult<String> {
+    tracing::trace!(
+        ?did,
+        ?vdg_base_url_o,
+        ?http_scheme_override_o,
+        "fetch_latest_did_document_body"
+    );
+
     let resolution_url = if let Some(vdg_base_url) = vdg_base_url_o {
-        // Note: vdg_base_url already has the http_scheme_override_o applied.
+        // Apply the http_scheme_override_o to the vdg_base_url.
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
+            http_scheme_override_o,
+            vdg_base_url.host_str().unwrap(),
+        )
+        .unwrap();
+        let mut vdg_base_url = vdg_base_url.clone();
+        vdg_base_url.set_scheme(http_scheme).unwrap();
+
         let mut resolution_url = vdg_base_url.clone();
         resolution_url.path_segments_mut().unwrap().push("webplus");
         resolution_url.path_segments_mut().unwrap().push("v1");
@@ -77,8 +92,23 @@ pub async fn fetch_did_document_body(
     vdg_base_url_o: Option<&url::Url>,
     http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
 ) -> HTTPResult<String> {
+    tracing::trace!(
+        ?did_with_query,
+        ?vdg_base_url_o,
+        ?http_scheme_override_o,
+        "fetch_did_document_body"
+    );
+
     let resolution_url = if let Some(vdg_base_url) = vdg_base_url_o {
-        // Note: vdg_base_url already has the http_scheme_override_o applied.
+        // Apply the http_scheme_override_o to the vdg_base_url.
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
+            http_scheme_override_o,
+            vdg_base_url.host_str().unwrap(),
+        )
+        .unwrap();
+        let mut vdg_base_url = vdg_base_url.clone();
+        vdg_base_url.set_scheme(http_scheme).unwrap();
+
         let mut resolution_url = vdg_base_url.clone();
         resolution_url.path_segments_mut().unwrap().push("webplus");
         resolution_url.path_segments_mut().unwrap().push("v1");
@@ -102,6 +132,14 @@ pub async fn fetch_did_documents_jsonl_update(
     http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     known_did_documents_jsonl_octet_length: u64,
 ) -> HTTPResult<String> {
+    tracing::trace!(
+        ?did,
+        ?vdg_base_url_o,
+        ?http_scheme_override_o,
+        ?known_did_documents_jsonl_octet_length,
+        "fetch_did_documents_jsonl_update"
+    );
+
     let time_start = std::time::SystemTime::now();
     let header_map = {
         let mut header_map = reqwest::header::HeaderMap::new();
@@ -116,7 +154,15 @@ pub async fn fetch_did_documents_jsonl_update(
         header_map
     };
     let did_documents_jsonl_url = if let Some(vdg_base_url) = vdg_base_url_o {
-        // Note: vdg_base_url already has the http_scheme_override_o applied.
+        // Apply the http_scheme_override_o to the vdg_base_url.
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
+            http_scheme_override_o,
+            vdg_base_url.host_str().unwrap(),
+        )
+        .unwrap();
+        let mut vdg_base_url = vdg_base_url.clone();
+        vdg_base_url.set_scheme(http_scheme).unwrap();
+
         let mut did_documents_jsonl_url = vdg_base_url.clone();
         did_documents_jsonl_url
             .path_segments_mut()

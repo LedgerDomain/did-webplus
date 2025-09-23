@@ -106,7 +106,7 @@ impl vjson_store::VJSONStorage for VJSONStorageSQLite {
     async fn get_vjson_str(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<VJSONRecord> {
         let self_hash_str = self_hash.as_str();
         let query = sqlx::query_as!(

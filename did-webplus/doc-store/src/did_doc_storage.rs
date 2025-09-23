@@ -27,7 +27,7 @@ pub trait DIDDocStorage: Send + storage_traits::StorageDynT + Sync + 'static {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &mbc::MBHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<Option<DIDDocRecord>>;
     /// Attempt to get a DIDDocRecord with a specific version-id value from the store.  Will return None if
     /// the requested DIDDocRecord does not exist.

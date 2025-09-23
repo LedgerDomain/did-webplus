@@ -25,12 +25,12 @@ pub struct DIDDocument {
     /// This is the self-hash of the document.  The self-hash functions as the globally unique identifier
     /// for the DID document.
     #[serde(rename = "selfHash")]
-    pub self_hash: mbc::MBHash,
+    pub self_hash: mbx::MBHash,
     /// This should be the self-hash of the previous DID document.  This relationship is what forms
     /// the microledger.
     #[serde(rename = "prevDIDDocumentSelfHash")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub prev_did_document_self_hash_o: Option<mbc::MBHash>,
+    pub prev_did_document_self_hash_o: Option<mbx::MBHash>,
     /// This defines the update authorization rules for this DID while this DID document is current.
     #[serde(rename = "updateRules")]
     pub update_rules: RootLevelUpdateRules,
@@ -59,8 +59,8 @@ impl DIDDocument {
         did_path_o: Option<&str>,
         update_rules: RootLevelUpdateRules,
         valid_from: time::OffsetDateTime,
-        public_key_set: PublicKeySet<&'a mbc::MBPubKey>,
-        hash_function: &impl selfhash::HashFunctionT<HashRef = mbc::MBHashStr>,
+        public_key_set: PublicKeySet<&'a mbx::MBPubKey>,
+        hash_function: &impl selfhash::HashFunctionT<mbx::MBHashStr>,
     ) -> Result<Self> {
         let self_hash_placeholder = hash_function.placeholder_hash();
         let did = DID::new(
@@ -86,8 +86,8 @@ impl DIDDocument {
         prev_did_document: &DIDDocument,
         update_rules: RootLevelUpdateRules,
         valid_from: time::OffsetDateTime,
-        public_key_set: PublicKeySet<&'a mbc::MBPubKey>,
-        hash_function: &impl selfhash::HashFunctionT<HashRef = mbc::MBHashStr>,
+        public_key_set: PublicKeySet<&'a mbx::MBPubKey>,
+        hash_function: &impl selfhash::HashFunctionT<mbx::MBHashStr>,
     ) -> Result<Self> {
         use selfhash::HashRefT;
         if prev_did_document.self_hash.deref().is_placeholder() {
@@ -115,12 +115,12 @@ impl DIDDocument {
         // Maybe this is only a debug check.
         self.proof_v.push(proof);
     }
-    pub fn finalize(&mut self, prev_did_document_o: Option<&DIDDocument>) -> Result<&mbc::MBHash> {
+    pub fn finalize(&mut self, prev_did_document_o: Option<&DIDDocument>) -> Result<&mbx::MBHash> {
         use selfhash::HashRefT;
         let hash_function = self.self_hash.hash_function();
         use selfhash::HashFunctionT;
         let hasher = hash_function.new_hasher();
-        <Self as selfhash::SelfHashableT<mbc::MBHashStr>>::self_hash(self, hasher)?;
+        <Self as selfhash::SelfHashableT<mbx::MBHashStr>>::self_hash(self, hasher)?;
         self.verify_nonrecursive(prev_did_document_o)?;
         Ok(&self.self_hash)
     }
@@ -146,7 +146,7 @@ impl DIDDocument {
     pub fn verify_nonrecursive(
         &self,
         expected_prev_did_document_o: Option<&DIDDocument>,
-    ) -> Result<&mbc::MBHash> {
+    ) -> Result<&mbx::MBHash> {
         if self.is_root_did_document() {
             if expected_prev_did_document_o.is_some() {
                 return Err(Error::Malformed(
@@ -163,7 +163,7 @@ impl DIDDocument {
             self.verify_non_root_nonrecursive(expected_prev_did_document_o.unwrap())
         }
     }
-    pub fn verify_root_nonrecursive(&self) -> Result<&mbc::MBHash> {
+    pub fn verify_root_nonrecursive(&self) -> Result<&mbx::MBHash> {
         if !self.is_root_did_document() {
             return Err(Error::Malformed(
                 "Expected a root DID document, but this is a non-root DID document.",
@@ -194,7 +194,7 @@ impl DIDDocument {
     pub fn verify_non_root_nonrecursive(
         &self,
         expected_prev_did_document: &DIDDocument,
-    ) -> Result<&mbc::MBHash> {
+    ) -> Result<&mbx::MBHash> {
         if self.is_root_did_document() {
             return Err(Error::Malformed(
                 "Expected a non-root DID document, but this is a root DID document.",
@@ -292,16 +292,13 @@ impl DIDDocument {
     }
     /// This will sign the DID document and return the proof (a detached, unencoded-payload JWS).
     /// It does not add the proof to the DID document.  `kid` should specify the verifier (i.e. pub key).
-    pub fn sign<
-        Signature: std::fmt::Debug + signature::SignatureEncoding,
-        Signer: signature::Signer<Signature> + did_webplus_jws::JOSEAlgorithmT,
-    >(
+    pub fn sign(
         &self,
         kid: String,
-        signer: &Signer,
+        signer: &dyn signature_dyn::SignerDynT,
     ) -> Result<did_webplus_jws::JWS<'static>> {
         let bytes_to_sign = self.bytes_to_sign()?;
-        Ok(did_webplus_jws::JWS::signed2(
+        Ok(did_webplus_jws::JWS::signed(
             kid,
             &mut &*bytes_to_sign.as_slice(),
             did_webplus_jws::JWSPayloadPresence::Detached,
@@ -328,14 +325,18 @@ impl DIDDocument {
         for proof in self.proof_v.iter() {
             let jws = did_webplus_jws::JWS::try_from(proof.as_str())
                 .map_err(|_| Error::Malformed("Failed to parse proof as JWS"))?;
-            let pub_key: mbc::MBPubKey = jws.header().kid.as_str().try_into().map_err(|_| {
+            let pub_key: mbx::MBPubKey = jws.header().kid.as_str().try_into().map_err(|_| {
                 Error::Malformed(
                     "Failed to parse JWS header \"kid\" field as base64url-encoded multicodec-encoded public key",
                 )
             })?;
-            if let Ok(()) = jws.verify3(&pub_key, Some(&mut detached_payload_bytes.as_slice())) {
+            let verifier_bytes = signature_dyn::VerifierBytes::try_from(&pub_key)?;
+            if let Ok(()) = jws.verify(
+                &verifier_bytes,
+                Some(&mut detached_payload_bytes.as_slice()),
+            ) {
                 if let Some(valid_proof_data_vo) = valid_proof_data_vo.as_mut() {
-                    valid_proof_data_vo.push(ValidProofData::from_key(pub_key));
+                    valid_proof_data_vo.push(ValidProofData::from_pub_key(pub_key));
                 }
             }
         }
@@ -355,16 +356,16 @@ impl DIDDocument {
     }
 }
 
-impl selfhash::SelfHashableT<mbc::MBHashStr> for DIDDocument {
+impl selfhash::SelfHashableT<mbx::MBHashStr> for DIDDocument {
     fn write_digest_data(
         &self,
-        hasher: &mut <<mbc::MBHashStr as selfhash::HashRefT>::HashFunction as selfhash::HashFunctionT>::Hasher,
+        hasher: &mut <<mbx::MBHashStr as selfhash::HashRefT>::HashFunction as selfhash::HashFunctionT<mbx::MBHashStr>>::Hasher,
     ) -> selfhash::Result<()> {
-        selfhash::write_digest_data_using_jcs_2(self, hasher)
+        selfhash::write_digest_data_using_jcs(self, hasher)
     }
     fn self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> selfhash::Result<Box<dyn std::iter::Iterator<Item = Option<&'b mbc::MBHashStr>> + 'a>>
+    ) -> selfhash::Result<Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a>>
     {
         use selfhash::HashRefT;
         let self_hash_o = if self.self_hash.deref().is_placeholder() {
@@ -384,7 +385,7 @@ impl selfhash::SelfHashableT<mbc::MBHashStr> for DIDDocument {
             Ok(Box::new(std::iter::once(self_hash_o)))
         }
     }
-    fn set_self_hash_slots_to(&mut self, hash: &mbc::MBHashStr) -> selfhash::Result<()> {
+    fn set_self_hash_slots_to(&mut self, hash: &mbx::MBHashStr) -> selfhash::Result<()> {
         // Depending on if this is a root DID document or a non-root DID document, there are different
         // self-hash slots to assign to.
         if self.is_root_did_document() {

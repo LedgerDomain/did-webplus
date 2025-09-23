@@ -38,7 +38,7 @@ pub trait VDS {
         requester_user_agent: &str,
         did: &DIDStr,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&mbc::MBHashStr>,
+        self_hash_o: Option<&mbx::MBHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error>;
 }

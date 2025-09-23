@@ -1,44 +1,23 @@
 pub use anyhow::Result;
 
-pub fn private_key_generate(key_type: selfsign::KeyType) -> Box<dyn selfsign::Signer> {
-    match key_type {
-        selfsign::KeyType::Ed25519 => {
-            #[cfg(feature = "ed25519-dalek")]
-            {
-                Box::new(ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng))
-            }
-            #[cfg(not(feature = "ed25519-dalek"))]
-            {
-                panic!("Must enable the `ed25519-dalek` feature to generate Ed25519 keys");
-            }
-        }
-        selfsign::KeyType::Secp256k1 => {
-            #[cfg(feature = "k256")]
-            {
-                Box::new(k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng))
-            }
-            #[cfg(not(feature = "k256"))]
-            {
-                panic!("Must enable the `k256` feature to generate Secp256k1 keys");
-            }
-        }
-    }
+pub fn private_key_generate(
+    key_type: signature_dyn::KeyType,
+) -> Box<dyn signature_dyn::SignerDynT> {
+    key_type.generate_random_private_key()
 }
 
 /// Determine the did:key representation of the public key corresponding to this private key.
-pub fn did_key_from_private(signer: &dyn selfsign::Signer) -> Result<did_key::DID> {
-    Ok(did_key::DID::try_from(
-        &signer.verifier().to_verifier_bytes(),
-    )?)
+pub fn did_key_from_private(signer: &dyn signature_dyn::SignerDynT) -> Result<did_key::DID> {
+    Ok(did_key::DID::try_from(&signer.verifier_bytes()?)?)
 }
 
 /// PKCS8 is a standard format for representing cryptographic keys, e.g. for storing in a file.
 // TODO: Make a browser-specific version of this that writes to some appropriate kind of browser storage.
 pub fn private_key_write_to_pkcs8_pem_file(
-    signer: &dyn selfsign::Signer,
+    signer_pkcs8: &dyn signature_dyn::PKCS8Write,
     private_key_path: &std::path::Path,
 ) -> Result<()> {
-    signer
+    signer_pkcs8
         .write_to_pkcs8_pem_file(private_key_path)
         .map_err(|e| {
             anyhow::anyhow!(
@@ -54,24 +33,63 @@ pub fn private_key_write_to_pkcs8_pem_file(
 // TODO: Make a browser-specific version of this that writes to some appropriate kind of browser storage.
 pub fn private_key_read_from_pkcs8_pem_file(
     private_key_path: &std::path::Path,
-) -> Result<Box<dyn selfsign::Signer>> {
-    use selfsign::Signer;
-    for &key_type in selfsign::KEY_TYPE_V {
+) -> Result<Box<dyn signature_dyn::SignerDynT>> {
+    use signature_dyn::PKCS8Read;
+    // This is a bit of a hack.  It would be better to somehow determine the key type first,
+    // then invoke the correct read function.
+    for &key_type in signature_dyn::KEY_TYPE_V {
         match key_type {
-            selfsign::KeyType::Ed25519 => {
+            signature_dyn::KeyType::Ed25519 => {
+                #[cfg(feature = "ed25519-dalek")]
                 if let Ok(signing_key) =
                     ed25519_dalek::SigningKey::read_from_pkcs8_pem_file(&private_key_path)
                 {
                     return Ok(Box::new(signing_key));
                 }
             }
-            selfsign::KeyType::Secp256k1 => {
+            signature_dyn::KeyType::Ed448 => {
+                #[cfg(feature = "ed448-goldilocks")]
+                {
+                    if let Ok(signing_key) =
+                        ed448_goldilocks::SigningKey::read_from_pkcs8_pem_file(&private_key_path)
+                    {
+                        return Ok(Box::new(signing_key));
+                    }
+                }
+            }
+            signature_dyn::KeyType::P256 => {
+                #[cfg(feature = "p256")]
+                if let Ok(signing_key) =
+                    p256::ecdsa::SigningKey::read_from_pkcs8_pem_file(&private_key_path)
+                {
+                    return Ok(Box::new(signing_key));
+                }
+            }
+            signature_dyn::KeyType::P384 => {
+                #[cfg(feature = "p384")]
+                if let Ok(signing_key) =
+                    p384::ecdsa::SigningKey::read_from_pkcs8_pem_file(&private_key_path)
+                {
+                    return Ok(Box::new(signing_key));
+                }
+            }
+            signature_dyn::KeyType::P521 => {
+                #[cfg(feature = "p521")]
+                if let Ok(signing_key) =
+                    p521::ecdsa::SigningKey::read_from_pkcs8_pem_file(&private_key_path)
+                {
+                    return Ok(Box::new(signing_key));
+                }
+            }
+            signature_dyn::KeyType::Secp256k1 => {
+                #[cfg(feature = "k256")]
                 if let Ok(signing_key) =
                     k256::ecdsa::SigningKey::read_from_pkcs8_pem_file(&private_key_path)
                 {
                     return Ok(Box::new(signing_key));
                 }
             }
+            _ => {}
         }
     }
     anyhow::bail!(
@@ -84,9 +102,9 @@ pub fn did_key_sign_jws(
     payload_bytes: &mut dyn std::io::Read,
     payload_presence: did_webplus_jws::JWSPayloadPresence,
     payload_encoding: did_webplus_jws::JWSPayloadEncoding,
-    signer: &dyn selfsign::Signer,
+    signer: &dyn signature_dyn::SignerDynT,
 ) -> Result<did_webplus_jws::JWS<'static>> {
-    let did_resource = did_key::DIDResource::try_from(&signer.verifier().to_verifier_bytes())?;
+    let did_resource = did_key::DIDResource::try_from(&signer.verifier_bytes()?)?;
     let jws = did_webplus_jws::JWS::signed(
         did_resource.to_string(),
         payload_bytes,
@@ -99,10 +117,10 @@ pub fn did_key_sign_jws(
 
 pub async fn did_key_sign_vjson(
     value: &mut serde_json::Value,
-    signer: &dyn selfsign::Signer,
+    signer: &dyn signature_dyn::SignerDynT,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
-) -> Result<selfhash::KERIHash> {
-    let did_resource = did_key::DIDResource::try_from(&signer.verifier().to_verifier_bytes())?;
+) -> Result<mbx::MBHash> {
+    let did_resource = did_key::DIDResource::try_from(&signer.verifier_bytes()?)?;
     let kid = did_resource.to_string();
     let verifier_resolver = did_key::DIDKeyVerifierResolver;
     Ok(vjson_core::sign_and_self_hash_vjson(
@@ -174,31 +192,6 @@ pub async fn jws_verify(
     Ok(())
 }
 
-pub fn priv_key_generate(key_type: selfsign::KeyType) -> Box<dyn selfsign::Signer> {
-    match key_type {
-        selfsign::KeyType::Ed25519 => {
-            #[cfg(feature = "ed25519-dalek")]
-            {
-                Box::new(ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng))
-            }
-            #[cfg(not(feature = "ed25519-dalek"))]
-            {
-                panic!("Must enable the `ed25519-dalek` feature to generate Ed25519 keys");
-            }
-        }
-        selfsign::KeyType::Secp256k1 => {
-            #[cfg(feature = "k256")]
-            {
-                Box::new(k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng))
-            }
-            #[cfg(not(feature = "k256"))]
-            {
-                panic!("Must enable the `k256` feature to generate Secp256k1 keys");
-            }
-        }
-    }
-}
-
 // TODO: Move part of this into vjson_core.
 pub async fn vjson_self_hash(
     value: serde_json::Value,
@@ -208,9 +201,10 @@ pub async fn vjson_self_hash(
         vjson_core::self_hashable_json_from(value, vjson_resolver).await?;
 
     // Self-hash the JSON.
-    use selfhash::{HashFunction, SelfHashable};
+    use selfhash::{HashFunctionT, SelfHashableT};
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
     self_hashable_json
-        .self_hash(selfhash::Blake3.new_hasher())
+        .self_hash(mb_hash_function.new_hasher())
         .expect("self-hash failed");
 
     // Verify the self-hash.  This is mostly a sanity check.
@@ -249,7 +243,7 @@ pub async fn vjson_store_add_value(
 
 // NOTE: There's almost no point to this function except to make it known in the same place as the others.
 pub async fn vjson_store_get_value(
-    self_hash: &selfhash::KERIHashStr,
+    self_hash: &mbx::MBHashStr,
     vjson_store: &vjson_store::VJSONStore,
 ) -> Result<serde_json::Value> {
     // Retrieve the specified VJSON value from the VJSON store.  This guarantees it's valid.
@@ -258,7 +252,7 @@ pub async fn vjson_store_get_value(
 
 // NOTE: There's almost no point to this function except to make it known in the same place as the others.
 pub async fn vjson_store_get_record(
-    self_hash: &selfhash::KERIHashStr,
+    self_hash: &mbx::MBHashStr,
     vjson_store: &vjson_store::VJSONStore,
 ) -> Result<vjson_store::VJSONRecord> {
     // Retrieve the specified VJSONRecord from the VJSON store.  This guarantees the VJSON is valid.
@@ -269,7 +263,7 @@ pub async fn vjson_verify(
     value: &serde_json::Value,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-) -> Result<selfhash::KERIHash> {
+) -> Result<mbx::MBHash> {
     use vjson_core::Validate;
     let self_hash = value
         .validate_and_return_self_hash(vjson_resolver, verifier_resolver)
@@ -312,7 +306,7 @@ async fn wallet_did_select_key(
     key_id_o: Option<&str>,
 ) -> Result<(
     did_webplus_wallet_store::VerificationMethodRecord,
-    Box<dyn selfsign::Signer>,
+    signature_dyn::SignerBytes<'static>,
 )> {
     let query_result_v = wallet
         .get_locally_controlled_verification_methods(
@@ -368,7 +362,7 @@ pub async fn wallet_did_sign_jws(
     key_id_o: Option<&str>,
 ) -> Result<did_webplus_jws::JWS<'static>> {
     // Get the specified signing key.
-    let (verification_method_record, signer_b) =
+    let (verification_method_record, signer_bytes) =
         wallet_did_select_key(wallet, controlled_did_o, key_purpose_o, key_id_o).await?;
     // Form the kid (key ID).
     let kid = verification_method_record
@@ -380,7 +374,7 @@ pub async fn wallet_did_sign_jws(
         payload_bytes,
         payload_presence,
         payload_encoding,
-        signer_b.as_ref(),
+        &signer_bytes,
     )?;
 
     Ok(jws)
@@ -397,9 +391,9 @@ pub async fn wallet_did_sign_vjson(
     key_id_o: Option<&str>,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-) -> Result<selfhash::KERIHash> {
+) -> Result<mbx::MBHash> {
     // Get the specified signing key.
-    let (verification_method_record, signer_b) =
+    let (verification_method_record, signer_bytes) =
         wallet_did_select_key(wallet, controlled_did_o, key_purpose_o, key_id_o).await?;
     // Form the kid (key ID).
     let kid = verification_method_record
@@ -409,7 +403,7 @@ pub async fn wallet_did_sign_vjson(
     Ok(vjson_core::sign_and_self_hash_vjson(
         value,
         kid,
-        signer_b.as_ref(),
+        &signer_bytes,
         vjson_resolver,
         Some(verifier_resolver),
     )

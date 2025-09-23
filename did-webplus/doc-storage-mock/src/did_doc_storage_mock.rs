@@ -10,7 +10,7 @@ struct DIDDocStorageMockState {
     next_did_doc_record_primary_key: usize,
     /// This is what actually stores the DIDDocRecords.
     did_doc_record_m: HashMap<usize, DIDDocRecord>,
-    index_by_self_hash_m: HashMap<mbc::MBHash, usize>,
+    index_by_self_hash_m: HashMap<mbx::MBHash, usize>,
     index_by_did_and_version_id_m: HashMap<(DID, u32), usize>,
     index_by_latest_m: HashMap<DID, usize>,
 }
@@ -50,7 +50,7 @@ impl DIDDocStorageMockState {
         self.index_by_latest_m
             .insert(did_document.did.clone(), did_doc_record_primary_key);
     }
-    fn get_by_self_hash(&self, self_hash: &mbc::MBHashStr) -> Option<&DIDDocRecord> {
+    fn get_by_self_hash(&self, self_hash: &mbx::MBHashStr) -> Option<&DIDDocRecord> {
         self.index_by_self_hash_m
             .get(self_hash)
             .map(|primary_key| self.did_doc_record_m.get(&primary_key))
@@ -151,7 +151,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &mbc::MBHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         let state_g = self.state_la.read().unwrap();
         let did_doc_record_o = state_g.get_by_self_hash(self_hash);

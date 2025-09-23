@@ -84,7 +84,7 @@ impl Resolver for MockResolverFull {
     fn resolve_did_document<'s>(
         &'s mut self,
         did: &DIDStr,
-        self_hash_o: Option<&mbc::MBHashStr>,
+        self_hash_o: Option<&mbx::MBHashStr>,
         version_id_o: Option<u32>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {

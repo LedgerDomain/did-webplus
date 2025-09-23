@@ -5,8 +5,8 @@ pub struct DIDWebplusURIComponents<'a> {
     pub host: &'a str,
     pub port_o: Option<u16>,
     pub path_o: Option<&'a str>,
-    pub root_self_hash: &'a mbc::MBHashStr,
-    pub query_self_hash_o: Option<&'a mbc::MBHashStr>,
+    pub root_self_hash: &'a mbx::MBHashStr,
+    pub query_self_hash_o: Option<&'a mbx::MBHashStr>,
     pub query_version_id_o: Option<u32>,
     /// This is the fragment with the leading '#' char, if present.
     pub relative_resource_o: Option<&'a str>,
@@ -129,7 +129,7 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         } else {
             (None, uri_path)
         };
-        let root_self_hash = mbc::MBHashStr::new_ref(root_self_hash_str)?;
+        let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str)?;
 
         // Parse the query portion.
         let (query_self_hash_o, query_version_id_o) = if let Some(query) = query_o {

@@ -23,8 +23,8 @@ pub struct PublicKeyMaterial {
 }
 
 impl PublicKeyMaterial {
-    pub fn new<'a>(did: DID, public_key_set: PublicKeySet<&'a mbc::MBPubKey>) -> Result<Self> {
-        let mut verification_method_m: HashMap<mbc::MBPubKey, VerificationMethod> = HashMap::new();
+    pub fn new<'a>(did: DID, public_key_set: PublicKeySet<&'a mbx::MBPubKey>) -> Result<Self> {
+        let mut verification_method_m: HashMap<mbx::MBPubKey, VerificationMethod> = HashMap::new();
 
         let mut authentication_relative_key_resource_v = Vec::new();
         let mut assertion_method_relative_key_resource_v = Vec::new();
@@ -34,7 +34,7 @@ impl PublicKeyMaterial {
 
         // Define a closure insert appropriate verification methods and key-purpose-specific relative key resources.
         let mut insert_verification_method_and_relative_key_resource =
-            |pub_key_v: &Vec<&mbc::MBPubKey>,
+            |pub_key_v: &Vec<&mbx::MBPubKey>,
              relative_key_resource_v: &mut Vec<RelativeKeyResource>| {
                 for &pub_key in pub_key_v.iter() {
                     let i = verification_method_m.len();
@@ -172,8 +172,8 @@ impl PublicKeyMaterial {
     }
     pub fn root_did_document_self_hash_oi<'a, 'b: 'a>(
         &'b self,
-    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b mbc::MBHashStr>> + 'a> {
-        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&'b mbc::MBHashStr>> + 'a> =
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> {
+        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> =
             Box::new(std::iter::empty());
         for verification_method in &self.verification_method_v {
             iter_chain = Box::new(
@@ -188,7 +188,7 @@ impl PublicKeyMaterial {
     }
     pub fn set_root_did_document_self_hash_slots_to(
         &mut self,
-        hash: &mbc::MBHashStr,
+        hash: &mbx::MBHashStr,
     ) -> Result<()> {
         for verification_method in &mut self.verification_method_v {
             verification_method.set_root_did_document_self_hash_slots_to(hash)?;

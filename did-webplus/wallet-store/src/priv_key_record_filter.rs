@@ -9,7 +9,7 @@ pub struct PrivKeyRecordFilter {
     /// If this is Some(pub_key), then only the priv key for that pub key will be returned.  Because priv keys
     /// are indexed by pub key, this is a way to select a single priv key.  If this is None, then priv keys
     /// will not be filtered by pub key.
-    pub pub_key_o: Option<mbc::MBPubKey>,
+    pub pub_key_o: Option<mbx::MBPubKey>,
     /// If this is Some(hashed_pub_key), then only the priv key for that hashed pub key will be returned.
     /// Because priv keys are indexed by hashed pub key, this is a way to select a single priv key.
     /// If this is None, then priv keys will not be filtered by hashed pub key.

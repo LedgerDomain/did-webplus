@@ -1,12 +1,12 @@
 use crate::{
-    error_invalid_vjson, error_malformed, self_hashable_json_from, validate_against_json_schema,
-    DirectDependencies, Error, Result, VJSONResolver, VJSONSchema,
+    error_invalid_vjson, self_hashable_json_from, validate_against_json_schema, DirectDependencies,
+    Error, Result, VJSONResolver, VJSONSchema,
 };
-use selfhash::{HashFunction, SelfHashable};
+use selfhash::{HashFunctionT, SelfHashableT};
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
-pub trait Validate: selfhash::SelfHashable {
+pub trait Validate: selfhash::SelfHashableT<mbx::MBHashStr> {
     /// Validation must include self-hash validation or self-signature-and-hash validation, followed
     /// by any other type-specific validation checks.  This should return the self-hash of the validated
     /// object.
@@ -14,7 +14,7 @@ pub trait Validate: selfhash::SelfHashable {
         &self,
         vjson_resolver: &dyn VJSONResolver,
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-    ) -> Result<selfhash::KERIHash>;
+    ) -> Result<mbx::MBHash>;
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -24,7 +24,7 @@ impl Validate for serde_json::Value {
         &self,
         vjson_resolver: &dyn VJSONResolver,
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
-    ) -> Result<selfhash::KERIHash> {
+    ) -> Result<mbx::MBHash> {
         tracing::debug!("validate_and_return_self_hash");
 
         // First, form the SelfHashableJSON object that will be used to verify the self-hashes.
@@ -57,9 +57,7 @@ impl Validate for serde_json::Value {
             let self_hash = self_hashable_json
                 .verify_self_hashes()
                 .map_err(error_invalid_vjson)?
-                .to_keri_hash()
-                .map_err(error_malformed)?
-                .into_owned();
+                .to_owned();
             tracing::trace!("    validate_and_return_self_hash; Input VJSON's self-hashes were successfully verified.");
 
             // The "proofs" field should be an array of JWS strings over the self-hash digest of the JSON
@@ -93,8 +91,9 @@ impl Validate for serde_json::Value {
 
                 // Validate the self-hash now that the "proofs" field is removed.  Then form the detached payload that is the
                 // message that is supposed to be signed by each proof.
+                let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
                 self_hashable_json
-                    .set_self_hash_slots_to(selfhash::Blake3.placeholder_hash())
+                    .set_self_hash_slots_to(&mb_hash_function.placeholder_hash())
                     .map_err(|e| Error::InternalError(e.to_string().into()))?;
                 let detached_payload_bytes =
                     serde_json_canonicalizer::to_vec(self_hashable_json.value()).unwrap();

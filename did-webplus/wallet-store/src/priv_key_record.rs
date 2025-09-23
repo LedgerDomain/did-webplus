@@ -4,7 +4,7 @@ use did_webplus_core::KeyPurposeFlags;
 #[derive(Debug)]
 pub struct PrivKeyRecord {
     /// The pub key corresponding to this priv key.
-    pub pub_key: mbc::MBPubKey,
+    pub pub_key: mbx::MBPubKey,
     /// The hash of the pub key, used in pre-rotation schemes.
     // TODO: Make this an appropriate type.
     pub hashed_pub_key: String,
@@ -28,7 +28,7 @@ pub struct PrivKeyRecord {
     pub deleted_at_o: Option<time::OffsetDateTime>,
     /// The priv key, or None if this priv key has been deleted.
     // TODO: REDACT THIS in std::fmt::Debug impl:
-    pub private_key_bytes_o: Option<selfsign::PrivateKeyBytes<'static>>,
+    pub private_key_bytes_o: Option<signature_dyn::SignerBytes<'static>>,
     /// Optional comment field for this key.  Could be used to give a human-readable name, description, or
     /// intented usage for this key.
     pub comment_o: Option<String>,

@@ -32,11 +32,11 @@ impl DIDWithQueryStr {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn root_self_hash(&self) -> &mbc::MBHashStr {
+    pub fn root_self_hash(&self) -> &mbx::MBHashStr {
         self.uri_components().root_self_hash
     }
     /// Returns the query selfHash value if present, otherwise None.
-    pub fn query_self_hash_o(&self) -> Option<&mbc::MBHashStr> {
+    pub fn query_self_hash_o(&self) -> Option<&mbx::MBHashStr> {
         self.uri_components().query_self_hash_o
     }
     /// Returns the query versionId value if present, otherwise None.

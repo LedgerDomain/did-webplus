@@ -48,10 +48,10 @@ impl DIDFullyQualifiedStr {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn root_self_hash(&self) -> &mbc::MBHashStr {
+    pub fn root_self_hash(&self) -> &mbx::MBHashStr {
         self.uri_components().root_self_hash
     }
-    pub fn query_self_hash(&self) -> &mbc::MBHashStr {
+    pub fn query_self_hash(&self) -> &mbx::MBHashStr {
         self.uri_components().query_self_hash_o.expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified")
     }
     pub fn query_version_id(&self) -> u32 {
@@ -110,7 +110,7 @@ impl pneutype::Validate for DIDFullyQualifiedStr {
 
 pub(crate) fn parse_did_query_params(
     query_params: &str,
-) -> Result<(Option<&mbc::MBHashStr>, Option<u32>), Error> {
+) -> Result<(Option<&mbx::MBHashStr>, Option<u32>), Error> {
     let (self_hash_str_o, version_id_str_o) =
         if let Some((first_query, rest)) = query_params.split_once('&') {
             if rest.contains('&') {
@@ -139,7 +139,7 @@ pub(crate) fn parse_did_query_params(
             }
         };
 
-    let query_self_hash_o = self_hash_str_o.map(mbc::MBHashStr::new_ref).transpose()?;
+    let query_self_hash_o = self_hash_str_o.map(mbx::MBHashStr::new_ref).transpose()?;
     let query_version_id_o = version_id_str_o
         .map(<u32 as FromStr>::from_str)
         .transpose()

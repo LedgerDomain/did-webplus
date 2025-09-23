@@ -100,8 +100,7 @@ impl DIDDocStorage for WalletStorageSQLite {
         {
             let key_id_fragment_str = verification_method.id.fragment();
             let controller = verification_method.controller.as_str();
-            let pub_key =
-                mbc::MBPubKey::try_from(&verification_method.public_key_jwk)?.to_string();
+            let pub_key = mbx::MBPubKey::try_from(&verification_method.public_key_jwk)?.to_string();
             let key_purpose_flags = did_document
                 .public_key_material
                 .key_purpose_flags_for_key_id_fragment(verification_method.id.fragment());
@@ -145,7 +144,7 @@ impl DIDDocStorage for WalletStorageSQLite {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &mbc::MBHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
         let self_hash_str = self_hash.as_str();
@@ -608,7 +607,7 @@ impl WalletStorage for WalletStorageSQLite {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &mbc::MBPubKeyStr,
+        pub_key: &mbx::MBPubKeyStr,
     ) -> Result<()> {
         let deleted_at_o = Some(time::OffsetDateTime::now_utc());
         let pub_key_str = pub_key.as_str();
@@ -642,7 +641,7 @@ impl WalletStorage for WalletStorageSQLite {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &mbc::MBPubKeyStr,
+        pub_key: &mbx::MBPubKeyStr,
     ) -> Result<Option<PrivKeyRecord>> {
         let pub_key_str = pub_key.as_str();
         let query = sqlx::query_as!(
@@ -1010,7 +1009,7 @@ impl WalletStorage for WalletStorageSQLite {
                 )
             })?;
             let self_hash =
-                mbc::MBHashStr::new_ref(query_result.self_hash.as_str()).map_err(|e| {
+                mbx::MBHashStr::new_ref(query_result.self_hash.as_str()).map_err(|e| {
                     Error::RecordCorruption(
                         format!(
                             "invalid did_document_records.self_hash value {}; error was: {}",

@@ -35,7 +35,7 @@ impl PrivateKeyFileArgs {
         );
         Ok(())
     }
-    pub fn read_private_key_file(&self) -> Result<Box<dyn selfsign::Signer>> {
+    pub fn read_private_key_file(&self) -> Result<Box<dyn signature_dyn::SignerDynT>> {
         let private_key_path = self.private_key_path()?;
         did_webplus_cli_lib::private_key_read_from_pkcs8_pem_file(&private_key_path)
     }

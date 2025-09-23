@@ -13,16 +13,16 @@ did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store" }
-# TEMP: probably abstract behind selfsign or even ssi_jwk
+# TEMP: probably abstract behind signature-dyn
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 enum-map = "2.7.3"
 lazy_static = "1.4.0"
-mbc = { path = "../../../mbc" }
+mbx = "0.1.0"
 rand = "0.8"
 reqwest = { version = "0.12.5", features = ["json"] }
-selfhash = "0.4.0"
-selfsign = { version = "0.6.0", features = ["ed25519-dalek"] }
+selfhash = "0.5.0"
 serde_json = "1.0.107"
+signature-dyn = "0.1.0"
 storage-traits = { path = "../../storage-traits" }
 time = "0.3"
 # TEMP HACK MAYBE

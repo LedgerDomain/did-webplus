@@ -1,5 +1,5 @@
 use rand::Rng;
-use selfhash::{HashFunction, SelfHashable};
+use selfhash::{HashFunctionT, SelfHashableT};
 use std::sync::Arc;
 use vjson_store::AlreadyExistsPolicy;
 
@@ -39,12 +39,11 @@ async fn test_vjson_store_0() {
             vjson_core::self_hashable_json_from(value, &vjson_store)
                 .await
                 .expect("pass");
+        let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
         let self_hash = self_hashable_json
-            .self_hash(selfhash::Blake3.new_hasher())
+            .self_hash(mb_hash_function.new_hasher())
             .expect("pass")
-            .to_keri_hash()
-            .expect("pass")
-            .into_owned();
+            .to_owned();
         vjson_store
             .add_vjson_value(
                 None,

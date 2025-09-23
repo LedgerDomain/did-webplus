@@ -16,8 +16,11 @@ clap = { version = "4.5.4", features = ["derive", "env"] }
 did-key = { path = "../../did-key", features = ["verifier-resolver"] }
 did-webplus-cli-lib = { path = "../cli-lib", features = [
     "ed25519-dalek",
+    "ed448-goldilocks",
     "k256",
-    "pkcs8",
+    "p256",
+    "p384",
+    "p521",
 ] }
 did-webplus-core = { path = "../core", features = ["clap"] }
 did-webplus-doc-store = { path = "../doc-store" }
@@ -28,21 +31,18 @@ did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
-ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 expanduser = "1.2.2"
-k256 = "0.13.1"
-mbc = { path = "../../../mbc" }
+mbx = "0.1.0"
 # Enable all the hash function features to support them all.
-selfhash = { version = "0.4.0", features = [
+selfhash = { version = "0.5.0", features = [
     "blake3",
     "self-hashable-json",
     "sha-256",
     "sha-512",
 ] }
-# Enable all the cryptographic key type features to support them all.
-selfsign = { version = "0.6.0", features = ["clap", "ed25519-dalek", "k256"] }
 serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
+signature-dyn = "0.1.0"
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite"] }
 ssi-multicodec = "0.2.0"
 storage-traits = { path = "../../storage-traits" }
