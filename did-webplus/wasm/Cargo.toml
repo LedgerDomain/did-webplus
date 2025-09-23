@@ -36,14 +36,10 @@ did-webplus-wallet-storage-mock = { path = "../wallet-storage-mock" }
 js-sys = "0.3.76"
 # TODO: Try to get rid of this, it's only used to initialize the logger using log::Level
 log = "0.4.21"
-selfhash = "0.4.0"
-selfsign = { version = "0.6.0", features = [
-    "ed25519-dalek",
-    "k256",
-    "wasm-bindgen",
-] }
+selfhash = "0.5.0"
 serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
+signature-dyn = "0.1.0"
 storage-traits = { path = "../../storage-traits" }
 time = { version = "0.3", features = ["wasm-bindgen"] }
 tracing = { version = "0.1.37", features = ["log"] }
