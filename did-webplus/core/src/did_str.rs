@@ -25,9 +25,9 @@ impl DIDStr {
             "programmer error: this should not fail due to guarantees in construction of DID",
         )
     }
-    /// This gives the host of the VDR that acts as the authority/origin for this DID.
-    pub fn host(&self) -> &str {
-        self.uri_components().host
+    /// This gives the hostname of the VDR that acts as the authority/origin for this DID.
+    pub fn hostname(&self) -> &str {
+        self.uri_components().hostname
     }
     /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
     /// for this DID, or None if not specified.
@@ -47,7 +47,7 @@ impl DIDStr {
     }
     pub fn with_query_self_hash(&self, query_self_hash: &mbx::MBHashStr) -> DIDWithQuery {
         DIDWithQuery::new(
-            self.host(),
+            self.hostname(),
             self.port_o(),
             self.path_o(),
             self.root_self_hash(),
@@ -58,7 +58,7 @@ impl DIDStr {
     }
     pub fn with_query_version_id(&self, query_version_id: u32) -> DIDWithQuery {
         DIDWithQuery::new(
-            self.host(),
+            self.hostname(),
             self.port_o(),
             self.path_o(),
             self.root_self_hash(),
@@ -73,7 +73,7 @@ impl DIDStr {
         query_version_id: u32,
     ) -> DIDFullyQualified {
         DIDFullyQualified::new(
-            self.host(),
+            self.hostname(),
             self.port_o(),
             self.path_o(),
             self.root_self_hash(),
@@ -84,7 +84,7 @@ impl DIDStr {
     }
     pub fn with_fragment<F: Fragment + ?Sized>(&self, fragment: &F) -> DIDResource<F> {
         DIDResource::new(
-            self.host(),
+            self.hostname(),
             self.port_o(),
             self.path_o(),
             self.root_self_hash(),
@@ -96,10 +96,10 @@ impl DIDStr {
     pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -119,10 +119,10 @@ impl DIDStr {
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -143,10 +143,10 @@ impl DIDStr {
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -169,10 +169,10 @@ impl DIDStr {
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -193,10 +193,10 @@ impl DIDStr {
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -217,10 +217,10 @@ impl DIDStr {
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -242,10 +242,10 @@ impl DIDStr {
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
@@ -269,10 +269,10 @@ impl DIDStr {
     ) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }

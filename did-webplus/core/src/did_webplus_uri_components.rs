@@ -2,7 +2,7 @@ use crate::{parse_did_query_params, Error};
 
 #[derive(Debug)]
 pub struct DIDWebplusURIComponents<'a> {
-    pub host: &'a str,
+    pub hostname: &'a str,
     pub port_o: Option<u16>,
     pub path_o: Option<&'a str>,
     pub root_self_hash: &'a mbx::MBHashStr,
@@ -24,7 +24,7 @@ impl<'a> DIDWebplusURIComponents<'a> {
 
 impl<'a> std::fmt::Display for DIDWebplusURIComponents<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "did:webplus:{}", self.host)?;
+        write!(f, "did:webplus:{}", self.hostname)?;
         if let Some(port) = self.port_o {
             write!(f, "%3A{}", port)?;
         }
@@ -66,11 +66,11 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         // Get rid of the "did:webplus:" prefix.
         let s = s.strip_prefix("did:webplus:").unwrap();
 
-        let (host_and_maybe_port, remainder) = s.split_once(':').ok_or(Error::Malformed(
-            "did:webplus URI is expected to have a third ':' after the host",
+        let (hostname_and_maybe_port, remainder) = s.split_once(':').ok_or(Error::Malformed(
+            "did:webplus URI is expected to have a third ':' after the hostname",
         ))?;
-        let (host, port_o) = if let Some((host, after_percent_str)) =
-            host_and_maybe_port.split_once('%')
+        let (hostname, port_o) = if let Some((hostname, after_percent_str)) =
+            hostname_and_maybe_port.split_once('%')
         {
             if !after_percent_str.starts_with("3A") {
                 return Err(Error::Malformed("did:webplus URI may only have an embedded %3A (the percent-encoding of ':'), but it had some other percent-encoded char"));
@@ -79,11 +79,11 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
             let port: u16 = port_str
                 .parse()
                 .map_err(|_| Error::Malformed("did:webplus URI port must be a valid integer"))?;
-            (host, Some(port))
+            (hostname, Some(port))
         } else {
-            (host_and_maybe_port, None)
+            (hostname_and_maybe_port, None)
         };
-        // TODO: Validation on host
+        // TODO: Validation on hostname
 
         let (uri_path, query_o, relative_resource_o, fragment_o) =
             if let Some((uri_path, query_and_maybe_fragment)) = remainder.split_once('?') {
@@ -139,7 +139,7 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         };
 
         Ok(Self {
-            host,
+            hostname,
             port_o,
             path_o,
             root_self_hash,

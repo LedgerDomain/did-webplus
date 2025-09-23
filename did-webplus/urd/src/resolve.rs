@@ -14,9 +14,10 @@ pub struct Resolve {
         default_value = ":memory:"
     )]
     pub database_url: String,
-    /// The host of the VDG to use for fetching DID documents.  This is used so that this resolver
-    /// can take part in the scope of agreement defined by the VDG.  Without using a VDG, a
-    /// "Full" DID resolver has a scope of agreement that only contains itself.
+    /// The host (host means hostname and optional port number) of the VDG to use for fetching DID
+    /// documents.  This is used so that this resolver can take part in the scope of agreement defined
+    /// by the VDG.  Without using a VDG, a "Full" DID resolver has a scope of agreement that only
+    /// contains itself.
     #[arg(name = "vdg", long, env = "DID_WEBPLUS_URD_VDG", value_name = "HOST")]
     pub vdg_host_o: Option<String>,
     /// Optionally specify a comma-separated list of `hostname=scheme` pairs defining the scheme to use

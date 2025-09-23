@@ -9,7 +9,7 @@ use crate::{Microledger, VDS};
 // Mock VDR -- Purely in-memory, intra-process VDR.  Hosts DID microledgers on behalf of DID controllers.
 #[derive(Debug)]
 pub struct MockVDR {
-    pub host: String,
+    pub hostname: String,
     pub did_port_o: Option<u16>,
     microledger_m: std::collections::HashMap<DID, Microledger>,
     /// Optional simulated network latency duration.  If present, then all VDR operations will sleep
@@ -18,13 +18,13 @@ pub struct MockVDR {
 }
 
 impl MockVDR {
-    pub fn new_with_host(
-        host: String,
+    pub fn new_with_hostname(
+        hostname: String,
         did_port_o: Option<u16>,
         simulated_latency_o: Option<std::time::Duration>,
     ) -> Self {
         Self {
-            host,
+            hostname,
             did_port_o,
             microledger_m: std::collections::HashMap::new(),
             simulated_latency_o,
@@ -36,17 +36,18 @@ impl MockVDR {
         root_did_document: DIDDocument,
     ) -> Result<DID, Error> {
         println!(
-            "VDR (host: {:?}) servicing CREATE DID request from {:?} for\n    DID: {}",
-            self.host, user_agent, root_did_document.did
+            "VDR (hostname: {:?}) servicing CREATE DID request from {:?} for\n    DID: {}",
+            self.hostname, user_agent, root_did_document.did
         );
         self.simulate_latency_if_necessary();
 
-        if root_did_document.did.host() != self.host.as_str() {
-            return Err(Error::Malformed("DID host doesn't match that of VDR"));
+        if root_did_document.did.hostname() != self.hostname.as_str() {
+            return Err(Error::Malformed("DID hostname doesn't match that of VDR"));
         }
         if root_did_document.did.port_o() != self.did_port_o {
             return Err(Error::Malformed("DID port doesn't match that of VDR"));
         }
+
         // This construction will fail if the root_did_document isn't valid.
         let microledger = Microledger::create(root_did_document)?;
         use did_webplus_core::MicroledgerView;
@@ -63,13 +64,13 @@ impl MockVDR {
         new_did_document: DIDDocument,
     ) -> Result<(), Error> {
         println!(
-            "VDR (host: {:?}, did_port_o: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
-            self.host, self.did_port_o, user_agent, new_did_document.did
+            "VDR (hostname: {:?}, did_port_o: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
+            self.hostname, self.did_port_o, user_agent, new_did_document.did
         );
         self.simulate_latency_if_necessary();
 
-        if new_did_document.did.host() != self.host.as_str() {
-            return Err(Error::Malformed("DID host doesn't match that of VDR"));
+        if new_did_document.did.hostname() != self.hostname.as_str() {
+            return Err(Error::Malformed("DID hostname doesn't match that of VDR"));
         }
         if new_did_document.did.port_o() != self.did_port_o {
             return Err(Error::Malformed("DID port doesn't match that of VDR"));
@@ -104,7 +105,7 @@ impl VDS for MockVDR {
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
         println!(
             "VDR({:?})::fetch_did_documents\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}",
-            self.host, requester_user_agent, did, version_id_begin_o, version_id_end_o
+            self.hostname, requester_user_agent, did, version_id_begin_o, version_id_end_o
         );
         self.simulate_latency_if_necessary();
 
@@ -127,7 +128,7 @@ impl VDS for MockVDR {
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!(
             "VDR({:?})::resolve\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
-            self.host, requester_user_agent, did, version_id_o, self_hash_o
+            self.hostname, requester_user_agent, did, version_id_o, self_hash_o
         );
         self.simulate_latency_if_necessary();
 

@@ -127,7 +127,7 @@ impl Wallet for SoftwareWallet {
         if vdr_did_create_endpoint_url.host_str().is_none() {
             return Err(Error::InvalidVDRDIDCreateURL(
                 format!(
-                    "VDR DID Create endpoint URL {:?} has no host",
+                    "VDR DID Create endpoint URL {:?} has no hostname",
                     vdr_did_create_endpoint
                 )
                 .into(),

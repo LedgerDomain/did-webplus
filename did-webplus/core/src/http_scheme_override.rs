@@ -105,7 +105,7 @@ impl HTTPSchemeOverride {
     pub fn determine_http_scheme_for_host(&self, host: &str) -> Result<&'static str> {
         tracing::trace!(?host, "HTTPSchemeOverride::determine_http_scheme_for_host");
 
-        let (hostname, _port_o) = Self::parse_host_and_port_o(host)?;
+        let (hostname, _port_o) = Self::parse_hostname_and_port_o(host)?;
         match self.0.get(hostname) {
             // Override was specified, so use it.
             Some(&scheme) => {
@@ -144,7 +144,7 @@ impl HTTPSchemeOverride {
     /// then the scheme is "http", and otherwise is "https".  Note that "host" means hostname with
     /// optional port number (e.g. "fancy.com" or "localhost:8080").
     pub fn default_http_scheme_for_host(host: &str) -> Result<&'static str> {
-        let (hostname, _port_o) = Self::parse_host_and_port_o(host)?;
+        let (hostname, _port_o) = Self::parse_hostname_and_port_o(host)?;
         if hostname == "localhost" {
             tracing::trace!(
                 "HTTPSchemeOverride::default_http_scheme_for_host; host: {}; returning \"http\"",
@@ -168,7 +168,7 @@ impl HTTPSchemeOverride {
             )),
         }
     }
-    fn parse_host_and_port_o(host: &str) -> Result<(&str, Option<u16>)> {
+    fn parse_hostname_and_port_o(host: &str) -> Result<(&str, Option<u16>)> {
         match host.split_once(':') {
             Some((hostname, port_str)) => {
                 let port = port_str

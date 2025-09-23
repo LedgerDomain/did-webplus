@@ -19,7 +19,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
         query_version_id: u32,
     ) -> DIDResourceFullyQualified<F> {
         DIDResourceFullyQualified::new(
-            self.host(),
+            self.hostname(),
             self.port_o(),
             self.path_o(),
             self.root_self_hash(),
@@ -34,9 +34,9 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
     fn uri_components(&self) -> DIDWebplusURIComponents {
         DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDResource")
     }
-    /// Host of the VDR that acts as the authority/origin for this DID.
-    pub fn host(&self) -> &str {
-        self.uri_components().host
+    /// Hostname of the VDR that acts as the authority/origin for this DID.
+    pub fn hostname(&self) -> &str {
+        self.uri_components().hostname
     }
     /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
     /// for this DID, or None if not specified.

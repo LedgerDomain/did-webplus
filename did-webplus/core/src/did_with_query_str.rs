@@ -15,9 +15,9 @@ impl DIDWithQueryStr {
     fn uri_components(&self) -> DIDWebplusURIComponents {
         DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
     }
-    /// Host of the VDR that acts as the authority/origin for this DID.
-    pub fn host(&self) -> &str {
-        self.uri_components().host
+    /// Hostname of the VDR that acts as the authority/origin for this DID.
+    pub fn hostname(&self) -> &str {
+        self.uri_components().hostname
     }
     /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
     /// for this DID, or None if not specified.
@@ -49,11 +49,11 @@ impl DIDWithQueryStr {
     pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
         // Form the base URL
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.push(':');
             url.write_fmt(format_args!("{}", port)).unwrap();

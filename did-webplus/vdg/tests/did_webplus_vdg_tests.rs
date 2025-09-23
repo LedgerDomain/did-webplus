@@ -40,7 +40,7 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
     test_util::wait_until_service_is_up("Dockerized VDG", "http://localhost:8086/health").await;
 
     // Setup of mock services
-    let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_host(
+    let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_hostname(
         "fancy.net".into(),
         None,
         None,

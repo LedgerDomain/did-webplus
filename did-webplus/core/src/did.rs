@@ -5,15 +5,15 @@ use crate::{DIDStr, DIDWebplusURIComponents, Error};
 pub struct DID(String);
 
 impl DID {
-    /// Construct a DID with the given host, port, path, and self-hash.
+    /// Construct a DID with the given hostname, port, path, and self-hash.
     pub fn new(
-        host: &str,
+        hostname: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &mbx::MBHashStr,
     ) -> Result<Self, Error> {
         let s = DIDWebplusURIComponents {
-            host,
+            hostname,
             port_o,
             path_o,
             root_self_hash,
@@ -26,7 +26,7 @@ impl DID {
         Self::try_from(s)
     }
     /// Parse (the equivalent of) a resolution URL to produce a DID.
-    pub fn from_resolution_url(host: &str, port_o: Option<u16>, path: &str) -> Result<Self, Error> {
+    pub fn from_resolution_url(hostname: &str, port_o: Option<u16>, path: &str) -> Result<Self, Error> {
         if path.starts_with('/') {
             return Err(Error::Malformed(
                 "resolution URL path must not start with '/'",
@@ -42,22 +42,20 @@ impl DID {
             Some((path, root_self_hash_str)) => {
                 // Replace all the '/' chars with ':' chars.
                 let path = path.replace('/', ":");
-                // Self::new_with_self_hash_str(host, Some(path.as_str()), self_hash_str)
                 (Some(path), root_self_hash_str)
             }
             None => {
                 let root_self_hash_str = path_and_root_self_hash_str;
-                // return Self::new_with_self_hash_str(host, None, self_hash_str);
                 (None, root_self_hash_str)
             }
         };
         let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str)?;
-        Self::new(host, port_o, path_o.as_deref(), root_self_hash)
+        Self::new(hostname, port_o, path_o.as_deref(), root_self_hash)
     }
-    /// Parse (the equivalent of) a did-documents.jsonl resolution URL to produce a DID.
-    // TEMP HACK
+    /// Parse a did-documents.jsonl resolution URL (e.g. "https://example.com/<root-self-hash>/did-documents.jsonl")
+    /// to produce a DID (in this case, "did:webplus:example.com:<root-self-hash>").
     pub fn from_did_documents_jsonl_resolution_url(
-        host: &str,
+        hostname: &str,
         port_o: Option<u16>,
         path: &str,
     ) -> Result<Self, Error> {
@@ -76,17 +74,15 @@ impl DID {
             Some((path, root_self_hash_str)) => {
                 // Replace all the '/' chars with ':' chars.
                 let path = path.replace('/', ":");
-                // Self::new_with_self_hash_str(host, Some(path.as_str()), self_hash_str)
                 (Some(path), root_self_hash_str)
             }
             None => {
                 let root_self_hash_str = path_and_root_self_hash_str;
-                // return Self::new_with_self_hash_str(host, None, self_hash_str);
                 (None, root_self_hash_str)
             }
         };
         let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str)?;
-        Self::new(host, port_o, path_o.as_deref(), root_self_hash)
+        Self::new(hostname, port_o, path_o.as_deref(), root_self_hash)
     }
     /// Set the root self hash value to the given value.
     pub fn set_root_self_hash(&mut self, root_self_hash: &mbx::MBHashStr) {

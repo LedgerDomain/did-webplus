@@ -43,14 +43,24 @@ impl VerificationMethod {
             ));
         }
 
-        if self.id.host() != self.controller.host() {
+        if self.id.hostname() != self.controller.hostname() {
             return Err(Error::Malformed(
-                "VerificationMethod id host does not match controller host",
+                "VerificationMethod id hostname does not match controller hostname",
+            ));
+        }
+        if self.id.port_o() != self.controller.port_o() {
+            return Err(Error::Malformed(
+                "VerificationMethod id port does not match controller port",
+            ));
+        }
+        if self.id.path_o() != self.controller.path_o() {
+            return Err(Error::Malformed(
+                "VerificationMethod id path does not match controller path",
             ));
         }
         if self.id.root_self_hash() != self.controller.root_self_hash() {
             return Err(Error::Malformed(
-                "VerificationMethod id self-signature component does not match controller self-signature component",
+                "VerificationMethod id root-self-hash component does not match controller root-self-hash component",
             ));
         }
         if self.id != *self.public_key_jwk.kid_o.as_ref().unwrap() {

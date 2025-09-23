@@ -61,21 +61,25 @@ async fn test_vdr_operations() {
 // NOTE: This is a very low-level test that doesn't require the wallet.  It would be much easier
 // to do this from a Wallet.  Maybe get rid of this test in favor of a Wallet-driven test (though
 // that would be testing two pieces of software at the same time).
-async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>, use_path: bool) {
+async fn test_vdr_wallet_operations_impl(
+    vdr_hostname: &str,
+    did_port_o: Option<u16>,
+    use_path: bool,
+) {
     let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
-        .with_override(vdr_host.to_string(), "http")
+        .with_override(vdr_hostname.to_string(), "http")
         .expect("pass");
     let http_scheme_override_o = Some(&http_scheme_override);
 
     // Setup of mock services
-    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
-        vdr_host.into(),
+    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_hostname(
+        vdr_hostname.into(),
         did_port_o,
         None,
     )));
     let mock_vdr_lam = {
         let mut mock_vdr_lam = HashMap::new();
-        mock_vdr_lam.insert(vdr_host.to_string(), mock_vdr_la.clone());
+        mock_vdr_lam.insert(vdr_hostname.to_string(), mock_vdr_la.clone());
         mock_vdr_lam
     };
     let mock_vdr_client_a = Arc::new(MockVDRClient::new(
@@ -91,7 +95,7 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
         None
     };
     let alice_did = alice_wallet
-        .create_did(vdr_host.to_string(), did_port_o, did_path_o)
+        .create_did(vdr_hostname.to_string(), did_port_o, did_path_o)
         .expect("pass");
     let alice_did_url = alice_did.resolution_url(http_scheme_override_o);
     tracing::trace!("alice_did_url: {}", alice_did_url);

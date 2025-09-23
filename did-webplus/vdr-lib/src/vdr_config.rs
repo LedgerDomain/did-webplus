@@ -2,7 +2,7 @@
 pub struct VDRConfig {
     /// Specify the hostname that appears in DIDs hosted by this VDR, i.e. hostname "example.com"
     /// for DIDs `did:webplus:example.com:xyz`.  This does not include the scheme or the port.
-    #[arg(env = "DID_WEBPLUS_VDR_DID_HOSTNAME", long, value_name = "HOST")]
+    #[arg(env = "DID_WEBPLUS_VDR_DID_HOSTNAME", long, value_name = "HOSTNAME")]
     pub did_hostname: String,
     /// Optionally specify a non-standard port for use in the hosted DIDs themselves.  They appear as
     /// `did:webplus:<hostname>%3A<port>:<...>`.  This is different than the port on which the VDR

@@ -34,7 +34,7 @@ pub struct DIDResolverArgs {
         default_value = "sqlite://~/.did-webplus/did-doc-store.db?mode=rwc"
     )]
     pub did_doc_store_db_url_o: Option<String>,
-    /// Specify the host of the VDG to use (i.e. hostname and optional port number).  URLs for various operations
+    /// Specify the host of the VDG to use (host is a hostname and optional port number).  URLs for various operations
     /// of the VDG will be constructed from this.  This should not include the scheme (i.e. the "https://" part).
     /// This is required if the resolver is set to "thin", but is optional if the resolver is set to "full".
     #[arg(name = "vdg", env = "DID_WEBPLUS_VDG", long, value_name = "HOST")]

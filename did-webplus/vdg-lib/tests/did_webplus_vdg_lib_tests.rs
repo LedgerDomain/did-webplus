@@ -107,24 +107,24 @@ async fn test_vdg_operations() {
 
 async fn test_vdg_wallet_operations_impl(
     vdg_base_url: &url::Url,
-    vdr_host: &str,
+    vdr_hostname: &str,
     vdr_did_port_o: Option<u16>,
     use_path: bool,
 ) {
     let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
-        .with_override(vdr_host.to_string(), "http")
+        .with_override(vdr_hostname.to_string(), "http")
         .expect("pass");
     let http_scheme_override_o = Some(&http_scheme_override);
 
     // Setup of mock services
-    let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_host(
-        vdr_host.into(),
+    let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_hostname(
+        vdr_hostname.into(),
         vdr_did_port_o,
         None,
     )));
     let mock_vdr_lam = {
         let mut mock_vdr_lam = HashMap::new();
-        mock_vdr_lam.insert(vdr_host.to_string(), mock_vdr_la.clone());
+        mock_vdr_lam.insert(vdr_hostname.to_string(), mock_vdr_la.clone());
         mock_vdr_lam
     };
     let mock_vdr_client_a = Arc::new(MockVDRClient::new(
@@ -140,7 +140,7 @@ async fn test_vdg_wallet_operations_impl(
         None
     };
     let alice_did = alice_wallet
-        .create_did(vdr_host.to_string(), vdr_did_port_o, did_path_o)
+        .create_did(vdr_hostname.to_string(), vdr_did_port_o, did_path_o)
         .expect("pass");
     let alice_did_url = alice_did.resolution_url(http_scheme_override_o);
     tracing::trace!("alice_did_url: {}", alice_did_url);

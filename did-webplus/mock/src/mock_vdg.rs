@@ -17,7 +17,7 @@ pub struct MockVDG {
     user_agent: String,
     /// This is the VDG's local verified cache of all DIDs it has resolved.
     mock_verified_cache: MockVerifiedCache,
-    /// Mock connections to VDRs.  The key is the host of the VDR.
+    /// Mock connections to VDRs.  The key is the hostname of the VDR.
     mock_vdr_lam: HashMap<String, Arc<RwLock<MockVDR>>>,
     /// Optional simulated network latency duration.  If present, then all VDG operations will sleep
     /// for this duration before beginning their work.
@@ -60,7 +60,7 @@ impl VDS for MockVDG {
         // This write lock isn't great because the VDR might not actually be hit.
         let mock_vdr_la = self
             .mock_vdr_lam
-            .get(did.host())
+            .get(did.hostname())
             .expect("programmer error: all mock VDRs should have been supplied correctly");
         let mut mock_vdr_g = mock_vdr_la.write().unwrap();
         let mut mock_resolver_internal = MockResolverInternal {
@@ -92,7 +92,7 @@ impl VDS for MockVDG {
         // This write lock isn't great because the VDR might not actually be hit.
         let mock_vdr_la = self
             .mock_vdr_lam
-            .get(did.host())
+            .get(did.hostname())
             .expect("programmer error: all mock VDRs should have been supplied correctly");
         let mut mock_vdr_g = mock_vdr_la.write().unwrap();
         let mut mock_resolver_internal = MockResolverInternal {

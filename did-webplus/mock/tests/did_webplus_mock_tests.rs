@@ -361,7 +361,7 @@ fn test_example_creating_and_updating_a_did() {
 #[test]
 #[serial_test::serial]
 fn test_did_operations() {
-    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
+    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_hostname(
         "example.com".into(),
         None,
         None,

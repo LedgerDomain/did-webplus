@@ -18,17 +18,17 @@ pub struct DIDWithQuery(String);
 
 impl DIDWithQuery {
     pub fn new(
-        host: &str,
+        hostname: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &mbx::MBHashStr,
         query_self_hash_o: Option<&mbx::MBHashStr>,
         query_version_id_o: Option<u32>,
     ) -> Result<Self, Error> {
-        // TODO: Complete validation of host
-        if host.contains(':') || host.contains('/') {
+        // TODO: Complete validation of hostname
+        if hostname.contains(':') || hostname.contains('/') {
             return Err(Error::Malformed(
-                "DIDFullyQualified host must not contain ':' or '/'",
+                "DIDFullyQualified hostname must not contain ':' or '/'",
             ));
         }
         if query_self_hash_o.is_none() && query_version_id_o.is_none() {
@@ -38,7 +38,7 @@ impl DIDWithQuery {
         }
 
         let s = DIDWebplusURIComponents {
-            host,
+            hostname,
             port_o,
             path_o,
             root_self_hash,
@@ -50,7 +50,7 @@ impl DIDWithQuery {
         .to_string();
         Self::try_from(s)
     }
-    pub fn from_resolution_url(host: &str, port_o: Option<u16>, path: &str) -> Result<Self, Error> {
+    pub fn from_resolution_url(hostname: &str, port_o: Option<u16>, path: &str) -> Result<Self, Error> {
         if !path.ends_with(".json") {
             return Err(Error::Malformed(
                 "resolution URL path must end with '.json'",
@@ -73,7 +73,7 @@ impl DIDWithQuery {
                             Error::Malformed("invalid root self-hash component of resolution URL")
                         })?;
                     Ok(Self::new(
-                        host,
+                        hostname,
                         port_o,
                         Some(path),
                         root_self_hash,
@@ -86,7 +86,7 @@ impl DIDWithQuery {
                         Error::Malformed("invalid root self-hash component of resolution URL")
                     })?;
                     Ok(Self::new(
-                        host,
+                        hostname,
                         port_o,
                         None,
                         root_self_hash,
@@ -108,7 +108,7 @@ impl DIDWithQuery {
                             Error::Malformed("invalid root self-hash component of resolution URL")
                         })?;
                     Ok(Self::new(
-                        host,
+                        hostname,
                         port_o,
                         Some(path),
                         root_self_hash,
@@ -121,7 +121,7 @@ impl DIDWithQuery {
                         Error::Malformed("invalid root self-hash component of resolution URL")
                     })?;
                     Ok(Self::new(
-                        host,
+                        hostname,
                         port_o,
                         None,
                         root_self_hash,

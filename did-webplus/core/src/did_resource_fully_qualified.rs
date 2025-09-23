@@ -25,7 +25,7 @@ impl<F: Fragment + ?Sized> Clone for DIDResourceFullyQualified<F> {
 
 impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
     pub fn new(
-        host: &str,
+        hostname: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &mbx::MBHashStr,
@@ -33,7 +33,7 @@ impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
         query_version_id: u32,
         fragment: &F,
     ) -> Result<Self, Error> {
-        // TODO: Validation of host
+        // TODO: Validation of hostname
         // Validate path.  It must not begin or end with ':'.  Its components must be ':'-delimited.
         if let Some(path) = path_o.as_deref() {
             if path.starts_with(':') || path.ends_with(':') {
@@ -46,7 +46,7 @@ impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
         // TODO: Further validation of path.
 
         let s = DIDWebplusURIComponents {
-            host,
+            hostname,
             port_o,
             path_o,
             root_self_hash,

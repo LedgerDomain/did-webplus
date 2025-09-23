@@ -18,7 +18,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
 
     // Setup of mock services -- these are used locally to handle validation of DID documents, which will then
     // be sent to the real VDR.
-    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
+    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_hostname(
         "fancy.net".into(),
         None,
         None,

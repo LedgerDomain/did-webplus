@@ -22,21 +22,21 @@ impl<F: 'static + Fragment + ?Sized> Clone for DIDResource<F> {
 
 impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
     pub fn new(
-        host: &str,
+        hostname: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &mbx::MBHashStr,
         fragment: &F,
     ) -> Result<Self, Error> {
-        // TODO: Complete validation of host
-        if host.contains(':') || host.contains('/') {
+        // TODO: Complete validation of hostname
+        if hostname.contains(':') || hostname.contains('/') {
             return Err(Error::Malformed(
-                "DIDResource host must not contain ':' or '/'",
+                "DIDResource hostname must not contain ':' or '/'",
             ));
         }
 
         let s = DIDWebplusURIComponents {
-            host,
+            hostname,
             port_o,
             path_o,
             root_self_hash,

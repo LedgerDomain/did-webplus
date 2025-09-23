@@ -19,7 +19,7 @@ impl DIDFullyQualifiedStr {
         fragment: &F,
     ) -> DIDResourceFullyQualified<F> {
         DIDResourceFullyQualified::new(
-            self.host(),
+            self.hostname(),
             self.port_o(),
             self.path_o(),
             self.root_self_hash(),
@@ -31,18 +31,18 @@ impl DIDFullyQualifiedStr {
     fn uri_components(&self) -> DIDWebplusURIComponents {
         DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified")
     }
-    /// Host of the VDR that acts as the authority/origin for this DID.
-    pub fn host(&self) -> &str {
-        self.uri_components().host
+    /// Hostname of the VDR that acts as the authority/origin for this DID.
+    pub fn hostname(&self) -> &str {
+        self.uri_components().hostname
     }
     /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
     /// for this DID, or None if not specified.
     pub fn port_o(&self) -> Option<u16> {
         self.uri_components().port_o
     }
-    /// This is everything between the host and the root self_hash, not including the leading and trailing
-    /// colons.  In particular, if the path is empty, this will be None.  Another example is
-    /// "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz"
+    /// This is everything between the host (host is hostname and optional port number) and the root self_hash,
+    /// not including the leading and trailing colons.  In particular, if the path is empty, this will be None.
+    /// Another example is "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz"
     /// which will have path_o of Some("foo:bar:baz").
     pub fn path_o(&self) -> Option<&str> {
         self.uri_components().path_o
@@ -62,10 +62,10 @@ impl DIDFullyQualifiedStr {
     pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }

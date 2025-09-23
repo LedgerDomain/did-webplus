@@ -13,22 +13,22 @@ pub struct DIDFullyQualified(String);
 impl DIDFullyQualified {
     /// Construct a DIDFullyQualified with specified components.
     pub fn new(
-        host: &str,
+        hostname: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
         root_self_hash: &mbx::MBHashStr,
         query_self_hash: &mbx::MBHashStr,
         query_version_id: u32,
     ) -> Result<Self, Error> {
-        // TODO: Complete validation of host
-        if host.contains(':') || host.contains('/') {
+        // TODO: Complete validation of hostname
+        if hostname.contains(':') || hostname.contains('/') {
             return Err(Error::Malformed(
-                "DIDFullyQualified host must not contain ':' or '/'",
+                "DIDFullyQualified hostname must not contain ':' or '/'",
             ));
         }
 
         let s = DIDWebplusURIComponents {
-            host,
+            hostname,
             port_o,
             path_o,
             root_self_hash,

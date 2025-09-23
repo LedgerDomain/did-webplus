@@ -14,7 +14,7 @@ pub struct DIDResourceFullyQualifiedStr<F: 'static + Fragment + ?Sized>(
 impl<F: 'static + Fragment + ?Sized> DIDResourceFullyQualifiedStr<F> {
     pub fn without_query(&self) -> DIDResource<F> {
         DIDResource::new(
-            self.host(),
+            self.hostname(),
             self.port_o(),
             self.path_o(),
             self.root_self_hash(),
@@ -28,18 +28,18 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceFullyQualifiedStr<F> {
     fn uri_components(&self) -> DIDWebplusURIComponents {
         DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
     }
-    /// Host of the VDR that acts as the authority/origin for this DID.
-    pub fn host(&self) -> &str {
-        self.uri_components().host
+    /// Hostname of the VDR that acts as the authority/origin for this DID.
+    pub fn hostname(&self) -> &str {
+        self.uri_components().hostname
     }
     /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
     /// for this DID, or None if not specified.
     pub fn port_o(&self) -> Option<u16> {
         self.uri_components().port_o
     }
-    /// This is everything between the host and the root self_hash, not including the leading and trailing
-    /// colons.  In particular, if the path is empty, this will be None.  Another example is
-    /// "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#Dd5KLEikQpGOXARnADIQnzUtvYHer62lXDjTb53f81ZU"
+    /// This is everything between the host (host is hostname and optional port number) and the root self_hash,
+    /// not including the leading and trailing colons.  In particular, if the path is empty, this will be None.
+    /// Another example is "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz#0"
     /// which will have path_o of Some("foo:bar:baz").
     pub fn path_o(&self) -> Option<&str> {
         self.uri_components().path_o
