@@ -1,10 +1,4 @@
-use crate::{DIDWebplusURIComponents, DIDWithQueryStr, Error};
-
-// pub enum DIDQueryParams<'a> {
-//     SelfHash(&'a mbx::MBHashStr),
-//     FullyQualified(&'a mbx::MBHashStr, u32),
-//     VersionId(u32),
-// }
+use crate::{DIDURIComponents, DIDURILocatorComponents, DIDWithQueryStr, Error};
 
 /// A DIDWithQuery is a DID that has at least one query param specified (selfHash and/or versionId).
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
@@ -37,10 +31,12 @@ impl DIDWithQuery {
             ));
         }
 
-        let s = DIDWebplusURIComponents {
-            hostname,
-            port_o,
-            path_o,
+        let s = DIDURIComponents {
+            locator: DIDURILocatorComponents {
+                hostname,
+                port_o,
+                path: if let Some(path) = path_o { path } else { "/" },
+            },
             root_self_hash,
             query_self_hash_o,
             query_version_id_o,
@@ -50,13 +46,17 @@ impl DIDWithQuery {
         .to_string();
         Self::try_from(s)
     }
-    pub fn from_resolution_url(hostname: &str, port_o: Option<u16>, path: &str) -> Result<Self, Error> {
-        if !path.ends_with(".json") {
+    pub fn from_resolution_url(
+        hostname: &str,
+        port_o: Option<u16>,
+        path_and_filename: &str,
+    ) -> Result<Self, Error> {
+        if !path_and_filename.ends_with(".json") {
             return Err(Error::Malformed(
                 "resolution URL path must end with '.json'",
             ));
         }
-        let (path, filename) = path
+        let (path, filename) = path_and_filename
             .rsplit_once('/')
             .ok_or_else(|| Error::Malformed("resolution URL path must contain a '/' character"))?;
         assert!(filename.ends_with(".json"));
@@ -66,70 +66,52 @@ impl DIDWithQuery {
             let query_self_hash = mbx::MBHashStr::new_ref(query_self_hash_str).map_err(|_| {
                 Error::Malformed("invalid query self-hash in filename component of resolution URL")
             })?;
-            match path.rsplit_once('/') {
-                Some((path, root_self_hash_str)) => {
-                    let root_self_hash =
-                        mbx::MBHashStr::new_ref(root_self_hash_str).map_err(|_| {
-                            Error::Malformed("invalid root self-hash component of resolution URL")
-                        })?;
-                    Ok(Self::new(
-                        hostname,
-                        port_o,
-                        Some(path),
-                        root_self_hash,
-                        Some(query_self_hash),
-                        None,
-                    )?)
-                }
-                None => {
-                    let root_self_hash = mbx::MBHashStr::new_ref(path).map_err(|_| {
-                        Error::Malformed("invalid root self-hash component of resolution URL")
-                    })?;
-                    Ok(Self::new(
-                        hostname,
-                        port_o,
-                        None,
-                        root_self_hash,
-                        Some(query_self_hash),
-                        None,
-                    )?)
-                }
-            }
+            let path_end_slash_index = path.rfind('/').ok_or_else(|| {
+                Error::Malformed(
+                    "resolution URL path must contain a '/' character before the root self-hash",
+                )
+            })?;
+            let (path, root_self_hash_str) = (
+                &path[..path_end_slash_index + 1],
+                &path[path_end_slash_index + 1..],
+            );
+            let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str).map_err(|_| {
+                Error::Malformed("invalid root self-hash component of resolution URL")
+            })?;
+            Ok(Self::new(
+                hostname,
+                port_o,
+                Some(path),
+                root_self_hash,
+                Some(query_self_hash),
+                None,
+            )?)
         } else if path.ends_with("/did/versionId") {
             let path = path.strip_suffix("/did/versionId").unwrap();
             let query_version_id_str = filename.strip_suffix(".json").unwrap();
             let query_version_id: u32 = query_version_id_str.parse().map_err(|_| {
                 Error::Malformed("invalid query version ID in filename component of resolution URL")
             })?;
-            match path.rsplit_once('/') {
-                Some((path, root_self_hash_str)) => {
-                    let root_self_hash =
-                        mbx::MBHashStr::new_ref(root_self_hash_str).map_err(|_| {
-                            Error::Malformed("invalid root self-hash component of resolution URL")
-                        })?;
-                    Ok(Self::new(
-                        hostname,
-                        port_o,
-                        Some(path),
-                        root_self_hash,
-                        None,
-                        Some(query_version_id),
-                    )?)
-                }
-                None => {
-                    let root_self_hash = mbx::MBHashStr::new_ref(path).map_err(|_| {
-                        Error::Malformed("invalid root self-hash component of resolution URL")
-                    })?;
-                    Ok(Self::new(
-                        hostname,
-                        port_o,
-                        None,
-                        root_self_hash,
-                        None,
-                        Some(query_version_id),
-                    )?)
-                }
-            }
+            let path_end_slash_index = path.rfind('/').ok_or_else(|| {
+                Error::Malformed(
+                    "resolution URL path must contain a '/' character before the root self-hash",
+                )
+            })?;
+            let (path, root_self_hash_str) = (
+                &path[..path_end_slash_index + 1],
+                &path[path_end_slash_index + 1..],
+            );
+            let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str).map_err(|_| {
+                Error::Malformed("invalid root self-hash component of resolution URL")
+            })?;
+            Ok(Self::new(
+                hostname,
+                port_o,
+                Some(path),
+                root_self_hash,
+                None,
+                Some(query_version_id),
+            )?)
         } else {
             Err(Error::Malformed(
                 "resolution URL path must end with '/did/selfHash/<hash>.json' or '/did/versionId/<#>.json'",

@@ -1,5 +1,5 @@
 use crate::{
-    DIDResourceFullyQualified, DIDStr, DIDWebplusURIComponents, Error, Fragment, HTTPSchemeOverride,
+    DIDResourceFullyQualified, DIDStr, DIDURIComponents, Error, Fragment, HTTPSchemeOverride,
 };
 use std::{fmt::Write, str::FromStr};
 
@@ -28,24 +28,25 @@ impl DIDFullyQualifiedStr {
             fragment,
         ).expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified")
     }
-    fn uri_components(&self) -> DIDWebplusURIComponents {
-        DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified")
+    fn uri_components(&self) -> DIDURIComponents {
+        DIDURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDFullyQualified")
     }
     /// Hostname of the VDR that acts as the authority/origin for this DID.
     pub fn hostname(&self) -> &str {
-        self.uri_components().hostname
+        self.uri_components().hostname()
     }
     /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
     /// for this DID, or None if not specified.
     pub fn port_o(&self) -> Option<u16> {
-        self.uri_components().port_o
+        self.uri_components().port_o()
     }
     /// This is everything between the host (host is hostname and optional port number) and the root self_hash,
     /// not including the leading and trailing colons.  In particular, if the path is empty, this will be None.
     /// Another example is "did:webplus:foo:bar:baz:EVFp-xj7y-ZhG5YQXhO_WS_E-4yVX69UeTefKAC8G_YQ?abc=xyz"
     /// which will have path_o of Some("foo:bar:baz").
     pub fn path_o(&self) -> Option<&str> {
-        self.uri_components().path_o
+        // TODO: Make this return &str instead of Option<&str>
+        Some(self.uri_components().path())
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
     pub fn root_self_hash(&self) -> &mbx::MBHashStr {
@@ -69,16 +70,15 @@ impl DIDFullyQualifiedStr {
         if let Some(port) = self.port_o() {
             url.write_fmt(format_args!(":{}", port)).unwrap();
         }
-        url.push('/');
         if let Some(path) = self.path_o() {
-            url.push_str(&path.replace(':', "/"));
+            url.push_str(path);
+        } else {
             url.push('/');
         }
         url.push_str(self.root_self_hash().as_str());
         url.push_str("/did");
 
         // Append query param portion of filename.  We only use the selfHash to form the URL.
-        // Note that %3D is the URL-encoding of '='
         url.push_str("/selfHash/");
         url.push_str(self.query_self_hash().as_str());
         url.push_str(".json");
@@ -91,15 +91,15 @@ impl pneutype::Validate for DIDFullyQualifiedStr {
     type Data = str;
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
-        let did_webplus_uri_components = DIDWebplusURIComponents::try_from(data)?;
-        if did_webplus_uri_components.query_self_hash_o.is_none()
-            || did_webplus_uri_components.query_version_id_o.is_none()
+        let did_uri_components = DIDURIComponents::try_from(data)?;
+        if did_uri_components.query_self_hash_o.is_none()
+            || did_uri_components.query_version_id_o.is_none()
         {
             return Err(Error::Malformed(
                 "DIDFullyQualified must have both a selfHash and versionId query",
             ));
         }
-        if did_webplus_uri_components.has_fragment() {
+        if did_uri_components.has_fragment() {
             return Err(Error::Malformed(
                 "DIDFullyQualified must not have a fragment",
             ));

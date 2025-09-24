@@ -135,7 +135,7 @@ async fn test_vdg_wallet_operations_impl(
     let mut alice_wallet = MockWallet::new("Alice's Wallet".to_string(), mock_vdr_client_a.clone());
     // Have it create a DID
     let did_path_o = if use_path {
-        Some("user".to_string())
+        Some("/user/".to_string())
     } else {
         None
     };

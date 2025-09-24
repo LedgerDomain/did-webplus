@@ -36,7 +36,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
     let mut alice_wallet = MockWallet::new("Alice's Wallet".to_string(), mock_vdr_client_a.clone());
     // Have it create a DID
     let did_path_o = if use_path {
-        Some("user".to_string())
+        Some("/user/".to_string())
     } else {
         None
     };
@@ -45,7 +45,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
         .expect("pass");
     let alice_did_url = if let Some(alice_did_path) = alice_did.path_o().as_ref() {
         format!(
-            "http://localhost:8085/{}/{}/did.json",
+            "http://localhost:8085{}{}/did.json",
             alice_did_path,
             alice_did.root_self_hash()
         )
@@ -55,6 +55,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
             alice_did.root_self_hash()
         )
     };
+    tracing::debug!(?alice_did_url);
     // Hacky way to test the actual VDR, which is assumed be running in a separate process.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
     {

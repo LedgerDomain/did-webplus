@@ -32,10 +32,12 @@ pub fn get_routes(did_doc_store: DIDDocStore, vdr_config: &VDRConfig) -> Router 
 #[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(vdr_app_state))]
 async fn get_did(
     State(vdr_app_state): State<VDRAppState>,
-    Path(path): Path<String>,
+    Path(mut path): Path<String>,
     header_map: HeaderMap,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
-    assert!(!path.starts_with('/'));
+    // Note that axum has stripped the first '/' from the path, so we need to add it back.
+    // The from_resolution_url* functions expect the path to start with a '/'.
+    path.insert(0, '/');
 
     // Case for retrieving did-documents.jsonl (i.e. all DID docs concatenated into a single JSONL file)
     if let Ok(did) = DID::from_did_documents_jsonl_resolution_url(
@@ -69,13 +71,21 @@ async fn get_did(
         return get_did_document_metadata(State(vdr_app_state), Path(path)).await;
     } else if path.ends_with("/did/metadata/constant.json") {
         return get_did_document_metadata_constant(State(vdr_app_state), Path(path)).await;
-    } else if let Some((path, filename)) = path.rsplit_once('/') {
-        return get_did_document_metadata_self_hash_or_version_id(
-            State(vdr_app_state),
-            path,
-            filename,
-        )
-        .await;
+    }
+
+    // Case for retrieving a specific DID doc based on selfHash or versionId
+    tracing::trace!(?path, "HIPPO pre-case 5");
+    if path.ends_with(".json") {
+        if let Some((path, filename)) = path.rsplit_once('/') {
+            // panic!("HIPPO case 5");
+            tracing::warn!("HIPPO case 5");
+            return get_did_document_metadata_self_hash_or_version_id(
+                State(vdr_app_state),
+                path,
+                filename,
+            )
+            .await;
+        }
     }
 
     // If none of the cases above matched, then the path is malformed.
@@ -292,9 +302,12 @@ async fn get_did_with_query(
 
 async fn get_did_document_metadata(
     State(vdr_app_state): State<VDRAppState>,
-    Path(path): Path<String>,
+    Path(mut path): Path<String>,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::debug!("retrieving latest DID doc metadata");
+    // Note that axum has stripped the first '/' from the path, so we need to add it back.
+    // The from_resolution_url* functions expect the path to start with a '/'.
+    path.insert(0, '/');
     let path = path.strip_suffix("/did/metadata.json").unwrap();
     let did = DID::from_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),
@@ -361,9 +374,12 @@ async fn get_did_document_metadata(
 
 async fn get_did_document_metadata_constant(
     State(vdr_app_state): State<VDRAppState>,
-    Path(path): Path<String>,
+    Path(mut path): Path<String>,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::debug!("retrieving 'constant' DID doc metadata");
+    // Note that axum has stripped the first '/' from the path, so we need to add it back.
+    // The from_resolution_url* functions expect the path to start with a '/'.
+    path.insert(0, '/');
     let path = path.strip_suffix("/did/metadata/constant.json").unwrap();
     let did = DID::from_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),
@@ -420,6 +436,8 @@ async fn get_did_document_metadata_self_hash_or_version_id(
         ?filename,
         "retrieving 'selfHash' or 'versionId' DID doc metadata"
     );
+    assert!(path.starts_with("/"), "programmer error");
+    assert!(!path.ends_with("/"), "programmer error");
     if !filename.ends_with(".json") {
         return Err((StatusCode::NOT_FOUND, "".to_string()));
     }
@@ -534,10 +552,12 @@ async fn get_did_document_metadata_self_hash_or_version_id(
 #[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]
 async fn create_did(
     State(vdr_app_state): State<VDRAppState>,
-    Path(path): Path<String>,
+    Path(mut path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
-    assert!(!path.starts_with('/'));
+    // Note that axum has stripped the first '/' from the path, so we need to add it back.
+    // The from_resolution_url* functions expect the path to start with a '/'.
+    path.insert(0, '/');
 
     let did = DID::from_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),
@@ -601,10 +621,12 @@ async fn create_did(
 #[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]
 async fn update_did(
     State(vdr_app_state): State<VDRAppState>,
-    Path(path): Path<String>,
+    Path(mut path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
-    assert!(!path.starts_with('/'));
+    // Note that axum has stripped the first '/' from the path, so we need to add it back.
+    // The from_resolution_url* functions expect the path to start with a '/'.
+    path.insert(0, '/');
 
     let did = DID::from_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),

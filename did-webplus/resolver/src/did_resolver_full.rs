@@ -2,7 +2,7 @@ use crate::{
     fetch_did_document_body, fetch_did_documents_jsonl_update, fetch_latest_did_document_body,
     verifier_resolver_impl, DIDResolver, Error, Result,
 };
-use did_webplus_core::{DIDStr, DIDWebplusURIComponents, DIDWithQueryStr};
+use did_webplus_core::{DIDStr, DIDURIComponents, DIDWithQueryStr};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord};
 use std::sync::Arc;
 
@@ -74,18 +74,15 @@ impl DIDResolverFull {
         let mut query_version_id_o = None;
 
         // Determine which case we're handling; a DID with or without query params.
-        let did_webplus_uri_components = DIDWebplusURIComponents::try_from(did_query)
+        let did_uri_components = DIDURIComponents::try_from(did_query)
             .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?;
-        tracing::trace!(
-            "did_webplus_uri_components: {:?}",
-            did_webplus_uri_components
-        );
-        if did_webplus_uri_components.has_fragment() {
+        tracing::trace!("did_uri_components: {:?}", did_uri_components);
+        if did_uri_components.has_fragment() {
             return Err(Error::MalformedDIDQuery(
                 "DID query contains a fragment (this is not (yet?) supported)".into(),
             ));
         }
-        let did = if !did_webplus_uri_components.has_query() {
+        let did = if !did_uri_components.has_query() {
             tracing::trace!("got a plain DID to resolve, no query params: {}", did_query);
             DIDStr::new_ref(did_query)
                 .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?
@@ -296,7 +293,6 @@ impl DIDResolverFull {
                 // TEMP HACK: Collate it all into memory
                 // TODO: This needs to be bounded in memory, since the version_id comes from external
                 // source and could be arbitrarily large.
-                tracing::trace!(?target_did_document.version_id, ?version_id_start, "HIPPO");
                 // saturating_sub is necessary because version_id_start could be bigger than target_did_document.version_id.
                 let mut did_document_jcs_v = Vec::with_capacity(
                     (target_did_document

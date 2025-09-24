@@ -1,4 +1,4 @@
-use crate::{DIDFullyQualifiedStr, DIDWebplusURIComponents, Error};
+use crate::{DIDFullyQualifiedStr, DIDURIComponents, DIDURILocatorComponents, Error};
 
 /// A DIDFullyQualified is a DID that has query params selfHash and versionId specified.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
@@ -27,10 +27,12 @@ impl DIDFullyQualified {
             ));
         }
 
-        let s = DIDWebplusURIComponents {
-            hostname,
-            port_o,
-            path_o,
+        let s = DIDURIComponents {
+            locator: DIDURILocatorComponents {
+                hostname,
+                port_o,
+                path: if let Some(path) = path_o { path } else { "/" },
+            },
             root_self_hash,
             query_self_hash_o: Some(query_self_hash),
             query_version_id_o: Some(query_version_id),

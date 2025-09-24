@@ -1,4 +1,6 @@
-use crate::{DIDResourceFullyQualifiedStr, DIDWebplusURIComponents, Error, Fragment};
+use crate::{
+    DIDResourceFullyQualifiedStr, DIDURIComponents, DIDURILocatorComponents, Error, Fragment,
+};
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(
@@ -34,21 +36,25 @@ impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
         fragment: &F,
     ) -> Result<Self, Error> {
         // TODO: Validation of hostname
-        // Validate path.  It must not begin or end with ':'.  Its components must be ':'-delimited.
+        // Validate path.  It must begin and end with '/', and its components must be '/' delimited.
         if let Some(path) = path_o.as_deref() {
-            if path.starts_with(':') || path.ends_with(':') {
-                return Err(Error::Malformed("DID path must not begin or end with ':'"));
+            if !path.starts_with('/') || !path.ends_with('/') {
+                return Err(Error::Malformed("DID path must begin and end with '/'"));
             }
-            if path.contains('/') {
-                return Err(Error::Malformed("DID path must not contain '/'"));
+            if path.contains(':') {
+                return Err(Error::Malformed(
+                    "DID path must not contain ':' (any ':' must be percent-encoded)",
+                ));
             }
         }
         // TODO: Further validation of path.
 
-        let s = DIDWebplusURIComponents {
-            hostname,
-            port_o,
-            path_o,
+        let s = DIDURIComponents {
+            locator: DIDURILocatorComponents {
+                hostname,
+                port_o,
+                path: if let Some(path) = path_o { path } else { "/" },
+            },
             root_self_hash,
             query_self_hash_o: Some(query_self_hash),
             query_version_id_o: Some(query_version_id),

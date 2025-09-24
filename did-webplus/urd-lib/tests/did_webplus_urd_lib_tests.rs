@@ -187,6 +187,7 @@ fn percent_encode_did_query(did_query: &str) -> String {
         .add(b'%')
         .add(b'?')
         .add(b'=')
-        .add(b'&');
+        .add(b'&')
+        .add(b'/');
     percent_encoding::percent_encode(did_query.as_bytes(), &CONTROL_CHARS).to_string()
 }

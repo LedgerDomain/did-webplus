@@ -148,7 +148,7 @@ fn test_example_creating_and_updating_a_did() {
         let mut did_document = DIDDocument::create_unsigned_root(
             "example.com",
             None,
-            Some("hey"),
+            Some("/hey/"),
             update_rules,
             time::OffsetDateTime::now_utc(),
             PublicKeySet {
@@ -386,7 +386,7 @@ fn test_did_operations() {
     println!("----------------------------------------------------");
     let mut alice_wallet = MockWallet::new("Alice's Wallet".to_string(), mock_vdr_client_a.clone());
     let alice_did = alice_wallet
-        .create_did("example.com".to_string(), None, Some("user".to_string()))
+        .create_did("example.com".to_string(), None, Some("/user/".to_string()))
         .expect("pass");
 
     // This Resolver keeps its own local MockVerifiedCache, and talks to the VDRs directly.

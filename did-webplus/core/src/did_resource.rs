@@ -1,4 +1,4 @@
-use crate::{DIDResourceStr, DIDWebplusURIComponents, Error, Fragment};
+use crate::{DIDResourceStr, DIDURIComponents, DIDURILocatorComponents, Error, Fragment};
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(
@@ -35,10 +35,12 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
             ));
         }
 
-        let s = DIDWebplusURIComponents {
-            hostname,
-            port_o,
-            path_o,
+        let s = DIDURIComponents {
+            locator: DIDURILocatorComponents {
+                hostname,
+                port_o,
+                path: if let Some(path) = path_o { path } else { "/" },
+            },
             root_self_hash,
             query_self_hash_o: None,
             query_version_id_o: None,
