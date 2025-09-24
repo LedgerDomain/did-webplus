@@ -18,16 +18,17 @@ pub fn get_routes(did_doc_store: DIDDocStore, vdr_config: &VDRConfig) -> Router 
     Router::new()
         .route(
             // We have to do our own URL processing in each handler because of the non-standard
-            // form of the "query" (e.g. did.selfHash=<hash>.json) and the fact that we're using
-            // the same handler for multiple routes.
+            // form of the "query" (a catch-all path ending with "/did-documents.jsonl").
             "/{*path}",
-            get(get_did).post(create_did).put(update_did),
+            get(get_did_documents_jsonl)
+                .post(create_did)
+                .put(update_did),
         )
         .with_state(state)
 }
 
 #[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(vdr_app_state))]
-async fn get_did(
+async fn get_did_documents_jsonl(
     State(vdr_app_state): State<VDRAppState>,
     Path(mut path): Path<String>,
     header_map: HeaderMap,
@@ -42,7 +43,7 @@ async fn get_did(
         vdr_app_state.vdr_config.did_port_o,
         path.as_str(),
     ) {
-        get_did_document_jsonl(State(vdr_app_state), header_map, did).await
+        get_did_document_jsonl_impl(State(vdr_app_state), header_map, did).await
     } else {
         Err((StatusCode::BAD_REQUEST, "".to_string()))
     }
@@ -50,7 +51,7 @@ async fn get_did(
 
 // NOTE: This is duplicated in did-webplus-vdg-lib crate.  In order to de-duplicate, there would need to be
 // an axum-aware crate common to this and that crate.
-async fn get_did_document_jsonl(
+async fn get_did_document_jsonl_impl(
     State(vdr_app_state): State<VDRAppState>,
     header_map: HeaderMap,
     did: DID,
@@ -172,7 +173,7 @@ async fn create_did(
     // The from_resolution_url* functions expect the path to start with a '/'.
     path.insert(0, '/');
 
-    let did = DID::from_resolution_url(
+    let did = DID::from_did_documents_jsonl_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),
         vdr_app_state.vdr_config.did_port_o,
         path.as_str(),
@@ -241,7 +242,7 @@ async fn update_did(
     // The from_resolution_url* functions expect the path to start with a '/'.
     path.insert(0, '/');
 
-    let did = DID::from_resolution_url(
+    let did = DID::from_did_documents_jsonl_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),
         vdr_app_state.vdr_config.did_port_o,
         path.as_str(),

@@ -27,34 +27,9 @@ impl DID {
         let s = did_uri_components.to_string();
         Self::try_from(s)
     }
-    /// Parse (the equivalent of) a resolution URL to produce a DID.
-    pub fn from_resolution_url(
-        hostname: &str,
-        port_o: Option<u16>,
-        path: &str,
-    ) -> Result<Self, Error> {
-        if !path.starts_with('/') {
-            return Err(Error::Malformed("resolution URL path must start with '/'"));
-        }
-        if !path.ends_with("/did.json") {
-            return Err(Error::Malformed(
-                "resolution URL path must end with '/did.json'",
-            ));
-        }
-        let path_and_root_self_hash_str = path.strip_suffix("/did.json").unwrap();
-        if let Some(path_end_slash_index) = path_and_root_self_hash_str.rfind('/') {
-            let path = &path_and_root_self_hash_str[..path_end_slash_index + 1];
-            let root_self_hash_str = &path_and_root_self_hash_str[path_end_slash_index + 1..];
-            let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str)?;
-            Self::new(hostname, port_o, Some(path), root_self_hash)
-        } else {
-            Err(Error::Malformed(
-                "resolution URL path must contain a '/' character before the root self-hash",
-            ))
-        }
-    }
-    /// Parse a did-documents.jsonl resolution URL (e.g. "https://example.com/<root-self-hash>/did-documents.jsonl")
-    /// to produce a DID (in this case, "did:webplus:example.com:<root-self-hash>").
+    /// Parse (the equivalent of) a did-documents.jsonl resolution URL (e.g.
+    /// "https://example.com:9999/<root-self-hash>/did-documents.jsonl") to produce a DID (in this
+    /// case, "did:webplus:example.com:9999/<root-self-hash>").
     pub fn from_did_documents_jsonl_resolution_url(
         hostname: &str,
         port_o: Option<u16>,

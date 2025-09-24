@@ -44,11 +44,6 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
         .expect("pass");
 
     // The replace calls are hacky, but effective.
-    let alice_did_url = alice_did
-        .resolution_url(http_scheme_override_o)
-        .replace("fancy.net", "localhost:8085")
-        .replace("https", "http");
-    tracing::debug!(?alice_did_url);
     let alice_did_documents_jsonl_url = alice_did
         .resolution_url_for_did_documents_jsonl(http_scheme_override_o)
         .replace("fancy.net", "localhost:8085")
@@ -73,7 +68,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
         );
         assert_eq!(
             test_util::REQWEST_CLIENT
-                .post(&alice_did_url)
+                .post(&alice_did_documents_jsonl_url)
                 // This is probably ok for now, because the self-sign-and-hash verification process will
                 // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
                 .json(&alice_did_document)
@@ -113,7 +108,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
             );
             assert_eq!(
                 test_util::REQWEST_CLIENT
-                    .put(&alice_did_url)
+                    .put(&alice_did_documents_jsonl_url)
                     // This is probably ok for now, because the self-sign-and-hash verification process will
                     // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
                     .json(&alice_did_document)

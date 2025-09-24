@@ -142,8 +142,6 @@ async fn test_vdg_wallet_operations_impl(
     let alice_did = alice_wallet
         .create_did(vdr_hostname.to_string(), vdr_did_port_o, did_path_o)
         .expect("pass");
-    let alice_did_url = alice_did.resolution_url(http_scheme_override_o);
-    tracing::trace!("alice_did_url: {}", alice_did_url);
     let alice_did_documents_jsonl_url =
         alice_did.resolution_url_for_did_documents_jsonl(http_scheme_override_o);
     tracing::trace!(
@@ -166,7 +164,7 @@ async fn test_vdg_wallet_operations_impl(
         );
         assert_eq!(
             test_util::REQWEST_CLIENT
-                .post(&alice_did_url)
+                .post(&alice_did_documents_jsonl_url)
                 // This is probably ok for now, because the self-sign-and-hash verification process will
                 // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
                 .json(&alice_did_document)
@@ -192,7 +190,6 @@ async fn test_vdg_wallet_operations_impl(
         update_did(
             &mut alice_wallet,
             &alice_did,
-            &alice_did_url,
             &alice_did_documents_jsonl_url,
         )
         .await;
@@ -287,7 +284,6 @@ async fn test_vdg_wallet_operations_impl(
     update_did(
         &mut alice_wallet,
         &alice_did,
-        &alice_did_url,
         &alice_did_documents_jsonl_url,
     )
     .await;
@@ -306,7 +302,6 @@ async fn test_vdg_wallet_operations_impl(
 async fn update_did(
     alice_wallet: &mut MockWallet,
     alice_did: &did_webplus_core::DID,
-    alice_did_url: &str,
     alice_did_documents_jsonl_url: &str,
 ) {
     use did_webplus_core::MicroledgerView;
@@ -327,7 +322,7 @@ async fn update_did(
         );
         assert_eq!(
             test_util::REQWEST_CLIENT
-                .put(alice_did_url)
+                .put(alice_did_documents_jsonl_url)
                 // This is probably ok for now, because the self-sign-and-hash verification process will
                 // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
                 .json(&alice_did_document)
@@ -352,15 +347,24 @@ async fn update_did(
 
 async fn get_did_response(vdg_base_url: &url::Url, did_query: &str) -> reqwest::Response {
     // NOTE: This has to be the same logic as in DIDResolverThin::resolve_did_document_string.
-    let mut resolution_url = vdg_base_url.clone();
-    resolution_url.path_segments_mut().unwrap().push("webplus");
-    resolution_url.path_segments_mut().unwrap().push("v1");
-    resolution_url.path_segments_mut().unwrap().push("resolve");
+    let mut vdg_resolution_url = vdg_base_url.clone();
+    vdg_resolution_url
+        .path_segments_mut()
+        .unwrap()
+        .push("webplus");
+    vdg_resolution_url.path_segments_mut().unwrap().push("v1");
+    vdg_resolution_url
+        .path_segments_mut()
+        .unwrap()
+        .push("resolve");
     // Note that `push` will percent-encode did_query!
-    resolution_url.path_segments_mut().unwrap().push(did_query);
-    tracing::trace!(?resolution_url, "Checking VDG response for DID query");
+    vdg_resolution_url
+        .path_segments_mut()
+        .unwrap()
+        .push(did_query);
+    tracing::trace!(?vdg_resolution_url, "Checking VDG response for DID query");
     test_util::REQWEST_CLIENT
-        .get(resolution_url.as_str())
+        .get(vdg_resolution_url.as_str())
         .send()
         .await
         .expect("pass")

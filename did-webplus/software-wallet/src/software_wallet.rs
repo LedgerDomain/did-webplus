@@ -246,7 +246,7 @@ impl Wallet for SoftwareWallet {
             // HTTP POST is for DID create operation.
             REQWEST_CLIENT
                 .clone()
-                .post(did.resolution_url(http_scheme_override_o))
+                .post(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
                 .body(did_document_jcs)
                 .send()
                 .await
@@ -474,7 +474,7 @@ impl Wallet for SoftwareWallet {
             // HTTP PUT is for DID update operation.
             REQWEST_CLIENT
                 .clone()
-                .put(did.resolution_url(http_scheme_override_o))
+                .put(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
                 .body(updated_did_document_jcs)
                 .send()
                 .await
