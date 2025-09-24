@@ -41,7 +41,6 @@ pub async fn create_did_resolver_full(
         did_doc_store,
         vdg_host_o.as_deref(),
         http_scheme_override_o,
-        did_webplus_resolver::FetchPattern::Batch,
     )?;
     Ok(did_resolver_full)
 }

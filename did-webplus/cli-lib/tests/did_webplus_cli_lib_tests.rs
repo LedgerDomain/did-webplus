@@ -322,7 +322,6 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
             did_doc_store,
             None,
             http_scheme_override_o.cloned(),
-            did_webplus_resolver::FetchPattern::Batch,
         )
         .unwrap()
     };
@@ -475,7 +474,6 @@ async fn test_wallet_did_sign_vjson_verify() {
             did_doc_store,
             None,
             http_scheme_override_o.cloned(),
-            did_webplus_resolver::FetchPattern::Batch,
         )
         .unwrap()
     };

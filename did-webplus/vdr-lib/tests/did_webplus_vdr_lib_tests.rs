@@ -1,7 +1,6 @@
 use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
 use std::{
     collections::HashMap,
-    ops::Deref,
     sync::{Arc, RwLock},
 };
 
@@ -99,6 +98,12 @@ async fn test_vdr_wallet_operations_impl(
         .expect("pass");
     let alice_did_url = alice_did.resolution_url(http_scheme_override_o);
     tracing::trace!("alice_did_url: {}", alice_did_url);
+    let alice_did_documents_jsonl_url =
+        alice_did.resolution_url_for_did_documents_jsonl(http_scheme_override_o);
+    tracing::trace!(
+        "alice_did_documents_jsonl_url: {}",
+        alice_did_documents_jsonl_url
+    );
 
     // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
@@ -127,10 +132,10 @@ async fn test_vdr_wallet_operations_impl(
             reqwest::StatusCode::OK
         );
     }
-    // Resolve the DID
+    // Fetch all DID documents for this DID.
     assert_eq!(
         test_util::REQWEST_CLIENT
-            .get(&alice_did_url)
+            .get(&alice_did_documents_jsonl_url)
             .send()
             .await
             .expect("pass")
@@ -166,45 +171,10 @@ async fn test_vdr_wallet_operations_impl(
                     .status(),
                 reqwest::StatusCode::OK
             );
-            // Resolve the DID
-            let alice_did_url_self_hash = alice_did.resolution_url_for_self_hash(
-                alice_did_document.self_hash.deref(),
-                http_scheme_override_o,
-            );
-            tracing::trace!(
-                "alice_did_url with query self-hash: {}",
-                alice_did_url_self_hash
-            );
-            let alice_did_url_version_id = alice_did.resolution_url_for_version_id(
-                alice_did_document.version_id,
-                http_scheme_override_o,
-            );
-            tracing::trace!(
-                "alice_did_url with query version_id: {}",
-                alice_did_url_version_id
-            );
+            // Fetch all DID documents for this DID again.
             assert_eq!(
                 test_util::REQWEST_CLIENT
-                    .get(&alice_did_url)
-                    .send()
-                    .await
-                    .expect("pass")
-                    .status(),
-                reqwest::StatusCode::OK
-            );
-            // Do some query-specific GETs
-            assert_eq!(
-                test_util::REQWEST_CLIENT
-                    .get(&alice_did_url_self_hash)
-                    .send()
-                    .await
-                    .expect("pass")
-                    .status(),
-                reqwest::StatusCode::OK
-            );
-            assert_eq!(
-                test_util::REQWEST_CLIENT
-                    .get(&alice_did_url_version_id)
+                    .get(&alice_did_documents_jsonl_url)
                     .send()
                     .await
                     .expect("pass")

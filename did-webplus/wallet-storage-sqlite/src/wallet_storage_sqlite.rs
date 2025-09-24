@@ -296,11 +296,16 @@ impl DIDDocStorage for WalletStorageSQLite {
         let did_str = did.as_str();
         let query = sqlx::query!(
             r#"
-                SELECT did_documents_jsonl_octet_length
-                FROM did_document_records
-                WHERE did = $1
-                ORDER BY version_id DESC
-                LIMIT 1
+                SELECT COALESCE(
+                    (
+                        SELECT did_documents_jsonl_octet_length
+                        FROM did_document_records
+                        WHERE did = $1
+                        ORDER BY version_id DESC
+                        LIMIT 1
+                    ),
+                    0
+                ) AS did_documents_jsonl_octet_length
             "#,
             did_str
         );

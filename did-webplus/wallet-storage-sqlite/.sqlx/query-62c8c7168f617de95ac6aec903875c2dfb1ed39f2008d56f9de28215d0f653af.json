@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT COALESCE(\n                    (\n                        SELECT did_documents_jsonl_octet_length\n                        FROM did_document_records\n                        WHERE did = $1\n                        ORDER BY version_id DESC\n                        LIMIT 1\n                    ),\n                    0\n                ) AS did_documents_jsonl_octet_length\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "did_documents_jsonl_octet_length",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "62c8c7168f617de95ac6aec903875c2dfb1ed39f2008d56f9de28215d0f653af"
+}
