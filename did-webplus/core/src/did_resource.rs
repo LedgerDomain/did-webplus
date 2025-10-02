@@ -1,4 +1,4 @@
-use crate::{DIDResourceStr, DIDWebplusURIComponents, Error, Fragment};
+use crate::{DIDResourceStr, DIDURIComponents, Error, Fragment};
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(
@@ -35,7 +35,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResource<F> {
             ));
         }
 
-        let s = DIDWebplusURIComponents {
+        let s = DIDURIComponents {
             hostname,
             port_o,
             path_o,

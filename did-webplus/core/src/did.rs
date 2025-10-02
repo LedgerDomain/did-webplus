@@ -1,4 +1,4 @@
-use crate::{DIDStr, DIDWebplusURIComponents, Error};
+use crate::{DIDStr, DIDURIComponents, Error};
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, pneutype::PneuString)]
 #[pneu_string(as_pneu_str = "as_did_str", borrow = "DIDStr", deserialize, serialize)]
@@ -12,7 +12,7 @@ impl DID {
         path_o: Option<&str>,
         root_self_hash: &mbx::MBHashStr,
     ) -> Result<Self, Error> {
-        let s = DIDWebplusURIComponents {
+        let s = DIDURIComponents {
             hostname,
             port_o,
             path_o,
@@ -25,35 +25,9 @@ impl DID {
         .to_string();
         Self::try_from(s)
     }
-    /// Parse (the equivalent of) a resolution URL to produce a DID.
-    pub fn from_resolution_url(hostname: &str, port_o: Option<u16>, path: &str) -> Result<Self, Error> {
-        if path.starts_with('/') {
-            return Err(Error::Malformed(
-                "resolution URL path must not start with '/'",
-            ));
-        }
-        if !path.ends_with("/did.json") {
-            return Err(Error::Malformed(
-                "resolution URL path must end with 'did.json'",
-            ));
-        }
-        let path_and_root_self_hash_str = path.strip_suffix("/did.json").unwrap();
-        let (path_o, root_self_hash_str) = match path_and_root_self_hash_str.rsplit_once('/') {
-            Some((path, root_self_hash_str)) => {
-                // Replace all the '/' chars with ':' chars.
-                let path = path.replace('/', ":");
-                (Some(path), root_self_hash_str)
-            }
-            None => {
-                let root_self_hash_str = path_and_root_self_hash_str;
-                (None, root_self_hash_str)
-            }
-        };
-        let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str)?;
-        Self::new(hostname, port_o, path_o.as_deref(), root_self_hash)
-    }
-    /// Parse a did-documents.jsonl resolution URL (e.g. "https://example.com/<root-self-hash>/did-documents.jsonl")
-    /// to produce a DID (in this case, "did:webplus:example.com:<root-self-hash>").
+    /// Parse (the equivalent of) a did-documents.jsonl resolution URL (e.g.
+    /// "https://example.com:9999/<root-self-hash>/did-documents.jsonl") to produce a DID (in this
+    /// case, "did:webplus:example.com:9999/<root-self-hash>").
     pub fn from_did_documents_jsonl_resolution_url(
         hostname: &str,
         port_o: Option<u16>,

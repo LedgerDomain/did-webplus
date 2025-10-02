@@ -83,11 +83,75 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
     }
     async fn add_did_documents(
         &self,
-        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        _did_document_jcs_v: &[&str],
-        _did_document_v: &[DIDDocument],
+        mut transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        did_document_jcs_v: &[&str],
+        did_document_v: &[DIDDocument],
     ) -> Result<()> {
-        todo!();
+        assert_eq!(did_document_jcs_v.len(), did_document_v.len());
+
+        // TODO: Figure out how to do batch inserts.
+        for (&did_document_jcs, did_document) in
+            did_document_jcs_v.iter().zip(did_document_v.iter())
+        {
+            // self.add_did_document(transaction_o.as_deref_mut(), did_document, did_document_jcs)
+            //     .await?;
+
+            // TEMP HACK -- should just call add_did_document, but there's some compiler error regarding lifetimes of transaction_o
+
+            use selfhash::HashRefT;
+            assert!(
+                !did_document.self_hash.is_placeholder(),
+                "programmer error: self_hash is expected to be present on a valid DID document"
+            );
+            let did_str = did_document.did.as_str();
+            let version_id = did_document.version_id as i64;
+            let valid_from = did_document.valid_from;
+            let self_hash_str = did_document.self_hash.as_str();
+            // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
+            // and that means that the DID document is verifiably already present in the database.
+            let query = sqlx::query!(
+                r#"
+                    INSERT INTO did_document_records(did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs)
+                    VALUES (
+                        $1,
+                        $2,
+                        $3,
+                        $4,
+                        COALESCE(
+                            (
+                                SELECT did_documents_jsonl_octet_length
+                                FROM did_document_records
+                                WHERE did = $1
+                                ORDER BY version_id DESC
+                                LIMIT 1
+                            ),
+                            0
+                        ) + OCTET_LENGTH($5) + 1,
+                        $5
+                    )
+                    ON CONFLICT DO NOTHING
+                "#,
+                did_str,
+                version_id,
+                valid_from,
+                self_hash_str,
+                did_document_jcs,
+            );
+            if let Some(transaction) = &mut transaction_o {
+                query
+                    .execute(
+                        transaction
+                            .as_any_mut()
+                            .downcast_mut::<sqlx::Transaction<'static, sqlx::Postgres>>()
+                            .unwrap()
+                            .as_mut(),
+                    )
+                    .await?;
+            } else {
+                query.execute(&self.pg_pool).await?;
+            }
+        }
+        Ok(())
     }
     async fn get_did_doc_record_with_self_hash(
         &self,
@@ -232,11 +296,16 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
     ) -> Result<u64> {
         let query = sqlx::query!(
             r#"
-                SELECT did_documents_jsonl_octet_length
-                FROM did_document_records
-                WHERE did = $1
-                ORDER BY version_id DESC
-                LIMIT 1
+                SELECT COALESCE(
+                    (
+                        SELECT did_documents_jsonl_octet_length
+                        FROM did_document_records
+                        WHERE did = $1
+                        ORDER BY version_id DESC
+                        LIMIT 1
+                    ),
+                    0
+                ) AS did_documents_jsonl_octet_length_o
             "#,
             did.as_str()
         );
@@ -250,12 +319,14 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
                         .as_mut(),
                 )
                 .await?
-                .did_documents_jsonl_octet_length
+                .did_documents_jsonl_octet_length_o
+                .unwrap()
         } else {
             query
                 .fetch_one(&self.pg_pool)
                 .await?
-                .did_documents_jsonl_octet_length
+                .did_documents_jsonl_octet_length_o
+                .unwrap()
         };
         let did_documents_jsonl_octet_length = did_documents_jsonl_octet_length as u64;
         Ok(did_documents_jsonl_octet_length)

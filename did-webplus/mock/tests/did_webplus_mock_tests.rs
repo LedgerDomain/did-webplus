@@ -244,27 +244,27 @@ fn test_example_creating_and_updating_a_did() {
         println!("Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"), serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass"));
         println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
         println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
-        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-            .with_queries(
-                &latest_did_document.self_hash,
-                latest_did_document.version_id,
-            )
-            // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
-            .with_fragment("1");
-        priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
-        println!(
-            "We set the new private JWK's `kid` field as earlier:\n\n```json\n{}\n```\n",
-            serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
-        );
-        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-            .with_queries(
-                &latest_did_document.self_hash,
-                latest_did_document.version_id,
-            )
-            // NOTE: This is hardcoded, and depends on the order the keys were added to the DID document.
-            .with_fragment("0");
-        priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
-        println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
+        {
+            let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+                .with_queries(
+                    &latest_did_document.self_hash,
+                    latest_did_document.version_id,
+                )
+                // NOTE: This is hardcoded, and depends on the order the keys were added to the DID document.
+                .with_fragment("0");
+            priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
+        }
+        {
+            let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+                .with_queries(
+                    &latest_did_document.self_hash,
+                    latest_did_document.version_id,
+                )
+                // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
+                .with_fragment("1");
+            priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
+        }
+        println!("We set the `kid` field of each private JWK to point to the current DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"), serde_json::to_string_pretty(&priv_jwk_1).expect("pass"));
         priv_jwk_1
     };
 
@@ -324,36 +324,37 @@ fn test_example_creating_and_updating_a_did() {
         println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
         println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"), RequestedDIDDocumentMetadata::all())).expect("pass"));
         println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
-        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-            .with_queries(
-                &latest_did_document.self_hash,
-                latest_did_document.version_id,
-            )
-            // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
-            .with_fragment("2");
-        priv_jwk_2.key_id = Some(did_key_resource_fully_qualified.to_string());
-        println!(
-            "We set the new private JWK's `kid` field as earlier:\n\n```json\n{}\n```\n",
-            serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
-        );
-        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-            .with_queries(
-                &latest_did_document.self_hash,
-                latest_did_document.version_id,
-            )
-            // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
-            .with_fragment("0");
-        priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
-        println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
-        let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
-            .with_queries(
-                &latest_did_document.self_hash,
-                latest_did_document.version_id,
-            )
-            // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
-            .with_fragment("1");
-        priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
-        println!("And update the first private JWK's `kid` field to point to the current DID document:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_1).expect("pass"));
+        {
+            let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+                .with_queries(
+                    &latest_did_document.self_hash,
+                    latest_did_document.version_id,
+                )
+                // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
+                .with_fragment("0");
+            priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
+        }
+        {
+            let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+                .with_queries(
+                    &latest_did_document.self_hash,
+                    latest_did_document.version_id,
+                )
+                // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
+                .with_fragment("1");
+            priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
+        }
+        {
+            let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
+                .with_queries(
+                    &latest_did_document.self_hash,
+                    latest_did_document.version_id,
+                )
+                // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
+                .with_fragment("2");
+            priv_jwk_2.key_id = Some(did_key_resource_fully_qualified.to_string());
+        }
+        println!("We set the `kid` field of each private JWK to point to the current DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"), serde_json::to_string_pretty(&priv_jwk_1).expect("pass"), serde_json::to_string_pretty(&priv_jwk_2).expect("pass"));
         priv_jwk_2
     };
 }

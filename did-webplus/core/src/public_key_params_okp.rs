@@ -1,4 +1,4 @@
-use crate::{Error, Result};
+use crate::Error;
 
 // "kty" of "OKP" is used for curves including "Ed25519".
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
@@ -19,7 +19,7 @@ impl PublicKeyParamsOKP {
 
 impl TryFrom<&mbx::MBPubKeyStr> for PublicKeyParamsOKP {
     type Error = Error;
-    fn try_from(pub_key: &mbx::MBPubKeyStr) -> std::result::Result<Self, Self::Error> {
+    fn try_from(pub_key: &mbx::MBPubKeyStr) -> Result<Self, Self::Error> {
         let decoded = pub_key.decoded().unwrap();
         match decoded.codec() {
             ssi_multicodec::ED25519_PUB => {
@@ -51,9 +51,7 @@ impl TryFrom<&mbx::MBPubKeyStr> for PublicKeyParamsOKP {
 
 impl TryFrom<&PublicKeyParamsOKP> for mbx::MBPubKey {
     type Error = Error;
-    fn try_from(
-        public_key_params_okp: &PublicKeyParamsOKP,
-    ) -> std::result::Result<Self, Self::Error> {
+    fn try_from(public_key_params_okp: &PublicKeyParamsOKP) -> Result<Self, Self::Error> {
         match public_key_params_okp.crv.as_str() {
             "Ed25519" => {
                 #[cfg(feature = "ed25519-dalek")]
@@ -104,7 +102,11 @@ fn base64_encode_256_bits<'a>(input_byte_v: &[u8; 32], buffer: &'a mut [u8; 43])
 /// This function is to assist in no-alloc base64 decoding of 256 bits.
 /// 256 bits is 43 base64 chars (rounded up), but 43 base64 chars is 258 bits,
 /// so there has to be an extra byte in the buffer for base64 to decode into.
-fn base64_decode_256_bits<'a>(input_str: &str, buffer: &'a mut [u8; 33]) -> Result<&'a [u8; 32]> {
+#[cfg(feature = "ed25519-dalek")]
+fn base64_decode_256_bits<'a>(
+    input_str: &str,
+    buffer: &'a mut [u8; 33],
+) -> crate::Result<&'a [u8; 32]> {
     if !input_str.is_ascii() {
         return Err(Error::Malformed("not ASCII"));
     }

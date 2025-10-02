@@ -1,4 +1,4 @@
-use crate::{DIDStr, DIDWebplusURIComponents, Error, HTTPSchemeOverride};
+use crate::{DIDStr, DIDURIComponents, Error, HTTPSchemeOverride};
 use std::fmt::Write;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
@@ -12,8 +12,8 @@ impl DIDWithQueryStr {
         let (did, _query_params) = self.0.split_once('?').expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery");
         DIDStr::new_ref(did).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
     }
-    fn uri_components(&self) -> DIDWebplusURIComponents {
-        DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
+    fn uri_components(&self) -> DIDURIComponents {
+        DIDURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
     }
     /// Hostname of the VDR that acts as the authority/origin for this DID.
     pub fn hostname(&self) -> &str {
@@ -94,13 +94,13 @@ impl pneutype::Validate for DIDWithQueryStr {
     type Data = str;
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
-        let did_webplus_uri_components = DIDWebplusURIComponents::try_from(data)?;
-        if !did_webplus_uri_components.has_query() {
+        let did_uri_components = DIDURIComponents::try_from(data)?;
+        if !did_uri_components.has_query() {
             return Err(Error::Malformed(
                 "DIDWithQuery must have at least one of selfHash and/or versionId query params specified",
             ));
         }
-        if did_webplus_uri_components.has_fragment() {
+        if did_uri_components.has_fragment() {
             return Err(Error::Malformed("DIDWithQuery must not have a fragment"));
         }
         Ok(())

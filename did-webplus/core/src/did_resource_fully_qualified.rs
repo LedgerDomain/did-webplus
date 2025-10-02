@@ -1,4 +1,4 @@
-use crate::{DIDResourceFullyQualifiedStr, DIDWebplusURIComponents, Error, Fragment};
+use crate::{DIDResourceFullyQualifiedStr, DIDURIComponents, Error, Fragment};
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(
@@ -45,7 +45,7 @@ impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
         }
         // TODO: Further validation of path.
 
-        let s = DIDWebplusURIComponents {
+        let s = DIDURIComponents {
             hostname,
             port_o,
             path_o,

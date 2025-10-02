@@ -12,63 +12,70 @@ For now, let's generate a single Ed25519 key to use in all the verification meth
 {
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "ar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
-  "d": "bt3fRVSQOBIZ6P2MpfzZ45_-6cTf48m1338ojX6MwKg"
+  "x": "m7AuUCD1LhpiPhAOvNZyvbpM75PgUhdQqFKLCkSiXT4",
+  "d": "UmBDdU_9oHmb05riF8X-_bruTOvQHjUm5fNH_e_sV_s"
 }
+```
+
+We'll also need a key that is authorized to update the DID document.  In publicKeyMultibase format, the public key is:
+
+```
+u7QFEfNa-IIxpxs1thps4nLKtOrXylS7ObhaSJzNmePsg2Q
 ```
 
 Creating a DID produces the root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):
 
 ```json
 {
-  "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
-  "selfHash": "EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
-  "selfSignature": "0BuQYSLaLz_HBZulqOI_jH3T3BoKI_QZ9MHE58zzJKmT4M2FOMLW3OFCBJZ8k0jZaAY7YJzyk8finF1bICjXmUDQ",
-  "selfSignatureVerifier": "Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
-  "validFrom": "2023-09-29T10:01:29.860693793Z",
+  "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
+  "selfHash": "uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
+  "updateRules": {
+    "key": "u7QFEfNa-IIxpxs1thps4nLKtOrXylS7ObhaSJzNmePsg2Q"
+  },
+  "validFrom": "2025-10-03T03:24:07.372913003Z",
   "versionId": 0,
   "verificationMethod": [
     {
-      "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+      "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#0",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
+      "controller": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+        "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#0",
         "kty": "OKP",
-        "crv": "ed25519",
-        "x": "ar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+        "crv": "Ed25519",
+        "x": "m7AuUCD1LhpiPhAOvNZyvbpM75PgUhdQqFKLCkSiXT4"
       }
     }
   ],
   "authentication": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ],
   "assertionMethod": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ],
   "keyAgreement": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ],
   "capabilityInvocation": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ],
   "capabilityDelegation": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ]
 }
 ```
 
-Note that the `selfSignatureVerifier` field is a public key that is also found in the `capabilityInvocation` field.  This is the initial proof of control over the DID.
+Note that the `updateRules` field is what defines update authorization for this DID document.
 
 The associated DID document metadata (at the time of DID creation) is:
 
 ```json
 {
-  "created": "2023-09-29T10:01:29.860693793Z",
-  "updated": "2023-09-29T10:01:29.860693793Z",
+  "created": "2025-10-03T03:24:07.372913003Z",
   "nextUpdate": null,
-  "versionId": 0,
-  "nextVersionId": null
+  "nextVersionId": null,
+  "updated": "2025-10-03T03:24:07.372913003Z",
+  "versionId": 0
 }
 ```
 
@@ -76,11 +83,11 @@ We set the private JWK's `kid` field (key ID) to include the query params and fr
 
 ```json
 {
-  "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ?versionId=0&selfHash=EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+  "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg?selfHash=uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg&versionId=0#0",
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "ar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
-  "d": "bt3fRVSQOBIZ6P2MpfzZ45_-6cTf48m1338ojX6MwKg"
+  "x": "m7AuUCD1LhpiPhAOvNZyvbpM75PgUhdQqFKLCkSiXT4",
+  "d": "UmBDdU_9oHmb05riF8X-_bruTOvQHjUm5fNH_e_sV_s"
 }
 ```
 
@@ -92,76 +99,101 @@ Let's generate another key to rotate in for some verification methods.  In JWK f
 {
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "DG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
-  "d": "Owcwu8hCCKaFDf9hm8HTIm8rV5_ZBFGZ83IwX6tm_-k"
+  "x": "eyvv0Rmvr8SFkv0mSKGai_ZWQpSv5APmPY1s0OwQo9k",
+  "d": "H0iD_50oSOukrGxHfjwYyoG-uLVTVvE1BMkg-lJbkuc"
 }
+```
+
+A new update key is also needed.  In publicKeyMultibase format, the new public key is:
+
+```
+u7QGqH3MzfA4cTIaDEnmum-YXEaCnIvejDzVAnMP160tcbg
 ```
 
 Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):
 
 ```json
 {
-  "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
-  "selfHash": "EgqvDOcj4HItWDVij-yHj0GtBPnEofatHT2xuoVD7tMY",
-  "selfSignature": "0BECMc-xhI3T2eo0w2bSHT3Rr_hVV5Yt7S0ySzW4Rxxh15iR9ALvDUvXn7d7fB5cjT2f5ZROVcFmdj8NZ8snaXAw",
-  "selfSignatureVerifier": "Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
-  "prevDIDDocumentSelfHash": "EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
-  "validFrom": "2023-09-29T10:01:29.896537517Z",
+  "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
+  "selfHash": "uHiCGrkkj7tWJ5F00DHLmyLtJszjRFjSICIcQlbrAdGVNog",
+  "prevDIDDocumentSelfHash": "uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
+  "updateRules": {
+    "key": "u7QGqH3MzfA4cTIaDEnmum-YXEaCnIvejDzVAnMP160tcbg"
+  },
+  "proofs": [
+    "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoidTdRRkVmTmEtSUl4cHhzMXRocHM0bkxLdE9yWHlsUzdPYmhhU0p6Tm1lUHNnMlEiLCJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlfQ..2owPha5M5xR3PRjLUmIKXqRfBJoGYVeM4Hs835m54sifIrrl5bDogEmGfWX4ZL4dCE2aHQ0Y20qzZy0xEPcLDA"
+  ],
+  "validFrom": "2025-10-03T03:24:07.380981642Z",
   "versionId": 1,
   "verificationMethod": [
     {
-      "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
+      "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#0",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
+      "controller": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
+        "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#0",
         "kty": "OKP",
-        "crv": "ed25519",
-        "x": "DG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I"
+        "crv": "Ed25519",
+        "x": "m7AuUCD1LhpiPhAOvNZyvbpM75PgUhdQqFKLCkSiXT4"
       }
     },
     {
-      "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+      "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#1",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
+      "controller": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+        "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#1",
         "kty": "OKP",
-        "crv": "ed25519",
-        "x": "ar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+        "crv": "Ed25519",
+        "x": "eyvv0Rmvr8SFkv0mSKGai_ZWQpSv5APmPY1s0OwQo9k"
       }
     }
   ],
   "authentication": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
-    "#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I"
+    "#0",
+    "#1"
   ],
   "assertionMethod": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ],
   "keyAgreement": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ],
   "capabilityInvocation": [
-    "#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I"
+    "#1"
   ],
   "capabilityDelegation": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ]
 }
 ```
 
-Note that the `selfSignatureVerifier` field is present in the previous (root) DID document's `capabilityInvocation` field.  This proves that the DID document was updated by an authorized entity.
+Note that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:
+
+```json
+{
+  "header": {
+    "alg": "Ed25519",
+    "b64": false,
+    "crit": [
+      "b64"
+    ],
+    "kid": "u7QFEfNa-IIxpxs1thps4nLKtOrXylS7ObhaSJzNmePsg2Q"
+  },
+  "payload": null,
+  "signature": "2owPha5M5xR3PRjLUmIKXqRfBJoGYVeM4Hs835m54sifIrrl5bDogEmGfWX4ZL4dCE2aHQ0Y20qzZy0xEPcLDA"
+}
+```
 
 The associated DID document metadata (at the time of DID update) is:
 
 ```json
 {
-  "created": "2023-09-29T10:01:29.860693793Z",
-  "updated": "2023-09-29T10:01:29.896537517Z",
+  "created": "2025-10-03T03:24:07.372913003Z",
   "nextUpdate": null,
-  "versionId": 1,
-  "nextVersionId": null
+  "nextVersionId": null,
+  "updated": "2025-10-03T03:24:07.380981642Z",
+  "versionId": 1
 }
 ```
 
@@ -169,35 +201,33 @@ However, the DID document metadata associated with the root DID document has now
 
 ```json
 {
-  "created": "2023-09-29T10:01:29.860693793Z",
-  "updated": "2023-09-29T10:01:29.896537517Z",
-  "nextUpdate": "2023-09-29T10:01:29.896537517Z",
-  "versionId": 1,
-  "nextVersionId": 1
+  "created": "2025-10-03T03:24:07.372913003Z",
+  "nextUpdate": "2025-10-03T03:24:07.380981642Z",
+  "nextVersionId": 1,
+  "updated": "2025-10-03T03:24:07.380981642Z",
+  "versionId": 1
 }
 ```
 
-We set the new private JWK's `kid` field as earlier:
+We set the `kid` field of each private JWK to point to the current DID document:
 
 ```json
 {
-  "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ?versionId=1&selfHash=EgqvDOcj4HItWDVij-yHj0GtBPnEofatHT2xuoVD7tMY#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
+  "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg?selfHash=uHiCGrkkj7tWJ5F00DHLmyLtJszjRFjSICIcQlbrAdGVNog&versionId=1#0",
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "DG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
-  "d": "Owcwu8hCCKaFDf9hm8HTIm8rV5_ZBFGZ83IwX6tm_-k"
+  "x": "m7AuUCD1LhpiPhAOvNZyvbpM75PgUhdQqFKLCkSiXT4",
+  "d": "UmBDdU_9oHmb05riF8X-_bruTOvQHjUm5fNH_e_sV_s"
 }
 ```
 
-And update the first private JWK's `kid` field to point to the current DID document:
-
 ```json
 {
-  "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ?versionId=1&selfHash=EgqvDOcj4HItWDVij-yHj0GtBPnEofatHT2xuoVD7tMY#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+  "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg?selfHash=uHiCGrkkj7tWJ5F00DHLmyLtJszjRFjSICIcQlbrAdGVNog&versionId=1#1",
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "ar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
-  "d": "bt3fRVSQOBIZ6P2MpfzZ45_-6cTf48m1338ojX6MwKg"
+  "x": "eyvv0Rmvr8SFkv0mSKGai_ZWQpSv5APmPY1s0OwQo9k",
+  "d": "H0iD_50oSOukrGxHfjwYyoG-uLVTVvE1BMkg-lJbkuc"
 }
 ```
 
@@ -209,8 +239,8 @@ Let's generate a third key to rotate in for some verification methods.  In JWK f
 {
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs",
-  "d": "NLf894QU-idKoBleNvpiSGqpvMQu5WOLmMG-6NHZy4s"
+  "x": "py1OHje9GMGdHPap0r-1gcMq0OOUFiDKjDrQxZfV80U",
+  "d": "maWiBh51R5N6e4wCiPt-TEFYuzvK1__fx3l22ZafLUM"
 }
 ```
 
@@ -218,78 +248,97 @@ Updated DID document (represented in 'pretty' JSON for readability; actual DID d
 
 ```json
 {
-  "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
-  "selfHash": "E-T4tNIrE7dFqZIgjHsVCoRS4S9rGQgRZidGXtcG35o8",
-  "selfSignature": "0BAxr7qTk0DF35hUPCv9iyInBg2ubfyE5jFrBGJ0cPs5ecJIRfVQLRzGf-zSs8je0MDxDqGujVPlpNEjYY5iKVCA",
-  "selfSignatureVerifier": "DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
-  "prevDIDDocumentSelfHash": "EgqvDOcj4HItWDVij-yHj0GtBPnEofatHT2xuoVD7tMY",
-  "validFrom": "2023-09-29T10:01:29.96004546Z",
+  "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
+  "selfHash": "uHiC9fL7JkWa2rkm6MelJGxTlAXFcwuJuJ4l0gq_FaJH5aA",
+  "prevDIDDocumentSelfHash": "uHiCGrkkj7tWJ5F00DHLmyLtJszjRFjSICIcQlbrAdGVNog",
+  "updateRules": {
+    "key": "u7QGSG5ZpQrL6TeCsKNgsKWGFVoA0rKhImymHIuJzeJM-_w"
+  },
+  "proofs": [
+    "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoidTdRR3FIM016ZkE0Y1RJYURFbm11bS1ZWEVhQ25JdmVqRHpWQW5NUDE2MHRjYmciLCJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlfQ..BFsXOEYzzcXl416IVfZl52drKpPBWJWj0T-WkuNchcJNT-0hGdQAGvlcmEtqrV5lYSOF5ZobbZgmFcptAoMsDw"
+  ],
+  "validFrom": "2025-10-03T03:24:07.458363778Z",
   "versionId": 2,
   "verificationMethod": [
     {
-      "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+      "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#0",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
+      "controller": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+        "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#0",
         "kty": "OKP",
-        "crv": "ed25519",
-        "x": "ar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+        "crv": "Ed25519",
+        "x": "m7AuUCD1LhpiPhAOvNZyvbpM75PgUhdQqFKLCkSiXT4"
       }
     },
     {
-      "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
+      "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#2",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
+      "controller": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
+        "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#2",
         "kty": "OKP",
-        "crv": "ed25519",
-        "x": "DG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I"
+        "crv": "Ed25519",
+        "x": "py1OHje9GMGdHPap0r-1gcMq0OOUFiDKjDrQxZfV80U"
       }
     },
     {
-      "id": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#D7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs",
+      "id": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#1",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ",
+      "controller": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ#D7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs",
+        "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg#1",
         "kty": "OKP",
-        "crv": "ed25519",
-        "x": "7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs"
+        "crv": "Ed25519",
+        "x": "eyvv0Rmvr8SFkv0mSKGai_ZWQpSv5APmPY1s0OwQo9k"
       }
     }
   ],
   "authentication": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
-    "#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I"
+    "#0",
+    "#1"
   ],
   "assertionMethod": [
-    "#D7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs"
+    "#0"
   ],
   "keyAgreement": [
-    "#D7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs"
+    "#2"
   ],
   "capabilityInvocation": [
-    "#D7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs"
+    "#2"
   ],
   "capabilityDelegation": [
-    "#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE"
+    "#0"
   ]
 }
 ```
 
-Note that the `selfSignatureVerifier` field is present in the previous (root) DID document's `capabilityInvocation` field.  This proves that the DID document was updated by an authorized entity.
+Note that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:
+
+```json
+{
+  "header": {
+    "alg": "Ed25519",
+    "b64": false,
+    "crit": [
+      "b64"
+    ],
+    "kid": "u7QGqH3MzfA4cTIaDEnmum-YXEaCnIvejDzVAnMP160tcbg"
+  },
+  "payload": null,
+  "signature": "BFsXOEYzzcXl416IVfZl52drKpPBWJWj0T-WkuNchcJNT-0hGdQAGvlcmEtqrV5lYSOF5ZobbZgmFcptAoMsDw"
+}
+```
 
 The associated DID document metadata (at the time of DID update) is:
 
 ```json
 {
-  "created": "2023-09-29T10:01:29.860693793Z",
-  "updated": "2023-09-29T10:01:29.96004546Z",
+  "created": "2025-10-03T03:24:07.372913003Z",
   "nextUpdate": null,
-  "versionId": 2,
-  "nextVersionId": null
+  "nextVersionId": null,
+  "updated": "2025-10-03T03:24:07.458363778Z",
+  "versionId": 2
 }
 ```
 
@@ -297,11 +346,11 @@ Similarly, the DID document metadata associated with the previous DID document h
 
 ```json
 {
-  "created": "2023-09-29T10:01:29.860693793Z",
-  "updated": "2023-09-29T10:01:29.96004546Z",
-  "nextUpdate": "2023-09-29T10:01:29.96004546Z",
-  "versionId": 2,
-  "nextVersionId": 2
+  "created": "2025-10-03T03:24:07.372913003Z",
+  "nextUpdate": "2025-10-03T03:24:07.458363778Z",
+  "nextVersionId": 2,
+  "updated": "2025-10-03T03:24:07.458363778Z",
+  "versionId": 2
 }
 ```
 
@@ -309,46 +358,42 @@ However, the DID document metadata associated with the root DID document has now
 
 ```json
 {
-  "created": "2023-09-29T10:01:29.860693793Z",
-  "updated": "2023-09-29T10:01:29.96004546Z",
-  "nextUpdate": "2023-09-29T10:01:29.896537517Z",
-  "versionId": 2,
-  "nextVersionId": 1
+  "created": "2025-10-03T03:24:07.372913003Z",
+  "nextUpdate": "2025-10-03T03:24:07.380981642Z",
+  "nextVersionId": 1,
+  "updated": "2025-10-03T03:24:07.458363778Z",
+  "versionId": 2
 }
 ```
 
-We set the new private JWK's `kid` field as earlier:
+We set the `kid` field of each private JWK to point to the current DID document:
 
 ```json
 {
-  "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ?versionId=2&selfHash=E-T4tNIrE7dFqZIgjHsVCoRS4S9rGQgRZidGXtcG35o8#D7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs",
+  "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg?selfHash=uHiC9fL7JkWa2rkm6MelJGxTlAXFcwuJuJ4l0gq_FaJH5aA&versionId=2#0",
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "7Eh2dRf3_D_AVGHr7U9BXzPPb9w1Hd7b0AH_VOekHRs",
-  "d": "NLf894QU-idKoBleNvpiSGqpvMQu5WOLmMG-6NHZy4s"
+  "x": "m7AuUCD1LhpiPhAOvNZyvbpM75PgUhdQqFKLCkSiXT4",
+  "d": "UmBDdU_9oHmb05riF8X-_bruTOvQHjUm5fNH_e_sV_s"
 }
 ```
 
-And update the first private JWK's `kid` field to point to the current DID document:
-
 ```json
 {
-  "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ?versionId=2&selfHash=E-T4tNIrE7dFqZIgjHsVCoRS4S9rGQgRZidGXtcG35o8#Dar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
+  "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg?selfHash=uHiC9fL7JkWa2rkm6MelJGxTlAXFcwuJuJ4l0gq_FaJH5aA&versionId=2#1",
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "ar0F7zeNrtp2tGBplO2ZVCPyLHyxsWOAEv9i-5khnsE",
-  "d": "bt3fRVSQOBIZ6P2MpfzZ45_-6cTf48m1338ojX6MwKg"
+  "x": "eyvv0Rmvr8SFkv0mSKGai_ZWQpSv5APmPY1s0OwQo9k",
+  "d": "H0iD_50oSOukrGxHfjwYyoG-uLVTVvE1BMkg-lJbkuc"
 }
 ```
 
-And update the first private JWK's `kid` field to point to the current DID document:
-
 ```json
 {
-  "kid": "did:webplus:example.com:EjXivDidxAi2kETdFw1o36-jZUkYkxg0ayMhSBjODAgQ?versionId=2&selfHash=E-T4tNIrE7dFqZIgjHsVCoRS4S9rGQgRZidGXtcG35o8#DDG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
+  "kid": "did:webplus:example.com:hey:uHiDGDMhFBQmegii_Efm15eegRyDVLL_X5VUrm6xi-e46xg?selfHash=uHiC9fL7JkWa2rkm6MelJGxTlAXFcwuJuJ4l0gq_FaJH5aA&versionId=2#2",
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "DG7RxmBBNf9HaTpr75uSDNS5qpHVOG2WEjmf7T7wi-I",
-  "d": "Owcwu8hCCKaFDf9hm8HTIm8rV5_ZBFGZ83IwX6tm_-k"
+  "x": "py1OHje9GMGdHPap0r-1gcMq0OOUFiDKjDrQxZfV80U",
+  "d": "maWiBh51R5N6e4wCiPt-TEFYuzvK1__fx3l22ZafLUM"
 }
 ```

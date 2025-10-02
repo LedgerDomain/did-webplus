@@ -1,6 +1,5 @@
 use crate::{
-    DIDFullyQualifiedStr, DIDResource, DIDWebplusURIComponents, Error, Fragment,
-    RelativeResourceStr,
+    DIDFullyQualifiedStr, DIDResource, DIDURIComponents, Error, Fragment, RelativeResourceStr,
 };
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
@@ -25,8 +24,8 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceFullyQualifiedStr<F> {
     pub fn without_fragment(&self) -> &DIDFullyQualifiedStr {
         DIDFullyQualifiedStr::new_ref(self.1.split_once('#').unwrap().0).expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
     }
-    fn uri_components(&self) -> DIDWebplusURIComponents {
-        DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
+    fn uri_components(&self) -> DIDURIComponents {
+        DIDURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
     }
     /// Hostname of the VDR that acts as the authority/origin for this DID.
     pub fn hostname(&self) -> &str {
@@ -75,14 +74,14 @@ impl<F: 'static + Fragment + ?Sized> pneutype::Validate for DIDResourceFullyQual
     type Data = str;
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
-        let did_webplus_uri_components = DIDWebplusURIComponents::try_from(data)?;
-        if !did_webplus_uri_components.has_query() {
+        let did_uri_components = DIDURIComponents::try_from(data)?;
+        if !did_uri_components.has_query() {
             return Err(Error::Malformed("DID query is missing"));
         }
-        if !did_webplus_uri_components.has_fragment() {
+        if !did_uri_components.has_fragment() {
             return Err(Error::Malformed("DID fragment is missing"));
         }
-        <F as pneutype::Validate>::validate(did_webplus_uri_components.fragment_o.unwrap())
+        <F as pneutype::Validate>::validate(did_uri_components.fragment_o.unwrap())
             .map_err(|_| Error::Malformed("DID fragment is malformed"))?;
         Ok(())
     }

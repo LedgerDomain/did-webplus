@@ -65,18 +65,16 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
     let alice_did = alice_wallet
         .create_did("fancy.net".to_string(), None, did_path_o)
         .expect("pass");
-    let alice_did_url = if let Some(alice_did_path) = alice_did.path_o().as_ref() {
-        format!(
-            "http://localhost:8085/{}/{}/did.json",
-            alice_did_path,
-            alice_did.root_self_hash()
-        )
-    } else {
-        format!(
-            "http://localhost:8085/{}/did.json",
-            alice_did.root_self_hash()
-        )
-    };
+
+    // The replace calls are hacky, but effective.
+    let alice_did_documents_jsonl_url = alice_did
+        .resolution_url_for_did_documents_jsonl(None)
+        .replace("fancy.net", "localhost:8085")
+        .replace("https", "http");
+    println!(
+        "alice_did_documents_jsonl_url {}",
+        alice_did_documents_jsonl_url
+    );
     // Hacky way to test the actual VDR, which is assumed be running in a separate process.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
     {
@@ -92,7 +90,7 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
         );
         assert_eq!(
             reqwest::Client::new()
-                .post(&alice_did_url)
+                .post(&alice_did_documents_jsonl_url)
                 // This is probably ok for now, because the self-sign-and-hash verification process will
                 // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
                 .json(&alice_did_document)
@@ -103,10 +101,10 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
             reqwest::StatusCode::OK
         );
     }
-    // Resolve the DID
+    // Fetch all DID documents for this DID.
     assert_eq!(
         reqwest::Client::new()
-            .get(&alice_did_url)
+            .get(&alice_did_documents_jsonl_url)
             .send()
             .await
             .expect("pass")
@@ -115,7 +113,12 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
     );
     // Have it update the DID a bunch of times
     for _ in 0..5 {
-        update_did(&mut alice_wallet, &alice_did, &alice_did_url).await;
+        update_did(
+            &mut alice_wallet,
+            &alice_did,
+            &alice_did_documents_jsonl_url,
+        )
+        .await;
     }
 
     // sleep for a second to make sure the vdg gets updated
@@ -198,7 +201,12 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
     assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
 
     // update the did again
-    update_did(&mut alice_wallet, &alice_did, &alice_did_url).await;
+    update_did(
+        &mut alice_wallet,
+        &alice_did,
+        &alice_did_documents_jsonl_url,
+    )
+    .await;
 
     // sleep for a second to make sure the vdg gets updated
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -213,7 +221,7 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
 async fn update_did(
     alice_wallet: &mut MockWallet,
     alice_did: &did_webplus_core::DID,
-    alice_did_url: &String,
+    alice_did_documents_jsonl_url: &str,
 ) {
     use did_webplus_core::MicroledgerView;
 
@@ -233,7 +241,7 @@ async fn update_did(
         );
         assert_eq!(
             reqwest::Client::new()
-                .put(alice_did_url)
+                .put(alice_did_documents_jsonl_url)
                 // This is probably ok for now, because the self-sign-and-hash verification process will
                 // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
                 .json(&alice_did_document)
@@ -243,10 +251,10 @@ async fn update_did(
                 .status(),
             reqwest::StatusCode::OK
         );
-        // Resolve the DID
+        // Fetch all DID documents for this DID again.
         assert_eq!(
             reqwest::Client::new()
-                .get(alice_did_url)
+                .get(alice_did_documents_jsonl_url)
                 .send()
                 .await
                 .expect("pass")
@@ -257,6 +265,7 @@ async fn update_did(
 }
 
 async fn get_did_response(did_query: &str) -> reqwest::Response {
+    tracing::trace!(?did_query, "Getting DID response for VDG");
     let mut request_url = url::Url::parse("http://localhost:8086").unwrap();
     request_url.path_segments_mut().unwrap().push("webplus");
     request_url.path_segments_mut().unwrap().push("v1");

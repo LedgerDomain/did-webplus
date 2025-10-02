@@ -8,7 +8,7 @@ mod did_resource_fully_qualified;
 mod did_resource_fully_qualified_str;
 mod did_resource_str;
 mod did_str;
-mod did_webplus_uri_components;
+mod did_uri_components;
 mod did_with_query;
 mod did_with_query_str;
 mod error;
@@ -47,7 +47,7 @@ pub use crate::{
     did_resource_fully_qualified_str::DIDResourceFullyQualifiedStr,
     did_resource_str::DIDResourceStr,
     did_str::DIDStr,
-    did_webplus_uri_components::DIDWebplusURIComponents,
+    did_uri_components::DIDURIComponents,
     did_with_query::DIDWithQuery,
     did_with_query_str::DIDWithQueryStr,
     error::Error,

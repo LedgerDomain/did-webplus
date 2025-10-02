@@ -17,6 +17,10 @@ fn test_roundtrip_did_basic() {
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
+
+        "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
+        "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
+        "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
     ];
     for s in str_v {
         let did = did_webplus_core::DID::from_str(s).expect("pass");
@@ -46,6 +50,17 @@ fn test_roundtrip_did_with_query() {
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
 
+        "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
+        "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
+        "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
+
+        "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
+        "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
+        "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
+
+        "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
+        "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
+        "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
     ];
     for s in str_v {
         let did_with_query = did_webplus_core::DIDWithQueryStr::new_ref(s).expect("pass");
@@ -64,6 +79,10 @@ fn test_roundtrip_did_key_resource_fully_qualified() {
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
+
+        "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
+        "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
+        "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
     ];
     for s in str_v {
         let did = did_webplus_core::DIDKeyResourceFullyQualified::from_str(s).expect("pass");
@@ -82,6 +101,10 @@ fn test_roundtrip_did_key_resource() {
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
+
+        "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
+        "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
+        "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
     ];
     for s in str_v {
         let did = did_webplus_core::DIDKeyResource::from_str(s).expect("pass");

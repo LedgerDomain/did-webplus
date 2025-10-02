@@ -83,17 +83,16 @@ impl SoftwareWallet {
         // version if more than one wallet controls the DID.
 
         // Retrieve any unfetched updates to the DID.
-        let did_resolver = did_webplus_resolver::DIDResolverFull::new(
+        let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
             did_webplus_doc_store::DIDDocStore::new(
                 self.wallet_storage_a.clone().as_did_doc_storage_a(),
             ),
             self.vdg_host_o.as_deref(),
             http_scheme_override_o.cloned(),
-            did_webplus_resolver::FetchPattern::Batch,
         )
         .unwrap();
         use did_webplus_resolver::DIDResolver;
-        let (did_document, _did_doc_metadata) = did_resolver
+        let (did_document, _did_doc_metadata) = did_resolver_full
             .resolve_did_document(
                 did.as_str(),
                 did_webplus_core::RequestedDIDDocumentMetadata::none(),
@@ -247,7 +246,7 @@ impl Wallet for SoftwareWallet {
             // HTTP POST is for DID create operation.
             REQWEST_CLIENT
                 .clone()
-                .post(did.resolution_url(http_scheme_override_o))
+                .post(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
                 .body(did_document_jcs)
                 .send()
                 .await
@@ -475,7 +474,7 @@ impl Wallet for SoftwareWallet {
             // HTTP PUT is for DID update operation.
             REQWEST_CLIENT
                 .clone()
-                .put(did.resolution_url(http_scheme_override_o))
+                .put(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
                 .body(updated_did_document_jcs)
                 .send()
                 .await

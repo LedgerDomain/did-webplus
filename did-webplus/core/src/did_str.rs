@@ -1,5 +1,5 @@
 use crate::{
-    DIDFullyQualified, DIDResource, DIDWebplusURIComponents, DIDWithQuery, Error, Fragment,
+    DIDFullyQualified, DIDResource, DIDURIComponents, DIDWithQuery, Error, Fragment,
     HTTPSchemeOverride,
 };
 use std::fmt::Write;
@@ -20,8 +20,8 @@ impl DIDStr {
         ))
         .expect("programmer error")
     }
-    fn uri_components(&self) -> DIDWebplusURIComponents {
-        DIDWebplusURIComponents::try_from(self.as_str()).expect(
+    fn uri_components(&self) -> DIDURIComponents {
+        DIDURIComponents::try_from(self.as_str()).expect(
             "programmer error: this should not fail due to guarantees in construction of DID",
         )
     }
@@ -135,168 +135,17 @@ impl DIDStr {
         url.push_str("/did-documents.jsonl");
         url
     }
-    /// Produce the URL that addresses the DID document for this DID that has the given self-hash.
-    pub fn resolution_url_for_self_hash(
-        &self,
-        self_hash: &mbx::MBHashStr,
-        http_scheme_override_o: Option<&HTTPSchemeOverride>,
-    ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
-            http_scheme_override_o,
-            self.hostname(),
-        )
-        .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.hostname());
-        if let Some(port) = self.port_o() {
-            url.write_fmt(format_args!(":{}", port)).unwrap();
-        }
-        url.push('/');
-        if let Some(path) = self.path_o().as_deref() {
-            url.push_str(&path.replace(':', "/"));
-            url.push('/');
-        }
-        url.push_str(self.root_self_hash().as_str());
-        url.push_str("/did/selfHash/");
-        url.push_str(self_hash.as_str());
-        url.push_str(".json");
-        url
-    }
-    /// Produce the URL that addresses the DID document for this DID that has the given version ID.
-    pub fn resolution_url_for_version_id(
-        &self,
-        version_id: u32,
-        http_scheme_override_o: Option<&HTTPSchemeOverride>,
-    ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
-            http_scheme_override_o,
-            self.hostname(),
-        )
-        .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.hostname());
-        if let Some(port) = self.port_o() {
-            url.write_fmt(format_args!(":{}", port)).unwrap();
-        }
-        url.push('/');
-        if let Some(path) = self.path_o().as_deref() {
-            url.push_str(&path.replace(':', "/"));
-            url.push('/');
-        }
-        url.push_str(self.root_self_hash().as_str());
-        url.push_str("/did/versionId/");
-        url.push_str(&format!("{}.json", version_id));
-        url
-    }
-    /// Produce the URL that addresses the current DID document metadata for this DID.
-    pub fn resolution_url_for_metadata_current(
-        &self,
-        http_scheme_override_o: Option<&HTTPSchemeOverride>,
-    ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
-            http_scheme_override_o,
-            self.hostname(),
-        )
-        .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.hostname());
-        if let Some(port) = self.port_o() {
-            url.write_fmt(format_args!(":{}", port)).unwrap();
-        }
-        url.push('/');
-        if let Some(path) = self.path_o().as_deref() {
-            url.push_str(&path.replace(':', "/"));
-            url.push('/');
-        }
-        url.push_str(self.root_self_hash().as_str());
-        url.push_str("/did/metadata.json");
-        url
-    }
-    /// Produce the URL that addresses the constant DID document metadata for this DID
-    /// (in particular, this includes DID creation timestamp).
-    pub fn resolution_url_for_metadata_constant(
-        &self,
-        http_scheme_override_o: Option<&HTTPSchemeOverride>,
-    ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
-            http_scheme_override_o,
-            self.hostname(),
-        )
-        .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.hostname());
-        if let Some(port) = self.port_o() {
-            url.write_fmt(format_args!(":{}", port)).unwrap();
-        }
-        url.push('/');
-        if let Some(path) = self.path_o().as_deref() {
-            url.push_str(&path.replace(':', "/"));
-            url.push('/');
-        }
-        url.push_str(self.root_self_hash().as_str());
-        url.push_str("/did/metadata/constant.json");
-        url
-    }
-    /// Produce the URL that addresses the idempotent portion of the DID document metadata for
-    /// this DID that has the given self-hash.
-    pub fn resolution_url_for_metadata_idempotent_for_self_hash(
-        &self,
-        self_hash: &mbx::MBHashStr,
-        http_scheme_override_o: Option<&HTTPSchemeOverride>,
-    ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
-            http_scheme_override_o,
-            self.hostname(),
-        )
-        .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.hostname());
-        if let Some(port) = self.port_o() {
-            url.write_fmt(format_args!(":{}", port)).unwrap();
-        }
-        url.push('/');
-        if let Some(path) = self.path_o().as_deref() {
-            url.push_str(&path.replace(':', "/"));
-            url.push('/');
-        }
-        url.push_str(self.root_self_hash().as_str());
-        url.push_str("/did/metadata/selfHash/");
-        url.push_str(self_hash.as_str());
-        url.push_str(".json");
-        url
-    }
-    /// Produce the URL that addresses the idempotent portion of the DID document metadata for this
-    /// DID that has the given version ID.
-    pub fn resolution_url_for_metadata_idempotent_for_version_id(
-        &self,
-        version_id: u32,
-        http_scheme_override_o: Option<&HTTPSchemeOverride>,
-    ) -> String {
-        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
-            http_scheme_override_o,
-            self.hostname(),
-        )
-        .unwrap();
-        let mut url = format!("{}://{}", http_scheme, self.hostname());
-        if let Some(port) = self.port_o() {
-            url.write_fmt(format_args!(":{}", port)).unwrap();
-        }
-        url.push('/');
-        if let Some(path) = self.path_o().as_deref() {
-            url.push_str(&path.replace(':', "/"));
-            url.push('/');
-        }
-        url.push_str(self.root_self_hash().as_str());
-        url.push_str("/did/metadata/versionId/");
-        url.push_str(&format!("{}.json", version_id));
-        url
-    }
 }
 
 impl pneutype::Validate for DIDStr {
     type Data = str;
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
-        let did_webplus_uri_components = DIDWebplusURIComponents::try_from(data)?;
-        if did_webplus_uri_components.has_query() {
+        let did_uri_components = DIDURIComponents::try_from(data)?;
+        if did_uri_components.has_query() {
             return Err(Error::Malformed("DID must not have a query"));
         }
-        if did_webplus_uri_components.has_fragment() {
+        if did_uri_components.has_fragment() {
             return Err(Error::Malformed("DID must not have a fragment"));
         }
         Ok(())

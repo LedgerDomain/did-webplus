@@ -1,7 +1,7 @@
 use crate::{parse_did_query_params, Error};
 
 #[derive(Debug)]
-pub struct DIDWebplusURIComponents<'a> {
+pub struct DIDURIComponents<'a> {
     pub hostname: &'a str,
     pub port_o: Option<u16>,
     pub path_o: Option<&'a str>,
@@ -13,7 +13,7 @@ pub struct DIDWebplusURIComponents<'a> {
     pub fragment_o: Option<&'a str>,
 }
 
-impl<'a> DIDWebplusURIComponents<'a> {
+impl<'a> DIDURIComponents<'a> {
     pub fn has_query(&self) -> bool {
         self.query_self_hash_o.is_some() || self.query_version_id_o.is_some()
     }
@@ -22,7 +22,7 @@ impl<'a> DIDWebplusURIComponents<'a> {
     }
 }
 
-impl<'a> std::fmt::Display for DIDWebplusURIComponents<'a> {
+impl<'a> std::fmt::Display for DIDURIComponents<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "did:webplus:{}", self.hostname)?;
         if let Some(port) = self.port_o {
@@ -55,7 +55,7 @@ impl<'a> std::fmt::Display for DIDWebplusURIComponents<'a> {
 
 // TODO: Consider making a version of this that assumes that checks the constraints in debug_assert
 // but otherwise assumes that the constraints are already satisfied, so it's faster to parse.
-impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
+impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
     type Error = Error;
     fn try_from(s: &'a str) -> Result<Self, Self::Error> {
         if !s.starts_with("did:webplus:") {

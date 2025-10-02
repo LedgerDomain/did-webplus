@@ -68,8 +68,7 @@ impl DIDDocument {
             did_port_o,
             did_path_o,
             self_hash_placeholder.as_ref(),
-        )
-        .expect("pass");
+        )?;
         let self_hash_placeholder = self_hash_placeholder.into_owned();
         Ok(Self {
             did: did.clone(),

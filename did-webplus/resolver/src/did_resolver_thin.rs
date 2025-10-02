@@ -71,19 +71,28 @@ impl DIDResolver for DIDResolverThin {
             panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverThin");
         }
 
-        let resolution_url = {
-            let mut resolution_url = self.vdg_base_url.clone();
-            resolution_url.path_segments_mut().unwrap().push("webplus");
-            resolution_url.path_segments_mut().unwrap().push("v1");
-            resolution_url.path_segments_mut().unwrap().push("resolve");
+        let vdg_resolution_url = {
+            let mut vdg_resolution_url = self.vdg_base_url.clone();
+            vdg_resolution_url
+                .path_segments_mut()
+                .unwrap()
+                .push("webplus");
+            vdg_resolution_url.path_segments_mut().unwrap().push("v1");
+            vdg_resolution_url
+                .path_segments_mut()
+                .unwrap()
+                .push("resolve");
             // Note that `push` will percent-encode did_query!
-            resolution_url.path_segments_mut().unwrap().push(did_query);
-            tracing::debug!("DID resolution URL: {}", resolution_url);
-            resolution_url
+            vdg_resolution_url
+                .path_segments_mut()
+                .unwrap()
+                .push(did_query);
+            tracing::debug!("DID resolution URL: {}", vdg_resolution_url);
+            vdg_resolution_url
         };
         // TODO: Consolidate all the REQWEST_CLIENT-s
         let response = REQWEST_CLIENT
-            .get(resolution_url)
+            .get(vdg_resolution_url)
             .send()
             .await
             .map_err(|e| {

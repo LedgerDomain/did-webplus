@@ -1,4 +1,4 @@
-use crate::{DIDFullyQualifiedStr, DIDWebplusURIComponents, Error};
+use crate::{DIDFullyQualifiedStr, DIDURIComponents, Error};
 
 /// A DIDFullyQualified is a DID that has query params selfHash and versionId specified.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
@@ -27,7 +27,7 @@ impl DIDFullyQualified {
             ));
         }
 
-        let s = DIDWebplusURIComponents {
+        let s = DIDURIComponents {
             hostname,
             port_o,
             path_o,

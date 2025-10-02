@@ -1,7 +1,6 @@
 use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
 use std::{
     collections::HashMap,
-    ops::Deref,
     sync::{Arc, RwLock},
 };
 
@@ -43,18 +42,16 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
     let alice_did = alice_wallet
         .create_did("fancy.net".to_string(), None, did_path_o)
         .expect("pass");
-    let alice_did_url = if let Some(alice_did_path) = alice_did.path_o().as_ref() {
-        format!(
-            "http://localhost:8085/{}/{}/did.json",
-            alice_did_path,
-            alice_did.root_self_hash()
-        )
-    } else {
-        format!(
-            "http://localhost:8085/{}/did.json",
-            alice_did.root_self_hash()
-        )
-    };
+
+    // The replace calls are hacky, but effective.
+    let alice_did_documents_jsonl_url = alice_did
+        .resolution_url_for_did_documents_jsonl(http_scheme_override_o)
+        .replace("fancy.net", "localhost:8085")
+        .replace("https", "http");
+    println!(
+        "alice_did_documents_jsonl_url {}",
+        alice_did_documents_jsonl_url
+    );
     // Hacky way to test the actual VDR, which is assumed be running in a separate process.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
     {
@@ -71,7 +68,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
         );
         assert_eq!(
             test_util::REQWEST_CLIENT
-                .post(&alice_did_url)
+                .post(&alice_did_documents_jsonl_url)
                 // This is probably ok for now, because the self-sign-and-hash verification process will
                 // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
                 .json(&alice_did_document)
@@ -82,10 +79,10 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
             reqwest::StatusCode::OK
         );
     }
-    // Resolve the DID
+    // Fetch all DID documents for this DID.
     assert_eq!(
         test_util::REQWEST_CLIENT
-            .get(&alice_did_url)
+            .get(&alice_did_documents_jsonl_url)
             .send()
             .await
             .expect("pass")
@@ -111,7 +108,7 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
             );
             assert_eq!(
                 test_util::REQWEST_CLIENT
-                    .put(&alice_did_url)
+                    .put(&alice_did_documents_jsonl_url)
                     // This is probably ok for now, because the self-sign-and-hash verification process will
                     // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
                     .json(&alice_did_document)
@@ -121,54 +118,9 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
                     .status(),
                 reqwest::StatusCode::OK
             );
-            // Resolve the DID
-            println!("alice_did_url: {}", alice_did_url);
-            // The replace calls are hacky, but effective.
-            let alice_did_url_self_hash = alice_did
-                .resolution_url_for_self_hash(
-                    alice_did_document.self_hash.deref(),
-                    http_scheme_override_o,
-                )
-                .replace("fancy.net", "localhost:8085")
-                .replace("https", "http");
-            println!(
-                "alice_did_url with query self-hash: {}",
-                alice_did_url_self_hash
-            );
-            // The replace calls are hacky, but effective.
-            let alice_did_url_version_id = alice_did
-                .resolution_url_for_version_id(
-                    alice_did_document.version_id,
-                    http_scheme_override_o,
-                )
-                .replace("fancy.net", "localhost:8085")
-                .replace("https", "http");
-            println!(
-                "alice_did_url with query version_id: {}",
-                alice_did_url_version_id
-            );
             assert_eq!(
                 test_util::REQWEST_CLIENT
-                    .get(&alice_did_url)
-                    .send()
-                    .await
-                    .expect("pass")
-                    .status(),
-                reqwest::StatusCode::OK
-            );
-            // Do some query-specific GETs
-            assert_eq!(
-                test_util::REQWEST_CLIENT
-                    .get(&alice_did_url_self_hash)
-                    .send()
-                    .await
-                    .expect("pass")
-                    .status(),
-                reqwest::StatusCode::OK
-            );
-            assert_eq!(
-                test_util::REQWEST_CLIENT
-                    .get(&alice_did_url_version_id)
+                    .get(&alice_did_documents_jsonl_url)
                     .send()
                     .await
                     .expect("pass")
