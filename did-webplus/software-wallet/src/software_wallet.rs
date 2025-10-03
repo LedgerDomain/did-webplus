@@ -1,7 +1,7 @@
 use crate::REQWEST_CLIENT;
 use did_webplus_core::{
-    DIDDocument, DIDFullyQualified, DIDStr, KeyPurpose, KeyPurposeFlags, RootLevelUpdateRules,
-    UpdateKey,
+    now_utc_milliseconds, DIDDocument, DIDFullyQualified, DIDStr, KeyPurpose, KeyPurposeFlags,
+    RootLevelUpdateRules, UpdateKey,
 };
 use did_webplus_wallet::{Error, Result, Wallet};
 use did_webplus_wallet_store::{
@@ -152,7 +152,7 @@ impl Wallet for SoftwareWallet {
         };
 
         // Generate an appropriate set of keys.  Record the creation timestamp.
-        let now_utc = time::OffsetDateTime::now_utc();
+        let now_utc = now_utc_milliseconds();
         // TODO: Somehow iterate?
         let priv_key_m = enum_map::enum_map! {
             KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
@@ -258,7 +258,11 @@ impl Wallet for SoftwareWallet {
         // Store the priv keys
         for key_purpose in KeyPurpose::VARIANTS {
             let pub_key = pub_key_m[key_purpose].clone();
-            let hashed_pub_key = format!("PlaceholderHash({})", pub_key).to_string();
+            let hashed_pub_key = {
+                let mut hasher = blake3::Hasher::new();
+                hasher.update(pub_key.as_bytes());
+                mbx::MBHash::from_blake3(mbx::Base::Base64Url, hasher)
+            };
             let max_usage_count_o = if key_purpose == KeyPurpose::UpdateDIDDocument {
                 Some(1)
             } else {
@@ -272,7 +276,7 @@ impl Wallet for SoftwareWallet {
                     &self.ctx,
                     PrivKeyRecord {
                         pub_key,
-                        hashed_pub_key,
+                        hashed_pub_key: hashed_pub_key.to_string(),
                         did_restriction_o: Some(did.to_string()),
                         key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
                         created_at: now_utc,
@@ -318,7 +322,7 @@ impl Wallet for SoftwareWallet {
         let latest_did_document = self.fetch_did_internal(did, http_scheme_override_o).await?;
 
         // Rotate the appropriate set of keys.  Record the creation timestamp.
-        let now_utc = time::OffsetDateTime::now_utc();
+        let now_utc = now_utc_milliseconds();
         // TODO: Somehow iterate?
         let priv_key_m = enum_map::enum_map! {
             KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
@@ -486,7 +490,11 @@ impl Wallet for SoftwareWallet {
         // Store the priv keys
         for key_purpose in KeyPurpose::VARIANTS {
             let pub_key = pub_key_m[key_purpose].clone();
-            let hashed_pub_key = format!("PlaceholderHash({})", pub_key);
+            let hashed_pub_key = {
+                let mut hasher = blake3::Hasher::new();
+                hasher.update(pub_key.as_bytes());
+                mbx::MBHash::from_blake3(mbx::Base::Base64Url, hasher)
+            };
             let max_usage_count_o = if key_purpose == KeyPurpose::UpdateDIDDocument {
                 Some(1)
             } else {
@@ -502,7 +510,7 @@ impl Wallet for SoftwareWallet {
                     &self.ctx,
                     PrivKeyRecord {
                         pub_key,
-                        hashed_pub_key,
+                        hashed_pub_key: hashed_pub_key.to_string(),
                         did_restriction_o: Some(did.to_string()),
                         key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
                         created_at: now_utc,

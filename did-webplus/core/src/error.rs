@@ -11,8 +11,6 @@ pub enum Error {
     InvalidDIDCreateOperation(&'static str),
     #[error("Invalid did:webplus update operation: {0}")]
     InvalidDIDUpdateOperation(&'static str),
-    #[error("Invalid self-signature or self-hash: {0}")]
-    InvalidSelfSignatureOrSelfHash(&'static str),
     #[error("Malformed: {0}")]
     Malformed(&'static str),
     #[error("Malformed {0} method: {1}")]

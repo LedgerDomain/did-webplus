@@ -4,7 +4,9 @@ use crate::db::{
     Index, IndexedRowT, OnConflict, RowId, RowT, SigilT, Table, TableError, TableResult,
     TableWithPrimaryKey,
 };
-use did_webplus_core::{DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, DID};
+use did_webplus_core::{
+    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, DID,
+};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter};
 use did_webplus_wallet_store::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter,
@@ -460,7 +462,7 @@ impl WalletStorageMockState {
         self.priv_keys_table
             .update(&(wallets_row_id, pub_key), |row| {
                 let mut row = row.clone();
-                row.deleted_at_o = Some(time::OffsetDateTime::now_utc());
+                row.deleted_at_o = Some(now_utc_milliseconds());
                 Ok(row)
             })?;
         Ok(())

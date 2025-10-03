@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.80"
+blake3 = "1.8.2"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-resolver = { path = "../resolver" }
@@ -17,7 +18,7 @@ did-webplus-wallet-store = { path = "../wallet-store" }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 enum-map = "2.7.3"
 lazy_static = "1.4.0"
-mbx = "0.1.0"
+mbx = { version = "0.1.0", features = ["blake3"] }
 rand = "0.8"
 reqwest = { version = "0.12.5", features = ["json"] }
 selfhash = "0.5.0"

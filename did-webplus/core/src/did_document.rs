@@ -39,11 +39,12 @@ pub struct DIDDocument {
     #[serde(rename = "proofs")]
     #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::new")]
     pub proof_v: Vec<String>,
-    /// This defines the timestamp at which this DID document becomes valid.
+    /// This defines the timestamp at which this DID document becomes valid.  Note that in order to
+    /// be interoperable with other implementations (specifically javascript-based ones), this MUST have
+    /// precision no greater than milliseconds.
     #[serde(rename = "validFrom")]
     #[serde(with = "time::serde::rfc3339")]
     pub valid_from: time::OffsetDateTime,
-    // TODO: Could have a planned expiration date for short-lived DID document durations.
     /// This should be exactly 1 greater than the previous DID document's version_id.
     #[serde(rename = "versionId")]
     pub version_id: u32,
@@ -62,6 +63,11 @@ impl DIDDocument {
         public_key_set: PublicKeySet<&'a mbx::MBPubKey>,
         hash_function: &impl selfhash::HashFunctionT<mbx::MBHashStr>,
     ) -> Result<Self> {
+        if valid_from.nanosecond() % 1_000_000 != 0 {
+            return Err(Error::Malformed(
+                "valid_from must have precision no greater than milliseconds",
+            ));
+        }
         let self_hash_placeholder = hash_function.placeholder_hash();
         let did = DID::new(
             did_hostname,
@@ -92,6 +98,11 @@ impl DIDDocument {
         if prev_did_document.self_hash.deref().is_placeholder() {
             return Err(Error::Malformed(
                 "Previous DID document self-hash is a placeholder",
+            ));
+        }
+        if valid_from.nanosecond() % 1_000_000 != 0 {
+            return Err(Error::Malformed(
+                "valid_from must have precision no greater than milliseconds",
             ));
         }
         let did = prev_did_document.did.clone();
@@ -172,7 +183,14 @@ impl DIDDocument {
         // Check that self.valid_from is not before the UNIX epoch.
         if self.valid_from < time::OffsetDateTime::UNIX_EPOCH {
             return Err(Error::Malformed(
-                "Non-root DID document's valid_from must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
+                "DID document's valid_from must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
+            ));
+        }
+
+        // Check that valid_from has precision no greater than milliseconds.
+        if self.valid_from.nanosecond() % 1_000_000 != 0 {
+            return Err(Error::Malformed(
+                "DID document's valid_from must have precision no greater than milliseconds",
             ));
         }
 
@@ -224,14 +242,21 @@ impl DIDDocument {
         // Check that self.valid_from is not before the UNIX epoch.
         if self.valid_from < time::OffsetDateTime::UNIX_EPOCH {
             return Err(Error::Malformed(
-                "Non-root DID document's valid_from must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
+                "DID document's valid_from must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
+            ));
+        }
+
+        // Check that valid_from has precision no greater than milliseconds.
+        if self.valid_from.nanosecond() % 1_000_000 != 0 {
+            return Err(Error::Malformed(
+                "DID document's valid_from must have precision no greater than milliseconds",
             ));
         }
 
         // Check monotonicity of version_time.
         if self.valid_from <= expected_prev_did_document.valid_from {
             return Err(Error::Malformed(
-                "Non-initial DID document must have version_time > prev_did_document.version_time",
+                "Non-root DID document must have version_time > prev_did_document.version_time",
             ));
         }
         // Check strict succession of version_id.

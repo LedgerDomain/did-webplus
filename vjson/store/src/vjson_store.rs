@@ -1,5 +1,6 @@
 use crate::{
-    error_invalid_vjson, error_record_corruption, vjson_record::VJSONRecord, Result, VJSONStorage,
+    error_invalid_vjson, error_record_corruption, now_utc_milliseconds, vjson_record::VJSONRecord,
+    Result, VJSONStorage,
 };
 use std::sync::Arc;
 use vjson_core::{VJSONResolver, Validate, DEFAULT_SCHEMA};
@@ -35,7 +36,7 @@ impl VJSONStore {
         let mut transaction_b = vjson_storage_a.begin_transaction().await?;
         let vjson_record = VJSONRecord {
             self_hash: DEFAULT_SCHEMA.self_hash.clone(),
-            added_at: time::OffsetDateTime::now_utc(),
+            added_at: now_utc_milliseconds(),
             vjson_jcs: DEFAULT_SCHEMA.jcs.clone(),
         };
         vjson_storage_a
@@ -72,7 +73,7 @@ impl VJSONStore {
         // Now that it's verified, JCS-serialize it for storage.
         let vjson_record = VJSONRecord {
             self_hash: self_hash.clone(),
-            added_at: time::OffsetDateTime::now_utc(),
+            added_at: now_utc_milliseconds(),
             vjson_jcs: serde_json_canonicalizer::to_string(&vjson_value).unwrap(),
         };
         tracing::trace!(

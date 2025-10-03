@@ -1,8 +1,8 @@
 use std::{collections::HashMap, ops::Deref};
 
 use did_webplus_core::{
-    DIDDocument, DIDKeyResourceFullyQualified, Error, KeyPurpose, MicroledgerView, PublicKeySet,
-    RootLevelUpdateRules, UpdateKey, DID,
+    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualified, Error, KeyPurpose,
+    MicroledgerView, PublicKeySet, RootLevelUpdateRules, UpdateKey, DID,
 };
 use signature_dyn::SignerDynT;
 
@@ -37,7 +37,7 @@ impl ControlledDID {
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
             pub_key: update_pub_key.clone(),
         });
-        let valid_from = time::OffsetDateTime::now_utc();
+        let valid_from = now_utc_milliseconds();
         let public_key_set = PublicKeySet {
             authentication_v: current_public_key_set.authentication_v.iter().collect(),
             assertion_method_v: current_public_key_set.assertion_method_v.iter().collect(),
@@ -98,7 +98,7 @@ impl ControlledDID {
         let next_update_rules = RootLevelUpdateRules::from(UpdateKey {
             pub_key: next_update_pub_key.clone(),
         });
-        let valid_from = time::OffsetDateTime::now_utc();
+        let valid_from = now_utc_milliseconds();
         let public_key_set = PublicKeySet {
             authentication_v: new_public_key_set.authentication_v.iter().collect(),
             assertion_method_v: new_public_key_set.assertion_method_v.iter().collect(),

@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use did_webplus_core::{
-    DIDDocument, DIDKeyResourceFullyQualified, PublicKeySet, RootLevelUpdateRules, UpdateKey,
+    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualified, PublicKeySet,
+    RootLevelUpdateRules, UpdateKey,
 };
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -142,12 +143,14 @@ fn test_root_did_document_sign_and_verify() {
     for did_port_o in [None, Some(3000)] {
         for did_path_o in [None, Some("user")] {
             // Create the root DID document.
+
+            use did_webplus_core::now_utc_milliseconds;
             let mut root_did_document = DIDDocument::create_unsigned_root(
                 did_hostname,
                 did_port_o,
                 did_path_o,
                 update_rules.clone(),
-                time::OffsetDateTime::now_utc(),
+                now_utc_milliseconds(),
                 PublicKeySet {
                     authentication_v: vec![&pub_key],
                     assertion_method_v: vec![&pub_key],
@@ -188,6 +191,10 @@ fn test_root_did_document_sign_and_verify() {
 #[test]
 #[serial_test::serial]
 fn test_did_update_sign_and_verify() {
+    use did_webplus_core::now_utc_milliseconds;
+
+    println!("# Example: DID Microledger\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_did_update_sign_and_verify\n\n## Example DID Documents\n\nHere is an example of the DID documents in the microledger for a DID.\n\nRoot DID document (`versionId` 0):\n");
+
     let update_signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let update_verifying_key_0 = update_signing_key_0.verifying_key();
     // Determine the update rules; just the one key, and just use did:key to identify it.
@@ -212,7 +219,7 @@ fn test_did_update_sign_and_verify() {
         None,
         None,
         update_rules,
-        time::OffsetDateTime::now_utc(),
+        now_utc_milliseconds(),
         PublicKeySet {
             authentication_v: vec![&pub_key_0],
             assertion_method_v: vec![&pub_key_0],
@@ -224,14 +231,6 @@ fn test_did_update_sign_and_verify() {
     )
     .expect("pass");
 
-    // Sign the root DID document.
-    let jws = root_did_document
-        .sign(update_pub_key_0.to_string(), &update_signing_key_0)
-        .expect("pass");
-
-    // Add the proof to the DID document.
-    root_did_document.add_proof(jws.into_string());
-
     // Finalize the root DID document.
     root_did_document.finalize(None).expect("pass");
 
@@ -239,7 +238,7 @@ fn test_did_update_sign_and_verify() {
     root_did_document.verify_root_nonrecursive().expect("pass");
 
     println!(
-        "root did_document:\n{}",
+        "```json\n{}\n```\n\nNote that the `proofs` field is omitted since no proofs are required for the root DID document.  However, they MAY be present.\n\nNext DID Document (`versionId` 1), in particular having new `updateRules`:\n",
         serde_json::to_string_pretty(&root_did_document).unwrap()
     );
 
@@ -267,7 +266,7 @@ fn test_did_update_sign_and_verify() {
     let mut did_document_1 = DIDDocument::create_unsigned_non_root(
         &root_did_document,
         update_rules,
-        time::OffsetDateTime::now_utc(),
+        now_utc_milliseconds(),
         PublicKeySet {
             authentication_v: vec![&pub_key_1],
             assertion_method_v: vec![&pub_key_0],
@@ -285,7 +284,7 @@ fn test_did_update_sign_and_verify() {
         .expect("pass");
 
     // Add the proof to the DID document.
-    did_document_1.add_proof(jws.into_string());
+    did_document_1.add_proof(jws.to_string());
 
     // Finalize the DID document.
     did_document_1
@@ -298,9 +297,13 @@ fn test_did_update_sign_and_verify() {
         .expect("pass");
 
     println!(
-        "did_document_1:\n{}",
+        "```json\n{}\n```\n",
         serde_json::to_string_pretty(&did_document_1).unwrap()
     );
+
+    {
+        println!("Note that the element in the `proofs` field is a JWS whose header decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(jws.header()).unwrap());
+    }
     {
         use selfhash::HashFunctionT;
         let mut hasher = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url).new_hasher();
@@ -308,7 +311,7 @@ fn test_did_update_sign_and_verify() {
         hasher.update(update_pub_key_0.as_bytes());
         let hashed_pub_key = hasher.finalize();
         println!(
-            "Note that the hash of update_pub_key_0 is: {} which should match the \"hashedKey\" field of the root did_document update rules",
+            "Note that the hash of the `kid` field of the JWS header is `{}` which should match the `hashedKey` field of the previous DID Document's `updateRules`.\n",
             hashed_pub_key
         );
     }
@@ -320,7 +323,7 @@ fn test_did_update_sign_and_verify() {
     let mut did_document_2 = DIDDocument::create_unsigned_non_root(
         &did_document_1,
         update_rules,
-        time::OffsetDateTime::now_utc(),
+        now_utc_milliseconds(),
         PublicKeySet {
             authentication_v: vec![],
             assertion_method_v: vec![],
@@ -338,7 +341,7 @@ fn test_did_update_sign_and_verify() {
         .expect("pass");
 
     // Add the proof to the DID document.
-    did_document_2.add_proof(jws.into_string());
+    did_document_2.add_proof(jws.to_string());
 
     // Finalize the DID document.
     did_document_2
@@ -351,8 +354,9 @@ fn test_did_update_sign_and_verify() {
         .expect("pass");
 
     println!(
-        "did_document_2:\n{}",
-        serde_json::to_string_pretty(&did_document_2).unwrap()
+        "Next DID Document (`versionId` 2), which shows how to deactivate a DID by setting `updateRules` to `{{}}`:\n\n```json\n{}\n```\n\nRemoving all verification methods from a deactivated DID is RECOMMENDED so that no unrevocable keys are left in the DID document, but is not required.  Note that the element in the `proofs` field is a JWS whose header decodes as:\n\n```json\n{}\n```\n\nNote that the `kid` field of the JWS header matches the `key` field of the previous DID Document's `updateRules`.\n", 
+        serde_json::to_string_pretty(&did_document_2).unwrap(),
+        serde_json::to_string_pretty(jws.header()).unwrap()
     );
 }
 
@@ -378,7 +382,7 @@ fn test_signature_generation_with_witness() {
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_0);
     let mut priv_jwk_0 = priv_jwk_from_ed25519_signing_key(&signing_key_0);
 
-    println!("# Example: Signature Generation With Witness\n\nThis example can be run via command:\n\n    cargo test --all-features -- --nocapture test_signature_generation_with_witness\n\nBy specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.\n");
+    println!("# Example: Signature Generation With Witness\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_signature_generation_with_witness\n\nBy specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.\n");
 
     // TODO: Other key types
     {
@@ -387,7 +391,7 @@ fn test_signature_generation_with_witness() {
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
             pub_key: pub_key_0.clone(),
         });
-        let now_utc = time::OffsetDateTime::now_utc();
+        let now_utc = now_utc_milliseconds();
         let mut did_document_0 = DIDDocument::create_unsigned_root(
             "example.com",
             None,

@@ -83,3 +83,14 @@ pub type RelativeKeyResourceStr = RelativeResourceStr<str>;
 pub type DIDKeyResource = DIDResource<str>;
 pub type DIDKeyResourceFullyQualified = DIDResourceFullyQualified<str>;
 pub type DIDKeyResourceFullyQualifiedStr = DIDResourceFullyQualifiedStr<str>;
+
+/// This function returns the current time in UTC with millisecond precision.  This precision
+/// limit is required for interoperability with javascript systems (see
+/// <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now>).
+pub fn now_utc_milliseconds() -> time::OffsetDateTime {
+    let now_utc = time::OffsetDateTime::now_utc();
+    let milliseconds = now_utc.millisecond();
+    let now_utc = now_utc.replace_millisecond(milliseconds).unwrap();
+    assert_eq!(now_utc.nanosecond() % 1_000_000, 0);
+    now_utc
+}

@@ -63,12 +63,12 @@ impl DIDDocRecord {
             return Err(Error::RecordCorruption(format!("Parsed DID doc \"versionId\" field {} doesn't match stored record's version_id {}", did_document.version_id, self.version_id).into(), self.self_hash.to_string().into()));
         }
 
-        // TEMP HACK -- allow up to a millisecond difference.
-        let valid_from_error = (did_document.valid_from - self.valid_from).abs();
-        // if did_document.valid_from != self.valid_from {
-        if valid_from_error > std::time::Duration::from_millis(1) {
-            return Err(Error::RecordCorruption(format!("Parsed DID doc \"validFrom\" field {} differs from stored record's valid_from {} by {} (which is above the allowed threshold of 1 millisecond)", did_document.valid_from, self.valid_from, valid_from_error).into(), self.self_hash.to_string().into()));
-            // return Err(Error::RecordCorruption(format!("Parsed DID doc \"validFrom\" field {} doesn't match stored record's valid_from {}", did_document.valid_from, self.valid_from).into(), self.self_hash.to_string().into()));
+        if did_document.valid_from != self.valid_from {
+            return Err(Error::RecordCorruption(format!("Parsed DID doc \"validFrom\" field {} doesn't match stored record's valid_from {} (note that timestamps must have precision no greater than milliseconds for interoperability with javascript systems)", did_document.valid_from, self.valid_from).into(), self.self_hash.to_string().into()));
+        }
+
+        if did_document.valid_from.nanosecond() % 1_000_000 != 0 {
+            return Err(Error::RecordCorruption(format!("Parsed DID doc \"validFrom\" field {} exceeds millisecond precision (this limit is required for interoperability with javascript systems)", did_document.valid_from).into(), self.self_hash.to_string().into()));
         }
 
         if self.did_documents_jsonl_octet_length < self.did_document_jcs.len() as i64 + 1 {

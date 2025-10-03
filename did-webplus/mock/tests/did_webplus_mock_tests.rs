@@ -6,7 +6,7 @@ use std::{
 };
 
 use did_webplus_core::{
-    DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
+    now_utc_milliseconds, DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
     DIDKeyResourceFullyQualifiedStr, Error, KeyPurpose, MicroledgerMutView, MicroledgerView,
     PublicKeySet, RequestedDIDDocumentMetadata, RootLevelUpdateRules, UpdateKey,
 };
@@ -121,7 +121,7 @@ fn resolve_did_and_verify_jws<'r, 'p>(
 #[test]
 #[serial_test::serial]
 fn test_example_creating_and_updating_a_did() {
-    println!("# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n");
+    println!("# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-mock --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n");
 
     let update_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let update_pub_key_0 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
@@ -150,7 +150,7 @@ fn test_example_creating_and_updating_a_did() {
             None,
             Some("hey"),
             update_rules,
-            time::OffsetDateTime::now_utc(),
+            now_utc_milliseconds(),
             PublicKeySet {
                 authentication_v: vec![&pub_key_0],
                 assertion_method_v: vec![&pub_key_0],
@@ -210,7 +210,7 @@ fn test_example_creating_and_updating_a_did() {
         let mut new_did_document = DIDDocument::create_unsigned_non_root(
             microledger.view().latest_did_document(),
             update_rules,
-            time::OffsetDateTime::now_utc(),
+            now_utc_milliseconds(),
             PublicKeySet {
                 authentication_v: vec![&pub_key_0, &pub_key_1],
                 assertion_method_v: vec![&pub_key_0],
@@ -293,7 +293,7 @@ fn test_example_creating_and_updating_a_did() {
         let mut new_did_document = DIDDocument::create_unsigned_non_root(
             microledger.view().latest_did_document(),
             update_rules,
-            time::OffsetDateTime::now_utc(),
+            now_utc_milliseconds(),
             PublicKeySet {
                 authentication_v: vec![&pub_key_0, &pub_key_1],
                 assertion_method_v: vec![&pub_key_0],
@@ -425,7 +425,7 @@ fn test_did_operations() {
         let verifier_bytes = signer_bytes.verifier_bytes().expect("pass");
         jws.verify(&verifier_bytes, None).expect("pass");
 
-        let jws_signing_time = time::OffsetDateTime::now_utc();
+        let jws_signing_time = now_utc_milliseconds();
         println!("jws_string: {}", jws);
 
         // Type-forget the JWS, so that it has to go through the whole code path from String.

@@ -1,6 +1,7 @@
 use crate::Resolver;
 use did_webplus_core::{
-    DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata, DID,
+    now_utc_milliseconds, DIDDocument, DIDDocumentMetadata, DIDStr, Error,
+    RequestedDIDDocumentMetadata, DID,
 };
 use std::{
     borrow::Cow,
@@ -476,7 +477,7 @@ impl MockVerifiedCache {
         // Retrieve the next through through_version_id_o DID documents from the VDR.  Use a timestamp from
         // directly before the request to the VDR to define microledger_current_as_of.
         // TODO: This timestamp has to come from the VDR!
-        let microledger_current_as_of = time::OffsetDateTime::now_utc();
+        let microledger_current_as_of = now_utc_milliseconds();
         let mut new_did_document_count = 0u32;
         let mut new_did_document_ib =
             resolver.get_did_documents(did, Some(version_id_begin), through_version_id_o)?;

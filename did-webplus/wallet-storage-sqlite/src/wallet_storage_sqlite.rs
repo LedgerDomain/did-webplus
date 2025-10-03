@@ -1,5 +1,7 @@
 use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageInsert, PrivKeyUsageSelect};
-use did_webplus_core::{DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags};
+use did_webplus_core::{
+    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags,
+};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, DIDDocStorage};
 use did_webplus_wallet_store::{
     Error, LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter,
@@ -614,7 +616,7 @@ impl WalletStorage for WalletStorageSQLite {
         ctx: &WalletStorageCtx,
         pub_key: &mbx::MBPubKeyStr,
     ) -> Result<()> {
-        let deleted_at_o = Some(time::OffsetDateTime::now_utc());
+        let deleted_at_o = Some(now_utc_milliseconds());
         let pub_key_str = pub_key.as_str();
         // This will only update if the priv key is not already deleted.
         let query = sqlx::query!(

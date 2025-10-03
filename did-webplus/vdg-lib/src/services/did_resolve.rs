@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use did_webplus_core::DID;
+use did_webplus_core::{now_utc_milliseconds, DID};
 use did_webplus_resolver::DIDResolver;
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
@@ -240,7 +240,7 @@ fn headers_for_did_document(
     cache_hit: bool,
 ) -> HeaderMap {
     let cache_control = format!("public, max-age={}, immutable", CACHE_DAYS * 24 * 60 * 60);
-    let expires = OffsetDateTime::now_utc() + time::Duration::days(CACHE_DAYS);
+    let expires = now_utc_milliseconds() + time::Duration::days(CACHE_DAYS);
     let expires_header = expires
         .format(&well_known::Rfc2822)
         .unwrap_or("".to_string());
