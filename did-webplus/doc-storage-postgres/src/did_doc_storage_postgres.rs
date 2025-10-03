@@ -289,48 +289,6 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
         };
         Ok(did_doc_record_v)
     }
-    async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> Result<u64> {
-        let query = sqlx::query!(
-            r#"
-                SELECT COALESCE(
-                    (
-                        SELECT did_documents_jsonl_octet_length
-                        FROM did_document_records
-                        WHERE did = $1
-                        ORDER BY version_id DESC
-                        LIMIT 1
-                    ),
-                    0
-                ) AS did_documents_jsonl_octet_length_o
-            "#,
-            did.as_str()
-        );
-        let did_documents_jsonl_octet_length = if let Some(transaction) = transaction_o {
-            query
-                .fetch_one(
-                    transaction
-                        .as_any_mut()
-                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Postgres>>()
-                        .unwrap()
-                        .as_mut(),
-                )
-                .await?
-                .did_documents_jsonl_octet_length_o
-                .unwrap()
-        } else {
-            query
-                .fetch_one(&self.pg_pool)
-                .await?
-                .did_documents_jsonl_octet_length_o
-                .unwrap()
-        };
-        let did_documents_jsonl_octet_length = did_documents_jsonl_octet_length as u64;
-        Ok(did_documents_jsonl_octet_length)
-    }
     async fn get_did_doc_records_for_did_documents_jsonl_range(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,

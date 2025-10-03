@@ -50,14 +50,6 @@ pub trait DIDDocStorage: Send + storage_traits::StorageDynT + Sync + 'static {
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did_doc_record_filter: &DIDDocRecordFilter,
     ) -> Result<Vec<DIDDocRecord>>;
-    /// Get the size, in bytes, of the did-documents.jsonl file for the given DID.  This file is the rendering
-    /// of all the DID documents in the store for the given DID, each rendered in its JCS form in a single line,
-    /// each with a trailing newline.
-    async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> Result<u64>;
     /// Get the DIDDocRecord-s whose DID documents' place in the did-documents.jsonl file for the given DID
     /// overlap with the specified range of bytes.  If None is provided for either range parameter, then it
     /// means "unbounded" In particular, if range_begin_inclusive_o is None, then the range starts at byte 0,

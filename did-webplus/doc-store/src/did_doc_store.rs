@@ -173,15 +173,6 @@ impl DIDDocStore {
             )
             .await
     }
-    pub async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> Result<u64> {
-        self.did_doc_storage_a
-            .get_known_did_documents_jsonl_octet_length(transaction_o, did)
-            .await
-    }
     pub async fn get_did_documents_jsonl_range(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,

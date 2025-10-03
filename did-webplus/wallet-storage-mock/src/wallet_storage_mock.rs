@@ -703,17 +703,6 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
         }
         Ok(did_doc_records)
     }
-    async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> did_webplus_doc_store::Result<u64> {
-        let state_g = self.state_la.read().unwrap();
-        Ok(state_g
-            .get_latest_did_document(did)?
-            .map(|(_, did_document_row)| did_document_row.did_documents_jsonl_octet_length)
-            .unwrap_or(0))
-    }
     async fn get_did_doc_records_for_did_documents_jsonl_range(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,

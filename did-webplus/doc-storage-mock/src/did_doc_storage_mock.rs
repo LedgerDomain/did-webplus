@@ -191,24 +191,6 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         let did_doc_record_v = state_g.get(did_doc_record_filter);
         Ok(did_doc_record_v)
     }
-    async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> Result<u64> {
-        let state_g = self.state_la.read().unwrap();
-        let did_doc_record_v = state_g.get(&DIDDocRecordFilter {
-            did_o: Some(did.to_string()),
-            ..Default::default()
-        });
-        let mut size = 0;
-        for did_doc_record in did_doc_record_v {
-            size += did_doc_record.did_document_jcs.len() as u64;
-            // One more byte for the trailing newline.
-            size += 1;
-        }
-        Ok(size)
-    }
     async fn get_did_doc_records_for_did_documents_jsonl_range(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
