@@ -2,19 +2,16 @@ use crate::VDGAppState;
 use axum::{
     extract::{Path, State},
     http::{
-        header::{self, CACHE_CONTROL, ETAG, EXPIRES, LAST_MODIFIED},
+        header::{self, CACHE_CONTROL, ETAG, LAST_MODIFIED},
         HeaderMap, HeaderValue, StatusCode,
     },
     routing::{get, post},
     Router,
 };
-use did_webplus_core::{now_utc_milliseconds, DID};
+use did_webplus_core::DID;
 use did_webplus_resolver::DIDResolver;
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
-
-// Perhaps make this configurable?
-const CACHE_DAYS: i64 = 365;
 
 pub fn get_routes(vdg_app_state: VDGAppState) -> Router {
     Router::new()
@@ -225,7 +222,7 @@ async fn resolve_did_impl(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok((
-        headers_for_did_document(
+        headers_for_did_documents_jsonl(
             did_doc_record.self_hash.as_str(),
             did_doc_record.valid_from,
             was_resolved_locally,
@@ -234,16 +231,19 @@ async fn resolve_did_impl(
     ))
 }
 
-fn headers_for_did_document(
+fn headers_for_did_documents_jsonl(
     hash: &str,
     last_modified: OffsetDateTime,
     cache_hit: bool,
 ) -> HeaderMap {
-    let cache_control = format!("public, max-age={}, immutable", CACHE_DAYS * 24 * 60 * 60);
-    let expires = now_utc_milliseconds() + time::Duration::days(CACHE_DAYS);
-    let expires_header = expires
-        .format(&well_known::Rfc2822)
-        .unwrap_or("".to_string());
+    // See <https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control>
+    // - public: Allow storage in a shared cache.
+    // - max-age=0 is a workaround for no-cache, because many old (HTTP/1.0) cache implementations
+    //   don't support no-cache.
+    // - no-cache: Correctness of DID resolution requires revalidation with VDR.
+    // - no-transform: Don't transform the response, since did-documents.jsonl must be
+    //   served exactly byte-for-byte.
+    let cache_control = format!("public, max-age=0, no-cache, no-transform");
     let last_modified_header = last_modified
         .format(&well_known::Rfc2822)
         .unwrap_or("".to_string());
@@ -253,14 +253,13 @@ fn headers_for_did_document(
         CACHE_CONTROL,
         HeaderValue::from_str(&cache_control).unwrap(),
     );
-    headers.insert(EXPIRES, HeaderValue::from_str(&expires_header).unwrap());
     headers.insert(
         LAST_MODIFIED,
         HeaderValue::from_str(&last_modified_header).unwrap(),
     );
     headers.insert(ETAG, HeaderValue::from_str(hash).unwrap());
     headers.insert(
-        "X-Cache-Hit",
+        "X-VDG-Cache-Hit",
         HeaderValue::from_static(if cache_hit { "true" } else { "false" }),
     );
 

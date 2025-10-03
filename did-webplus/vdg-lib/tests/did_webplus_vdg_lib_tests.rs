@@ -11,7 +11,7 @@ fn overall_init() {
     test_util::ctor_overall_init();
 }
 
-const CACHE_DAYS: u64 = 365;
+// const CACHE_DAYS: u64 = 365;
 
 fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDocument) {
     tracing::trace!("HTTP response headers: {:?}", headers);
@@ -20,13 +20,12 @@ fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDo
     assert!(headers.contains_key("Last-Modified"));
     assert!(headers.contains_key("ETag"));
     // This is a custom header that the VDG adds, mostly for testing purposes.
-    assert!(headers.contains_key("X-Cache-Hit"));
+    assert!(headers.contains_key("X-VDG-Cache-Hit"));
 
     let cache_control = headers.get("Cache-Control").unwrap().to_str().unwrap();
-    let max_age = CACHE_DAYS * 24 * 60 * 60;
     assert_eq!(
         cache_control,
-        format!("public, max-age={}, immutable", max_age)
+        format!("public, max-age=0, no-cache, no-transform")
     );
     assert_eq!(
         headers.get("ETag").unwrap().to_str().unwrap(),
@@ -206,7 +205,7 @@ async fn test_vdg_wallet_operations_impl(
         let alice_did_document =
             serde_json::from_str(response.text().await.expect("pass").as_str()).expect("pass");
         test_cache_headers(&response_headers, &alice_did_document);
-        assert!(response_headers["X-Cache-Hit"].to_str().unwrap() == "false");
+        assert!(response_headers["X-VDG-Cache-Hit"].to_str().unwrap() == "false");
     }
     // Run it again to make sure the VDG has cached stuff.
     let response: reqwest::Response = get_did_response(vdg_base_url, alice_did.as_str()).await;
@@ -215,7 +214,7 @@ async fn test_vdg_wallet_operations_impl(
     let alice_did_document =
         serde_json::from_str(response.text().await.expect("pass").as_str()).expect("pass");
     test_cache_headers(&response_headers, &alice_did_document);
-    assert!(response_headers["X-Cache-Hit"].to_str().unwrap() == "false");
+    assert!(response_headers["X-VDG-Cache-Hit"].to_str().unwrap() == "false");
 
     // Ask for a particular version that the VDG is known to have to see if it hits the VDR.
     let alice_did_version_id_query = format!("{}?versionId=3", alice_did);
@@ -227,7 +226,7 @@ async fn test_vdg_wallet_operations_impl(
         serde_json::from_str(response.text().await.expect("pass").as_str()).expect("pass");
     test_cache_headers(&response_headers, &alice_did_document);
     assert!(
-        response_headers["X-Cache-Hit"].to_str().unwrap() == "true",
+        response_headers["X-VDG-Cache-Hit"].to_str().unwrap() == "true",
         "response.headers: {:?}",
         response_headers
     );
@@ -244,7 +243,7 @@ async fn test_vdg_wallet_operations_impl(
         format!("{}?selfHash={}", alice_did, alice_did_document.self_hash);
     let response = get_did_response(vdg_base_url, &alice_did_self_hash_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
-    assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "true");
+    assert!(response.headers()["X-VDG-Cache-Hit"].to_str().unwrap() == "true");
 
     // Ask for both self-hash and version_id which are consistent.
     let alice_did_self_hash_version_query = format!(
@@ -253,7 +252,7 @@ async fn test_vdg_wallet_operations_impl(
     );
     let response = get_did_response(vdg_base_url, &alice_did_self_hash_version_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
-    assert!(response.headers()["X-Cache-Hit"].to_str().unwrap() == "true");
+    assert!(response.headers()["X-VDG-Cache-Hit"].to_str().unwrap() == "true");
 
     // Ask for both self-hash and version_id which are inconsistent.
     assert!(alice_did_document.version_id != 0);
@@ -296,7 +295,10 @@ async fn test_vdg_wallet_operations_impl(
     let response: reqwest::Response =
         get_did_response(vdg_base_url, &alice_did_version_id_query).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
-    assert_eq!(response.headers()["X-Cache-Hit"].to_str().unwrap(), "true");
+    assert_eq!(
+        response.headers()["X-VDG-Cache-Hit"].to_str().unwrap(),
+        "true"
+    );
 }
 
 async fn update_did(
