@@ -26,8 +26,8 @@ impl DID {
         Self::try_from(s)
     }
     /// Parse (the equivalent of) a did-documents.jsonl resolution URL (e.g.
-    /// "https://example.com:9999/<root-self-hash>/did-documents.jsonl") to produce a DID (in this
-    /// case, "did:webplus:example.com:9999/<root-self-hash>").
+    /// `https://example.com:9999/<root-self-hash>/did-documents.jsonl`) to produce a DID (in this
+    /// case, `did:webplus:example.com:9999/<root-self-hash>`).
     pub fn from_did_documents_jsonl_resolution_url(
         hostname: &str,
         port_o: Option<u16>,

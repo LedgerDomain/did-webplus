@@ -677,7 +677,7 @@ impl did_webplus_doc_store::DIDDocStorage for WalletStorageMock {
             .get_did_document_with_version_id(did, version_id)?
             .map(|(_, row)| DIDDocRecord::from(row)))
     }
-    async fn get_latest_did_doc_record(
+    async fn get_latest_known_did_doc_record(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,

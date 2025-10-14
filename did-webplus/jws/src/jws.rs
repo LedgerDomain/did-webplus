@@ -3,10 +3,10 @@ use base64::Engine;
 use std::{borrow::Cow, io::Write};
 
 /// This is the compact, encoded form of a JWS (JWS Compact Serialization).  Has the form:
-/// <base64url(JSON(header))>.<base64url(payload)>.<base64url(signature)> if encoded, attached payload,
-/// or <base64url(JSON(header))>.<payload>.<base64url(signature)> if unencoded, attached payload,
-/// or <base64url(JSON(header))>..<base64url(signature)> if detached payload,
-/// See RFC 7515 Section 7.1 https://datatracker.ietf.org/doc/html/rfc7515#section-7.1
+/// `<base64url(JSON(header))>.<base64url(payload)>.<base64url(signature)>` if encoded, attached payload,
+/// or `<base64url(JSON(header))>.<payload>.<base64url(signature)>` if unencoded, attached payload,
+/// or `<base64url(JSON(header))>..<base64url(signature)>` if detached payload,
+/// See RFC 7515 Section 7.1 <https://datatracker.ietf.org/doc/html/rfc7515#section-7.1>
 /// Here, base64url(x) is the base64url-no-pad encoding of x.
 // TODO: Impl Zeroize (how does this work with Cow?  Maybe it doesn't and Cow should not be used)
 #[derive(Clone, Debug)]
@@ -101,7 +101,7 @@ impl<'j> JWS<'j> {
         self.string.split('.').nth(2).unwrap()
     }
     /// This is the parsed signature.
-    pub fn signature_bytes(&self) -> &signature_dyn::SignatureBytes {
+    pub fn signature_bytes(&self) -> &signature_dyn::SignatureBytes<'_> {
         &self.signature_bytes
     }
     /// Generate a JWS Compact Serialization from the given header and payload, optionally encoding the given

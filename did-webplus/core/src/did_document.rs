@@ -1,7 +1,8 @@
 use std::ops::Deref;
 
 use crate::{
-    Error, PublicKeyMaterial, PublicKeySet, Result, RootLevelUpdateRules, ValidProofData, DID,
+    DID, Error, PublicKeyMaterial, PublicKeySet, Result, RootLevelUpdateRules, UpdatesDisallowed,
+    ValidProofData,
 };
 
 /// The generic data model for did:webplus DID documents.  There are additional constraints on the
@@ -136,6 +137,9 @@ impl DIDDocument {
     }
     pub fn is_root_did_document(&self) -> bool {
         self.prev_did_document_self_hash_o.is_none()
+    }
+    pub fn is_deactivated(&self) -> bool {
+        self.update_rules == RootLevelUpdateRules::UpdatesDisallowed(UpdatesDisallowed {})
     }
     /// This method is what you should use if you want to canonically serialize this DID document (to a String).
     /// See also serialize_canonically_to_writer.

@@ -74,7 +74,7 @@ impl HTTPSchemeOverride {
                     _ => {
                         return Err(Error::Malformed(
                             "Invalid HTTP scheme; expected \"http\" or \"https\"",
-                        ))
+                        ));
                     }
                 };
                 if let Some(&existing_http_scheme) = m.get(hostname) {
@@ -91,7 +91,11 @@ impl HTTPSchemeOverride {
                 );
                 m.insert(hostname.to_string(), http_scheme);
             } else {
-                tracing::error!(?pair, "HTTPSchemeOverride::parse_from_comma_separated_pairs: malformed hostname=scheme pair: {}", pair);
+                tracing::error!(
+                    ?pair,
+                    "HTTPSchemeOverride::parse_from_comma_separated_pairs: malformed hostname=scheme pair: {}",
+                    pair
+                );
                 return Err(Error::Malformed("Malformed hostname=scheme pair"));
             }
         }

@@ -18,9 +18,16 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// limit is required for interoperability with javascript systems (see
 /// <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now>).
 pub fn now_utc_milliseconds() -> time::OffsetDateTime {
-    let now_utc = time::OffsetDateTime::now_utc();
-    let milliseconds = now_utc.millisecond();
-    let now_utc = now_utc.replace_millisecond(milliseconds).unwrap();
-    assert_eq!(now_utc.nanosecond() % 1_000_000, 0);
-    now_utc
+    truncated_to_milliseconds(time::OffsetDateTime::now_utc())
+}
+
+pub fn is_truncated_to_milliseconds(t: time::OffsetDateTime) -> bool {
+    t.nanosecond() % 1_000_000 == 0
+}
+
+pub fn truncated_to_milliseconds(t: time::OffsetDateTime) -> time::OffsetDateTime {
+    let milliseconds = t.millisecond();
+    let t = t.replace_millisecond(milliseconds).unwrap();
+    assert!(is_truncated_to_milliseconds(t));
+    t
 }

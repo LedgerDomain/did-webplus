@@ -4,7 +4,11 @@ version = "0.2.0"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2021"
 
+# [features]
+# async-traits = ["dep:async-trait"]
+
 [dependencies]
+# async-trait = { version = "0.1.80", optional = true }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
     "display",

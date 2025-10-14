@@ -1,7 +1,5 @@
 use crate::{MockVDG, Resolver, VDS};
-use did_webplus_core::{
-    DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata,
-};
+use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error};
 use std::{
     borrow::Cow,
     sync::{Arc, RwLock},
@@ -56,7 +54,7 @@ impl Resolver for MockResolverThin {
         did: &DIDStr,
         self_hash_o: Option<&mbx::MBHashStr>,
         version_id_o: Option<u32>,
-        requested_did_document_metadata: RequestedDIDDocumentMetadata,
+        did_resolution_options: did_webplus_core::DIDResolutionOptions,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         let mut mock_vdg_g = self.mock_vdg_la.write().unwrap();
         let (did_document_c, did_document_metadata) = mock_vdg_g.resolve_did_document(
@@ -64,7 +62,7 @@ impl Resolver for MockResolverThin {
             did,
             version_id_o,
             self_hash_o,
-            requested_did_document_metadata,
+            did_resolution_options,
         )?;
         Ok((
             Cow::Owned(did_document_c.into_owned()),

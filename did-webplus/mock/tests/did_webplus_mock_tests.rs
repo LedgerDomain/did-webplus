@@ -7,13 +7,13 @@ use std::{
 
 use did_webplus_core::{
     now_utc_milliseconds, DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
-    DIDKeyResourceFullyQualifiedStr, Error, KeyPurpose, MicroledgerMutView, MicroledgerView,
-    PublicKeySet, RequestedDIDDocumentMetadata, RootLevelUpdateRules, UpdateKey,
+    DIDKeyResourceFullyQualifiedStr, DIDResolutionOptions, Error, KeyPurpose, PublicKeySet,
+    RootLevelUpdateRules, UpdateKey,
 };
 use did_webplus_jws::{JWSPayloadEncoding, JWSPayloadPresence, JWS};
 use did_webplus_mock::{
-    Microledger, MockResolverFull, MockResolverThin, MockVDG, MockVDR, MockVDRClient,
-    MockVerifiedCache, MockWallet,
+    Microledger, MicroledgerMutView, MicroledgerView, MockResolverFull, MockResolverThin, MockVDG,
+    MockVDR, MockVDRClient, MockVerifiedCache, MockWallet,
 };
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -61,7 +61,7 @@ fn resolve_did_and_verify_jws<'r, 'p>(
     jws: &JWS<'_>,
     resolver: &'r mut dyn did_webplus_mock::Resolver,
     verification_key_purpose: KeyPurpose,
-    requested_did_document_metadata: RequestedDIDDocumentMetadata,
+    did_resolution_options: DIDResolutionOptions,
     detached_payload_bytes_o: Option<&'p mut dyn std::io::Read>,
 ) -> Result<(Cow<'r, DIDDocument>, DIDDocumentMetadata), Error> {
     let did_key_resource_fully_qualified =
@@ -78,7 +78,7 @@ fn resolve_did_and_verify_jws<'r, 'p>(
         did,
         Some(did_key_resource_fully_qualified.query_self_hash()),
         Some(did_key_resource_fully_qualified.query_version_id()),
-        requested_did_document_metadata,
+        did_resolution_options,
     )?;
     log::trace!("resolved DID document: {:?}", did_document);
     log::trace!(
@@ -168,7 +168,7 @@ fn test_example_creating_and_updating_a_did() {
         let did = microledger.view().did();
         let latest_did_document = microledger.view().latest_did_document();
         println!("Creating a DID produces the root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `updateRules` field is what defines update authorization for this DID document.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));
-        println!("The associated DID document metadata (at the time of DID creation) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID creation) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, DIDResolutionOptions::all_metadata(false))).expect("pass"));
         // Add query params to bind this JWK to the latest DID doc.
         // Add (key ID) fragment to identify which key it is.
         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
@@ -242,8 +242,8 @@ fn test_example_creating_and_updating_a_did() {
 
         let latest_did_document = microledger.view().latest_did_document();
         println!("Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"), serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass"));
-        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
-        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, DIDResolutionOptions::all_metadata(false))).expect("pass"));
+        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), DIDResolutionOptions::all_metadata(false))).expect("pass"));
         {
             let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
                 .with_queries(
@@ -321,9 +321,9 @@ fn test_example_creating_and_updating_a_did() {
         let did = microledger.view().did();
         let latest_did_document = microledger.view().latest_did_document();
         println!("Updated DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"), serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass"));
-        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, RequestedDIDDocumentMetadata::all())).expect("pass"));
-        println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"), RequestedDIDDocumentMetadata::all())).expect("pass"));
-        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), RequestedDIDDocumentMetadata::all())).expect("pass"));
+        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, DIDResolutionOptions::all_metadata(false))).expect("pass"));
+        println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"), DIDResolutionOptions::all_metadata(false))).expect("pass"));
+        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), DIDResolutionOptions::all_metadata(false))).expect("pass"));
         {
             let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
                 .with_queries(
@@ -438,7 +438,7 @@ fn test_did_operations() {
             &jws,
             &mut mock_resolver_full,
             did_webplus_core::KeyPurpose::Authentication,
-            did_webplus_core::RequestedDIDDocumentMetadata::all(),
+            DIDResolutionOptions::all_metadata(false),
             None,
         )
         .expect("pass");
@@ -448,20 +448,21 @@ fn test_did_operations() {
             &jws,
             &mut mock_resolver_thin,
             did_webplus_core::KeyPurpose::Authentication,
-            did_webplus_core::RequestedDIDDocumentMetadata::all(),
+            DIDResolutionOptions::all_metadata(false),
             None,
         )
         .expect("pass");
 
         assert_eq!(did_document, did_document_2);
         assert_eq!(did_document_metadata, did_document_metadata_2);
-        assert!(did_document_metadata.idempotent_o.is_some());
-        let did_document_metadata_idempotent = did_document_metadata.idempotent_o.as_ref().unwrap();
+        assert!(did_document_metadata.creation_metadata_o.is_some());
+        assert!(did_document_metadata.latest_update_metadata_o.is_some());
+        assert!(did_document_metadata.deactivated_o.is_some());
 
         assert!(did_document.valid_from <= jws_signing_time);
-        match did_document_metadata_idempotent.next_update_o.as_ref() {
-            Some(&next_update) => {
-                assert!(jws_signing_time < next_update);
+        match did_document_metadata.next_update_metadata_o.as_ref() {
+            Some(next_update) => {
+                assert!(jws_signing_time < next_update.next_update_time_milliseconds());
             }
             None => {
                 // Nothing to check, this DID document is the latest.
@@ -483,7 +484,7 @@ fn test_did_operations() {
                 &alice_did,
                 None,
                 None,
-                RequestedDIDDocumentMetadata::all(),
+                DIDResolutionOptions::all_metadata(false),
                 &mut mock_resolver_full,
             )
             .expect("pass");
@@ -506,7 +507,7 @@ fn test_did_operations() {
                         &alice_did,
                         Some(0),
                         None,
-                        RequestedDIDDocumentMetadata::all(),
+                        DIDResolutionOptions::all_metadata(false),
                         &mut mock_resolver_full,
                     )
                     .expect("pass");
@@ -519,7 +520,7 @@ fn test_did_operations() {
                         &alice_did,
                         None,
                         Some(did_document.self_hash.deref()),
-                        RequestedDIDDocumentMetadata::all(),
+                        DIDResolutionOptions::all_metadata(false),
                         &mut mock_resolver_full,
                     )
                     .expect("pass");
@@ -530,7 +531,7 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve_did_document(&alice_did, Some(0), Some(did_document.self_hash.deref()), RequestedDIDDocumentMetadata::all(), &mut mock_resolver_full)
+                .resolve_did_document(&alice_did, Some(0), Some(did_document.self_hash.deref()), DIDResolutionOptions::all_metadata(false), &mut mock_resolver_full)
                 .expect("pass");
                 assert_eq!(*did_document_query, did_document);
                 assert_eq!(did_document_metadata_query, did_document_metadata);
@@ -552,7 +553,7 @@ fn test_did_operations() {
                 &alice_did,
                 Some(0),
                 None,
-                RequestedDIDDocumentMetadata::all(),
+                DIDResolutionOptions::all_metadata(false),
                 &mut mock_resolver_full,
             )
             .expect("pass");
@@ -571,7 +572,7 @@ fn test_did_operations() {
                 &alice_did,
                 None,
                 None,
-                RequestedDIDDocumentMetadata::all(),
+                DIDResolutionOptions::all_metadata(false),
                 &mut mock_resolver_full,
             )
             .expect("pass");
@@ -590,7 +591,7 @@ fn test_did_operations() {
                 &alice_did,
                 None,
                 None,
-                RequestedDIDDocumentMetadata::all(),
+                DIDResolutionOptions::all_metadata(false),
                 &mut mock_resolver_full,
             )
             .expect("pass");
@@ -613,7 +614,7 @@ fn test_did_operations() {
                         &alice_did,
                         Some(did_document.version_id),
                         None,
-                        RequestedDIDDocumentMetadata::all(),
+                        DIDResolutionOptions::all_metadata(false),
                         &mut mock_resolver_full,
                     )
                     .expect("pass");
@@ -626,7 +627,7 @@ fn test_did_operations() {
                         &alice_did,
                         None,
                         Some(did_document.self_hash.deref()),
-                        RequestedDIDDocumentMetadata::all(),
+                        DIDResolutionOptions::all_metadata(false),
                         &mut mock_resolver_full,
                     )
                     .expect("pass");
@@ -637,7 +638,7 @@ fn test_did_operations() {
                 let (did_document_query, did_document_metadata_query) =
             // Both query params
             mock_verified_cache
-                .resolve_did_document(&alice_did, Some(did_document.version_id), Some(did_document.self_hash.deref()), RequestedDIDDocumentMetadata::all(), &mut mock_resolver_full)
+                .resolve_did_document(&alice_did, Some(did_document.version_id), Some(did_document.self_hash.deref()), DIDResolutionOptions::all_metadata(false), &mut mock_resolver_full)
                 .expect("pass");
                 assert_eq!(*did_document_query, did_document);
                 assert_eq!(did_document_metadata_query, did_document_metadata);

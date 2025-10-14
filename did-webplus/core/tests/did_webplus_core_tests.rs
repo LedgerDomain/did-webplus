@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
 use did_webplus_core::{
-    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualified, PublicKeySet,
-    RootLevelUpdateRules, UpdateKey,
+    CreationMetadata, DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
+    LatestUpdateMetadata, NextUpdateMetadata, PublicKeySet, RootLevelUpdateRules, UpdateKey,
+    now_utc_milliseconds,
 };
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -18,7 +19,6 @@ fn test_roundtrip_did_basic() {
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
-
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
@@ -42,23 +42,18 @@ fn test_roundtrip_did_with_query() {
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
-
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
-
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
-
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?versionId=3",
-
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw",
-
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
@@ -80,7 +75,6 @@ fn test_roundtrip_did_key_resource_fully_qualified() {
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
-
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
@@ -102,7 +96,6 @@ fn test_roundtrip_did_key_resource() {
         "did:webplus:example.com:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
         "did:webplus:example.com:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
         "did:webplus:example.com:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
-
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
@@ -193,7 +186,9 @@ fn test_root_did_document_sign_and_verify() {
 fn test_did_update_sign_and_verify() {
     use did_webplus_core::now_utc_milliseconds;
 
-    println!("# Example: DID Microledger\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_did_update_sign_and_verify\n\n## Example DID Documents\n\nHere is an example of the DID documents in the microledger for a DID.\n\nRoot DID document (`versionId` 0):\n");
+    println!(
+        "# Example: DID Microledger\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_did_update_sign_and_verify\n\n## Example DID Documents\n\nHere is an example of the DID documents in the microledger for a DID.\n\nRoot DID document (`versionId` 0):\n"
+    );
 
     let update_signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let update_verifying_key_0 = update_signing_key_0.verifying_key();
@@ -302,7 +297,10 @@ fn test_did_update_sign_and_verify() {
     );
 
     {
-        println!("Note that the element in the `proofs` field is a JWS whose header decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(jws.header()).unwrap());
+        println!(
+            "Note that the element in the `proofs` field is a JWS whose header decodes as:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(jws.header()).unwrap()
+        );
     }
     {
         use selfhash::HashFunctionT;
@@ -354,7 +352,7 @@ fn test_did_update_sign_and_verify() {
         .expect("pass");
 
     println!(
-        "Next DID Document (`versionId` 2), which shows how to deactivate a DID by setting `updateRules` to `{{}}`:\n\n```json\n{}\n```\n\nRemoving all verification methods from a deactivated DID is RECOMMENDED so that no unrevocable keys are left in the DID document, but is not required.  Note that the element in the `proofs` field is a JWS whose header decodes as:\n\n```json\n{}\n```\n\nNote that the `kid` field of the JWS header matches the `key` field of the previous DID Document's `updateRules`.\n", 
+        "Next DID Document (`versionId` 2), which shows how to deactivate a DID by setting `updateRules` to `{{}}`:\n\n```json\n{}\n```\n\nRemoving all verification methods from a deactivated DID is RECOMMENDED so that no unrevocable keys are left in the DID document, but is not required.  Note that the element in the `proofs` field is a JWS whose header decodes as:\n\n```json\n{}\n```\n\nNote that the `kid` field of the JWS header matches the `key` field of the previous DID Document's `updateRules`.\n",
         serde_json::to_string_pretty(&did_document_2).unwrap(),
         serde_json::to_string_pretty(jws.header()).unwrap()
     );
@@ -382,11 +380,16 @@ fn test_signature_generation_with_witness() {
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_0);
     let mut priv_jwk_0 = priv_jwk_from_ed25519_signing_key(&signing_key_0);
 
-    println!("# Example: Signature Generation With Witness\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_signature_generation_with_witness\n\nBy specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.\n");
+    println!(
+        "# Example: Signature Generation With Witness\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_signature_generation_with_witness\n\nBy specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.\n"
+    );
 
     // TODO: Other key types
     {
-        println!("## Key Generation and DID Creation\n\nWe generate a private key and create a DID using the public key for the verification methods.  The generated private key is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
+        println!(
+            "## Key Generation and DID Creation\n\nWe generate a private key and create a DID using the public key for the verification methods.  The generated private key is:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_0).expect("pass")
+        );
 
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
             pub_key: pub_key_0.clone(),
@@ -430,7 +433,10 @@ fn test_signature_generation_with_witness() {
             .with_fragment("0");
         // Set the key_id field of the JWK, so that it appears in the header of JWS signatures.
         priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
-        println!("We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
+        println!(
+            "We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_0).expect("pass")
+        );
 
         // Sign stuff.
         let payload = "{\"HIPPOS\":\"much better than OSTRICHES\"}";
@@ -469,6 +475,50 @@ fn test_signature_generation_with_witness() {
                 format!("eyJISVBQT1MiOiJtdWNoIHdvcnNlIHRoYW4gT1NUUklDSEVTIn0");
             let altered_jws = format!("{}.{}.{}", jws_header, altered_jws_payload, jws_signature);
             ssi_jws::decode_verify(&altered_jws, &pub_jwk_0).expect_err("pass");
+        }
+    }
+}
+
+#[test]
+fn test_did_document_metadata_roundtrip() {
+    let creation_metadata_ov = vec![None, Some(CreationMetadata::new(now_utc_milliseconds()))];
+    let next_update_metadata_ov = vec![
+        None,
+        Some(NextUpdateMetadata::new(now_utc_milliseconds(), 1)),
+    ];
+    let latest_update_metadata_ov = vec![
+        None,
+        Some(LatestUpdateMetadata::new(now_utc_milliseconds(), 2)),
+    ];
+    let deactivated_o = vec![None, Some(false), Some(true)];
+
+    for creation_metadata_o in creation_metadata_ov.iter() {
+        for next_update_metadata_o in next_update_metadata_ov.iter() {
+            for latest_update_metadata_o in latest_update_metadata_ov.iter() {
+                for deactivated_o in deactivated_o.iter() {
+                    let did_document_metadata = DIDDocumentMetadata {
+                        creation_metadata_o: creation_metadata_o.clone(),
+                        next_update_metadata_o: next_update_metadata_o.clone(),
+                        latest_update_metadata_o: latest_update_metadata_o.clone(),
+                        deactivated_o: deactivated_o.clone(),
+                    };
+                    tracing::debug!("--------------------------------");
+                    tracing::debug!("did_document_metadata: {:?}", did_document_metadata);
+                    let did_document_metadata_str =
+                        serde_json::to_string(&did_document_metadata).expect("pass");
+                    tracing::debug!(
+                        "did_document_metadata as json: {}",
+                        did_document_metadata_str
+                    );
+                    let deserialized_did_document_metadata: DIDDocumentMetadata =
+                        serde_json::from_str(&did_document_metadata_str).expect("pass");
+                    tracing::debug!(
+                        "deserialized_did_document_metadata: {:?}",
+                        deserialized_did_document_metadata
+                    );
+                    assert_eq!(deserialized_did_document_metadata, did_document_metadata);
+                }
+            }
         }
     }
 }

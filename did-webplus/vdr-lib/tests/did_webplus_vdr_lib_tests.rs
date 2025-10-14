@@ -1,4 +1,4 @@
-use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
+use did_webplus_mock::{MicroledgerView, MockVDR, MockVDRClient, MockWallet};
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock},
@@ -106,7 +106,6 @@ async fn test_vdr_wallet_operations_impl(
     // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
     {
-        use did_webplus_core::MicroledgerView;
         let alice_did_document = alice_wallet
             .controlled_did(&alice_did)
             .expect("pass")
@@ -146,7 +145,6 @@ async fn test_vdr_wallet_operations_impl(
         // Hacky way to test the VDR without using a real Wallet.
         // This uses the DID document it updated with the mock VDR and sends it to the real VDR.
         {
-            use did_webplus_core::MicroledgerView;
             let alice_did_document = alice_wallet
                 .controlled_did(&alice_did)
                 .expect("pass")

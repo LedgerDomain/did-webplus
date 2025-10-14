@@ -12,7 +12,7 @@ impl DIDWithQueryStr {
         let (did, _query_params) = self.0.split_once('?').expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery");
         DIDStr::new_ref(did).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
     }
-    fn uri_components(&self) -> DIDURIComponents {
+    fn uri_components(&self) -> DIDURIComponents<'_> {
         DIDURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
     }
     /// Hostname of the VDR that acts as the authority/origin for this DID.

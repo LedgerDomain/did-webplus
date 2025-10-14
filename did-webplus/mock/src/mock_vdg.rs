@@ -1,7 +1,5 @@
 use crate::{MockResolverInternal, MockVDR, MockVerifiedCache, VDS};
-use did_webplus_core::{
-    DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata,
-};
+use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error};
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -81,7 +79,7 @@ impl VDS for MockVDG {
         did: &DIDStr,
         version_id_o: Option<u32>,
         self_hash_o: Option<&mbx::MBHashStr>,
-        requested_did_document_metadata: RequestedDIDDocumentMetadata,
+        did_resolution_options: did_webplus_core::DIDResolutionOptions,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!(
             "MockVDG({:?})::resolve;\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
@@ -103,7 +101,7 @@ impl VDS for MockVDG {
             did,
             version_id_o,
             self_hash_o,
-            requested_did_document_metadata,
+            did_resolution_options,
             &mut mock_resolver_internal,
         )
     }

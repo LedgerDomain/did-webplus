@@ -23,7 +23,7 @@ impl DIDStr {
             "programmer error: this should not be possible due to validation in the constructor",
         )
     }
-    pub fn to_verifier_bytes(&self) -> signature_dyn::VerifierBytes {
+    pub fn to_verifier_bytes(&self) -> signature_dyn::VerifierBytes<'_> {
         signature_dyn::VerifierBytes::try_from(self.as_mb_pub_key()).expect(
             "programmer error: this should not be possible due to validation in the constructor",
         )

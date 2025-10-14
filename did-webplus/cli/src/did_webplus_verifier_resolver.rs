@@ -32,10 +32,10 @@ impl verifier_resolver::VerifierResolver for DIDWebplusVerifierResolver {
             did_webplus_core::DIDKeyResourceFullyQualifiedStr::new_ref(verifier_str).map_err(|_| verifier_resolver::Error::InvalidVerifier(format!("if did:webplus DID is used as verifier, it must be fully qualified, i.e. it must contain the selfHash and versionId query parameters and a fragment specifying the key ID, but it was {:?}", verifier_str).into()))?;
 
         let did_resolver_b = self.did_resolver_factory_b.did_resolver().await?;
-        let (did_document, _did_doc_metadata) = did_resolver_b
+        let (did_document, _did_document_metadata, _did_resolution_options) = did_resolver_b
             .resolve_did_document(
                 did_key_resource_fully_qualified.without_fragment().as_str(),
-                did_webplus_core::RequestedDIDDocumentMetadata::none(),
+                did_webplus_core::DIDResolutionOptions::no_metadata(false),
             )
             .await?;
 

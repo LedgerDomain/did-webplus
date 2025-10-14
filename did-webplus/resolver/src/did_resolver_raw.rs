@@ -1,3 +1,7 @@
+use did_webplus_core::{
+    DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, HTTPSchemeOverride,
+};
+
 use crate::{verifier_resolver_impl, DIDResolver, Result};
 use std::sync::Arc;
 
@@ -5,7 +9,7 @@ use std::sync::Arc;
 /// be used for any production purposes.  THIS IS INTENDED ONLY FOR DEVELOPMENT AND TESTING PURPOSES.
 #[derive(Clone)]
 pub struct DIDResolverRaw {
-    pub http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
+    pub http_scheme_override_o: Option<HTTPSchemeOverride>,
 }
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -14,8 +18,8 @@ impl DIDResolver for DIDResolverRaw {
     async fn resolve_did_document_string(
         &self,
         _did_query: &str,
-        _requested_did_document_metadata: did_webplus_core::RequestedDIDDocumentMetadata,
-    ) -> Result<(String, did_webplus_core::DIDDocumentMetadata)> {
+        _did_resolution_options: DIDResolutionOptions,
+    ) -> Result<(String, DIDDocumentMetadata, DIDResolutionMetadata)> {
         todo!("re-implement this");
     }
     fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {

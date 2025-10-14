@@ -5,10 +5,9 @@ authors = [
     "Victor Dods <victor.dods@ledgerdomain.com>",
     "Ben Nichols <ben.nichols@ledgerdomain.com>",
 ]
-edition = "2021"
+edition = "2024"
 
 [features]
-async-traits = ["dep:async-trait"]
 clap = ["dep:clap"]
 ed25519-dalek = [
     "did-webplus-jws/ed25519-dalek",
@@ -26,7 +25,6 @@ p384 = ["did-webplus-jws/p384", "dep:p384", "signature-dyn/p384"]
 p521 = ["did-webplus-jws/p521", "dep:p521", "signature-dyn/p521"]
 
 [dependencies]
-async-trait = { version = "0.1.80", optional = true }
 base64 = { version = "0.21.4", default-features = false }
 clap = { version = "4.5.4", optional = true, features = ["derive"] }
 derive_more = { version = "0.99.17", default-features = false, features = [
@@ -66,7 +64,7 @@ signature = "2.2.0"
 signature-dyn = { version = "0.1.0", features = ["ssi-multicodec"] }
 ssi-multicodec = "0.2.0"
 thiserror = { version = "1.0.60", default-features = false }
-time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
+time = { version = "0.3", features = ["macros", "serde", "serde-well-known"] }
 tracing = "0.1.37"
 verifier-resolver = { path = "../../verifier-resolver" }
 

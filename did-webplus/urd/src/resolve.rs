@@ -59,10 +59,10 @@ impl Resolve {
         )
         .await?;
         use did_webplus_resolver::DIDResolver;
-        let (did_document, _did_document_metadata) = did_resolver_full
+        let (did_document, _did_document_metadata, _did_resolution_metadata) = did_resolver_full
             .resolve_did_document_string(
                 &self.query,
-                did_webplus_core::RequestedDIDDocumentMetadata::none(),
+                did_webplus_core::DIDResolutionOptions::no_metadata(false),
             )
             .await?;
         print!("{}", did_document);

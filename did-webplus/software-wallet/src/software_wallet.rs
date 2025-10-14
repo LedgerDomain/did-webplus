@@ -1,7 +1,7 @@
 use crate::REQWEST_CLIENT;
 use did_webplus_core::{
     now_utc_milliseconds, DIDDocument, DIDFullyQualified, DIDStr, KeyPurpose, KeyPurposeFlags,
-    RootLevelUpdateRules, UpdateKey,
+    RootLevelUpdateRules, UpdateKey, UpdatesDisallowed,
 };
 use did_webplus_wallet::{Error, Result, Wallet};
 use did_webplus_wallet_store::{
@@ -92,10 +92,10 @@ impl SoftwareWallet {
         )
         .unwrap();
         use did_webplus_resolver::DIDResolver;
-        let (did_document, _did_doc_metadata) = did_resolver_full
+        let (did_document, _did_document_metadata, _did_resolution_metadata) = did_resolver_full
             .resolve_did_document(
                 did.as_str(),
-                did_webplus_core::RequestedDIDDocumentMetadata::none(),
+                did_webplus_core::DIDResolutionOptions::no_metadata(false),
             )
             .await
             .map_err(|e| Error::DIDFetchError(format!("DID: {}, error was: {}", did, e).into()))?;
@@ -448,7 +448,7 @@ impl Wallet for SoftwareWallet {
         // Add the proof to the DID document.
         updated_did_document.add_proof(jws.into_string());
 
-        // Finalize the root DID document.
+        // Finalize the DID document.
         updated_did_document
             .finalize(Some(&latest_did_document))
             .expect("programmer error");
@@ -530,6 +530,217 @@ impl Wallet for SoftwareWallet {
         let controlled_did = did.with_queries(
             &updated_did_document.self_hash,
             updated_did_document.version_id,
+        );
+
+        // Add the UpdateDIDDocument priv key usage.
+        self.wallet_storage_a
+            .add_priv_key_usage(
+                Some(transaction_b.as_mut()),
+                &self.ctx,
+                &PrivKeyUsageRecord {
+                    pub_key: priv_key_record_for_update.pub_key.clone(),
+                    hashed_pub_key: priv_key_record_for_update.hashed_pub_key.clone(),
+                    used_at: now_utc,
+                    usage: PrivKeyUsage::DIDUpdate {
+                        updated_did_fully_qualified_o: Some(controlled_did.clone()),
+                    },
+                    verification_method_o: None,
+                    key_purpose_o: Some(KeyPurpose::UpdateDIDDocument),
+                },
+            )
+            .await?;
+
+        // Retire the priv keys for the old locally-controlled verification methods.
+        for (_verification_method_record, priv_key_record) in
+            locally_controlled_verification_method_v.into_iter()
+        {
+            self.wallet_storage_a
+                .delete_priv_key(
+                    Some(transaction_b.as_mut()),
+                    &self.ctx,
+                    &priv_key_record.pub_key,
+                )
+                .await?;
+        }
+        // Retire the old update key.
+        self.wallet_storage_a
+            .delete_priv_key(
+                Some(transaction_b.as_mut()),
+                &self.ctx,
+                &priv_key_record_for_update.pub_key,
+            )
+            .await?;
+
+        transaction_b
+            .commit()
+            .await
+            .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
+
+        Ok(controlled_did)
+    }
+    async fn deactivate_did(
+        &self,
+        did: &DIDStr,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    ) -> Result<DIDFullyQualified> {
+        // TODO: Factor this with update_did and create_did.
+
+        // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
+        // controls the DID.
+        let latest_did_document = self.fetch_did_internal(did, http_scheme_override_o).await?;
+
+        // Record the DID update timestamp.
+        let now_utc = now_utc_milliseconds();
+
+        let mut transaction_b = self
+            .wallet_storage_a
+            .begin_transaction()
+            .await
+            .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
+
+        // Select all the locally-controlled verification methods that are in the latest DID document, so
+        // that the keys can be retired, and new keys generated, put in the DID update, and then stored
+        // in the wallet.
+        let locally_controlled_verification_method_v = self
+            .wallet_storage_a
+            .get_locally_controlled_verification_methods(
+                Some(transaction_b.as_mut()),
+                &self.ctx,
+                &LocallyControlledVerificationMethodFilter {
+                    did_o: Some(did.to_owned()),
+                    version_id_o: Some(latest_did_document.version_id),
+                    key_purpose_o: None,
+                    key_id_o: None,
+                    result_limit_o: None,
+                },
+            )
+            .await?;
+        let update_key_v = self
+            .wallet_storage_a
+            .get_priv_keys(
+                Some(transaction_b.as_mut()),
+                &self.ctx,
+                &PrivKeyRecordFilter {
+                    pub_key_o: None,
+                    hashed_pub_key_o: None,
+                    did_o: Some(did.to_string()),
+                    key_purpose_flags_o: Some(KeyPurposeFlags::from(KeyPurpose::UpdateDIDDocument)),
+                    is_not_deleted_o: Some(true),
+                },
+            )
+            .await?;
+        tracing::trace!(
+            "found {} update keys for {}: {:?}",
+            update_key_v.len(),
+            did,
+            update_key_v
+                .iter()
+                .map(|priv_key_record| &priv_key_record.pub_key)
+                .collect::<Vec<_>>()
+        );
+
+        // If there are no matching update keys, then this means that this wallet doesn't have
+        // the authority to update the DID.  This could happen if another wallet updated the DID
+        // and removed this wallet's update key.
+        if update_key_v.is_empty() {
+            return Err(Error::NoSuitablePrivKeyFound(format!("this wallet has no update key for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", did, latest_did_document.self_hash, latest_did_document.version_id).into()));
+        }
+
+        // TEMP HACK: Assume there will only be one update key per wallet.
+        assert_eq!(
+            update_key_v.len(),
+            1,
+            "programmer error: assumption is that there should only be one update key per wallet"
+        );
+
+        // Select the appropriate key to sign the update.
+        let priv_key_record_for_update = &update_key_v[0];
+        let priv_key_for_update = priv_key_record_for_update
+            .private_key_bytes_o
+            .as_ref()
+            .expect(
+                "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
+            );
+
+        // Define the update rules -- UpdatesDisallowed, thereby deactivating the DID.
+        let update_rules = RootLevelUpdateRules::from(UpdatesDisallowed {});
+
+        // Form the unsigned non-root DID document.
+        let mut deactivated_did_document = DIDDocument::create_unsigned_non_root(
+            &latest_did_document,
+            update_rules,
+            now_utc,
+            did_webplus_core::PublicKeySet {
+                authentication_v: vec![],
+                assertion_method_v: vec![],
+                key_agreement_v: vec![],
+                capability_invocation_v: vec![],
+                capability_delegation_v: vec![],
+            },
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+        )
+        .expect("programmer error");
+
+        let signing_kid = mbx::MBPubKey::try_from_verifier_bytes(
+            mbx::Base::Base64Url,
+            &priv_key_for_update.verifier_bytes()?,
+        )
+        .expect("programmer error")
+        .to_string();
+
+        // The updated DID document must be signed by the UpdateDIDDocument key specified in the latest DID document.
+        let jws = deactivated_did_document
+            .sign(signing_kid, priv_key_for_update)
+            .expect("programmer error");
+
+        // Add the proof to the DID document.
+        deactivated_did_document.add_proof(jws.into_string());
+
+        // Finalize the DID document.
+        deactivated_did_document
+            .finalize(Some(&latest_did_document))
+            .expect("programmer error");
+
+        // Sanity check.
+        deactivated_did_document
+            .verify_non_root_nonrecursive(&latest_did_document)
+            .expect("programmer error");
+
+        // Serialize DID doc as JCS (JSON Canonicalization Scheme), then
+        // PUT the DID document to the VDR to update the DID.
+        {
+            let deactivated_did_document_jcs = deactivated_did_document
+                .serialize_canonically()
+                .expect("this shouldn't happen");
+            tracing::debug!(
+                "deactivated_did_document_jcs: {}",
+                deactivated_did_document_jcs
+            );
+            // Store the DID doc.  Note that this will also ingest the verification methods from the DID doc,
+            // which represents the control of the versioned DID.
+            self.wallet_storage_a
+                .add_did_document(
+                    Some(transaction_b.as_mut()),
+                    &deactivated_did_document,
+                    deactivated_did_document_jcs.as_str(),
+                )
+                .await?;
+
+            // HTTP PUT is for DID update operation (which includes deactivation).
+            REQWEST_CLIENT
+                .clone()
+                .put(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
+                .body(deactivated_did_document_jcs)
+                .send()
+                .await
+                .map_err(|e| Error::HTTPRequestError(e.to_string().into()))?
+                .error_for_status()
+                .map_err(|e| Error::HTTPOperationStatus(e.to_string().into()))?;
+        }
+
+        let controlled_did = did.with_queries(
+            &deactivated_did_document.self_hash,
+            deactivated_did_document.version_id,
         );
 
         // Add the UpdateDIDDocument priv key usage.

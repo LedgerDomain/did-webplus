@@ -1,8 +1,11 @@
+mod creation_metadata;
 mod did;
 mod did_document;
 mod did_document_metadata;
 mod did_fully_qualified;
 mod did_fully_qualified_str;
+mod did_resolution_metadata;
+mod did_resolution_options;
 mod did_resource;
 mod did_resource_fully_qualified;
 mod did_resource_fully_qualified_str;
@@ -15,12 +18,8 @@ mod error;
 mod http_scheme_override;
 mod key_purpose;
 mod key_purpose_flags;
-mod microledger_mut_view;
-#[cfg(feature = "async-traits")]
-mod microledger_mut_view_async;
-mod microledger_view;
-#[cfg(feature = "async-traits")]
-mod microledger_view_async;
+mod latest_update_metadata;
+mod next_update_metadata;
 mod public_key_jwk;
 mod public_key_material;
 mod public_key_params;
@@ -34,14 +33,14 @@ mod verification_method;
 
 pub(crate) use crate::did_fully_qualified_str::parse_did_query_params;
 pub use crate::{
+    creation_metadata::CreationMetadata,
     did::DID,
     did_document::DIDDocument,
-    did_document_metadata::{
-        DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
-        DIDDocumentMetadataIdempotent, RequestedDIDDocumentMetadata,
-    },
+    did_document_metadata::DIDDocumentMetadata,
     did_fully_qualified::DIDFullyQualified,
     did_fully_qualified_str::DIDFullyQualifiedStr,
+    did_resolution_metadata::DIDResolutionMetadata,
+    did_resolution_options::DIDResolutionOptions,
     did_resource::DIDResource,
     did_resource_fully_qualified::DIDResourceFullyQualified,
     did_resource_fully_qualified_str::DIDResourceFullyQualifiedStr,
@@ -54,8 +53,8 @@ pub use crate::{
     http_scheme_override::HTTPSchemeOverride,
     key_purpose::KeyPurpose,
     key_purpose_flags::KeyPurposeFlags,
-    microledger_mut_view::MicroledgerMutView,
-    microledger_view::MicroledgerView,
+    latest_update_metadata::LatestUpdateMetadata,
+    next_update_metadata::NextUpdateMetadata,
     public_key_jwk::PublicKeyJWK,
     public_key_material::PublicKeyMaterial,
     public_key_params::PublicKeyParams,
@@ -70,11 +69,6 @@ pub use crate::{
     },
     verification_method::VerificationMethod,
 };
-#[cfg(feature = "async-traits")]
-pub use crate::{
-    microledger_mut_view_async::MicroledgerMutViewAsync,
-    microledger_view_async::MicroledgerViewAsync,
-};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -88,9 +82,26 @@ pub type DIDKeyResourceFullyQualifiedStr = DIDResourceFullyQualifiedStr<str>;
 /// limit is required for interoperability with javascript systems (see
 /// <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now>).
 pub fn now_utc_milliseconds() -> time::OffsetDateTime {
-    let now_utc = time::OffsetDateTime::now_utc();
-    let milliseconds = now_utc.millisecond();
-    let now_utc = now_utc.replace_millisecond(milliseconds).unwrap();
-    assert_eq!(now_utc.nanosecond() % 1_000_000, 0);
-    now_utc
+    truncated_to_milliseconds(time::OffsetDateTime::now_utc())
+}
+
+pub fn is_truncated_to_milliseconds(t: time::OffsetDateTime) -> bool {
+    t.nanosecond() % 1_000_000 == 0
+}
+
+pub fn truncated_to_milliseconds(t: time::OffsetDateTime) -> time::OffsetDateTime {
+    let milliseconds = t.millisecond();
+    let t = t.replace_millisecond(milliseconds).unwrap();
+    assert!(is_truncated_to_milliseconds(t));
+    t
+}
+
+pub fn is_truncated_to_seconds(t: time::OffsetDateTime) -> bool {
+    t.nanosecond() == 0
+}
+
+pub fn truncated_to_seconds(t: time::OffsetDateTime) -> time::OffsetDateTime {
+    let t = t.replace_millisecond(0).unwrap();
+    assert!(is_truncated_to_seconds(t));
+    t
 }

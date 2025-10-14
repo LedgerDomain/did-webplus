@@ -1,7 +1,11 @@
-use crate::{
-    fetch_did_documents_jsonl_update, verifier_resolver_impl, DIDResolver, Error, HTTPError, Result,
+#![allow(unused)]
+
+use crate::{fetch_did_documents_jsonl_update, verifier_resolver_impl, DIDResolver, Error, Result};
+use did_webplus_core::{
+    CreationMetadata, DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, DIDStr,
+    DIDURIComponents, DIDWithQueryStr, LatestUpdateMetadata, NextUpdateMetadata,
+    RootLevelUpdateRules, UpdatesDisallowed,
 };
-use did_webplus_core::{DIDStr, DIDURIComponents, DIDWithQueryStr};
 use did_webplus_doc_store::{parse_did_document, DIDDocRecord};
 use std::sync::Arc;
 
@@ -43,19 +47,13 @@ impl DIDResolverFull {
             http_scheme_override_o,
         })
     }
-    /// NOTE: Currently, if vdg_base_url_o is Some, then the VDG is used for fetching DID documents, which is not
-    /// necessarily the fastest way to fetch+verify+store DID documents.  A better solution would be to have the
-    /// VDG stream DID documents, so that the DIDResolverFull can fetch+verify+store them in parallel.
-    /// The second bool-typed return value indicates whether the DID document was resolved locally or not.
-    // TODO: Probably add params for what metadata is desired
-    // TODO: If certain metadata is requested, then we would have to guarantee fetching the latest DID document.
+    /// Note that this doesn't use a transaction, because the did-documents.jsonl data is append-only,
+    /// so adding valid DID documents is an idempotent operation.
     pub async fn resolve_did_doc_record(
         &self,
-        // TODO: Use Option
-        // transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        transaction: &mut dyn storage_traits::TransactionDynT,
         did_query: &str,
-    ) -> Result<(DIDDocRecord, bool)> {
+        did_resolution_options: DIDResolutionOptions,
+    ) -> Result<(DIDDocRecord, DIDDocumentMetadata, DIDResolutionMetadata)> {
         tracing::trace!("starting DID resolution");
 
         let mut query_self_hash_o = None;
@@ -84,145 +82,496 @@ impl DIDResolverFull {
         };
         tracing::trace!("DID: {:?}", did);
 
-        // If either (or both) query param(s) are present, then it's possible it's already present in the
-        // database and we can attempt to retrieve it.  Contrast with the no-query-params case, which requires
-        // fetching all DID updates from the VDR.
-        if query_self_hash_o.is_some() || query_version_id_o.is_some() {
-            tracing::trace!("at least one query param present (query_self_hash_o: {:?}, query_version_id_o: {:?}), attempting to retrieve DID document from database", query_self_hash_o, query_version_id_o);
-            let did_doc_record_o = self
-                .get_did_doc_record_with_self_hash_or_version_id(
-                    Some(&mut *transaction),
-                    &did,
-                    query_self_hash_o.as_deref(),
-                    query_version_id_o,
-                )
+        // Note to the poor reader: This function is long and messy mostly because of how
+        // the DIDDocumentMetadata has to be determined.  If no DIDDocumentMetadata is requested,
+        // then a majority of this is skipped.
+
+        // First, determine which DID documents we need in order to provide all requested data and metadata:
+        let root_did_document_needed = did_resolution_options.request_creation;
+        let requested_did_document_needed = true;
+        let next_did_document_o_needed = did_resolution_options.request_next;
+        let latest_did_document_needed =
+            did_resolution_options.request_latest || did_resolution_options.request_deactivated;
+
+        // Now attempt to retrieve all the needed DID documents locally.
+        let mut root_did_doc_record_o = None;
+        let mut requested_did_doc_record_o = None;
+        let mut next_did_doc_record_oo: Option<Option<DIDDocRecord>> = None;
+        let mut latest_did_doc_record_o = None;
+        if root_did_document_needed {
+            tracing::trace!(
+                ?root_did_document_needed,
+                ?did,
+                "attempting to retrieve root DID document from local DB"
+            );
+            root_did_doc_record_o = self
+                .did_doc_store
+                .get_did_doc_record_with_version_id(None, did, 0)
                 .await?;
-            if let Some(did_doc_record) = did_doc_record_o {
-                tracing::trace!("requested DID document already in database");
-                return Ok((did_doc_record, true));
+            tracing::trace!(?root_did_doc_record_o, "root DID document local DB result");
+        }
+        if requested_did_document_needed {
+            tracing::trace!(
+                ?requested_did_document_needed,
+                ?did,
+                "attempting to retrieve requested DID document from local DB"
+            );
+            if query_self_hash_o.is_some() || query_version_id_o.is_some() {
+                tracing::trace!(
+                    ?query_self_hash_o,
+                    ?query_version_id_o,
+                    "attempting to retrieve requested DID document from local DB with query params"
+                );
+                requested_did_doc_record_o = self
+                    .get_did_doc_record_with_self_hash_or_version_id(
+                        None,
+                        did,
+                        query_self_hash_o,
+                        query_version_id_o,
+                    )
+                    .await?;
+                tracing::trace!(
+                    ?requested_did_doc_record_o,
+                    "requested DID document local DB result"
+                );
+                if let Some(requested_did_doc_record) = requested_did_doc_record_o.as_ref() {
+                    let requested_did_document =
+                        parse_did_document(&requested_did_doc_record.did_document_jcs)?;
+                    if requested_did_document.is_deactivated() {
+                        tracing::trace!(?requested_did_document, "requested DID document is deactivated, thus it's the latest, and there is no next DID document");
+                        // If the requested DID document is deactivated, then by construction it's the latest.
+                        latest_did_doc_record_o = Some(requested_did_doc_record.clone());
+                        // And we now positively know that there is no next DID document.
+                        next_did_doc_record_oo = Some(None);
+                    }
+                }
             } else {
-                tracing::trace!("requested DID document not in database");
+                tracing::trace!("attempting to retrieve latest known DID document from local DB");
+                let latest_known_did_doc_record_o = self
+                    .did_doc_store
+                    .get_latest_known_did_doc_record(None, did)
+                    .await?;
+                tracing::trace!(
+                    ?latest_known_did_doc_record_o,
+                    "latest known DID document local DB result"
+                );
+                if let Some(latest_known_did_doc_record) = latest_known_did_doc_record_o {
+                    let latest_known_did_document =
+                        parse_did_document(&latest_known_did_doc_record.did_document_jcs)?;
+                    if latest_known_did_document.is_deactivated() {
+                        tracing::trace!(?latest_known_did_document, "latest known DID document is deactivated, thus it's the latest, and the requested DID document is the latest known one, and there is no next DID document");
+                        // If the latest known DID document is deactivated, then by construction it's the latest.
+                        latest_did_doc_record_o = Some(latest_known_did_doc_record.clone());
+                        // And we know that the latest known DID document is the requested one.
+                        requested_did_doc_record_o = Some(latest_known_did_doc_record.clone());
+                        // And we now positively know that there is no next DID document.
+                        next_did_doc_record_oo = Some(None);
+                    }
+                }
+            }
+        } else {
+            unreachable!();
+        }
+        if next_did_document_o_needed
+            && requested_did_doc_record_o.is_some()
+            && next_did_doc_record_oo.is_none()
+        {
+            tracing::trace!(
+                ?next_did_document_o_needed,
+                ?requested_did_doc_record_o,
+                ?next_did_doc_record_oo,
+                "attempting to retrieve next DID document from local DB"
+            );
+            // Attempt to retrieve the next DID document.  This is only well-defined if we already were
+            // able to retrieve the requested DID document.
+            let requested_did_document = parse_did_document(
+                &requested_did_doc_record_o
+                    .as_ref()
+                    .unwrap()
+                    .did_document_jcs,
+            )?;
+            let requested_did_document_version_id = u32::try_from(requested_did_document.version_id).expect("version_id overflow; this is so unlikely that it's almost certainly a programmer error");
+            let next_did_document_version_id = requested_did_document_version_id.checked_add(1).expect("version_id overflow; this is so unlikely that it's almost certainly a programmer error");
+            tracing::trace!(
+                ?requested_did_document_version_id,
+                ?next_did_document_version_id,
+            );
+            let next_did_doc_record_o = self
+                .did_doc_store
+                .get_did_doc_record_with_version_id(None, did, next_did_document_version_id)
+                .await?;
+            tracing::trace!(?next_did_doc_record_o, "next DID document local DB result");
+            if next_did_doc_record_o.is_some() {
+                // Only set next_did_doc_record_oo if we actually found a next DID document.
+                next_did_doc_record_oo = Some(next_did_doc_record_o);
+            }
+        }
+        if latest_did_document_needed && latest_did_doc_record_o.is_none() {
+            tracing::trace!("attempting to retrieve latest DID document from local DB");
+            if let Some(latest_known_did_doc_record) = self
+                .did_doc_store
+                .get_latest_known_did_doc_record(None, did)
+                .await?
+            {
+                tracing::trace!(
+                    ?latest_known_did_doc_record,
+                    "latest known DID document local DB result"
+                );
+                let latest_known_did_document =
+                    parse_did_document(&latest_known_did_doc_record.did_document_jcs)?;
+                if latest_known_did_document.is_deactivated() {
+                    tracing::trace!(?latest_known_did_document, "latest known DID document is deactivated, thus it's the latest, and the requested DID document is the latest known one, and there is no next DID document");
+                    // If the latest known DID document is deactivated, then by construction it's the latest.
+                    latest_did_doc_record_o = Some(latest_known_did_doc_record.clone());
+                    // And we know that the latest known DID document is the requested one.
+                    if requested_did_doc_record_o.is_none() {
+                        requested_did_doc_record_o = Some(latest_known_did_doc_record.clone());
+                    } else {
+                        panic!("programmer error -- maybe?  not sure if this is actually an error");
+                    }
+                    // And we now positively know that there is no next DID document.
+                    if next_did_doc_record_oo.is_none() {
+                        next_did_doc_record_oo = Some(None);
+                    } else {
+                        panic!("programmer error -- maybe?  not sure if this is actually an error");
+                    }
+                }
             }
         }
 
+        tracing::trace!(
+            "results from attempting to assemble needed data for local resolution:\n    root_did_document_needed: {}\n    root_did_doc_record_o.is_some(): {:?}\n    requested_did_document_needed: {}\n    requested_did_doc_record_o.is_some(): {:?}\n    next_did_document_o_needed: {}\n    next_did_doc_record_oo.is_some(): {:?}\n    latest_did_document_needed: {}\n    latest_did_doc_record_o.is_some(): {:?}",
+            root_did_document_needed,
+            root_did_doc_record_o.is_some(),
+            requested_did_document_needed,
+            requested_did_doc_record_o.is_some(),
+            next_did_document_o_needed,
+            next_did_doc_record_oo.is_some(),
+            latest_did_document_needed,
+            latest_did_doc_record_o.is_some(),
+        );
+
+        // Determine if the requested DID document was resolved locally.
+        let did_document_resolved_locally = requested_did_doc_record_o.is_some();
+        let did_document_metadata_resolved_locally = (!root_did_document_needed
+            || root_did_doc_record_o.is_some())
+            && (!next_did_document_o_needed || next_did_doc_record_oo.is_some())
+            && (!latest_did_document_needed || latest_did_doc_record_o.is_some());
+        tracing::trace!(
+            ?did_document_resolved_locally,
+            ?did_document_metadata_resolved_locally
+        );
+
+        // Determine if we need to fetch updates from the VDR in order to fulfill the request.
+        let mut fetched_updates_from_vdr = false;
+        if (root_did_document_needed && root_did_doc_record_o.is_none())
+            || (requested_did_document_needed && requested_did_doc_record_o.is_none())
+            || (next_did_document_o_needed && next_did_doc_record_oo.is_none())
+            || (latest_did_document_needed && latest_did_doc_record_o.is_none())
+        {
+            tracing::trace!("fetching updates from VDR is needed to fulfill the request");
+            if did_resolution_options.local_resolution_only {
+                tracing::trace!(
+                    "local-only DID resolution for {} was not able to complete",
+                    did,
+                );
+                return Err(Error::DIDResolutionFailure2(DIDResolutionMetadata {
+                    content_type_o: None,
+                    error_o: Some(format!(
+                        "local-only DID resolution for {} was not able to complete",
+                        did
+                    )),
+                    fetched_updates_from_vdr,
+                    did_document_resolved_locally,
+                    did_document_metadata_resolved_locally,
+                }));
+            }
+            self.fetch_validate_and_store_did_updates_from_vdr(did)
+                .await?;
+            fetched_updates_from_vdr = true;
+            tracing::trace!(?fetched_updates_from_vdr);
+
+            // Now that updates have been fetched from the VDR, make sure that the needed data is present.
+            if root_did_document_needed && root_did_doc_record_o.is_none() {
+                tracing::trace!("attempting to retrieve root DID document after VDR fetch");
+                let root_did_doc_record = self
+                    .did_doc_store
+                    .get_did_doc_record_with_version_id(None, did, 0)
+                    .await?
+                    .ok_or_else(|| {
+                        Error::DIDResolutionFailure2(DIDResolutionMetadata {
+                            content_type_o: None,
+                            error_o: Some(format!("DID resolution for {} failed (root DID document resolution failed)", did)),
+                            fetched_updates_from_vdr,
+                            did_document_resolved_locally,
+                            did_document_metadata_resolved_locally,
+                        })
+                    })?;
+                tracing::trace!(?root_did_doc_record, "root DID document local DB result");
+                root_did_doc_record_o = Some(root_did_doc_record);
+            }
+            if requested_did_document_needed && requested_did_doc_record_o.is_none() {
+                tracing::trace!("attempting to retrieve requested DID document after VDR fetch");
+                if query_self_hash_o.is_some() || query_version_id_o.is_some() {
+                    tracing::trace!(
+                        ?query_self_hash_o,
+                        ?query_version_id_o,
+                        "attempting to retrieve requested DID document from local DB with query params after VDR fetch"
+                    );
+                    let requested_did_doc_record = self
+                        .get_did_doc_record_with_self_hash_or_version_id(
+                            None,
+                            did,
+                            query_self_hash_o,
+                            query_version_id_o,
+                        )
+                        .await?
+                        .ok_or_else(|| {
+                            Error::DIDResolutionFailure2(DIDResolutionMetadata {
+                                content_type_o: None,
+                                error_o: Some(format!("DID resolution for {} failed", did)),
+                                fetched_updates_from_vdr,
+                                did_document_resolved_locally,
+                                did_document_metadata_resolved_locally,
+                            })
+                        })?;
+                    tracing::trace!(
+                        ?requested_did_doc_record,
+                        "requested DID document after VDR fetch"
+                    );
+                    let requested_did_document =
+                        parse_did_document(&requested_did_doc_record.did_document_jcs)?;
+                    if requested_did_document.is_deactivated() {
+                        tracing::trace!(?requested_did_document, "requested DID document is deactivated, thus it's the latest, and there is no next DID document");
+                        // If the requested DID document is deactivated, then by construction it's the latest.
+                        latest_did_doc_record_o = Some(requested_did_doc_record.clone());
+                        // And we now positively know that there is no next DID document.
+                        next_did_doc_record_oo = Some(None);
+                    }
+                    requested_did_doc_record_o = Some(requested_did_doc_record);
+                } else {
+                    tracing::trace!("attempting to retrieve latest DID document after VDR fetch");
+                    // The latest known DID doc record is the latest, due to VDR fetch above.
+                    let latest_did_doc_record = self
+                        .did_doc_store
+                        .get_latest_known_did_doc_record(None, did)
+                        .await?
+                        .ok_or_else(|| {
+                            Error::DIDResolutionFailure2(DIDResolutionMetadata {
+                                content_type_o: None,
+                                error_o: Some(format!("DID resolution for {} failed", did)),
+                                fetched_updates_from_vdr,
+                                did_document_resolved_locally,
+                                did_document_metadata_resolved_locally,
+                            })
+                        })?;
+                    tracing::trace!(
+                        ?latest_did_doc_record,
+                        "latest DID document after VDR fetch"
+                    );
+                    requested_did_doc_record_o = Some(latest_did_doc_record.clone());
+                    latest_did_doc_record_o = Some(latest_did_doc_record.clone());
+                    next_did_doc_record_oo = Some(None);
+                }
+            }
+            if next_did_document_o_needed && next_did_doc_record_oo.is_none() {
+                assert!(requested_did_doc_record_o.is_some());
+                tracing::trace!("attempting to retrieve next DID document after VDR fetch");
+                let requested_did_document_version_id = u32::try_from(requested_did_doc_record_o.as_ref().unwrap().version_id).expect("version_id overflow; this is so unlikely that it's almost certainly a programmer error");
+                let next_did_document_version_id = requested_did_document_version_id.checked_add(1).expect("version_id overflow; this is so unlikely that it's almost certainly a programmer error");
+                tracing::trace!(
+                    ?requested_did_document_version_id,
+                    ?next_did_document_version_id,
+                );
+                let next_did_doc_record_o = self
+                    .did_doc_store
+                    .get_did_doc_record_with_version_id(None, did, next_did_document_version_id)
+                    .await?;
+                tracing::trace!(?next_did_doc_record_o, "next DID document local DB result");
+                next_did_doc_record_oo = Some(next_did_doc_record_o);
+            }
+            if latest_did_document_needed && latest_did_doc_record_o.is_none() {
+                tracing::trace!("attempting to retrieve latest DID document after VDR fetch");
+                // The latest known DID doc record is the latest, due to VDR fetch above.
+                let latest_did_doc_record = self
+                    .did_doc_store
+                    .get_latest_known_did_doc_record(None, did)
+                    .await?
+                    .ok_or_else(|| {
+                        Error::DIDResolutionFailure2(DIDResolutionMetadata {
+                            content_type_o: None,
+                            error_o: Some(format!("DID resolution for {} failed", did)),
+                            fetched_updates_from_vdr,
+                            did_document_resolved_locally,
+                            did_document_metadata_resolved_locally,
+                        })
+                    })?;
+                tracing::trace!(
+                    ?latest_did_doc_record,
+                    "latest DID document local DB result"
+                );
+                latest_did_doc_record_o = Some(latest_did_doc_record);
+            }
+        } else {
+            tracing::trace!("fetching updates from VDR is NOT needed to fulfill the request");
+        }
+
+        // Now assemble the requested data and metadata.
+        assert!(requested_did_doc_record_o.is_some());
+        let requested_did_doc_record = requested_did_doc_record_o.unwrap();
+        let did_document_metadata = {
+            tracing::trace!("assembling DID document metadata");
+
+            let creation_metadata_o = if did_resolution_options.request_creation {
+                assert!(root_did_doc_record_o.is_some());
+                let root_did_doc_record = root_did_doc_record_o.unwrap();
+                Some(CreationMetadata::new(root_did_doc_record.valid_from))
+            } else {
+                None
+            };
+            tracing::trace!(?creation_metadata_o);
+
+            let next_update_metadata_o = if did_resolution_options.request_next {
+                assert!(next_did_doc_record_oo.is_some());
+                let next_did_doc_record_o = next_did_doc_record_oo.unwrap();
+                if let Some(next_did_doc_record) = next_did_doc_record_o {
+                    let next_version_id = u32::try_from(next_did_doc_record.version_id).expect("version_id overflow; this is so unlikely that it's almost certainly a programmer error");
+                    Some(NextUpdateMetadata::new(
+                        next_did_doc_record.valid_from,
+                        next_version_id,
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            tracing::trace!(?next_update_metadata_o);
+
+            let latest_update_metadata_o = if did_resolution_options.request_latest {
+                assert!(latest_did_doc_record_o.is_some());
+                let latest_did_doc_record = latest_did_doc_record_o.as_ref().unwrap();
+                Some(LatestUpdateMetadata::new(
+                    latest_did_doc_record.valid_from,
+                    u32::try_from(latest_did_doc_record.version_id).expect("version_id overflow; this is so unlikely that it's almost certainly a programmer error"),
+                ))
+            } else {
+                None
+            };
+            tracing::trace!(?latest_update_metadata_o);
+
+            let deactivated_o = if did_resolution_options.request_deactivated {
+                assert!(latest_did_doc_record_o.is_some());
+                let latest_did_doc_record = latest_did_doc_record_o.as_ref().unwrap();
+                let latest_did_document =
+                    parse_did_document(&latest_did_doc_record.did_document_jcs)?;
+                Some(latest_did_document.is_deactivated())
+            } else {
+                None
+            };
+            tracing::trace!(?deactivated_o);
+
+            DIDDocumentMetadata {
+                creation_metadata_o,
+                next_update_metadata_o,
+                latest_update_metadata_o,
+                deactivated_o,
+            }
+        };
+        let did_resolution_metadata = DIDResolutionMetadata {
+            content_type_o: None,
+            error_o: None,
+            fetched_updates_from_vdr,
+            did_document_resolved_locally,
+            did_document_metadata_resolved_locally,
+        };
+        tracing::trace!(?did_resolution_metadata);
+
+        Ok((
+            requested_did_doc_record,
+            did_document_metadata,
+            did_resolution_metadata,
+        ))
+    }
+    async fn fetch_validate_and_store_did_updates_from_vdr(&self, did: &DIDStr) -> Result<()> {
+        tracing::trace!("fetching DID document and requested DID document metadata from VDR");
+
         // Check what the latest version we do have is.
         tracing::trace!("checking latest DID document version in database");
-        let latest_did_doc_record_o = self
+        let latest_known_did_doc_record_o = self
             .did_doc_store
-            .get_latest_did_doc_record(Some(&mut *transaction), &did)
+            .get_latest_known_did_doc_record(None, did)
             .await?;
-        if let Some(latest_did_doc_record) = latest_did_doc_record_o.as_ref() {
+        if let Some(latest_known_did_doc_record) = latest_known_did_doc_record_o.as_ref() {
             tracing::trace!(
                 "latest DID document version in database: {}",
-                latest_did_doc_record.version_id
+                latest_known_did_doc_record.version_id
             );
         } else {
             tracing::trace!("no DID documents in database for DID {}", did);
         }
 
-        let latest_did_document_o = latest_did_doc_record_o
+        let latest_known_did_document_o = latest_known_did_doc_record_o
             .as_ref()
             .map(|record| parse_did_document(&record.did_document_jcs))
             .transpose()?;
 
         // We need to track the octet_length of did-documents.jsonl, based on what we already have.
-        let mut known_did_documents_jsonl_octet_length = latest_did_doc_record_o
+        let mut known_did_documents_jsonl_octet_length = latest_known_did_doc_record_o
             .as_ref()
             .map(|record| record.did_documents_jsonl_octet_length)
             .unwrap_or(0) as u64;
 
-        // Because we don't have the requested DID doc, we should fetch all updates from the VDR/VDG.
-        {
-            let did_documents_jsonl_update = fetch_did_documents_jsonl_update(
-                &did,
-                self.vdg_base_url_o.as_ref(),
-                self.http_scheme_override_o.as_ref(),
-                known_did_documents_jsonl_octet_length,
+        // Fetch the latest updates from the VDR.
+        let did_documents_jsonl_update = fetch_did_documents_jsonl_update(
+            &did,
+            self.vdg_base_url_o.as_ref(),
+            self.http_scheme_override_o.as_ref(),
+            known_did_documents_jsonl_octet_length,
+        )
+        .await?;
+        // Trim whitespace off the end (typically a newline)
+        let did_documents_jsonl_update_str = did_documents_jsonl_update.trim_end();
+        tracing::trace!("got did-documents.jsonl update");
+
+        let time_start = std::time::SystemTime::now();
+        // TEMP HACK: Collate it all into memory
+        // TODO: This needs to be bounded in memory, since the version_id comes from external
+        // source and could be arbitrarily large.  Do this in bounded-size chunks.
+        let mut did_document_jcs_v = Vec::new();
+        let mut did_document_v = Vec::new();
+        let original_prev_did_document_o = latest_known_did_document_o.clone();
+        if !did_documents_jsonl_update_str.is_empty() {
+            for did_document_jcs in did_documents_jsonl_update_str.split('\n') {
+                tracing::trace!(?did_document_jcs, "parsing did_document_jcs");
+                let did_document = parse_did_document(did_document_jcs)?;
+                tracing::trace!(?did_document, "parsed did_document");
+                did_document_jcs_v.push(did_document_jcs);
+                did_document_v.push(did_document);
+                known_did_documents_jsonl_octet_length += did_document_jcs.len() as u64 + 1;
+            }
+        }
+        let duration = std::time::SystemTime::now()
+            .duration_since(time_start)
+            .expect("pass");
+        tracing::debug!(
+            "Time taken to assemble predecessor DID documents (vdg_base_url_o: {:?}): {:?}",
+            self.vdg_base_url_o.as_ref().map(|url| url.as_str()),
+            duration
+        );
+
+        tracing::trace!("validating and storing predecessor DID documents");
+
+        self.did_doc_store
+            .validate_and_add_did_docs(
+                None,
+                &did_document_jcs_v,
+                &did_document_v,
+                original_prev_did_document_o.as_ref(),
             )
             .await?;
-            // Trim whitespace off the end (typically a newline)
-            let did_documents_jsonl_update_str = did_documents_jsonl_update.trim_end();
-            tracing::trace!(
-                ?did_documents_jsonl_update_str,
-                "got did-documents.jsonl update"
-            );
 
-            let time_start = std::time::SystemTime::now();
-            // TEMP HACK: Collate it all into memory
-            // TODO: This needs to be bounded in memory, since the version_id comes from external
-            // source and could be arbitrarily large.
-            let mut did_document_jcs_v = Vec::new();
-            let mut did_document_v = Vec::new();
-            let original_prev_did_document_o = latest_did_document_o.clone();
-            if !did_documents_jsonl_update_str.is_empty() {
-                for did_document_jcs in did_documents_jsonl_update_str.split('\n') {
-                    tracing::trace!(?did_document_jcs, "parsing did_document_jcs");
-                    let did_document = parse_did_document(did_document_jcs)?;
-                    tracing::trace!(?did_document, "parsed did_document");
-                    did_document_jcs_v.push(did_document_jcs);
-                    did_document_v.push(did_document);
-                    known_did_documents_jsonl_octet_length += did_document_jcs.len() as u64 + 1;
-                }
-            }
-            let duration = std::time::SystemTime::now()
-                .duration_since(time_start)
-                .expect("pass");
-            tracing::debug!(
-                "Time taken to assemble predecessor DID documents (vdg_base_url_o: {:?}): {:?}",
-                self.vdg_base_url_o.as_ref().map(|url| url.as_str()),
-                duration
-            );
-
-            tracing::trace!(
-                ?did_document_jcs_v,
-                ?did_document_v,
-                ?original_prev_did_document_o,
-                "validating and storing predecessor DID documents"
-            );
-
-            self.did_doc_store
-                .validate_and_add_did_docs(
-                    Some(&mut *transaction),
-                    &did_document_jcs_v,
-                    &did_document_v,
-                    original_prev_did_document_o.as_ref(),
-                )
-                .await?;
-        }
-
-        // Now that we have fetched, validated, and stored the target DID doc and its predecessors,
-        // we can check that the target DID doc matches the query param constraints and return it.
-        if query_self_hash_o.is_some() || query_version_id_o.is_some() {
-            let did_doc_record_o = self
-                .get_did_doc_record_with_self_hash_or_version_id(
-                    Some(&mut *transaction),
-                    &did,
-                    query_self_hash_o.as_deref(),
-                    query_version_id_o,
-                )
-                .await?;
-            if let Some(did_doc_record) = did_doc_record_o {
-                tracing::trace!("requested DID document was found in database after fetching all DID updates from VDR; returning it now");
-                Ok((did_doc_record, false))
-            } else {
-                tracing::trace!("requested DID document was NOT found in database even after fetching all DID updates from VDR");
-                Err(Error::DIDResolutionFailure(HTTPError {
-                    status_code: reqwest::StatusCode::NOT_FOUND,
-                    description: std::borrow::Cow::Owned(format!("DID resolution for {} failed even after fetching all DID updates from the VDR", did)),
-                }))
-            }
-        } else {
-            // Return the latest DID document.
-            let latest_did_doc_record_o = self
-                .did_doc_store
-                .get_latest_did_doc_record(Some(&mut *transaction), &did)
-                .await?
-                .ok_or_else(|| Error::DIDResolutionFailure(HTTPError {
-                    status_code: reqwest::StatusCode::NOT_FOUND,
-                    description: std::borrow::Cow::Owned(format!("DID resolution for {} failed even after fetching all DID updates from the VDR", did)),
-                }))?;
-            Ok((latest_did_doc_record_o, false))
-        }
+        Ok(())
     }
     async fn get_did_doc_record_with_self_hash_or_version_id(
         &self,
@@ -301,40 +650,27 @@ impl DIDResolver for DIDResolverFull {
     async fn resolve_did_document_string(
         &self,
         did_query: &str,
-        requested_did_document_metadata: did_webplus_core::RequestedDIDDocumentMetadata,
-    ) -> Result<(String, did_webplus_core::DIDDocumentMetadata)> {
+        did_resolution_options: DIDResolutionOptions,
+    ) -> Result<(String, DIDDocumentMetadata, DIDResolutionMetadata)> {
         tracing::debug!(
-            "DIDResolverFull::resolve_did_document_string; did_query: {}; requested_did_document_metadata: {:?}",
+            "DIDResolverFull::resolve_did_document_string; did_query: {}; did_resolution_options: {:?}",
             did_query,
-            requested_did_document_metadata
+            did_resolution_options
         );
 
-        if requested_did_document_metadata.constant
-            || requested_did_document_metadata.idempotent
-            || requested_did_document_metadata.currency
-        {
-            panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverFull");
-        }
-
-        use storage_traits::StorageDynT;
-        let mut transaction_b = self.did_doc_store.begin_transaction().await?;
-        let (did_doc_record, _was_resolved_locally) = self
-            .resolve_did_doc_record(transaction_b.as_mut(), did_query)
+        let (did_doc_record, did_document_metadata, did_resolution_metadata) = self
+            .resolve_did_doc_record(did_query, did_resolution_options)
             .await?;
-        transaction_b.commit().await?;
-
-        // TODO: Implement metadata
-        let did_document_metadata = did_webplus_core::DIDDocumentMetadata {
-            constant_o: None,
-            idempotent_o: None,
-            currency_o: None,
-        };
 
         tracing::trace!(
             "DIDResolverFull::resolve_did_document_string; successfully resolved DID document: {}",
             did_doc_record.did_document_jcs
         );
-        Ok((did_doc_record.did_document_jcs, did_document_metadata))
+        Ok((
+            did_doc_record.did_document_jcs,
+            did_document_metadata,
+            did_resolution_metadata,
+        ))
     }
     fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {
         self

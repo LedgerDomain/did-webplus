@@ -227,7 +227,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         .transpose()?;
         Ok(did_doc_record_o)
     }
-    async fn get_latest_did_doc_record(
+    async fn get_latest_known_did_doc_record(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,

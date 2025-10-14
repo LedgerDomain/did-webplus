@@ -1,12 +1,12 @@
 use std::{collections::HashMap, ops::Deref};
 
 use did_webplus_core::{
-    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualified, Error, KeyPurpose,
-    MicroledgerView, PublicKeySet, RootLevelUpdateRules, UpdateKey, DID,
+    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualified, KeyPurpose, PublicKeySet,
+    RootLevelUpdateRules, UpdateKey, DID,
 };
 use signature_dyn::SignerDynT;
 
-use crate::{Microledger, VDRClient};
+use crate::{Microledger, MicroledgerMutView, MicroledgerView, VDRClient};
 
 pub struct ControlledDID {
     pub current_public_key_set: PublicKeySet<mbx::MBPubKey>,
@@ -21,7 +21,7 @@ impl ControlledDID {
         did_port_o: Option<u16>,
         did_path_o: Option<String>,
         vdr_client: &dyn VDRClient,
-    ) -> Result<Self, Error> {
+    ) -> did_webplus_core::Result<Self> {
         // Generate the key set for use in the root DID document.
         let (signer_bytes_m, current_public_key_set) = Self::generate_new_keys();
 
@@ -82,7 +82,7 @@ impl ControlledDID {
             microledger,
         })
     }
-    pub fn update(&mut self, vdr_client: &dyn VDRClient) -> Result<(), Error> {
+    pub fn update(&mut self, vdr_client: &dyn VDRClient) -> did_webplus_core::Result<()> {
         // Generate the new key set to rotate in during the DID update.
         let (new_signer_bytes_m, new_public_key_set) = Self::generate_new_keys();
 
@@ -134,7 +134,6 @@ impl ControlledDID {
 
         vdr_client.update_did(new_did_document.clone())?;
         // If the VDR update succeeded, then update the local Microledger.
-        use did_webplus_core::MicroledgerMutView;
         self.microledger.mut_view().update(new_did_document)?;
         // Now update the local signer and public key set.
         self.current_public_key_set = new_public_key_set;

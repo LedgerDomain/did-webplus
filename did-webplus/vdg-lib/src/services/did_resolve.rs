@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use did_webplus_core::DID;
+use did_webplus_core::{DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, DID};
 use did_webplus_resolver::DIDResolver;
 use time::{format_description::well_known, OffsetDateTime};
 use tokio::task;
@@ -64,7 +64,7 @@ async fn get_did_document_jsonl(
         did_resolver_full
             .resolve_did_document_string(
                 did.as_str(),
-                did_webplus_core::RequestedDIDDocumentMetadata::none(),
+                did_webplus_core::DIDResolutionOptions::no_metadata(false),
             )
             .await
             .map_err(|e| (StatusCode::NOT_FOUND, e.to_string()))?;
@@ -175,17 +175,75 @@ async fn get_did_document_jsonl(
 #[tracing::instrument(err(Debug), skip(vdg_app_state))]
 async fn resolve_did(
     State(vdg_app_state): State<VDGAppState>,
+    header_map: HeaderMap,
     // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
     Path(did_query): Path<String>,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
-    resolve_did_impl(&vdg_app_state, did_query).await
+    resolve_did_impl(&vdg_app_state, Some(header_map), did_query).await
 }
 
+// TODO: Implement reading DIDResolutionOptions out of a header
 async fn resolve_did_impl(
     vdg_app_state: &VDGAppState,
+    header_map_o: Option<HeaderMap>,
     did_query: String,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::trace!(?did_query, "VDG DID resolution");
+
+    let did_resolution_options = {
+        let mut did_resolution_options = DIDResolutionOptions::default();
+        if let Some(header_map) = header_map_o {
+            if let Some(accept_header) = header_map.get(header::ACCEPT) {
+                did_resolution_options.accept_o = Some(accept_header.to_str().unwrap().to_string());
+            }
+            if let Some(request_creation_header) = header_map.get("X-DID-Request-Creation-Metadata")
+            {
+                did_resolution_options.request_creation =
+                    request_creation_header.to_str().unwrap().parse().map_err(
+                        |e: std::str::ParseBoolError| (StatusCode::BAD_REQUEST, e.to_string()),
+                    )?;
+            }
+            if let Some(request_next_header) = header_map.get("X-DID-Request-Next-Metadata") {
+                did_resolution_options.request_next =
+                    request_next_header.to_str().unwrap().parse().map_err(
+                        |e: std::str::ParseBoolError| (StatusCode::BAD_REQUEST, e.to_string()),
+                    )?;
+            }
+            if let Some(request_latest_header) = header_map.get("X-DID-Request-Latest-Metadata") {
+                did_resolution_options.request_latest =
+                    request_latest_header.to_str().unwrap().parse().map_err(
+                        |e: std::str::ParseBoolError| (StatusCode::BAD_REQUEST, e.to_string()),
+                    )?;
+            }
+            if let Some(request_deactivated_header) =
+                header_map.get("X-DID-Request-Deactivated-Metadata")
+            {
+                did_resolution_options.request_deactivated = request_deactivated_header
+                    .to_str()
+                    .unwrap()
+                    .parse()
+                    .map_err(|e: std::str::ParseBoolError| {
+                        (StatusCode::BAD_REQUEST, e.to_string())
+                    })?;
+            }
+            if let Some(local_resolution_only_header) =
+                header_map.get("X-DID-Local-Resolution-Only")
+            {
+                did_resolution_options.local_resolution_only = local_resolution_only_header
+                    .to_str()
+                    .unwrap()
+                    .parse()
+                    .map_err(|e: std::str::ParseBoolError| {
+                        (StatusCode::BAD_REQUEST, e.to_string())
+                    })?;
+            }
+        }
+        tracing::debug!(
+            ?did_resolution_options,
+            "did_resolution_options for VDG resolve request"
+        );
+        did_resolution_options
+    };
 
     let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
         vdg_app_state.did_doc_store.clone(),
@@ -193,21 +251,18 @@ async fn resolve_did_impl(
         vdg_app_state.http_scheme_override_o.clone(),
     )
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    // TODO: Make this not require a transaction.
-    use storage_traits::StorageDynT;
-    let mut transaction_b = vdg_app_state
-        .did_doc_store
-        .begin_transaction()
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let (did_doc_record, was_resolved_locally) = did_resolver_full
-        .resolve_did_doc_record(transaction_b.as_mut(), &did_query)
+    let (did_doc_record, did_document_metadata, did_resolution_metadata) = did_resolver_full
+        .resolve_did_doc_record(&did_query, did_resolution_options)
         .await
         .map_err(|e| match e {
             did_webplus_resolver::Error::DIDResolutionFailure(http_error) => {
                 (http_error.status_code, http_error.description.into_owned())
             }
+            did_webplus_resolver::Error::DIDResolutionFailure2(did_resolution_metadata) => (
+                StatusCode::NOT_FOUND,
+                serde_json::to_string(&did_resolution_metadata).unwrap(),
+            ),
             did_webplus_resolver::Error::MalformedDIDQuery(description) => {
                 (StatusCode::BAD_REQUEST, description.into_owned())
             }
@@ -216,16 +271,13 @@ async fn resolve_did_impl(
             }
             e => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         })?;
-    transaction_b
-        .commit()
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok((
         headers_for_did_documents_jsonl(
             did_doc_record.self_hash.as_str(),
             did_doc_record.valid_from,
-            was_resolved_locally,
+            did_document_metadata,
+            did_resolution_metadata,
         ),
         did_doc_record.did_document_jcs,
     ))
@@ -234,7 +286,8 @@ async fn resolve_did_impl(
 fn headers_for_did_documents_jsonl(
     hash: &str,
     last_modified: OffsetDateTime,
-    cache_hit: bool,
+    did_document_metadata: DIDDocumentMetadata,
+    did_resolution_metadata: DIDResolutionMetadata,
 ) -> HeaderMap {
     // See <https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cache-Control>
     // - public: Allow storage in a shared cache.
@@ -260,10 +313,22 @@ fn headers_for_did_documents_jsonl(
     headers.insert(ETAG, HeaderValue::from_str(hash).unwrap());
     headers.insert(
         "X-VDG-Cache-Hit",
-        HeaderValue::from_static(if cache_hit { "true" } else { "false" }),
+        HeaderValue::from_static(if did_resolution_metadata.did_document_resolved_locally {
+            "true"
+        } else {
+            "false"
+        }),
+    );
+    headers.insert(
+        "X-DID-Document-Metadata",
+        HeaderValue::from_str(&serde_json::to_string(&did_document_metadata).unwrap()).unwrap(),
+    );
+    headers.insert(
+        "X-DID-Resolution-Metadata",
+        HeaderValue::from_str(&serde_json::to_string(&did_resolution_metadata).unwrap()).unwrap(),
     );
 
-    tracing::debug!("headers_for_did_document; headers: {:?}", headers);
+    tracing::trace!("headers_for_did_document; headers: {:?}", headers);
 
     headers
 }
@@ -280,7 +345,7 @@ async fn update_did(
     // for the response as the vdg queries back the vdr for the latest did document
     task::spawn({
         async move {
-            if let Err((_, err)) = resolve_did_impl(&vdg_app_state, did.to_string()).await {
+            if let Err((_, err)) = resolve_did_impl(&vdg_app_state, None, did.to_string()).await {
                 tracing::error!(
                     "error updating DID document for DID {} -- error was: {}",
                     did,

@@ -173,7 +173,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         let did_doc_record_o = state_g.get_by_did_and_version_id(did.to_owned(), version_id);
         Ok(did_doc_record_o.cloned())
     }
-    async fn get_latest_did_doc_record(
+    async fn get_latest_known_did_doc_record(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,

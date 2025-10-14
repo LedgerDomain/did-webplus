@@ -15,8 +15,8 @@ pub struct DIDResourceFullyQualified<F: 'static + Fragment + ?Sized>(
 
 /// Because DIDResourceFullyQualified has a type parameter that doesn't require Clone,
 /// the standard derive(Clone) doesn't work, because it has incorrect, non-minimal bounds.
-/// See https://github.com/rust-lang/rust/issues/41481
-/// and https://github.com/rust-lang/rust/issues/26925
+/// See <https://github.com/rust-lang/rust/issues/41481>
+/// and <https://github.com/rust-lang/rust/issues/26925>
 impl<F: Fragment + ?Sized> Clone for DIDResourceFullyQualified<F> {
     fn clone(&self) -> Self {
         Self(Default::default(), self.1.clone())

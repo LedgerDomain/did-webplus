@@ -16,6 +16,5 @@ pub trait StorageT: Clone + Send + Sync {
     where
         Self: 't;
     /// Begin a transaction.
-    #[allow(elided_named_lifetimes)]
-    async fn begin_transaction(&self) -> Result<Self::Transaction<'_>>;
+    async fn begin_transaction<'s>(&self) -> Result<Self::Transaction<'s>>;
 }

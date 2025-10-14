@@ -147,13 +147,13 @@ impl DIDDocStore {
             .get_did_doc_record_with_version_id(transaction_o, did, version_id)
             .await
     }
-    pub async fn get_latest_did_doc_record(
+    pub async fn get_latest_known_did_doc_record(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>> {
         self.did_doc_storage_a
-            .get_latest_did_doc_record(transaction_o, did)
+            .get_latest_known_did_doc_record(transaction_o, did)
             .await
     }
     // TEMP HACK

@@ -1,8 +1,8 @@
 use crate::Result;
 
-/// This trait provides a way to turn a "verifier" string into a Box<dyn signature_dyn::VerifierDynT>.
+/// This trait provides a way to turn a "verifier" string into a `Box<dyn signature_dyn::VerifierDynT>`.
 /// For example, DID methods can implement this to turn a fully-qualified DID resource (that
-/// specifies a specific pub key) into a Box<dyn signature_dyn::VerifierDynT> of that public key.
+/// specifies a specific pub key) into a `Box<dyn signature_dyn::VerifierDynT>` of that public key.
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 pub trait VerifierResolver: Send + Sync {

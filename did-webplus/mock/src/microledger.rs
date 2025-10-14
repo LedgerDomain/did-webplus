@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 
-use did_webplus_core::{DIDDocument, Error, MicroledgerMutView, MicroledgerView};
+use did_webplus_core::DIDDocument;
+
+use crate::{MicroledgerMutView, MicroledgerView};
 
 /// Purely in-memory data model of a single DID's microledger of DID documents.  Has indexes for
 /// the self-hash and valid_from fields of each DID document, which are used in the query
@@ -21,7 +23,7 @@ pub struct Microledger {
 impl Microledger {
     /// Creates a new Microledger from the given root DID document.  This function will verify the
     /// root DID document.
-    pub fn create(root_did_document: DIDDocument) -> Result<Self, Error> {
+    pub fn create(root_did_document: DIDDocument) -> did_webplus_core::Result<Self> {
         root_did_document.verify_root_nonrecursive()?;
         use selfhash::HashRefT;
         assert!(!root_did_document.self_hash.is_placeholder());
@@ -44,9 +46,13 @@ impl Microledger {
     }
     /// Creates a Microledger from a given root DIDDocument and a (possibly empty) sequence of non-root
     /// DIDDocuments, verifying each DID document in the overall sequence.
-    pub fn new_from_did_documents(did_document_v: Vec<DIDDocument>) -> Result<Self, Error> {
+    pub fn new_from_did_documents(
+        did_document_v: Vec<DIDDocument>,
+    ) -> did_webplus_core::Result<Self> {
         if did_document_v.is_empty() {
-            return Err(Error::Malformed("DID document list is empty"));
+            return Err(did_webplus_core::Error::Malformed(
+                "DID document list is empty",
+            ));
         }
 
         let mut self_hash_version_id_m = HashMap::with_capacity(did_document_v.len());
@@ -140,7 +146,7 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
     fn did_document_for_version_id(
         &self,
         version_id: u32,
-    ) -> Result<&'m DIDDocument, did_webplus_core::Error> {
+    ) -> did_webplus_core::Result<&'m DIDDocument> {
         self.did_document_v.get(version_id as usize).ok_or_else(|| {
             did_webplus_core::Error::NotFound("version_id does not match any existing DID document")
         })
@@ -148,7 +154,7 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
     fn did_document_for_self_hash(
         &self,
         self_hash: &mbx::MBHashStr,
-    ) -> Result<&'m DIDDocument, Error> {
+    ) -> did_webplus_core::Result<&'m DIDDocument> {
         let version_id = self.self_hash_version_id_m.get(self_hash).ok_or_else(|| {
             did_webplus_core::Error::NotFound("self-hash does not match any existing DID document")
         })?;
@@ -157,7 +163,7 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
     fn did_document_valid_at_time(
         &self,
         time: time::OffsetDateTime,
-    ) -> Result<&'m DIDDocument, Error> {
+    ) -> did_webplus_core::Result<&'m DIDDocument> {
         let version_id = self
             .valid_from_version_id_m
             .range(..=time)
@@ -174,7 +180,7 @@ impl<'m> MicroledgerMutView<'m> for &'m mut Microledger {
     fn update(
         &mut self,
         new_did_document: did_webplus_core::DIDDocument,
-    ) -> Result<(), did_webplus_core::Error> {
+    ) -> did_webplus_core::Result<()> {
         new_did_document.verify_non_root_nonrecursive(self.view().latest_did_document())?;
         let self_hash = &new_did_document.self_hash;
         let version_id = new_did_document.version_id;

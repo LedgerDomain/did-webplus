@@ -20,7 +20,7 @@ impl DIDStr {
         ))
         .expect("programmer error")
     }
-    fn uri_components(&self) -> DIDURIComponents {
+    fn uri_components(&self) -> DIDURIComponents<'_> {
         DIDURIComponents::try_from(self.as_str()).expect(
             "programmer error: this should not fail due to guarantees in construction of DID",
         )

@@ -1,6 +1,6 @@
 // use did_webplus_core::DIDKeyResourceFullyQualified;
 
-/// See RFC 7515, https://datatracker.ietf.org/doc/html/rfc7515
+/// See RFC 7515, <https://datatracker.ietf.org/doc/html/rfc7515>
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct JWSHeader {
     /// Signature algorithm used to sign the JWS.

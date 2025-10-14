@@ -152,10 +152,10 @@ pub async fn did_resolve(
     did_resolver: &dyn did_webplus_resolver::DIDResolver,
 ) -> Result<did_webplus_core::DIDDocument> {
     // TODO: Handle metadata
-    let (did_document, _did_doc_metadata) = did_resolver
+    let (did_document, _did_document_metadata, _did_resolution_metadata) = did_resolver
         .resolve_did_document(
             did_query,
-            did_webplus_core::RequestedDIDDocumentMetadata::none(),
+            did_webplus_core::DIDResolutionOptions::no_metadata(false),
         )
         .await?;
     Ok(did_document)
@@ -168,10 +168,10 @@ pub async fn did_resolve_string(
     did_resolver: &dyn did_webplus_resolver::DIDResolver,
 ) -> Result<String> {
     // TODO: Handle metadata
-    let (did_document_string, _did_doc_metadata) = did_resolver
+    let (did_document_string, _did_document_metadata, _did_resolution_metadata) = did_resolver
         .resolve_did_document_string(
             did_query,
-            did_webplus_core::RequestedDIDDocumentMetadata::none(),
+            did_webplus_core::DIDResolutionOptions::no_metadata(false),
         )
         .await?;
     Ok(did_document_string)

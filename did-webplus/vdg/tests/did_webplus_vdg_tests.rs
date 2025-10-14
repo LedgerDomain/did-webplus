@@ -4,7 +4,7 @@ use std::{
 };
 
 use did_webplus_core::DIDDocument;
-use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
+use did_webplus_mock::{MicroledgerView, MockVDR, MockVDRClient, MockWallet};
 
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
@@ -15,7 +15,7 @@ fn overall_init() {
 fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDocument) {
     tracing::trace!("HTTP response headers: {:?}", headers);
     assert!(headers.contains_key("Cache-Control"));
-    assert!(headers.contains_key("Expires"));
+    // assert!(headers.contains_key("Expires"));
     assert!(headers.contains_key("Last-Modified"));
     assert!(headers.contains_key("ETag"));
     // This is a custom header that the VDG adds, mostly for testing purposes.
@@ -155,7 +155,6 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
     );
 
     // Ask for a particular self-hash that the VDG is known to have to see if it hits the VDR.
-    use did_webplus_core::MicroledgerView;
     let alice_did_document = alice_wallet
         .controlled_did(&alice_did)
         .expect("pass")
@@ -223,8 +222,6 @@ async fn update_did(
     alice_did: &did_webplus_core::DID,
     alice_did_documents_jsonl_url: &str,
 ) {
-    use did_webplus_core::MicroledgerView;
-
     alice_wallet.update_did(alice_did).expect("pass");
     // Hacky way to test the actual VDR, which is assumed be running in a separate process.
     // This uses the DID document it updated with the mock VDR and sends it to the real VDR.

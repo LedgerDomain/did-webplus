@@ -257,7 +257,7 @@ async fn update_did(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     let latest_did_document_record_o = vdr_app_state
         .did_doc_store
-        .get_latest_did_doc_record(Some(transaction_b.as_mut()), &did)
+        .get_latest_known_did_doc_record(Some(transaction_b.as_mut()), &did)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     if latest_did_document_record_o.is_none() {

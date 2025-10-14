@@ -1,10 +1,8 @@
 use std::borrow::Cow;
 
-use did_webplus_core::{
-    DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata, DID,
-};
+use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, DID};
 
-use crate::{Microledger, VDS};
+use crate::{Microledger, MicroledgerMutView, MicroledgerView, VDS};
 
 // Mock VDR -- Purely in-memory, intra-process VDR.  Hosts DID microledgers on behalf of DID controllers.
 #[derive(Debug)]
@@ -50,7 +48,6 @@ impl MockVDR {
 
         // This construction will fail if the root_did_document isn't valid.
         let microledger = Microledger::create(root_did_document)?;
-        use did_webplus_core::MicroledgerView;
         if self.microledger_m.contains_key(microledger.view().did()) {
             return Err(Error::AlreadyExists("DID already exists"));
         }
@@ -79,7 +76,6 @@ impl MockVDR {
             .microledger_m
             .get_mut(&new_did_document.did)
             .ok_or_else(|| Error::NotFound("DID not found"))?;
-        use did_webplus_core::MicroledgerMutView;
         microledger.mut_view().update(new_did_document)?;
         Ok(())
     }
@@ -110,7 +106,6 @@ impl VDS for MockVDR {
         self.simulate_latency_if_necessary();
 
         let microledger = self.microledger(did)?;
-        use did_webplus_core::MicroledgerView;
         let (_, did_document_ib) = microledger
             .view()
             .select_did_documents(version_id_begin_o, version_id_end_o);
@@ -124,7 +119,7 @@ impl VDS for MockVDR {
         did: &DIDStr,
         version_id_o: Option<u32>,
         self_hash_o: Option<&mbx::MBHashStr>,
-        requested_did_document_metadata: RequestedDIDDocumentMetadata,
+        did_resolution_options: did_webplus_core::DIDResolutionOptions,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!(
             "VDR({:?})::resolve\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
@@ -133,12 +128,10 @@ impl VDS for MockVDR {
         self.simulate_latency_if_necessary();
 
         let microledger = self.microledger(did)?;
-        use did_webplus_core::MicroledgerView;
-        let (did_document, did_document_metadata) = microledger.view().resolve(
-            version_id_o,
-            self_hash_o,
-            requested_did_document_metadata,
-        )?;
+        let (did_document, did_document_metadata) =
+            microledger
+                .view()
+                .resolve(version_id_o, self_hash_o, did_resolution_options)?;
         Ok((Cow::Borrowed(did_document), did_document_metadata))
     }
 }

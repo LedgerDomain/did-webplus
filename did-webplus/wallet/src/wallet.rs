@@ -37,6 +37,15 @@ pub trait Wallet: Send + Sync {
         did: &DIDStr,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<DIDFullyQualified>;
+    /// Deactivate a locally-controlled DID by removing all verification methods from the DID document
+    /// and setting its update rules to UpdatesDisallowed.  Returns the fully qualified DID corresponding
+    /// to the updated DID document.  Note that this is an extremely irreversible action; the DID can't
+    /// ever be updated again
+    async fn deactivate_did(
+        &self,
+        did: &DIDStr,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    ) -> Result<DIDFullyQualified>;
 
     // Below here are lower-level methods for accessing controlled DIDs and verification methods (i.e. private keys).
 

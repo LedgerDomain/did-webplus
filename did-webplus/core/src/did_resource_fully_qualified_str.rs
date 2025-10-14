@@ -24,7 +24,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceFullyQualifiedStr<F> {
     pub fn without_fragment(&self) -> &DIDFullyQualifiedStr {
         DIDFullyQualifiedStr::new_ref(self.1.split_once('#').unwrap().0).expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
     }
-    fn uri_components(&self) -> DIDURIComponents {
+    fn uri_components(&self) -> DIDURIComponents<'_> {
         DIDURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
     }
     /// Hostname of the VDR that acts as the authority/origin for this DID.

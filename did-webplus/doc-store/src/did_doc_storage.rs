@@ -37,9 +37,9 @@ pub trait DIDDocStorage: Send + storage_traits::StorageDynT + Sync + 'static {
         did: &DIDStr,
         version_id: u32,
     ) -> Result<Option<DIDDocRecord>>;
-    /// Get the latest DIDDocRecord for the specified DID from the store.  Will return None if the DID has
+    /// Get the latest known DIDDocRecord for the specified DID from the store.  Will return None if the DID has
     /// no DIDDocRecord-s in this store.
-    async fn get_latest_did_doc_record(
+    async fn get_latest_known_did_doc_record(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
