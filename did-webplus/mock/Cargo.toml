@@ -2,7 +2,7 @@
 name = "did-webplus-mock"
 version = "0.2.0"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
-edition = "2021"
+edition = "2024"
 
 # [features]
 # async-traits = ["dep:async-trait"]

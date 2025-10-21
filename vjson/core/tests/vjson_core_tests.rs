@@ -57,7 +57,7 @@ async fn test_vjson_core_0() {
     {
         use rand::Rng;
         let value =
-            serde_json::json!({ "blah": rand::thread_rng().gen::<f64>(), "$id": "vjson:///" });
+            serde_json::json!({ "blah": rand::thread_rng().r#gen::<f64>(), "$id": "vjson:///" });
 
         let (mut self_hashable_json, _schema_value) =
             vjson_core::self_hashable_json_from(value, &vjson_resolver)
