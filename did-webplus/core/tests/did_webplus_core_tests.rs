@@ -1,9 +1,9 @@
-use std::str::FromStr;
+use std::{ops::Deref, str::FromStr};
 
 use did_webplus_core::{
     CreationMetadata, DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
-    LatestUpdateMetadata, NextUpdateMetadata, PublicKeySet, RootLevelUpdateRules, UpdateKey,
-    now_utc_milliseconds,
+    HashedUpdateKey, LatestUpdateMetadata, NextUpdateMetadata, PublicKeySet, RootLevelUpdateRules,
+    UpdateKey, UpdatesDisallowed, now_utc_milliseconds,
 };
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -521,4 +521,233 @@ fn test_did_document_metadata_roundtrip() {
             }
         }
     }
+}
+
+#[test]
+fn produce_complete_did_documents_jsonl() {
+    tracing::info!("Reading environment variables...");
+    let vdr_create_endpoint_o = std::env::var("VDR_CREATE_ENDPOINT").ok();
+    let produce_deactivated_did_o = std::env::var("PRODUCE_DEACTIVATED_DID").ok();
+    tracing::info!(
+        "VDR_CREATE_ENDPOINT: {}",
+        if let Some(vdr_create_endpoint) = vdr_create_endpoint_o.as_ref() {
+            vdr_create_endpoint
+        } else {
+            "not specified; using default: https://example.com"
+        }
+    );
+    tracing::info!(
+        "PRODUCE_DEACTIVATED_DID: {}",
+        if let Some(produce_deactivated_did) = produce_deactivated_did_o.as_ref() {
+            produce_deactivated_did
+        } else {
+            "not specified; using default: true"
+        }
+    );
+    let vdr_create_endpoint = vdr_create_endpoint_o.unwrap_or("https://example.com".to_string());
+    let produce_deactivated_did = produce_deactivated_did_o.unwrap_or("true".to_string());
+
+    let vdr_create_endpoint_url = url::Url::parse(&vdr_create_endpoint)
+        .expect("Malformed URL in env var VDR_CREATE_ENDPOINT");
+    tracing::debug!("vdr_create_endpoint_url: {:?}", vdr_create_endpoint_url);
+
+    let produce_deactivated_did = match produce_deactivated_did.as_str() {
+        "true" => true,
+        "false" => false,
+        _ => panic!("env var PRODUCE_DEACTIVATED_DID must be true or false"),
+    };
+    if produce_deactivated_did {
+        tracing::debug!("PRODUCE_DEACTIVATED_DID is true, so we will produce a deactivated DID");
+    } else {
+        tracing::debug!(
+            "PRODUCE_DEACTIVATED_DID is false, so we will produce a non-deactivated DID"
+        );
+    }
+
+    let did_hostname = vdr_create_endpoint_url
+        .host_str()
+        .expect("Expected host in env var VDR_CREATE_ENDPOINT");
+    let did_port_o = vdr_create_endpoint_url.port();
+    let did_path_o = if vdr_create_endpoint_url.path() == "/" {
+        None
+    } else {
+        assert!(vdr_create_endpoint_url.path().starts_with("/"));
+        Some(
+            vdr_create_endpoint_url
+                .path()
+                .strip_prefix("/")
+                .unwrap()
+                .replace('/', ":"),
+        )
+    };
+
+    let hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
+
+    // Initial set of verification method keys
+    let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    // This is the key to update the initial DID doc.
+    let update_signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_verifying_key_0 = update_signing_key_0.verifying_key();
+    let update_pub_key_0 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbx::Base::Base64Url,
+        &update_verifying_key_0,
+    );
+    let did_document_0 = {
+        let verifying_key_0 = signing_key_0.verifying_key();
+        let pub_key_0 =
+            mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_0);
+
+        // Demonstrate non-hashed update key
+        let update_rules = RootLevelUpdateRules::from(UpdateKey {
+            pub_key: update_pub_key_0.clone(),
+        });
+        let valid_from = now_utc_milliseconds();
+        let public_key_set = PublicKeySet {
+            authentication_v: vec![&pub_key_0],
+            assertion_method_v: vec![&pub_key_0],
+            key_agreement_v: vec![&pub_key_0],
+            capability_invocation_v: vec![&pub_key_0],
+            capability_delegation_v: vec![&pub_key_0],
+        };
+        let mut did_document_0 = DIDDocument::create_unsigned_root(
+            did_hostname,
+            did_port_o,
+            did_path_o.as_deref(),
+            update_rules,
+            valid_from,
+            public_key_set,
+            &hash_function,
+        )
+        .expect("pass");
+        did_document_0.finalize(None).expect("pass");
+        did_document_0.verify_root_nonrecursive().expect("pass");
+        did_document_0
+    };
+    let did = did_document_0.did.deref();
+    println!("{}", did.resolution_url_for_did_documents_jsonl(None));
+    println!(
+        "{}",
+        serde_json_canonicalizer::to_string(&did_document_0).unwrap()
+    );
+
+    // Next set of verification method keys
+    let signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    // This is the next update key
+    let update_signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_verifying_key_1 = update_signing_key_1.verifying_key();
+    let update_pub_key_1 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbx::Base::Base64Url,
+        &update_verifying_key_1,
+    );
+    let did_document_1 = {
+        let verifying_key_1 = signing_key_1.verifying_key();
+        let pub_key_1 =
+            mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_1);
+
+        // Demonstrate hashed update key
+        let update_rules =
+            RootLevelUpdateRules::from(HashedUpdateKey::from_pub_key(&update_pub_key_1));
+        let valid_from = now_utc_milliseconds();
+        let public_key_set = PublicKeySet {
+            authentication_v: vec![&pub_key_1],
+            assertion_method_v: vec![&pub_key_1],
+            key_agreement_v: vec![&pub_key_1],
+            capability_invocation_v: vec![&pub_key_1],
+            capability_delegation_v: vec![&pub_key_1],
+        };
+        let mut did_document_1 = DIDDocument::create_unsigned_non_root(
+            &did_document_0,
+            update_rules,
+            valid_from,
+            public_key_set,
+            &hash_function,
+        )
+        .expect("pass");
+        // Have to sign the update.
+        {
+            let jws = did_document_1
+                .sign(update_pub_key_0.to_string(), &update_signing_key_0)
+                .expect("pass");
+            did_document_1.add_proof(jws.into_string());
+        }
+        did_document_1
+            .finalize(Some(&did_document_0))
+            .expect("pass");
+        did_document_1
+            .verify_non_root_nonrecursive(&did_document_0)
+            .expect("pass");
+        did_document_1
+    };
+    println!(
+        "{}",
+        serde_json_canonicalizer::to_string(&did_document_1).unwrap()
+    );
+
+    // Next set of verification method keys (these are used only if produce_deactivated_did is false)
+    let signing_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    // This is the next update key
+    let update_signing_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_verifying_key_2 = update_signing_key_2.verifying_key();
+    let update_pub_key_2 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+        mbx::Base::Base64Url,
+        &update_verifying_key_2,
+    );
+    let did_document_2 = {
+        // These are used only if produce_deactivated_did is false
+        let verifying_key_2 = signing_key_2.verifying_key();
+        let pub_key_2 =
+            mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_2);
+
+        let (update_rules, public_key_set) = if produce_deactivated_did {
+            // Demonstrate UpdatesDisallowed
+            let update_rules = RootLevelUpdateRules::UpdatesDisallowed(UpdatesDisallowed {});
+            let public_key_set = PublicKeySet {
+                authentication_v: vec![],
+                assertion_method_v: vec![],
+                key_agreement_v: vec![],
+                capability_invocation_v: vec![],
+                capability_delegation_v: vec![],
+            };
+            (update_rules, public_key_set)
+        } else {
+            let update_rules =
+                RootLevelUpdateRules::from(HashedUpdateKey::from_pub_key(&update_pub_key_2));
+
+            let public_key_set = PublicKeySet {
+                authentication_v: vec![&pub_key_2],
+                assertion_method_v: vec![&pub_key_2],
+                key_agreement_v: vec![&pub_key_2],
+                capability_invocation_v: vec![&pub_key_2],
+                capability_delegation_v: vec![&pub_key_2],
+            };
+            (update_rules, public_key_set)
+        };
+        let valid_from = now_utc_milliseconds();
+        let mut did_document_2 = DIDDocument::create_unsigned_non_root(
+            &did_document_1,
+            update_rules,
+            valid_from,
+            public_key_set,
+            &hash_function,
+        )
+        .expect("pass");
+        // Have to sign the update.
+        {
+            let jws = did_document_2
+                .sign(update_pub_key_1.to_string(), &update_signing_key_1)
+                .expect("pass");
+            did_document_2.add_proof(jws.into_string());
+        }
+        did_document_2
+            .finalize(Some(&did_document_1))
+            .expect("pass");
+        did_document_2
+            .verify_non_root_nonrecursive(&did_document_1)
+            .expect("pass");
+        did_document_2
+    };
+    println!(
+        "{}",
+        serde_json_canonicalizer::to_string(&did_document_2).unwrap()
+    );
 }

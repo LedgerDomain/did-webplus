@@ -1,12 +1,12 @@
 #![allow(unused)]
 
-use crate::{fetch_did_documents_jsonl_update, verifier_resolver_impl, DIDResolver, Error, Result};
+use crate::{DIDResolver, Error, Result, fetch_did_documents_jsonl_update, verifier_resolver_impl};
 use did_webplus_core::{
     CreationMetadata, DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, DIDStr,
     DIDURIComponents, DIDWithQueryStr, LatestUpdateMetadata, NextUpdateMetadata,
     RootLevelUpdateRules, UpdatesDisallowed,
 };
-use did_webplus_doc_store::{parse_did_document, DIDDocRecord};
+use did_webplus_doc_store::{DIDDocRecord, parse_did_document};
 use std::sync::Arc;
 
 /// This is the "full" implementation of a DID resolver, which which keeps a local copy of all DID
@@ -138,7 +138,10 @@ impl DIDResolverFull {
                     let requested_did_document =
                         parse_did_document(&requested_did_doc_record.did_document_jcs)?;
                     if requested_did_document.is_deactivated() {
-                        tracing::trace!(?requested_did_document, "requested DID document is deactivated, thus it's the latest, and there is no next DID document");
+                        tracing::trace!(
+                            ?requested_did_document,
+                            "requested DID document is deactivated, thus it's the latest, and there is no next DID document"
+                        );
                         // If the requested DID document is deactivated, then by construction it's the latest.
                         latest_did_doc_record_o = Some(requested_did_doc_record.clone());
                         // And we now positively know that there is no next DID document.
@@ -159,7 +162,10 @@ impl DIDResolverFull {
                     let latest_known_did_document =
                         parse_did_document(&latest_known_did_doc_record.did_document_jcs)?;
                     if latest_known_did_document.is_deactivated() {
-                        tracing::trace!(?latest_known_did_document, "latest known DID document is deactivated, thus it's the latest, and the requested DID document is the latest known one, and there is no next DID document");
+                        tracing::trace!(
+                            ?latest_known_did_document,
+                            "latest known DID document is deactivated, thus it's the latest, and the requested DID document is the latest known one, and there is no next DID document"
+                        );
                         // If the latest known DID document is deactivated, then by construction it's the latest.
                         latest_did_doc_record_o = Some(latest_known_did_doc_record.clone());
                         // And we know that the latest known DID document is the requested one.
@@ -220,20 +226,19 @@ impl DIDResolverFull {
                 let latest_known_did_document =
                     parse_did_document(&latest_known_did_doc_record.did_document_jcs)?;
                 if latest_known_did_document.is_deactivated() {
-                    tracing::trace!(?latest_known_did_document, "latest known DID document is deactivated, thus it's the latest, and the requested DID document is the latest known one, and there is no next DID document");
+                    tracing::trace!(
+                        ?latest_known_did_document,
+                        "latest known DID document is deactivated, thus it's the latest, and the requested DID document is the latest known one, and there is no next DID document"
+                    );
                     // If the latest known DID document is deactivated, then by construction it's the latest.
                     latest_did_doc_record_o = Some(latest_known_did_doc_record.clone());
                     // And we know that the latest known DID document is the requested one.
                     if requested_did_doc_record_o.is_none() {
                         requested_did_doc_record_o = Some(latest_known_did_doc_record.clone());
-                    } else {
-                        panic!("programmer error -- maybe?  not sure if this is actually an error");
                     }
                     // And we now positively know that there is no next DID document.
                     if next_did_doc_record_oo.is_none() {
                         next_did_doc_record_oo = Some(None);
-                    } else {
-                        panic!("programmer error -- maybe?  not sure if this is actually an error");
                     }
                 }
             }
@@ -276,7 +281,7 @@ impl DIDResolverFull {
                     did,
                 );
                 return Err(Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                    content_type_o: None,
+                    content_type: "application/did+json".to_string(),
                     error_o: Some(format!(
                         "local-only DID resolution for {} was not able to complete",
                         did
@@ -300,7 +305,7 @@ impl DIDResolverFull {
                     .await?
                     .ok_or_else(|| {
                         Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                            content_type_o: None,
+                            content_type: "application/did+json".to_string(),
                             error_o: Some(format!("DID resolution for {} failed (root DID document resolution failed)", did)),
                             fetched_updates_from_vdr,
                             did_document_resolved_locally,
@@ -328,7 +333,7 @@ impl DIDResolverFull {
                         .await?
                         .ok_or_else(|| {
                             Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                                content_type_o: None,
+                                content_type: "application/did+json".to_string(),
                                 error_o: Some(format!("DID resolution for {} failed", did)),
                                 fetched_updates_from_vdr,
                                 did_document_resolved_locally,
@@ -342,7 +347,10 @@ impl DIDResolverFull {
                     let requested_did_document =
                         parse_did_document(&requested_did_doc_record.did_document_jcs)?;
                     if requested_did_document.is_deactivated() {
-                        tracing::trace!(?requested_did_document, "requested DID document is deactivated, thus it's the latest, and there is no next DID document");
+                        tracing::trace!(
+                            ?requested_did_document,
+                            "requested DID document is deactivated, thus it's the latest, and there is no next DID document"
+                        );
                         // If the requested DID document is deactivated, then by construction it's the latest.
                         latest_did_doc_record_o = Some(requested_did_doc_record.clone());
                         // And we now positively know that there is no next DID document.
@@ -358,7 +366,7 @@ impl DIDResolverFull {
                         .await?
                         .ok_or_else(|| {
                             Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                                content_type_o: None,
+                                content_type: "application/did+json".to_string(),
                                 error_o: Some(format!("DID resolution for {} failed", did)),
                                 fetched_updates_from_vdr,
                                 did_document_resolved_locally,
@@ -399,7 +407,7 @@ impl DIDResolverFull {
                     .await?
                     .ok_or_else(|| {
                         Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                            content_type_o: None,
+                            content_type: "application/did+json".to_string(),
                             error_o: Some(format!("DID resolution for {} failed", did)),
                             fetched_updates_from_vdr,
                             did_document_resolved_locally,
@@ -479,7 +487,7 @@ impl DIDResolverFull {
             }
         };
         let did_resolution_metadata = DIDResolutionMetadata {
-            content_type_o: None,
+            content_type: "application/did+json".to_string(),
             error_o: None,
             fetched_updates_from_vdr,
             did_document_resolved_locally,
@@ -605,7 +613,9 @@ impl DIDResolverFull {
                     .await?;
                 if let Some(self_hash_str) = self_hash_str_o {
                     if let Some(did_doc_record) = did_doc_record_o.as_ref() {
-                        tracing::trace!("both selfHash and versionId query params present, so now a consistency check will be performed");
+                        tracing::trace!(
+                            "both selfHash and versionId query params present, so now a consistency check will be performed"
+                        );
                         if did_doc_record.self_hash.as_str() != self_hash_str.as_str() {
                             // Note: If there is a real signature by the DID which contains the
                             // conflicting selfHash and versionId values, then that represents a fork

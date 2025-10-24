@@ -176,7 +176,9 @@ impl Threshold {
         }
         let max_weight_sum = of.iter().map(|w| w.weight).sum::<u32>();
         if at_least > max_weight_sum {
-            panic!("Threshold at_least must be less than or equal to the sum of the weights of the of rules");
+            panic!(
+                "Threshold at_least must be less than or equal to the sum of the weights of the of rules"
+            );
         }
         Self { at_least, of }
     }
@@ -355,18 +357,22 @@ mod tests {
                 .unwrap(),
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(Any {
-            any: vec![UpdateKey {
-                pub_key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
-                    .unwrap(),
-            }
-            .into()],
+            any: vec![
+                UpdateKey {
+                    pub_key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
+                        .unwrap(),
+                }
+                .into(),
+            ],
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(All {
-            all: vec![UpdateKey {
-                pub_key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
-                    .unwrap(),
-            }
-            .into()],
+            all: vec![
+                UpdateKey {
+                    pub_key: MBPubKey::try_from("u7QEbA22Wx6DsuuqVNK04jSNYzVBx3vviEf_t4b-Xif3ZOg")
+                        .unwrap(),
+                }
+                .into(),
+            ],
         }));
         test_update_rules_serde_json_roundtrip_case(RootLevelUpdateRules::from(Threshold {
             at_least: 2,

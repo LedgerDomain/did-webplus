@@ -150,15 +150,17 @@ pub async fn did_list(
 pub async fn did_resolve(
     did_query: &str,
     did_resolver: &dyn did_webplus_resolver::DIDResolver,
-) -> Result<did_webplus_core::DIDDocument> {
+    did_resolution_options: did_webplus_core::DIDResolutionOptions,
+) -> Result<(
+    did_webplus_core::DIDDocument,
+    did_webplus_core::DIDDocumentMetadata,
+    did_webplus_core::DIDResolutionMetadata,
+)> {
     // TODO: Handle metadata
-    let (did_document, _did_document_metadata, _did_resolution_metadata) = did_resolver
-        .resolve_did_document(
-            did_query,
-            did_webplus_core::DIDResolutionOptions::no_metadata(false),
-        )
+    let (did_document, did_document_metadata, did_resolution_metadata) = did_resolver
+        .resolve_did_document(did_query, did_resolution_options)
         .await?;
-    Ok(did_document)
+    Ok((did_document, did_document_metadata, did_resolution_metadata))
 }
 
 /// A weaker version of did_resolve, returning only the String form of the DID Document, instead of
@@ -166,15 +168,21 @@ pub async fn did_resolve(
 pub async fn did_resolve_string(
     did_query: &str,
     did_resolver: &dyn did_webplus_resolver::DIDResolver,
-) -> Result<String> {
+    did_resolution_options: did_webplus_core::DIDResolutionOptions,
+) -> Result<(
+    String,
+    did_webplus_core::DIDDocumentMetadata,
+    did_webplus_core::DIDResolutionMetadata,
+)> {
     // TODO: Handle metadata
-    let (did_document_string, _did_document_metadata, _did_resolution_metadata) = did_resolver
-        .resolve_did_document_string(
-            did_query,
-            did_webplus_core::DIDResolutionOptions::no_metadata(false),
-        )
+    let (did_document_string, did_document_metadata, did_resolution_metadata) = did_resolver
+        .resolve_did_document_string(did_query, did_resolution_options)
         .await?;
-    Ok(did_document_string)
+    Ok((
+        did_document_string,
+        did_document_metadata,
+        did_resolution_metadata,
+    ))
 }
 
 pub async fn jws_verify(
@@ -182,7 +190,11 @@ pub async fn jws_verify(
     detached_payload_bytes_o: Option<&mut dyn std::io::Read>,
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
 ) -> Result<()> {
-    anyhow::ensure!(jws.header().kid.starts_with("did:"), "JWS header \"kid\" field (which was {:?}) is expected to be a DID, i.e. start with \"did:\"", jws.header().kid);
+    anyhow::ensure!(
+        jws.header().kid.starts_with("did:"),
+        "JWS header \"kid\" field (which was {:?}) is expected to be a DID, i.e. start with \"did:\"",
+        jws.header().kid
+    );
 
     // Determine the verifier (i.e. public key) to use to verify the JWS.
     let verifier_b = verifier_resolver.resolve(jws.header().kid.as_str()).await?;

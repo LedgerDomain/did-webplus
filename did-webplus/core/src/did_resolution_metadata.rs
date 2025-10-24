@@ -7,12 +7,8 @@ pub struct DIDResolutionMetadata {
     /// string that is the Media Type of the conformant representations. The caller of the
     /// resolveRepresentation function MUST use this value when determining how to parse and
     /// process the didDocumentStream returned by this function into the data model.
-    #[serde(
-        rename = "contentType",
-        default,
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub content_type_o: Option<String>,
+    #[serde(rename = "contentType")]
+    pub content_type: String,
     /// The error code from the resolution process. This property is REQUIRED when there is an
     /// error in the resolution process. The value of this property MUST be a single keyword
     /// ASCII string. The possible property values of this field SHOULD be registered in the

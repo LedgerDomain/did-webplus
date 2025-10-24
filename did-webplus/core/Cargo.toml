@@ -86,3 +86,4 @@ ssi-jws = { version = "0.1.0", default-features = false, features = [
     "ed25519",
 ] }
 test-util = { path = "../../test-util" }
+url = "2.5.0"

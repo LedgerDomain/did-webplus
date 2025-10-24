@@ -524,7 +524,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("4; Resolving DID with query params and maximal metadata request that still allows local resolution --------------------------");
+        tracing::debug!(
+            "4; Resolving DID with query params and maximal metadata request that still allows local resolution --------------------------"
+        );
         let did_query = format!("{}?selfHash={}", did, controlled_did_0.query_self_hash());
         tracing::debug!("did_query: {}", did_query);
         let (did_document_jcs, did_document_metadata, did_resolution_metadata) = did_resolver
@@ -563,7 +565,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("5a; Resolving DID with query params and local-only metadata request that produces an error --------------------------");
+        tracing::debug!(
+            "5a; Resolving DID with query params and local-only metadata request that produces an error --------------------------"
+        );
         let did_query = format!("{}?selfHash={}", did, controlled_did_0.query_self_hash());
         tracing::debug!("did_query: {}", did_query);
         let err = did_resolver
@@ -584,7 +588,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("5b; Resolving DID with query params and local-only metadata request that produces an error --------------------------");
+        tracing::debug!(
+            "5b; Resolving DID with query params and local-only metadata request that produces an error --------------------------"
+        );
         let did_query = format!("{}?selfHash={}", did, controlled_did_0.query_self_hash());
         tracing::debug!("did_query: {}", did_query);
         let err = did_resolver
@@ -605,7 +611,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("5c; Resolving DID with query params and local-only metadata request that produces an error --------------------------");
+        tracing::debug!(
+            "5c; Resolving DID with query params and local-only metadata request that produces an error --------------------------"
+        );
         let did_query = format!("{}?selfHash={}", did, controlled_did_0.query_self_hash());
         tracing::debug!("did_query: {}", did_query);
         let err = did_resolver
@@ -636,7 +644,9 @@ async fn test_did_resolver_impl(
     // Execute all the locally-resolvable test cases again.
 
     {
-        tracing::debug!("6; Resolving DID with selfHash query param and maximal local-only metadata request --------------------------");
+        tracing::debug!(
+            "6; Resolving DID with selfHash query param and maximal local-only metadata request --------------------------"
+        );
         let did_query = format!("{}?selfHash={}", did, controlled_did_0.query_self_hash());
         tracing::debug!("did_query: {}", did_query);
         let (did_document_jcs, did_document_metadata, did_resolution_metadata) = did_resolver
@@ -675,7 +685,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("7a; Resolving DID with versionId query param and metadata request that can't be fulfilled locally --------------------------");
+        tracing::debug!(
+            "7a; Resolving DID with versionId query param and metadata request that can't be fulfilled locally --------------------------"
+        );
         let did_query = format!("{}?versionId={}", did, controlled_did_0.query_version_id());
         tracing::debug!("did_query: {}", did_query);
         let err = did_resolver
@@ -696,7 +708,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("7b; Resolving DID with versionId query param and metadata request that can't be fulfilled locally --------------------------");
+        tracing::debug!(
+            "7b; Resolving DID with versionId query param and metadata request that can't be fulfilled locally --------------------------"
+        );
         let did_query = format!("{}?versionId={}", did, controlled_did_0.query_version_id());
         tracing::debug!("did_query: {}", did_query);
         let err = did_resolver
@@ -717,7 +731,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("7c; Resolving DID with versionId query param and metadata request that can't be fulfilled locally --------------------------");
+        tracing::debug!(
+            "7c; Resolving DID with versionId query param and metadata request that can't be fulfilled locally --------------------------"
+        );
         let did_query = format!("{}?versionId={}", did, controlled_did_0.query_version_id());
         tracing::debug!("did_query: {}", did_query);
         let err = did_resolver
@@ -810,7 +826,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("10a; Resolving DID with metadata requests that can't be fulfilled locally --------------------------");
+        tracing::debug!(
+            "10a; Resolving DID with metadata requests that can't be fulfilled locally --------------------------"
+        );
         let did_query = format!("{}?versionId={}", did, controlled_did_0.query_version_id());
         tracing::debug!("did_query: {}", did_query);
         let err = did_resolver
@@ -831,7 +849,9 @@ async fn test_did_resolver_impl(
     }
 
     {
-        tracing::debug!("10b; Resolving DID with metadata requests that can't be fulfilled locally --------------------------");
+        tracing::debug!(
+            "10b; Resolving DID with metadata requests that can't be fulfilled locally --------------------------"
+        );
         let did_query = format!("{}?versionId={}", did, controlled_did_0.query_version_id());
         tracing::debug!("did_query: {}", did_query);
         let err = did_resolver
@@ -940,6 +960,9 @@ async fn test_did_resolver_full_vdr_only() {
 
     services.abort();
 }
+
+// TODO: Write a test for DIDResolverFull with a VDG -- this will have different resolution
+// metadata than the VDR-only test, so it would require more work to specify.
 
 #[tokio::test]
 async fn test_did_resolver_thin() {

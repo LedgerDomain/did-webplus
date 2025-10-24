@@ -40,6 +40,7 @@ selfhash = { version = "0.5.0", features = [
     "sha-256",
     "sha-512",
 ] }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
 signature-dyn = "0.1.0"

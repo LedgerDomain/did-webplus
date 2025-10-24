@@ -74,7 +74,10 @@ impl DIDResolverArgs {
                 }
 
                 let vdg_host = self.vdg_host_o.unwrap();
-                anyhow::ensure!(vdg_host.find("://").is_none(), "VDG host must not contain a scheme; i.e. it must omit the \"https://\" portion");
+                anyhow::ensure!(
+                    vdg_host.find("://").is_none(),
+                    "VDG host must not contain a scheme; i.e. it must omit the \"https://\" portion"
+                );
 
                 Ok(Box::new(did_webplus_resolver::DIDResolverThin::new(
                     &vdg_host,

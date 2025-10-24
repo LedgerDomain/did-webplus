@@ -91,10 +91,10 @@ impl DIDDocStore {
                     "programmer error: body and did_document are inconsistent"
                 );
                 tracing::trace!(
-                "validating and storing predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}",
-                did_document.version_id,
-                prev_did_document_o.map(|did_document| did_document.version_id)
-            );
+                    "validating and storing predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}",
+                    did_document.version_id,
+                    prev_did_document_o.map(|did_document| did_document.version_id)
+                );
                 let time_start = std::time::SystemTime::now();
                 did_document.verify_nonrecursive(prev_did_document_o)?;
                 let duration = std::time::SystemTime::now()
@@ -227,14 +227,20 @@ impl DIDDocStore {
             assert!(previous_did_document_jcs_octet_length >= 0);
 
             if range_end_exclusive < did_doc_record.did_documents_jsonl_octet_length {
-                assert!(range_end_exclusive > previous_did_document_jcs_octet_length, "if this assertion fails, then get_did_doc_records_for_did_documents_jsonl_range returned more DIDDocRecord-s (at the end) than necessary");
+                assert!(
+                    range_end_exclusive > previous_did_document_jcs_octet_length,
+                    "if this assertion fails, then get_did_doc_records_for_did_documents_jsonl_range returned more DIDDocRecord-s (at the end) than necessary"
+                );
                 // If appropriate, truncate the end of did_document_jcs because the range doesn't include it.
                 segment.truncate(
                     (range_end_exclusive - previous_did_document_jcs_octet_length) as usize,
                 );
             }
             if range_begin_inclusive > previous_did_document_jcs_octet_length {
-                assert!(range_begin_inclusive < did_doc_record.did_documents_jsonl_octet_length, "if this assertion fails, then get_did_doc_records_for_did_documents_jsonl_range returned more DIDDocRecord-s (at the beginning) than necessary");
+                assert!(
+                    range_begin_inclusive < did_doc_record.did_documents_jsonl_octet_length,
+                    "if this assertion fails, then get_did_doc_records_for_did_documents_jsonl_range returned more DIDDocRecord-s (at the beginning) than necessary"
+                );
                 // If appropriate, truncate the beginning of did_document_jcs because the range doesn't include it.
                 segment.drain(
                     0..(range_begin_inclusive - previous_did_document_jcs_octet_length) as usize,

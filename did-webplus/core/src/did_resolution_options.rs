@@ -40,10 +40,10 @@ pub struct DIDResolutionOptions {
     /// If omitted, defaults to false.
     #[serde(rename = "requestDeactivated", default)]
     pub request_deactivated: bool,
-    /// If true, then no network requests will be made in the process of resolving the DID document
-    /// and DID document metadata.  Note that this means that some cases may not be resolvable,
-    /// and in those situations, will return an error.  If omitted, defaults to false (i.e. network
-    /// requests will be allowed).
+    /// If true, then DID resolution will be attempted purely from locally-known data; no network requests
+    /// will be made in the process of resolving the DID document and DID document metadata.  Note that
+    /// this means that some cases may not be resolvable, and in those situations, will return an error.
+    /// If omitted, defaults to false (i.e. network requests will be allowed).
     #[serde(rename = "localResolutionOnly", default)]
     pub local_resolution_only: bool,
 }

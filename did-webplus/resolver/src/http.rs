@@ -22,15 +22,31 @@ impl std::fmt::Display for HTTPError {
 
 pub type HTTPResult<T> = std::result::Result<T, HTTPError>;
 
-async fn http_get(
+/// This is used to fetch updates to the DID document JSONL file.  Notably, it will accept
+/// HTTP 206 and conditionally accept 416 if the Content-Range header indicates that the
+/// content size is the same as the known length of the did-documents.jsonl file.
+async fn http_get_range_bytes(
+    did: &DIDStr,
     url: &str,
-    header_map_o: Option<reqwest::header::HeaderMap>,
+    known_did_documents_jsonl_octet_length: u64,
 ) -> HTTPResult<String> {
+    let header_map = {
+        let mut header_map = reqwest::header::HeaderMap::new();
+        header_map.insert(
+            "Range",
+            reqwest::header::HeaderValue::from_str(&format!(
+                "bytes={}-",
+                known_did_documents_jsonl_octet_length
+            ))
+            .unwrap(),
+        );
+        header_map
+    };
     // This is ridiculous.
     let response = REQWEST_CLIENT
         .clone()
         .get(url)
-        .headers(header_map_o.unwrap_or(reqwest::header::HeaderMap::new()))
+        .headers(header_map)
         .send()
         .await
         .map_err(|err| HTTPError {
@@ -38,16 +54,70 @@ async fn http_get(
             description: format!("HTTP GET response was error: {}", err).into(),
         })?;
     if response.status().is_success() {
-        Ok(response.text().await.map_err(|err| HTTPError {
+        return Ok(response.text().await.map_err(|err| HTTPError {
             status_code: err.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
             description: format!("HTTP GET response body read error: {}", err).into(),
-        })?)
-    } else {
-        Err(HTTPError {
-            status_code: response.status(),
-            description: "HTTP GET response body read error".into(),
-        })
+        })?);
     }
+
+    if response.status() == StatusCode::RANGE_NOT_SATISFIABLE {
+        tracing::trace!(
+            "HTTP GET response status is RANGE_NOT_SATISFIABLE -- checking for Content-Range header"
+        );
+        if let Some(content_range) = response.headers().get("Content-Range") {
+            tracing::trace!(
+                "HTTP GET response Content-Range header: {:?}",
+                content_range
+            );
+            let content_range_str = content_range.to_str().unwrap();
+            if !content_range_str.starts_with("bytes */") {
+                return Err(HTTPError {
+                    status_code: response.status(),
+                    description: format!(
+                        "HTTP GET response Content-Range header is not valid: {}",
+                        content_range_str
+                    )
+                    .into(),
+                });
+            }
+            use std::str::FromStr;
+            let content_size = u64::from_str(content_range_str.strip_prefix("bytes */").unwrap())
+                .or_else(|e| {
+                Err(HTTPError {
+                    status_code: response.status(),
+                    description: format!(
+                        "Failed to parse Content-Range header {:?}; error: {}",
+                        content_range_str, e
+                    )
+                    .into(),
+                })
+            })?;
+            debug_assert!(response.headers().get("Content-Length").is_some());
+            debug_assert!(matches!(
+                response.headers().get("Content-Length").unwrap().to_str(),
+                Ok("0")
+            ));
+            if content_size == known_did_documents_jsonl_octet_length {
+                // 0 bytes were returned and the returned content-length matches the known length,
+                // so the DID document is up to date.
+                return Ok(String::new());
+            } else {
+                return Err(HTTPError {
+                    status_code: response.status(),
+                    description: format!(
+                        "HTTP GET response Content-Range indicated a size {} that does not match the known length {} of did-documents.jsonl for {}",
+                        content_size,
+                        known_did_documents_jsonl_octet_length,
+                        did,
+                    ).into(),
+                });
+            }
+        }
+    }
+    Err(HTTPError {
+        status_code: response.status(),
+        description: "HTTP GET response body read error (generic)".into(),
+    })
 }
 
 pub async fn fetch_did_documents_jsonl_update(
@@ -65,18 +135,6 @@ pub async fn fetch_did_documents_jsonl_update(
     );
 
     let time_start = std::time::SystemTime::now();
-    let header_map = {
-        let mut header_map = reqwest::header::HeaderMap::new();
-        header_map.insert(
-            "Range",
-            reqwest::header::HeaderValue::from_str(&format!(
-                "bytes={}-",
-                known_did_documents_jsonl_octet_length
-            ))
-            .unwrap(),
-        );
-        header_map
-    };
     let did_documents_jsonl_url = if let Some(vdg_base_url) = vdg_base_url_o {
         // Apply the http_scheme_override_o to the vdg_base_url.
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
@@ -112,8 +170,12 @@ pub async fn fetch_did_documents_jsonl_update(
     } else {
         did.resolution_url_for_did_documents_jsonl(http_scheme_override_o)
     };
-    let did_documents_jsonl_update_r =
-        http_get(did_documents_jsonl_url.as_str(), Some(header_map)).await;
+    let did_documents_jsonl_update_r = http_get_range_bytes(
+        did,
+        did_documents_jsonl_url.as_str(),
+        known_did_documents_jsonl_octet_length,
+    )
+    .await;
     let duration = std::time::SystemTime::now()
         .duration_since(time_start)
         .expect("pass");
