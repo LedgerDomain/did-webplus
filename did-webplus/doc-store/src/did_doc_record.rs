@@ -24,7 +24,7 @@ impl DIDDocRecord {
                     self.self_hash.to_string().into(),
                 )
             })?;
-
+        did_document.verify_is_canonically_serialized(self.did_document_jcs.as_str())?;
         // Note that if this check succeeds, then in particular, all the self-hash slots are equal,
         // and in particular, are equal to `did_document.self_hash`.
         use selfhash::SelfHashableT;

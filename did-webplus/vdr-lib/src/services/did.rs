@@ -1,9 +1,9 @@
 use crate::{VDRAppState, VDRConfig};
 use axum::{
-    extract::{Path, State},
-    http::{header, HeaderMap, StatusCode},
-    routing::get,
     Router,
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode, header},
+    routing::get,
 };
 use did_webplus_core::DID;
 use did_webplus_doc_store::DIDDocStore;
@@ -248,6 +248,11 @@ async fn update_did(
         )
     })?;
     tracing::debug!(?path, ?did);
+    tracing::trace!("did_document_body: {}", did_document_body);
+    tracing::trace!(
+        "did_document_body JCS: {}",
+        serde_json_canonicalizer::pipe(&did_document_body).unwrap()
+    );
 
     use storage_traits::StorageDynT;
     let mut transaction_b = vdr_app_state
@@ -366,11 +371,16 @@ async fn send_vdg_updates(
 fn parse_did_document(
     did_document_body: &str,
 ) -> Result<did_webplus_core::DIDDocument, (axum::http::StatusCode, String)> {
-    serde_json::from_str(did_document_body).map_err(|e| {
-        tracing::error!(?e, "error parsing DID document");
-        (
-            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-            format!("malformed DID document: {}", e),
-        )
-    })
+    let did_document = serde_json::from_str::<did_webplus_core::DIDDocument>(did_document_body)
+        .map_err(|e| {
+            tracing::error!(?e, "error parsing DID document");
+            (
+                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                format!("malformed DID document: {}", e),
+            )
+        })?;
+    did_document
+        .verify_is_canonically_serialized(did_document_body)
+        .map_err(|e| (axum::http::StatusCode::UNPROCESSABLE_ENTITY, e.to_string()))?;
+    Ok(did_document)
 }

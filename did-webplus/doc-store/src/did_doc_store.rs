@@ -1,4 +1,4 @@
-use crate::{parse_did_document, DIDDocRecord, DIDDocRecordFilter, DIDDocStorage, Result};
+use crate::{DIDDocRecord, DIDDocRecordFilter, DIDDocStorage, Result, parse_did_document};
 use did_webplus_core::{DIDDocument, DIDStr};
 use std::sync::Arc;
 
@@ -62,12 +62,14 @@ impl DIDDocStore {
                 .iter()
                 .zip(did_document_v.iter())
                 .zip(prev_did_document_oi)
-                .map(|((&_did_document_jcs, did_document), prev_did_document_o)| {
+                .map(|((&did_document_jcs, did_document), prev_did_document_o)| {
                     // TEMP HACK -- copying is not ideal.  Figure out how to do this without copying.
                     // Maybe re-borrowing?  It would need to be aware of a lifetime that ends at the call to join_all.
                     let prev_did_document_o = prev_did_document_o.cloned();
                     let did_document = did_document.clone();
+                    let did_document_jcs = did_document_jcs.to_string();
                     tokio::task::spawn(async move {
+                        did_document.verify_is_canonically_serialized(&did_document_jcs)?;
                         let validate_r = did_document.verify_nonrecursive(prev_did_document_o.as_ref()).map(|_keri_hash| ());
                         tracing::trace!("validating predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}; result: {:?}", did_document.version_id, prev_did_document_o.as_ref().map(|did_document| did_document.version_id), validate_r);
                         validate_r

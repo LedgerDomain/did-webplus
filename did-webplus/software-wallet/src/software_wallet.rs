@@ -1,7 +1,7 @@
 use crate::REQWEST_CLIENT;
 use did_webplus_core::{
-    now_utc_milliseconds, DIDDocument, DIDFullyQualified, DIDStr, KeyPurpose, KeyPurposeFlags,
-    RootLevelUpdateRules, UpdateKey, UpdatesDisallowed,
+    DIDDocument, DIDFullyQualified, DIDStr, KeyPurpose, KeyPurposeFlags, RootLevelUpdateRules,
+    UpdateKey, UpdatesDisallowed, now_utc_milliseconds,
 };
 use did_webplus_wallet::{Error, Result, Wallet};
 use did_webplus_wallet_store::{
@@ -244,6 +244,7 @@ impl Wallet for SoftwareWallet {
                 .await?;
 
             // HTTP POST is for DID create operation.
+            tracing::trace!("HTTP POST-ing DID document to VDR: {}", did_document_jcs);
             REQWEST_CLIENT
                 .clone()
                 .post(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
@@ -476,6 +477,10 @@ impl Wallet for SoftwareWallet {
                 .await?;
 
             // HTTP PUT is for DID update operation.
+            tracing::trace!(
+                "HTTP PUT-ing DID document to VDR: {}",
+                updated_did_document_jcs
+            );
             REQWEST_CLIENT
                 .clone()
                 .put(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
@@ -727,6 +732,10 @@ impl Wallet for SoftwareWallet {
                 .await?;
 
             // HTTP PUT is for DID update operation (which includes deactivation).
+            tracing::trace!(
+                "HTTP PUT-ing DID document to VDR: {}",
+                deactivated_did_document_jcs
+            );
             REQWEST_CLIENT
                 .clone()
                 .put(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))

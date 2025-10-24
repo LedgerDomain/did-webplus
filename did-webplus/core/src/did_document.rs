@@ -11,10 +11,10 @@ use crate::{
 ///
 /// To deserialize from a string `s: &str` to DIDDocument, use `serde_json::from_str::<DIDDocument>(s)`.
 ///
-/// Note that if you want to serialize this DID document, you MUST use serialize_canonically_to_vec
+/// Note that if you want to serialize this DID document, you MUST use serialize_canonically
 /// or serialize_canonically_to_writer.  This is because the serde_json::to_vec and serde_json::to_writer
 /// methods do not produce canonical JSON.  JCS (JSON Canonicalization Scheme) is used for canonicalization,
-/// and the serialize_canonically_to_vec and serialize_canonically_to_writer methods use the
+/// and the serialize_canonically and serialize_canonically_to_writer methods use the
 /// serde_json_canonicalizer crate to do the serialization to this end.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDDocument {
@@ -149,13 +149,28 @@ impl DIDDocument {
         })?)
     }
     /// This method is what you should use if you want to canonically serialize this DID document (into
-    /// a std::io::Writer).  See also serialize_canonically_to_vec.
+    /// a std::io::Writer).  See also serialize_canonically.
     pub fn serialize_canonically_to_writer<W: std::io::Write>(&self, write: &mut W) -> Result<()> {
         serde_json_canonicalizer::to_writer(self, write).map_err(|_| {
             Error::Serialization(
                 "Failed to serialize DID document to canonical JSON (into std::io::Write)",
             )
         })
+    }
+    /// This method verifies that the given string is the canonically-serialized form of this DID document.
+    pub fn verify_is_canonically_serialized(&self, did_document_str: &str) -> Result<()> {
+        let jcs = self.serialize_canonically()?;
+        if jcs.as_str() != did_document_str {
+            tracing::error!(
+                "serialized DID document was not in JCS-serialized form: did_document_str was: {} -- but expected JCS: {}",
+                did_document_str,
+                jcs
+            );
+            return Err(Error::Malformed(
+                "serialized DID document was not in JCS-serialized form",
+            ));
+        }
+        Ok(())
     }
     pub fn verify_nonrecursive(
         &self,
