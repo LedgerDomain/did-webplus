@@ -28,7 +28,7 @@ storage-traits = { path = "../../storage-traits" }
 time = "0.3"
 # TEMP HACK MAYBE
 tracing = "0.1.37"
-url = "2.5.0"
+url = "2.5.4"
 uuid = "1.9.1"
 
 [dev-dependencies]

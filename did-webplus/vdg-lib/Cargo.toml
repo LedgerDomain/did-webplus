@@ -43,4 +43,4 @@ reqwest = { version = "0.12.5", features = ["json"] }
 test-util = { path = "../../test-util" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
-url = "2.5.0"
+url = "2.5.4"
