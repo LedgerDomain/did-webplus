@@ -6,11 +6,11 @@ use std::{
 };
 
 use did_webplus_core::{
-    now_utc_milliseconds, DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
+    DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
     DIDKeyResourceFullyQualifiedStr, DIDResolutionOptions, Error, KeyPurpose, PublicKeySet,
-    RootLevelUpdateRules, UpdateKey,
+    RootLevelUpdateRules, UpdateKey, now_utc_milliseconds,
 };
-use did_webplus_jws::{JWSPayloadEncoding, JWSPayloadPresence, JWS};
+use did_webplus_jws::{JWS, JWSPayloadEncoding, JWSPayloadPresence};
 use did_webplus_mock::{
     Microledger, MicroledgerMutView, MicroledgerView, MockResolverFull, MockResolverThin, MockVDG,
     MockVDR, MockVDRClient, MockVerifiedCache, MockWallet,
@@ -95,7 +95,7 @@ fn resolve_did_and_verify_jws<'r, 'p>(
         .any(|relative_key_resource| relative_key_resource.fragment() == key_id_fragment)
     {
         return Err(Error::Invalid(
-            "signing key is not present in specified verification method in resolved DID document",
+            format!("signing key {} is not present in specified verification method in resolved DID document", key_id_fragment).into(),
         ));
     }
 
@@ -121,7 +121,9 @@ fn resolve_did_and_verify_jws<'r, 'p>(
 #[test]
 #[serial_test::serial]
 fn test_example_creating_and_updating_a_did() {
-    println!("# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-mock --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n");
+    println!(
+        "# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-mock --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n"
+    );
 
     let update_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
     let update_pub_key_0 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
@@ -141,7 +143,10 @@ fn test_example_creating_and_updating_a_did() {
             "For now, let's generate a single Ed25519 key to use in all the verification methods for the DID we will create.  In JWK format, the private key is:\n\n```json\n{}\n```\n",
             serde_json::to_string_pretty(&priv_jwk_0).expect("pass")
         );
-        println!("We'll also need a key that is authorized to update the DID document.  In publicKeyMultibase format, the public key is:\n\n```\n{}\n```\n", update_pub_key_0);
+        println!(
+            "We'll also need a key that is authorized to update the DID document.  In publicKeyMultibase format, the public key is:\n\n```\n{}\n```\n",
+            update_pub_key_0
+        );
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
             pub_key: update_pub_key_0.clone(),
         });
@@ -167,8 +172,18 @@ fn test_example_creating_and_updating_a_did() {
         let microledger = Microledger::create(did_document).expect("pass");
         let did = microledger.view().did();
         let latest_did_document = microledger.view().latest_did_document();
-        println!("Creating a DID produces the root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `updateRules` field is what defines update authorization for this DID document.\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"));
-        println!("The associated DID document metadata (at the time of DID creation) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, DIDResolutionOptions::all_metadata(false))).expect("pass"));
+        println!(
+            "Creating a DID produces the root DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `updateRules` field is what defines update authorization for this DID document.\n",
+            serde_json::to_string_pretty(&latest_did_document).expect("pass")
+        );
+        println!(
+            "The associated DID document metadata (at the time of DID creation) is:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(
+                &latest_did_document,
+                DIDResolutionOptions::all_metadata(false)
+            ))
+            .expect("pass")
+        );
         // Add query params to bind this JWK to the latest DID doc.
         // Add (key ID) fragment to identify which key it is.
         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
@@ -179,7 +194,10 @@ fn test_example_creating_and_updating_a_did() {
             // TODO: Retrieve this fragment from the key itself, not just a hardcoded string.
             .with_fragment("0");
         priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
-        println!("We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"));
+        println!(
+            "We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_0).expect("pass")
+        );
         (microledger, priv_jwk_0)
     };
 
@@ -202,7 +220,10 @@ fn test_example_creating_and_updating_a_did() {
             "Let's generate another key to rotate in for some verification methods.  In JWK format, the new private key is:\n\n```json\n{}\n```\n",
             serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
         );
-        println!("A new update key is also needed.  In publicKeyMultibase format, the new public key is:\n\n```\n{}\n```\n", update_pub_key_1);
+        println!(
+            "A new update key is also needed.  In publicKeyMultibase format, the new public key is:\n\n```\n{}\n```\n",
+            update_pub_key_1
+        );
 
         let update_rules = RootLevelUpdateRules::from(UpdateKey {
             pub_key: update_pub_key_1.clone(),
@@ -241,9 +262,27 @@ fn test_example_creating_and_updating_a_did() {
         let did = microledger.view().did();
 
         let latest_did_document = microledger.view().latest_did_document();
-        println!("Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"), serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass"));
-        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, DIDResolutionOptions::all_metadata(false))).expect("pass"));
-        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), DIDResolutionOptions::all_metadata(false))).expect("pass"));
+        println!(
+            "Updating a DID produces the next DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&latest_did_document).expect("pass"),
+            serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass")
+        );
+        println!(
+            "The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(
+                &latest_did_document,
+                DIDResolutionOptions::all_metadata(false)
+            ))
+            .expect("pass")
+        );
+        println!(
+            "However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(
+                microledger.view().root_did_document(),
+                DIDResolutionOptions::all_metadata(false)
+            ))
+            .expect("pass")
+        );
         {
             let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
                 .with_queries(
@@ -264,7 +303,11 @@ fn test_example_creating_and_updating_a_did() {
                 .with_fragment("1");
             priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
         }
-        println!("We set the `kid` field of each private JWK to point to the current DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"), serde_json::to_string_pretty(&priv_jwk_1).expect("pass"));
+        println!(
+            "We set the `kid` field of each private JWK to point to the current DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_0).expect("pass"),
+            serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
+        );
         priv_jwk_1
     };
 
@@ -320,10 +363,40 @@ fn test_example_creating_and_updating_a_did() {
             .expect("pass");
         let did = microledger.view().did();
         let latest_did_document = microledger.view().latest_did_document();
-        println!("Updated DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&latest_did_document).expect("pass"), serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass"));
-        println!("The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(&latest_did_document, DIDResolutionOptions::all_metadata(false))).expect("pass"));
-        println!("Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().did_document_for_version_id(1).expect("pass"), DIDResolutionOptions::all_metadata(false))).expect("pass"));
-        println!("However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(microledger.view().root_did_document(), DIDResolutionOptions::all_metadata(false))).expect("pass"));
+        println!(
+            "Updated DID document (represented in 'pretty' JSON for readability; actual DID document is compact JSON):\n\n```json\n{}\n```\n\nNote that the `proofs` field contains signatures (in JWS format) that are to be validated and used with the `updateRules` field of the previous DID document to verify update authorization.  Note that the JWS proof has a detached payload, and decodes as:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&latest_did_document).expect("pass"),
+            serde_json::to_string_pretty(&decode_detached_jws(&jws)).expect("pass")
+        );
+        println!(
+            "The associated DID document metadata (at the time of DID update) is:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(
+                &latest_did_document,
+                DIDResolutionOptions::all_metadata(false)
+            ))
+            .expect("pass")
+        );
+        println!(
+            "Similarly, the DID document metadata associated with the previous DID document has now become:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(
+                &microledger.view().did_document_metadata_for(
+                    microledger
+                        .view()
+                        .did_document_for_version_id(1)
+                        .expect("pass"),
+                    DIDResolutionOptions::all_metadata(false)
+                )
+            )
+            .expect("pass")
+        );
+        println!(
+            "However, the DID document metadata associated with the root DID document has now become:\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&microledger.view().did_document_metadata_for(
+                microledger.view().root_did_document(),
+                DIDResolutionOptions::all_metadata(false)
+            ))
+            .expect("pass")
+        );
         {
             let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
                 .with_queries(
@@ -354,7 +427,12 @@ fn test_example_creating_and_updating_a_did() {
                 .with_fragment("2");
             priv_jwk_2.key_id = Some(did_key_resource_fully_qualified.to_string());
         }
-        println!("We set the `kid` field of each private JWK to point to the current DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n\n```json\n{}\n```\n", serde_json::to_string_pretty(&priv_jwk_0).expect("pass"), serde_json::to_string_pretty(&priv_jwk_1).expect("pass"), serde_json::to_string_pretty(&priv_jwk_2).expect("pass"));
+        println!(
+            "We set the `kid` field of each private JWK to point to the current DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n\n```json\n{}\n```\n",
+            serde_json::to_string_pretty(&priv_jwk_0).expect("pass"),
+            serde_json::to_string_pretty(&priv_jwk_1).expect("pass"),
+            serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
+        );
         priv_jwk_2
     };
 }

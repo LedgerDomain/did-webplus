@@ -116,7 +116,7 @@ pub trait MicroledgerView<'v> {
             (Some(version_id), Some(self_hash)) => {
                 let did_document = self.did_document_for_version_id(version_id)?;
                 if did_document.self_hash.deref() != self_hash {
-                    return Err(did_webplus_core::Error::Invalid("The self-hash of the DID document for given version_id does not match the given self-hash"));
+                    return Err(did_webplus_core::Error::Invalid("The self-hash of the DID document for given version_id does not match the given self-hash".into()));
                 }
                 did_document
             }

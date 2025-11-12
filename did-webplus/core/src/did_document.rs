@@ -66,7 +66,11 @@ impl DIDDocument {
     ) -> Result<Self> {
         if valid_from.nanosecond() % 1_000_000 != 0 {
             return Err(Error::Malformed(
-                "valid_from must have precision no greater than milliseconds",
+                format!(
+                    "valid_from ({}) must have precision no greater than milliseconds",
+                    valid_from
+                )
+                .into(),
             ));
         }
         let self_hash_placeholder = hash_function.placeholder_hash();
@@ -76,6 +80,8 @@ impl DIDDocument {
             did_path_o,
             self_hash_placeholder.as_ref(),
         )?;
+        let version_id = 0;
+        let did_fully_qualified = did.with_queries(self_hash_placeholder.as_ref(), version_id);
         let self_hash_placeholder = self_hash_placeholder.into_owned();
         Ok(Self {
             did: did.clone(),
@@ -83,9 +89,9 @@ impl DIDDocument {
             update_rules,
             proof_v: vec![],
             prev_did_document_self_hash_o: None,
-            version_id: 0,
+            version_id,
             valid_from,
-            public_key_material: PublicKeyMaterial::new(did, public_key_set)?,
+            public_key_material: PublicKeyMaterial::new(&did_fully_qualified, public_key_set)?,
         })
     }
     pub fn create_unsigned_non_root<'a>(
@@ -98,26 +104,36 @@ impl DIDDocument {
         use selfhash::HashRefT;
         if prev_did_document.self_hash.deref().is_placeholder() {
             return Err(Error::Malformed(
-                "Previous DID document self-hash is a placeholder",
+                format!(
+                    "Previous DID document self-hash is a placeholder: {:?}",
+                    prev_did_document.self_hash
+                )
+                .into(),
             ));
         }
         if valid_from.nanosecond() % 1_000_000 != 0 {
             return Err(Error::Malformed(
-                "valid_from must have precision no greater than milliseconds",
+                format!(
+                    "valid_from ({}) must have precision no greater than milliseconds",
+                    valid_from
+                )
+                .into(),
             ));
         }
-        let did = prev_did_document.did.clone();
-        let prev_did_document_self_hash = prev_did_document.self_hash.clone();
         let self_hash_placeholder = hash_function.placeholder_hash().into_owned();
+        let did = prev_did_document.did.clone();
+        let version_id = prev_did_document.version_id + 1;
+        let did_fully_qualified = did.with_queries(self_hash_placeholder.as_ref(), version_id);
+        let prev_did_document_self_hash = prev_did_document.self_hash.clone();
         Ok(Self {
             did: did.clone(),
             self_hash: self_hash_placeholder,
             update_rules,
             proof_v: vec![],
             prev_did_document_self_hash_o: Some(prev_did_document_self_hash),
-            version_id: prev_did_document.version_id + 1,
+            version_id,
             valid_from,
-            public_key_material: PublicKeyMaterial::new(did, public_key_set)?,
+            public_key_material: PublicKeyMaterial::new(&did_fully_qualified, public_key_set)?,
         })
     }
     pub fn add_proof(&mut self, proof: String) {
@@ -145,15 +161,21 @@ impl DIDDocument {
     /// See also serialize_canonically_to_writer.
     pub fn serialize_canonically(&self) -> Result<String> {
         Ok(serde_json_canonicalizer::to_string(self).map_err(|_| {
-            Error::Serialization("Failed to serialize DID document to canonical JSON (into String)")
+            Error::Serialization(
+                "Failed to serialize DID document to canonical JSON (into String)".into(),
+            )
         })?)
     }
     /// This method is what you should use if you want to canonically serialize this DID document (into
     /// a std::io::Writer).  See also serialize_canonically.
     pub fn serialize_canonically_to_writer<W: std::io::Write>(&self, write: &mut W) -> Result<()> {
-        serde_json_canonicalizer::to_writer(self, write).map_err(|_| {
+        serde_json_canonicalizer::to_writer(self, write).map_err(|e| {
             Error::Serialization(
-                "Failed to serialize DID document to canonical JSON (into std::io::Write)",
+                format!(
+                    "Failed to serialize DID document to canonical JSON (into std::io::Write): {}",
+                    e
+                )
+                .into(),
             )
         })
     }
@@ -166,9 +188,10 @@ impl DIDDocument {
                 did_document_str,
                 jcs
             );
-            return Err(Error::Malformed(
-                "serialized DID document was not in JCS-serialized form",
-            ));
+            return Err(Error::Malformed(format!(
+                "serialized DID document was not in JCS-serialized form: did_document_str was: {} -- but expected JCS: {}",
+                did_document_str, jcs
+            ).into()));
         }
         Ok(())
     }
@@ -179,14 +202,22 @@ impl DIDDocument {
         if self.is_root_did_document() {
             if expected_prev_did_document_o.is_some() {
                 return Err(Error::Malformed(
-                    "Root DID document cannot have a previous DID document.",
+                    format!(
+                        "Root DID document (selfHash: {:?}) cannot have a previous DID document.",
+                        self.self_hash
+                    )
+                    .into(),
                 ));
             }
             self.verify_root_nonrecursive()
         } else {
             if expected_prev_did_document_o.is_none() {
                 return Err(Error::Malformed(
-                    "Non-root DID document must have a previous DID document.",
+                    format!(
+                        "Non-root DID document (selfHash: {:?}) must have a previous DID document.",
+                        self.self_hash
+                    )
+                    .into(),
                 ));
             }
             self.verify_non_root_nonrecursive(expected_prev_did_document_o.unwrap())
@@ -194,30 +225,34 @@ impl DIDDocument {
     }
     pub fn verify_root_nonrecursive(&self) -> Result<&mbx::MBHash> {
         if !self.is_root_did_document() {
-            return Err(Error::Malformed(
-                "Expected a root DID document, but this is a non-root DID document.",
-            ));
+            return Err(Error::Malformed(format!(
+                "Expected a root DID document, but this is a non-root DID document (selfHash: {:?}).",
+                self.self_hash
+            ).into()));
         }
 
         // Check that self.valid_from is not before the UNIX epoch.
         if self.valid_from < time::OffsetDateTime::UNIX_EPOCH {
-            return Err(Error::Malformed(
-                "DID document's valid_from must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
-            ));
+            return Err(Error::Malformed(format!(
+                "DID document's valid_from ({}) must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
+                self.valid_from
+            ).into()));
         }
 
         // Check that valid_from has precision no greater than milliseconds.
         if self.valid_from.nanosecond() % 1_000_000 != 0 {
-            return Err(Error::Malformed(
-                "DID document's valid_from must have precision no greater than milliseconds",
-            ));
+            return Err(Error::Malformed(format!(
+                "DID document's valid_from ({}) must have precision no greater than milliseconds",
+                self.valid_from
+            ).into()));
         }
 
         // Check initial version_id.
         if self.version_id != 0 {
-            return Err(Error::Malformed(
-                "Root DID document must have version_id == 0",
-            ));
+            return Err(Error::Malformed(format!(
+                "Root DID document (selfHash: {:?}) must have version_id == 0, but it had version_id: {}",
+                self.self_hash, self.version_id
+            ).into()));
         }
         // Check key material
         self.public_key_material.verify(&self.did)?;
@@ -232,57 +267,66 @@ impl DIDDocument {
         expected_prev_did_document: &DIDDocument,
     ) -> Result<&mbx::MBHash> {
         if self.is_root_did_document() {
-            return Err(Error::Malformed(
-                "Expected a non-root DID document, but this is a root DID document.",
-            ));
+            return Err(Error::Malformed(format!(
+                "Expected a non-root DID document, but this is a root DID document (selfHash: {:?}).",
+                self.self_hash
+            ).into()));
         }
         use selfhash::SelfHashableT;
         let expected_prev_did_document_self_hash = expected_prev_did_document
             .verify_self_hashes()
-            .map_err(|_| Error::Malformed("Previous DID document self-hash not valid"))?;
+            .map_err(|e| {
+                Error::Malformed(format!("Previous DID document self-hash not valid: {}", e).into())
+            })?;
 
         // Check that id (i.e. the DID) matches the previous DID document's id (i.e. DID).
         // Note that this also implies that the hostname (and port number if present) embedded
         // in the id, matches that of the previous DID document's id.
         if self.did != expected_prev_did_document.did {
-            return Err(Error::Malformed(
-                "Non-root DID document's id must match the previous DID document's id",
-            ));
+            return Err(Error::Malformed(format!(
+                "Non-root DID document's id ({}) must match the previous DID document's id ({}).",
+                self.did, expected_prev_did_document.did
+            ).into()));
         }
 
         // Check that prev_did_document_self_hash matches the expected_prev_did_document_b's self-hash.
         let prev_did_document_self_hash = self.prev_did_document_self_hash_o.as_ref().unwrap();
         if prev_did_document_self_hash.deref() != expected_prev_did_document_self_hash {
-            return Err(Error::Malformed(
-                "Non-root DID document's prev_did_document_self_hash must match the self-hash of the previous DID document",
-            ));
+            return Err(Error::Malformed(format!(
+                "Non-root DID document's prev_did_document_self_hash ({}) must match the self-hash of the previous DID document ({}).",
+                prev_did_document_self_hash, expected_prev_did_document_self_hash
+            ).into()));
         }
 
         // Check that self.valid_from is not before the UNIX epoch.
         if self.valid_from < time::OffsetDateTime::UNIX_EPOCH {
-            return Err(Error::Malformed(
-                "DID document's valid_from must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
-            ));
+            return Err(Error::Malformed(format!(
+                "DID document's valid_from ({}) must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
+                self.valid_from
+            ).into()));
         }
 
         // Check that valid_from has precision no greater than milliseconds.
         if self.valid_from.nanosecond() % 1_000_000 != 0 {
-            return Err(Error::Malformed(
-                "DID document's valid_from must have precision no greater than milliseconds",
-            ));
+            return Err(Error::Malformed(format!(
+                "DID document's valid_from ({}) must have precision no greater than milliseconds",
+                self.valid_from
+            ).into()));
         }
 
         // Check monotonicity of version_time.
         if self.valid_from <= expected_prev_did_document.valid_from {
-            return Err(Error::Malformed(
-                "Non-root DID document must have version_time > prev_did_document.version_time",
-            ));
+            return Err(Error::Malformed(format!(
+                "Non-root DID document must have version_time (which was {}) > prev_did_document.version_time (which was {})",
+                self.valid_from, expected_prev_did_document.valid_from
+            ).into()));
         }
         // Check strict succession of version_id.
         if self.version_id != expected_prev_did_document.version_id + 1 {
-            return Err(Error::Malformed(
-                "Non-root DID document must have version_id exactly equal to 1 plus the previous DID document's version_id",
-            ));
+            return Err(Error::Malformed(format!(
+                "Non-root DID document version_id ({}) must be exactly equal to 1 plus the previous DID document's version_id: {}",
+                self.version_id, expected_prev_did_document.version_id
+            ).into()));
         }
         // Check key material
         self.public_key_material.verify(&self.did)?;
@@ -349,7 +393,9 @@ impl DIDDocument {
             did_webplus_jws::JWSPayloadEncoding::None,
             signer,
         )
-        .map_err(|_| Error::SigningError("Error while signing DID document"))?)
+        .map_err(|e| {
+            Error::SigningError(format!("Error while signing DID document: {}", e).into())
+        })?)
     }
     /// If valid_proof_did_vo is Some, then it will be cleared and the DIDs of the valid proofs will be appended to it.
     // Note that the allow attributes on valid_proof_data_vo is necessary if the below feature flags are not enabled.
@@ -367,10 +413,10 @@ impl DIDDocument {
 
         for proof in self.proof_v.iter() {
             let jws = did_webplus_jws::JWS::try_from(proof.as_str())
-                .map_err(|_| Error::Malformed("Failed to parse proof as JWS"))?;
-            let pub_key: mbx::MBPubKey = jws.header().kid.as_str().try_into().map_err(|_| {
+                .map_err(|_| Error::Malformed("Failed to parse proof as JWS".into()))?;
+            let pub_key: mbx::MBPubKey = jws.header().kid.as_str().try_into().map_err(|e| {
                 Error::Malformed(
-                    "Failed to parse JWS header \"kid\" field as base64url-encoded multicodec-encoded public key",
+                    format!("Failed to parse JWS header \"kid\" field as base64url-encoded multicodec-encoded public key: {}", e).into(),
                 )
             })?;
             let verifier_bytes = signature_dyn::VerifierBytes::try_from(&pub_key)?;
@@ -438,6 +484,9 @@ impl selfhash::SelfHashableT<mbx::MBHashStr> for DIDDocument {
             self.did.set_root_self_hash(hash);
             self.self_hash = hash.to_owned();
         } else {
+            self.public_key_material
+                .set_non_root_did_document_self_hash_slots_to(hash)
+                .map_err(|e| e.to_string())?;
             self.self_hash = hash.to_owned();
         }
         Ok(())

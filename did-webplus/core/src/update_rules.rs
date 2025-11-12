@@ -37,7 +37,10 @@ pub struct UpdatesDisallowed {}
 
 impl VerifyRulesT for UpdatesDisallowed {
     fn verify_rules(&self, _valid_proof_key_v: &[ValidProofData]) -> Result<()> {
-        Err(Error::InvalidDIDUpdateOperation("UpdatesDisallowed"))
+        Err(Error::InvalidDIDUpdateOperation(
+            "`UpdatesDisallowed` update rule prevents updates regardless of any valid proof data"
+                .into(),
+        ))
     }
 }
 
@@ -54,8 +57,14 @@ impl VerifyRulesT for UpdateKey {
                 return Ok(());
             }
         }
-        // TODO: Give details about which rules failed.  This potentially affects the UX.
-        Err(Error::InvalidDIDUpdateOperation("Key"))
+        Err(Error::InvalidDIDUpdateOperation(
+            format!(
+                "`Key` update rule {} failed to verify because key {} did not match that of any valid proof data",
+                serde_json::to_string(self).unwrap(),
+                self.pub_key
+            )
+            .into(),
+        ))
     }
 }
 
@@ -89,8 +98,14 @@ impl VerifyRulesT for HashedUpdateKey {
                 return Ok(());
             }
         }
-        // TODO: Give details about which rules failed.  This potentially affects the UX.
-        Err(Error::InvalidDIDUpdateOperation("HashedKey"))
+        Err(Error::InvalidDIDUpdateOperation(
+            format!(
+                "`HashedKey` update rule {} failed to verify because hashed key {} did not match that of any valid proof data",
+                serde_json::to_string(self).unwrap(),
+                self.hashed_pub_key
+            )
+            .into(),
+        ))
     }
 }
 
@@ -107,8 +122,13 @@ impl VerifyRulesT for Any {
                 return Ok(());
             }
         }
-        // TODO: Give details about which rules failed.  This potentially affects the UX.
-        Err(Error::InvalidDIDUpdateOperation("Any"))
+        Err(Error::InvalidDIDUpdateOperation(
+            format!(
+                "`Any` update rule {} failed to verify",
+                serde_json::to_string(self).unwrap()
+            )
+            .into(),
+        ))
     }
 }
 
@@ -131,7 +151,14 @@ impl VerifyRulesT for All {
         // Simple recursive definition.
         for update_rules in self.all.iter() {
             if let Err(e) = update_rules.verify_rules(valid_proof_data_v) {
-                return Err(e);
+                return Err(Error::InvalidDIDUpdateOperation(
+                    format!(
+                        "`All` update rule {} failed because subordinate rule failed: {}",
+                        serde_json::to_string(self).unwrap(),
+                        e
+                    )
+                    .into(),
+                ));
             }
         }
         // If all subordinate rules verified, then this rule is defined to be verified.
@@ -150,6 +177,7 @@ pub struct WeightedUpdateRules {
 impl WeightedUpdateRules {
     pub fn new(weight: u32, update_rules: UpdateRules) -> Self {
         if weight == 0 {
+            // TODO: This should return an error because it depends on runtime data.
             panic!("WeightedUpdateRules weight must be greater than 0");
         }
         Self {
@@ -169,14 +197,17 @@ pub struct Threshold {
 impl Threshold {
     pub fn new(at_least: u32, of: Vec<WeightedUpdateRules>) -> Self {
         if at_least == 0 {
+            // TODO: This should return an error because it depends on runtime data.
             panic!("Threshold at_least must be greater than 0");
         }
         if of.is_empty() {
+            // TODO: This should return an error because it depends on runtime data.
             panic!("Threshold of must be non-empty");
         }
         let max_weight_sum = of.iter().map(|w| w.weight).sum::<u32>();
         if at_least > max_weight_sum {
             panic!(
+                // TODO: This should return an error because it depends on runtime data.
                 "Threshold at_least must be less than or equal to the sum of the weights of the of rules"
             );
         }
@@ -199,8 +230,15 @@ impl VerifyRulesT for Threshold {
         if weight_sum >= self.at_least {
             Ok(())
         } else {
-            // TODO: Give details about which rules failed.  This potentially affects the UX.
-            Err(Error::InvalidDIDUpdateOperation("Threshold"))
+            Err(Error::InvalidDIDUpdateOperation(
+                format!(
+                    "`Threshold` update rule {} failed to verify because weight sum ({}) was less than at_least ({})",
+                    serde_json::to_string(self).unwrap(),
+                    weight_sum,
+                    self.at_least
+                )
+                .into(),
+            ))
         }
     }
 }

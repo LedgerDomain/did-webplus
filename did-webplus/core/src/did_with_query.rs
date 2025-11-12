@@ -22,12 +22,16 @@ impl DIDWithQuery {
         // TODO: Complete validation of hostname
         if hostname.contains(':') || hostname.contains('/') {
             return Err(Error::Malformed(
-                "DIDFullyQualified hostname must not contain ':' or '/'",
+                format!(
+                    "DIDFullyQualified hostname ({:?}) must not contain ':' or '/'",
+                    hostname
+                )
+                .into(),
             ));
         }
         if query_self_hash_o.is_none() && query_version_id_o.is_none() {
             return Err(Error::Malformed(
-                "DIDWithQuery must have at least one query specified",
+                "DIDWithQuery must have at least one query specified".into(),
             ));
         }
 

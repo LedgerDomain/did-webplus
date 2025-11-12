@@ -1,4 +1,4 @@
-use crate::{DIDResourceFullyQualifiedStr, DIDURIComponents, Error, Fragment};
+use crate::{DIDResourceFullyQualifiedStr, DIDStr, DIDURIComponents, Error, Fragment};
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(
@@ -37,10 +37,14 @@ impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
         // Validate path.  It must not begin or end with ':'.  Its components must be ':'-delimited.
         if let Some(path) = path_o.as_deref() {
             if path.starts_with(':') || path.ends_with(':') {
-                return Err(Error::Malformed("DID path must not begin or end with ':'"));
+                return Err(Error::Malformed(
+                    format!("DID path ({:?}) must not begin or end with ':'", path).into(),
+                ));
             }
             if path.contains('/') {
-                return Err(Error::Malformed("DID path must not contain '/'"));
+                return Err(Error::Malformed(
+                    format!("DID path ({:?}) must not contain '/'", path).into(),
+                ));
             }
         }
         // TODO: Further validation of path.
@@ -59,5 +63,43 @@ impl<F: Fragment + ?Sized> DIDResourceFullyQualified<F> {
         }
         .to_string();
         Self::try_from(s)
+    }
+    pub fn did(&self) -> &DIDStr {
+        DIDStr::new_ref(self.1.split_once('?').unwrap().0).expect("programmer error: this should not fail due to guarantees in construction of DIDResourceFullyQualified")
+    }
+    /// Set the root self-hash value to the given value.  This assumes that the new root self-hash has
+    /// the same str len as the existing one, and therefore doesn't allocate.
+    pub fn set_root_self_hash(&mut self, root_self_hash: &mbx::MBHashStr) {
+        assert_eq!(
+            self.root_self_hash().len(),
+            root_self_hash.len(),
+            "programmer error: hash function must already be known, producing a known, fixed length for the DID's root self-hash component"
+        );
+        let end = self.find('?').unwrap();
+        assert!(end > self.root_self_hash().len());
+        let begin = end - self.root_self_hash().len();
+        self.1.replace_range(begin..end, root_self_hash.as_str());
+        debug_assert!(
+            <DIDResourceFullyQualifiedStr::<F> as pneutype::Validate>::validate(self.1.as_str())
+                .is_ok()
+        );
+    }
+    /// Set the query self-hash value to the given value.  This assumes that the new query self-hash has
+    /// the same str len as the existing one, and therefore doesn't allocate.
+    pub fn set_query_self_hash(&mut self, query_self_hash: &mbx::MBHashStr) {
+        assert_eq!(
+            self.query_self_hash().len(),
+            query_self_hash.len(),
+            "programmer error: hash function must already be known, producing a known, fixed length for the DID's query self-hash component"
+        );
+        // NOTE: This depends on this being formatted with query params exactly as selfHash=...&versionId=...
+        let end = self.find('&').unwrap();
+        assert!(end > self.query_self_hash().len());
+        let begin = end - self.query_self_hash().len();
+        self.1.replace_range(begin..end, query_self_hash.as_str());
+        debug_assert!(
+            <DIDResourceFullyQualifiedStr::<F> as pneutype::Validate>::validate(self.1.as_str())
+                .is_ok()
+        );
     }
 }

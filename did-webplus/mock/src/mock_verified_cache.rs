@@ -1,5 +1,5 @@
 use crate::{MicroledgerMutView, MicroledgerView, Resolver};
-use did_webplus_core::{now_utc_milliseconds, DIDDocument, DIDDocumentMetadata, DIDStr, DID};
+use did_webplus_core::{DID, DIDDocument, DIDDocumentMetadata, DIDStr, now_utc_milliseconds};
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
@@ -142,7 +142,7 @@ impl<'v> MicroledgerView<'v> for MockVerifiedCacheMicroledgerView<'v> {
             .did_version_id_m
             .get(&(self.did_primary_key, version_id))
             .ok_or(did_webplus_core::Error::NotFound(
-                "DID document for version ID not found in cache",
+                "DID document for version ID not found in cache".into(),
             ))?;
         Ok(self
             .mock_verified_cache
@@ -157,21 +157,21 @@ impl<'v> MicroledgerView<'v> for MockVerifiedCacheMicroledgerView<'v> {
             .self_hash_primary_key_m
             .get(self_hash)
             .ok_or(did_webplus_core::Error::NotFound(
-                "Self-hash not found in cache",
+                "Self-hash not found in cache".into(),
             ))?;
         let did_document_primary_key = *self
             .mock_verified_cache
             .self_hash_did_document_m
             .get(&self_hash_primary_key)
             .ok_or(did_webplus_core::Error::NotFound(
-                "DID document not found in cache",
+                "DID document not found in cache".into(),
             ))?;
         let did_document = self
             .mock_verified_cache
             .did_document(did_document_primary_key);
         if did_document.did != *self.did() {
             return Err(did_webplus_core::Error::NotFound(
-                "DID document not found in cache",
+                "DID document not found in cache".into(),
             ));
         }
         Ok(did_document)
@@ -189,7 +189,7 @@ impl<'v> MicroledgerView<'v> for MockVerifiedCacheMicroledgerView<'v> {
             ))
             .nth_back(0)
             .ok_or(did_webplus_core::Error::NotFound(
-                "DID document valid at time not found in cache",
+                "DID document valid at time not found in cache".into(),
             ))?
             .1;
         Ok(self
@@ -260,9 +260,13 @@ impl<'v> MicroledgerMutView<'v> for MockVerifiedCacheMicroledgerMutView<'v> {
     fn update(&mut self, new_did_document: DIDDocument) -> did_webplus_core::Result<()> {
         // Verify that it is a valid update first.
         new_did_document.verify_non_root_nonrecursive(self.latest_did_document())?;
-        assert!(!self.mock_verified_cache.self_hash_primary_key_m.contains_key(
-            &new_did_document.self_hash
-        ), "programmer error: it should not be practically possible (i.e. it should not be computationally feasible) for a valid update to have the same self-hash as an existing DID document -- this almost certainly means there's a bug somewhere.");
+        assert!(
+            !self
+                .mock_verified_cache
+                .self_hash_primary_key_m
+                .contains_key(&new_did_document.self_hash),
+            "programmer error: it should not be practically possible (i.e. it should not be computationally feasible) for a valid update to have the same self-hash as an existing DID document -- this almost certainly means there's a bug somewhere."
+        );
 
         // Now append it and update all relevant indexes.
 
@@ -400,7 +404,7 @@ impl MockVerifiedCache {
     ) -> did_webplus_core::Result<MockVerifiedCacheMicroledgerMutView<'_>> {
         if self.did_primary_key_m.contains_key(&root_did_document.did) {
             return Err(did_webplus_core::Error::AlreadyExists(
-                "DID already exists in cache",
+                "DID already exists in cache".into(),
             ));
         }
         // Verify the DID document.
@@ -521,7 +525,10 @@ impl MockVerifiedCache {
         resolver: &mut dyn Resolver,
     ) -> did_webplus_core::Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>>
     {
-        println!("MockVerifiedCache({:?})::fetch_did_documents;\n    requester_user_agent: {}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}", self.user_agent, requester_user_agent, did, version_id_begin_o, version_id_end_o);
+        println!(
+            "MockVerifiedCache({:?})::fetch_did_documents;\n    requester_user_agent: {}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}",
+            self.user_agent, requester_user_agent, did, version_id_begin_o, version_id_end_o
+        );
 
         self.ensure_cached_did_documents(did, version_id_end_o, resolver)?;
 
@@ -546,7 +553,10 @@ impl MockVerifiedCache {
         did_resolution_options: did_webplus_core::DIDResolutionOptions,
         resolver: &mut dyn Resolver,
     ) -> did_webplus_core::Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata)> {
-        println!("MockVerifiedCache::resolve;\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}", did, version_id_o, self_hash_o);
+        println!(
+            "MockVerifiedCache::resolve;\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
+            did, version_id_o, self_hash_o
+        );
 
         {
             // Ensure that the appropriate DID documents are in the cache.

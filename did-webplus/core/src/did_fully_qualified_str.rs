@@ -92,16 +92,23 @@ impl pneutype::Validate for DIDFullyQualifiedStr {
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
         let did_uri_components = DIDURIComponents::try_from(data)?;
-        if did_uri_components.query_self_hash_o.is_none()
-            || did_uri_components.query_version_id_o.is_none()
-        {
+        if did_uri_components.query_self_hash_o.is_none() {
             return Err(Error::Malformed(
-                "DIDFullyQualified must have both a selfHash and versionId query",
+                "DIDFullyQualified must have a selfHash query param".into(),
+            ));
+        }
+        if did_uri_components.query_version_id_o.is_none() {
+            return Err(Error::Malformed(
+                "DIDFullyQualified must have a versionId query param".into(),
             ));
         }
         if did_uri_components.has_fragment() {
             return Err(Error::Malformed(
-                "DIDFullyQualified must not have a fragment",
+                format!(
+                    "DIDFullyQualified must not have a fragment, but had fragment: {:?}",
+                    did_uri_components.fragment_o.as_ref().unwrap(),
+                )
+                .into(),
             ));
         }
         Ok(())
@@ -111,39 +118,51 @@ impl pneutype::Validate for DIDFullyQualifiedStr {
 pub(crate) fn parse_did_query_params(
     query_params: &str,
 ) -> Result<(Option<&mbx::MBHashStr>, Option<u32>), Error> {
-    let (self_hash_str_o, version_id_str_o) =
-        if let Some((first_query, rest)) = query_params.split_once('&') {
-            if rest.contains('&') {
-                return Err(Error::Malformed(
-                    "DID query params may only specify selfHash and/or versionId",
-                ));
-            }
-            let second_query = rest;
-            if !first_query.starts_with("selfHash=") || !second_query.starts_with("versionId=") {
-                return Err(Error::Malformed(
-                "DID query params must specify selfHash before versionId if they're both specified",
+    let (self_hash_str_o, version_id_str_o) = if let Some((first_query, rest)) =
+        query_params.split_once('&')
+    {
+        if rest.contains('&') {
+            return Err(Error::Malformed(
+                "DID query params may only specify selfHash and/or versionId".into(),
             ));
-            }
-            let self_hash_str = first_query.strip_prefix("selfHash=").unwrap();
-            let version_id_str = second_query.strip_prefix("versionId=").unwrap();
-            (Some(self_hash_str), Some(version_id_str))
+        }
+        let second_query = rest;
+        if !first_query.starts_with("selfHash=") || !second_query.starts_with("versionId=") {
+            return Err(Error::Malformed(
+                "DID query params must specify selfHash before versionId if they're both specified"
+                    .into(),
+            ));
+        }
+        let self_hash_str = first_query.strip_prefix("selfHash=").unwrap();
+        let version_id_str = second_query.strip_prefix("versionId=").unwrap();
+        (Some(self_hash_str), Some(version_id_str))
+    } else {
+        if query_params.starts_with("selfHash=") {
+            let self_hash_str = query_params.strip_prefix("selfHash=").unwrap();
+            (Some(self_hash_str), None)
+        } else if query_params.starts_with("versionId=") {
+            let version_id_str = query_params.strip_prefix("versionId=").unwrap();
+            (None, Some(version_id_str))
         } else {
-            if query_params.starts_with("selfHash=") {
-                let self_hash_str = query_params.strip_prefix("selfHash=").unwrap();
-                (Some(self_hash_str), None)
-            } else if query_params.starts_with("versionId=") {
-                let version_id_str = query_params.strip_prefix("versionId=").unwrap();
-                (None, Some(version_id_str))
-            } else {
-                return Err(Error::Malformed("Unrecognized DID query param"));
-            }
-        };
+            return Err(Error::Malformed(
+                format!("Unrecognized DID query param(s): {}", query_params).into(),
+            ));
+        }
+    };
 
     let query_self_hash_o = self_hash_str_o.map(mbx::MBHashStr::new_ref).transpose()?;
     let query_version_id_o = version_id_str_o
         .map(<u32 as FromStr>::from_str)
         .transpose()
-        .map_err(|_| Error::Malformed("Unparseable versionId in DID query param"))?;
+        .map_err(|_| {
+            Error::Malformed(
+                format!(
+                    "Unparseable versionId in DID query param: {}",
+                    version_id_str_o.unwrap()
+                )
+                .into(),
+            )
+        })?;
 
     Ok((query_self_hash_o, query_version_id_o))
 }

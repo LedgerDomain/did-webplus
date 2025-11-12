@@ -35,12 +35,12 @@ impl DID {
     ) -> Result<Self, Error> {
         if path.starts_with('/') {
             return Err(Error::Malformed(
-                "resolution URL path must not start with '/'",
+                format!("resolution URL path ({:?}) must not start with '/'", path).into(),
             ));
         }
         if !path.ends_with("/did-documents.jsonl") {
             return Err(Error::Malformed(
-                "did-documents.jsonl resolution URL path must end with 'did-documents.jsonl'",
+                format!("did-documents.jsonl resolution URL path ({:?}) must end with 'did-documents.jsonl'", path).into(),
             ));
         }
         let path_and_root_self_hash_str = path.strip_suffix("/did-documents.jsonl").unwrap();

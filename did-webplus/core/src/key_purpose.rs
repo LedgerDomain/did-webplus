@@ -91,7 +91,9 @@ impl TryFrom<u8> for KeyPurpose {
             3 => Ok(KeyPurpose::CapabilityInvocation),
             4 => Ok(KeyPurpose::CapabilityDelegation),
             5 => Ok(KeyPurpose::UpdateDIDDocument),
-            _ => Err(Error::Unrecognized("KeyPurpose integer value")),
+            _ => Err(Error::Unrecognized(
+                format!("KeyPurpose integer value: {}", value).into(),
+            )),
         }
     }
 }

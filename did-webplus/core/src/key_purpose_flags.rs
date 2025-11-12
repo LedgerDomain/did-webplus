@@ -103,7 +103,7 @@ impl TryFrom<u8> for KeyPurposeFlags {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value > KeyPurposeFlags::ALL.integer_value() {
             Err(Error::Malformed(
-                "KeyPurposeFlags (value out of valid range)",
+                format!("KeyPurposeFlags (value out of valid range): {}", value).into(),
             ))
         } else {
             Ok(Self(value))

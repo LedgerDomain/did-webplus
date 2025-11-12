@@ -97,11 +97,13 @@ impl pneutype::Validate for DIDWithQueryStr {
         let did_uri_components = DIDURIComponents::try_from(data)?;
         if !did_uri_components.has_query() {
             return Err(Error::Malformed(
-                "DIDWithQuery must have at least one of selfHash and/or versionId query params specified",
+                format!("DIDWithQuery ({:?}) must have at least one of selfHash and/or versionId query params specified", data).into(),
             ));
         }
         if did_uri_components.has_fragment() {
-            return Err(Error::Malformed("DIDWithQuery must not have a fragment"));
+            return Err(Error::Malformed(
+                format!("DIDWithQuery ({:?}) must not have a fragment", data).into(),
+            ));
         }
         Ok(())
     }

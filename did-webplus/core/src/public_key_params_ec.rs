@@ -61,7 +61,9 @@ impl TryFrom<&PublicKeyParamsEC> for mbx::MBPubKey {
             "P-521" => {
                 unimplemented!("blah");
             }
-            _ => Err(Error::Unrecognized("EC curve")),
+            _ => Err(Error::Unrecognized(
+                format!("EC curve: {}", public_key_params_ec.crv).into(),
+            )),
         }
     }
 }
@@ -82,7 +84,9 @@ impl TryFrom<&dyn signature_dyn::VerifierDynT> for PublicKeyParamsEC {
             // signature_dyn::KeyType::P521 => {
             //     unimplemented!("blah");
             // }
-            _ => Err(Error::Unrecognized("EC curve")),
+            _ => Err(Error::Unrecognized(
+                format!("EC curve: {}", verifier.key_type()).into(),
+            )),
         }
     }
 }
@@ -101,7 +105,9 @@ impl TryFrom<&mbx::MBPubKeyStr> for PublicKeyParamsEC {
             ssi_multicodec::P256_PUB => {
                 unimplemented!("blah");
             }
-            _ => Err(Error::Unrecognized("EC curve")),
+            _ => Err(Error::Unrecognized(
+                format!("EC curve: {}", decoded.codec()).into(),
+            )),
         }
     }
 }

@@ -26,7 +26,7 @@ impl TryFrom<&mbx::MBPubKeyStr> for PublicKeyParamsOKP {
                 let mut buffer = [0u8; 43];
                 let public_key_base64 = base64_encode_256_bits(
                     <&[u8; 32]>::try_from(decoded.data())
-                        .map_err(|_| Error::Malformed("Invalid Ed25519 public key"))?,
+                        .map_err(|_| Error::Malformed("Invalid Ed25519 public key".into()))?,
                     &mut buffer,
                 );
                 Ok(Self {
@@ -42,8 +42,12 @@ impl TryFrom<&mbx::MBPubKeyStr> for PublicKeyParamsOKP {
             }
             _ => {
                 return Err(Error::Unrecognized(
-                    "public key type not supported for PublicKeyParamsOKP",
-                ))
+                    format!(
+                        "public key type not supported for PublicKeyParamsOKP: {}",
+                        decoded.codec()
+                    )
+                    .into(),
+                ));
             }
         }
     }
@@ -60,11 +64,13 @@ impl TryFrom<&PublicKeyParamsOKP> for mbx::MBPubKey {
                     let public_key_bytes =
                         base64_decode_256_bits(public_key_params_okp.x.as_str(), &mut buffer)
                             .map_err(|_| {
-                                Error::Malformed("Invalid Base64URL encoding of Ed25519 public key")
+                                Error::Malformed(
+                                    "Invalid Base64URL encoding of Ed25519 public key".into(),
+                                )
                             })?;
                     let verifying_key =
                         ed25519_dalek::VerifyingKey::try_from(&public_key_bytes[..])
-                            .map_err(|_| Error::Malformed("Invalid Ed25519 public key"))?;
+                            .map_err(|_| Error::Malformed("Invalid Ed25519 public key".into()))?;
                     Ok(mbx::MBPubKey::from_ed25519_dalek_verifying_key(
                         mbx::Base::Base64Url,
                         &verifying_key,
@@ -72,7 +78,9 @@ impl TryFrom<&PublicKeyParamsOKP> for mbx::MBPubKey {
                 }
                 #[cfg(not(feature = "ed25519-dalek"))]
                 {
-                    panic!("Must enable the `ed25519-dalek` feature to parse Ed25519 keys from PublicKeyParamsOKP");
+                    panic!(
+                        "Must enable the `ed25519-dalek` feature to parse Ed25519 keys from PublicKeyParamsOKP"
+                    );
                 }
             }
             "Ed448" => {
@@ -82,10 +90,14 @@ impl TryFrom<&PublicKeyParamsOKP> for mbx::MBPubKey {
                 }
                 #[cfg(not(feature = "ed448-goldilocks"))]
                 {
-                    panic!("Must enable the `ed448-goldilocks` feature to parse Ed448 keys from PublicKeyParamsOKP");
+                    panic!(
+                        "Must enable the `ed448-goldilocks` feature to parse Ed448 keys from PublicKeyParamsOKP"
+                    );
                 }
             }
-            _ => Err(Error::Unrecognized("OKP curve")),
+            _ => Err(Error::Unrecognized(
+                format!("OKP curve: {}", public_key_params_okp.crv).into(),
+            )),
         }
     }
 }
@@ -108,10 +120,10 @@ fn base64_decode_256_bits<'a>(
     buffer: &'a mut [u8; 33],
 ) -> crate::Result<&'a [u8; 32]> {
     if !input_str.is_ascii() {
-        return Err(Error::Malformed("not ASCII"));
+        return Err(Error::Malformed("not ASCII".into()));
     }
     if input_str.len() != 43 {
-        return Err(Error::Malformed("expected 43 base64 chars"));
+        return Err(Error::Malformed("expected 43 base64 chars".into()));
     }
     use base64::Engine;
     base64::engine::general_purpose::URL_SAFE_NO_PAD
@@ -119,7 +131,7 @@ fn base64_decode_256_bits<'a>(
         .map_err(|_| "base64 decode of 256 bit value failed")?;
     // Ensure that the last byte is zero, otherwise there were more than 256 bits in the base64 string.
     if buffer[32] != 0 {
-        return Err(Error::Malformed("does not parse as 256 bit value"));
+        return Err(Error::Malformed("does not parse as 256 bit value".into()));
     }
     // Cut off the last byte, which we know is zero.
     let output_byte_v: &[u8; 32] = buffer[0..32].try_into().unwrap();

@@ -23,7 +23,11 @@ impl DIDFullyQualified {
         // TODO: Complete validation of hostname
         if hostname.contains(':') || hostname.contains('/') {
             return Err(Error::Malformed(
-                "DIDFullyQualified hostname must not contain ':' or '/'",
+                format!(
+                    "DIDFullyQualified hostname ({:?}) must not contain ':' or '/'",
+                    hostname
+                )
+                .into(),
             ));
         }
 

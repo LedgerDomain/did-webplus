@@ -36,7 +36,11 @@ impl HTTPSchemeOverride {
                 return Ok(());
             } else {
                 return Err(Error::Malformed(
-                    "Duplicated hostname with conflicting scheme",
+                    format!(
+                        "Duplicated hostname ({:?}) with conflicting scheme",
+                        hostname
+                    )
+                    .into(),
                 ));
             }
         }
@@ -73,14 +77,19 @@ impl HTTPSchemeOverride {
                     "https" => "https",
                     _ => {
                         return Err(Error::Malformed(
-                            "Invalid HTTP scheme; expected \"http\" or \"https\"",
+                            format!(
+                                "Invalid HTTP scheme ({:?}); expected \"http\" or \"https\"",
+                                scheme
+                            )
+                            .into(),
                         ));
                     }
                 };
                 if let Some(&existing_http_scheme) = m.get(hostname) {
                     if existing_http_scheme != http_scheme {
                         return Err(Error::Malformed(
-                            "Repeated hostname with conflicting scheme",
+                            format!("Repeated hostname ({:?}) with conflicting scheme", hostname)
+                                .into(),
                         ));
                     }
                 }
@@ -96,7 +105,9 @@ impl HTTPSchemeOverride {
                     "HTTPSchemeOverride::parse_from_comma_separated_pairs: malformed hostname=scheme pair: {}",
                     pair
                 );
-                return Err(Error::Malformed("Malformed hostname=scheme pair"));
+                return Err(Error::Malformed(
+                    format!("Malformed hostname=scheme pair: {}", pair).into(),
+                ));
             }
         }
 
@@ -168,16 +179,20 @@ impl HTTPSchemeOverride {
             "http" => Ok("http"),
             "https" => Ok("https"),
             _ => Err(Error::Malformed(
-                "Invalid HTTP scheme; expected \"http\" or \"https\"",
+                format!(
+                    "Invalid HTTP scheme ({:?}); expected \"http\" or \"https\"",
+                    scheme
+                )
+                .into(),
             )),
         }
     }
     fn parse_hostname_and_port_o(host: &str) -> Result<(&str, Option<u16>)> {
         match host.split_once(':') {
             Some((hostname, port_str)) => {
-                let port = port_str
-                    .parse::<u16>()
-                    .map_err(|_e| Error::Malformed("Invalid port number"))?;
+                let port = port_str.parse::<u16>().map_err(|_| {
+                    Error::Malformed(format!("Invalid port number: {}", port_str).into())
+                })?;
                 Ok((hostname, Some(port)))
             }
             None => Ok((host, None)),

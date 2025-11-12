@@ -123,10 +123,10 @@ impl pneutype::Validate for DIDStr {
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
         let did_uri_components = DIDURIComponents::try_from(data)?;
         if did_uri_components.has_query() {
-            return Err(Error::Malformed("DID must not have a query"));
+            return Err(Error::Malformed("DID must not have a query".into()));
         }
         if did_uri_components.has_fragment() {
-            return Err(Error::Malformed("DID must not have a fragment"));
+            return Err(Error::Malformed("DID must not have a fragment".into()));
         }
         Ok(())
     }

@@ -51,7 +51,7 @@ impl Microledger {
     ) -> did_webplus_core::Result<Self> {
         if did_document_v.is_empty() {
             return Err(did_webplus_core::Error::Malformed(
-                "DID document list is empty",
+                "DID document list is empty".into(),
             ));
         }
 
@@ -148,7 +148,9 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
         version_id: u32,
     ) -> did_webplus_core::Result<&'m DIDDocument> {
         self.did_document_v.get(version_id as usize).ok_or_else(|| {
-            did_webplus_core::Error::NotFound("version_id does not match any existing DID document")
+            did_webplus_core::Error::NotFound(
+                "version_id does not match any existing DID document".into(),
+            )
         })
     }
     fn did_document_for_self_hash(
@@ -156,7 +158,9 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
         self_hash: &mbx::MBHashStr,
     ) -> did_webplus_core::Result<&'m DIDDocument> {
         let version_id = self.self_hash_version_id_m.get(self_hash).ok_or_else(|| {
-            did_webplus_core::Error::NotFound("self-hash does not match any existing DID document")
+            did_webplus_core::Error::NotFound(
+                "self-hash does not match any existing DID document".into(),
+            )
         })?;
         self.did_document_for_version_id(*version_id)
     }
@@ -169,7 +173,9 @@ impl<'m> MicroledgerView<'m> for &'m Microledger {
             .range(..=time)
             .last()
             .ok_or_else(|| {
-                did_webplus_core::Error::NotFound("time does not match any existing DID document")
+                did_webplus_core::Error::NotFound(
+                    "time does not match any existing DID document".into(),
+                )
             })?
             .1;
         self.did_document_for_version_id(*version_id)

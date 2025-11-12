@@ -74,13 +74,21 @@ impl<F: 'static + Fragment + ?Sized> pneutype::Validate for DIDResourceStr<F> {
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
         let did_uri_components = DIDURIComponents::try_from(data)?;
         if did_uri_components.has_query() {
-            return Err(Error::Malformed("DIDResource must not have a query"));
+            return Err(Error::Malformed("DIDResource must not have a query".into()));
         }
         if !did_uri_components.has_fragment() {
-            return Err(Error::Malformed("DIDResource must have a fragment"));
+            return Err(Error::Malformed("DIDResource must have a fragment".into()));
         }
-        F::validate(did_uri_components.fragment_o.unwrap())
-            .map_err(|_| Error::Malformed("DIDResource fragment is malformed"))?;
+        F::validate(did_uri_components.fragment_o.unwrap()).map_err(|e| {
+            Error::Malformed(
+                format!(
+                    "DIDResource fragment ({:?}) is malformed: {}",
+                    did_uri_components.fragment_o.unwrap(),
+                    e
+                )
+                .into(),
+            )
+        })?;
         Ok(())
     }
 }

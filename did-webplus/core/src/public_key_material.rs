@@ -1,6 +1,6 @@
 use crate::{
-    DIDStr, Error, KeyPurpose, KeyPurposeFlags, PublicKeySet, RelativeKeyResource,
-    RelativeKeyResourceStr, Result, VerificationMethod, DID,
+    DIDFullyQualifiedStr, DIDStr, Error, KeyPurpose, KeyPurposeFlags, PublicKeySet,
+    RelativeKeyResource, RelativeKeyResourceStr, Result, VerificationMethod,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -23,7 +23,10 @@ pub struct PublicKeyMaterial {
 }
 
 impl PublicKeyMaterial {
-    pub fn new<'a>(did: DID, public_key_set: PublicKeySet<&'a mbx::MBPubKey>) -> Result<Self> {
+    pub fn new<'a>(
+        did_fully_qualified: &DIDFullyQualifiedStr,
+        public_key_set: PublicKeySet<&'a mbx::MBPubKey>,
+    ) -> Result<Self> {
         let mut verification_method_m: HashMap<mbx::MBPubKey, VerificationMethod> = HashMap::new();
 
         let mut authentication_relative_key_resource_v = Vec::new();
@@ -48,7 +51,7 @@ impl PublicKeyMaterial {
                         std::collections::hash_map::Entry::Vacant(vacant) => {
                             let key_id_fragment = format!("{}", i);
                             let verification_method = VerificationMethod::json_web_key_2020(
-                                did.clone(),
+                                did_fully_qualified,
                                 &key_id_fragment,
                                 pub_key,
                             );
@@ -106,7 +109,9 @@ impl PublicKeyMaterial {
             KeyPurpose::CapabilityInvocation => &self.capability_invocation_relative_key_resource_v,
             KeyPurpose::CapabilityDelegation => &self.capability_delegation_relative_key_resource_v,
             _ => {
-                panic!("programmer error: UpdateDIDDocument is not a valid KeyPurpose for a verification method");
+                panic!(
+                    "programmer error: UpdateDIDDocument is not a valid KeyPurpose for a verification method"
+                );
             }
         };
         relative_key_resource_v
@@ -146,7 +151,11 @@ impl PublicKeyMaterial {
         verification_method_m
             .get(key_id_fragment)
             .ok_or(Error::NotFound(
-                "verification method referenced by key id fragment",
+                format!(
+                    "verification method referenced by key id fragment: {}",
+                    key_id_fragment
+                )
+                .into(),
             ))
     }
     pub fn verify(&self, expected_controller: &DIDStr) -> Result<()> {
@@ -162,8 +171,12 @@ impl PublicKeyMaterial {
             for relative_key_resource in self.relative_key_resources_for_purpose(key_purpose) {
                 if !relative_key_resource_s.contains(relative_key_resource) {
                     return Err(Error::MalformedKeyId(
-                        key_purpose.as_str(),
-                        "key id fragment does not match any listed verification method",
+                        key_purpose.as_str().into(),
+                        format!(
+                            "key id fragment ({:?}) does not match any listed verification method",
+                            relative_key_resource.fragment()
+                        )
+                        .into(),
                     ));
                 }
             }
@@ -192,6 +205,31 @@ impl PublicKeyMaterial {
     ) -> Result<()> {
         for verification_method in &mut self.verification_method_v {
             verification_method.set_root_did_document_self_hash_slots_to(hash)?;
+        }
+        Ok(())
+    }
+    pub fn non_root_did_document_self_hash_oi<'a, 'b: 'a>(
+        &'b self,
+    ) -> Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> {
+        let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> =
+            Box::new(std::iter::empty());
+        for verification_method in &self.verification_method_v {
+            iter_chain = Box::new(
+                iter_chain.chain(
+                    verification_method
+                        .non_root_did_document_self_hash_oi()
+                        .into_iter(),
+                ),
+            );
+        }
+        iter_chain
+    }
+    pub fn set_non_root_did_document_self_hash_slots_to(
+        &mut self,
+        hash: &mbx::MBHashStr,
+    ) -> Result<()> {
+        for verification_method in &mut self.verification_method_v {
+            verification_method.set_non_root_did_document_self_hash_slots_to(hash)?;
         }
         Ok(())
     }

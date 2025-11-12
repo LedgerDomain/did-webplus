@@ -1,4 +1,4 @@
-use crate::{parse_did_query_params, Error};
+use crate::{Error, parse_did_query_params};
 
 #[derive(Debug)]
 pub struct DIDURIComponents<'a> {
@@ -58,27 +58,42 @@ impl<'a> std::fmt::Display for DIDURIComponents<'a> {
 impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
     type Error = Error;
     fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        let original_s = s;
         if !s.starts_with("did:webplus:") {
             return Err(Error::Malformed(
-                "did:webplus URI is expected to start with 'did:webplus:'",
+                format!(
+                    "did:webplus URI ({:?}) is expected to start with 'did:webplus:'",
+                    original_s
+                )
+                .into(),
             ));
         }
         // Get rid of the "did:webplus:" prefix.
         let s = s.strip_prefix("did:webplus:").unwrap();
 
         let (hostname_and_maybe_port, remainder) = s.split_once(':').ok_or(Error::Malformed(
-            "did:webplus URI is expected to have a third ':' after the hostname",
+            format!(
+                "did:webplus URI ({:?}) is expected to have a third ':' after the hostname",
+                original_s
+            )
+            .into(),
         ))?;
         let (hostname, port_o) = if let Some((hostname, after_percent_str)) =
             hostname_and_maybe_port.split_once('%')
         {
             if !after_percent_str.starts_with("3A") {
-                return Err(Error::Malformed("did:webplus URI may only have an embedded %3A (the percent-encoding of ':'), but it had some other percent-encoded char"));
+                return Err(Error::Malformed(format!("did:webplus URI ({:?}) may only have an embedded %3A (the percent-encoding of ':'), but it had some other percent-encoded char", original_s).into()));
             }
             let port_str = after_percent_str.strip_prefix("3A").unwrap();
-            let port: u16 = port_str
-                .parse()
-                .map_err(|_| Error::Malformed("did:webplus URI port must be a valid integer"))?;
+            let port: u16 = port_str.parse().map_err(|_| {
+                Error::Malformed(
+                    format!(
+                        "did:webplus URI ({:?}) port must be a valid integer",
+                        original_s
+                    )
+                    .into(),
+                )
+            })?;
             (hostname, Some(port))
         } else {
             (hostname_and_maybe_port, None)
@@ -111,7 +126,11 @@ impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
         // TODO: Stronger validation
         if uri_path.contains('/') || uri_path.contains('%') {
             return Err(Error::Malformed(
-                "did:webplus URI path must not contain '/' or '%'",
+                format!(
+                    "did:webplus URI ({:?}) path must not contain '/' or '%'",
+                    original_s
+                )
+                .into(),
             ));
         }
 
@@ -122,7 +141,7 @@ impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
             // TODO: More path validation.
             for path_component in path.split(':') {
                 if path_component.is_empty() {
-                    return Err(Error::Malformed("did:webplus URI path must not have empty path components (i.e. two ':' chars in a row)"));
+                    return Err(Error::Malformed(format!("did:webplus URI ({:?}) path must not have empty path components (i.e. two ':' chars in a row)", original_s).into()));
                 }
             }
             (Some(path), root_self_hash_str)

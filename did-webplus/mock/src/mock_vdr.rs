@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, DID};
+use did_webplus_core::{DID, DIDDocument, DIDDocumentMetadata, DIDStr, Error};
 
 use crate::{Microledger, MicroledgerMutView, MicroledgerView, VDS};
 
@@ -40,16 +40,20 @@ impl MockVDR {
         self.simulate_latency_if_necessary();
 
         if root_did_document.did.hostname() != self.hostname.as_str() {
-            return Err(Error::Malformed("DID hostname doesn't match that of VDR"));
+            return Err(Error::Malformed(
+                "DID hostname doesn't match that of VDR".into(),
+            ));
         }
         if root_did_document.did.port_o() != self.did_port_o {
-            return Err(Error::Malformed("DID port doesn't match that of VDR"));
+            return Err(Error::Malformed(
+                "DID port doesn't match that of VDR".into(),
+            ));
         }
 
         // This construction will fail if the root_did_document isn't valid.
         let microledger = Microledger::create(root_did_document)?;
         if self.microledger_m.contains_key(microledger.view().did()) {
-            return Err(Error::AlreadyExists("DID already exists"));
+            return Err(Error::AlreadyExists("DID already exists".into()));
         }
         let did = microledger.view().did().to_owned();
         self.microledger_m.insert(did.clone(), microledger);
@@ -67,22 +71,26 @@ impl MockVDR {
         self.simulate_latency_if_necessary();
 
         if new_did_document.did.hostname() != self.hostname.as_str() {
-            return Err(Error::Malformed("DID hostname doesn't match that of VDR"));
+            return Err(Error::Malformed(
+                "DID hostname doesn't match that of VDR".into(),
+            ));
         }
         if new_did_document.did.port_o() != self.did_port_o {
-            return Err(Error::Malformed("DID port doesn't match that of VDR"));
+            return Err(Error::Malformed(
+                "DID port doesn't match that of VDR".into(),
+            ));
         }
         let microledger = self
             .microledger_m
             .get_mut(&new_did_document.did)
-            .ok_or_else(|| Error::NotFound("DID not found"))?;
+            .ok_or_else(|| Error::NotFound("DID not found".into()))?;
         microledger.mut_view().update(new_did_document)?;
         Ok(())
     }
     fn microledger<'s>(&'s self, did: &DIDStr) -> Result<&'s Microledger, Error> {
         self.microledger_m
             .get(did)
-            .ok_or_else(|| Error::NotFound("DID not found"))
+            .ok_or_else(|| Error::NotFound("DID not found".into()))
     }
     fn simulate_latency_if_necessary(&self) {
         if let Some(simulated_latency) = self.simulated_latency_o.as_ref() {
