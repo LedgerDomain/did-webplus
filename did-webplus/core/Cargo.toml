@@ -79,10 +79,10 @@ ed25519-dalek = { version = "2.2.0", features = ["digest", "rand_core"] }
 rand = "0.8"
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
-ssi-jwk = { version = "0.1.1", default-features = false, features = [
+ssi-jwk = { version = "0.3.2", default-features = false, features = [
     "ed25519",
 ] }
-ssi-jws = { version = "0.1.0", default-features = false, features = [
+ssi-jws = { version = "0.3.1", default-features = false, features = [
     "ed25519",
 ] }
 test-util = { path = "../../test-util" }

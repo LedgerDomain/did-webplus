@@ -701,6 +701,57 @@
 			]
 		},
 		{
+			"label": "check did-webplus-ssi",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"check",
+				"--package",
+				"did-webplus-ssi",
+				"--all-features",
+				"--tests"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
+			"label": "test did-webplus-ssi",
+			"type": "shell",
+			"command": "cargo",
+			"args": [
+				"test",
+				"--package",
+				"did-webplus-ssi",
+				"--all-features",
+				"--",
+				"--nocapture"
+			],
+			"group": "build",
+			"presentation": {
+				"clear": true,
+				"revealProblems": "onProblem"
+			},
+			"problemMatcher": [
+				{
+					"base": "$rustc",
+					"fileLocation": [
+						"relative"
+					]
+				}
+			]
+		},
+		{
 			"label": "check did-webplus-urd",
 			"type": "shell",
 			"command": "cargo",
