@@ -1623,6 +1623,7 @@ name = "did-webplus-ssi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "ctor",
  "did-webplus-core",
  "did-webplus-doc-storage-sqlite",
@@ -1645,6 +1646,7 @@ dependencies = [
  "ssi-claims",
  "ssi-dids",
  "ssi-jwk",
+ "ssi-jws",
  "ssi-vc",
  "ssi-verification-methods",
  "static-iref",
@@ -6145,6 +6147,7 @@ dependencies = [
  "p256",
  "p384",
  "rand 0.8.5",
+ "rsa 0.6.1",
  "serde",
  "serde_json",
  "sha2 0.10.9",

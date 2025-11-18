@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
+
+use ssi_vc::v1::ToJwtClaims;
 
 /// This will run once at load time (i.e. presumably before main function is called).
 #[ctor::ctor]
@@ -146,20 +148,454 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
 async fn test_ssi_jwt_issue_did_webplus() {
     // TODO: Use env vars to be able to point to a "real" VDR.
 
+    let vdr_database_url = "postgres:///test_ssi_jwt_issue_did_webplus_vdr";
+    let vdr_port = 14085;
     let wallet_store_database_path = "tests/test_ssi_jwt_issue_did_webplus.wallet-store.db";
 
+    let (vdr_handle, vdr_did_create_endpoint, software_wallet) =
+        setup_vdr_and_wallet(vdr_database_url, vdr_port, wallet_store_database_path).await;
+
+    test_ssi_jwt_issue_did_webplus_impl(&software_wallet, &vdr_did_create_endpoint).await;
+
+    tracing::info!("Shutting down VDR");
+    vdr_handle.abort();
+}
+
+async fn test_ssi_vc_issue_0_impl(
+    software_wallet: &did_webplus_software_wallet::SoftwareWallet,
+    vdr_did_create_endpoint: &str,
+) {
+    use serde::{Deserialize, Serialize};
+    use ssi_claims::{
+        data_integrity::{AnySuite, CryptographicSuite, ProofOptions},
+        VerificationParameters,
+    };
+    use ssi_dids::DIDResolver;
+    use ssi_verification_methods::SingleSecretSigner;
+    use xsd_types::DateTime;
+
+    // Have the wallet create a DID.
+    let controlled_did = software_wallet
+        .create_did(vdr_did_create_endpoint, None)
+        .await
+        .expect("pass");
+    // Get an appropriate signing key.
+    use did_webplus_wallet::Wallet;
+    let (verification_method_record, signer_bytes) = {
+        let locally_controlled_verification_method_filter =
+            did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
+                did_o: Some(controlled_did.did().to_owned()),
+                version_id_o: Some(controlled_did.query_version_id()),
+                key_purpose_o: Some(did_webplus_core::KeyPurpose::AssertionMethod),
+                key_id_o: None,
+                result_limit_o: None,
+            };
+        software_wallet
+            .get_locally_controlled_verification_method(
+                locally_controlled_verification_method_filter,
+            )
+            .await
+            .expect("pass")
+    };
+    // Create the DID URL which fully qualifies the specific key to be used.
+    let did_url = ssi_dids::DIDURLBuf::from_string(
+        verification_method_record
+            .did_key_resource_fully_qualified
+            .to_string(),
+    )
+    .expect("pass");
+
+    // Get the private JWK from the Signer.
+    let priv_jwk = to_ssi_jwk(
+        Some(
+            verification_method_record
+                .did_key_resource_fully_qualified
+                .as_str(),
+        ),
+        &signer_bytes,
+    )
+    .expect("pass");
+    tracing::debug!("priv_jwk: {:#?}", priv_jwk);
+
+    // Create a verification method resolver, which will be in charge of
+    // decoding the DID back into a public key.
+    let did_resolver = {
+        let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
+            .await
+            .expect("pass");
+        let did_doc_storage =
+            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
+                sqlite_pool,
+            )
+            .await
+            .expect("pass");
+        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
+        let did_resolver_full =
+            did_webplus_resolver::DIDResolverFull::new(did_doc_store, None, None).expect("pass");
+        let did_resolver_a = Arc::new(did_resolver_full);
+        did_webplus_ssi::DIDWebplus { did_resolver_a }
+    };
+    let vm_resolver = did_resolver.into_vm_resolver();
+
+    // Create a signer from the secret key.
+    // Here we use the simple `SingleSecretSigner` signer type which always uses
+    // the same provided secret key to sign messages.
+    let signer = SingleSecretSigner::new(priv_jwk.clone()).into_local();
+
+    // Turn the DID URL into a verification method reference.
+    let verification_method = did_url.clone().into_iri().into();
+
+    // Automatically pick a suitable Data-Integrity signature suite for our key.
+    let cryptosuite = AnySuite::pick(&priv_jwk, Some(&verification_method))
+        .expect("could not find appropriate cryptosuite");
+
+    // Defines the shape of our custom claims.
+    #[derive(Clone, Debug, Serialize, Deserialize)]
+    pub struct SimpleCredentialSubject {
+        #[serde(rename = "id")]
+        id: String,
+        #[serde(rename = "https://example.org/#name")]
+        name: String,
+        #[serde(rename = "https://example.org/#email")]
+        email: String,
+    }
+
+    // This is the type-generic way to create a credential with custom credential subject type.
+    let unsigned_credential: ssi_claims::vc::v1::SpecializedJsonCredential = {
+        let now = DateTime::now();
+        let mut expiration_date = now.clone();
+        expiration_date.date_time += chrono::Duration::days(365);
+        let credential_subject = SimpleCredentialSubject {
+            id: "https://example.org/#CredentialSubjectId".to_owned(),
+            name: "Grunty McParty".to_owned(),
+            email: "g@mc-p.org".to_owned(),
+        };
+        serde_json::from_value(serde_json::json!({
+            "@context": ["https://www.w3.org/2018/credentials/v1"],
+            "type": "VerifiableCredential",
+            "id": "https://example.org/#CredentialId",
+            // Apparently this issuer field doesn't matter for the verification process.
+            // TODO: Make this the issuer DID and verify that it gets checked, or if we have to check the relationship.
+            "issuer": "https://example.org/#Issuer",
+            "issuanceDate": now,
+            "expirationDate": expiration_date,
+            "credentialSubject": serde_json::to_value(credential_subject).expect("pass")
+        }))
+        .expect("pass")
+    };
+
+    let vc_ldp = {
+        cryptosuite
+            .sign(
+                unsigned_credential.clone(),
+                &vm_resolver,
+                &signer,
+                ProofOptions::from_method(verification_method.clone()),
+            )
+            .await
+            .expect("signature failed")
+    };
+
+    tracing::debug!("vc_ldp: {:?}", vc_ldp);
+    let vc_ldp_json = serde_json::to_string(&vc_ldp).expect("pass");
+    tracing::info!("vc_ldp_json (vc_ldp as JSON): {}", vc_ldp_json);
+
+    use ssi_claims::JwsPayload;
+    let vc_jwt = unsigned_credential
+        .to_jwt_claims()
+        .unwrap()
+        .sign(&priv_jwk)
+        .await
+        .expect("pass");
+    tracing::info!("vc_jwt: {}", vc_jwt);
+
+    let verification_params = VerificationParameters::from_resolver(&vm_resolver);
+    // Verify vc_ldp
+    {
+        let vc_ldp_verify_r = vc_ldp.verify(&verification_params).await;
+        tracing::debug!("vc_ldp_verify_r: {:?}", vc_ldp_verify_r);
+        assert!(vc_ldp_verify_r.is_ok());
+        let vc_ldp_verify_proof_r = vc_ldp_verify_r.unwrap();
+        tracing::debug!("vc_ldp_verify_proof_r: {:?}", vc_ldp_verify_proof_r);
+        assert!(vc_ldp_verify_proof_r.is_ok());
+    }
+    // Verify vc_jwt
+    {
+        let vc_jwt_verify_r = vc_jwt.verify(&verification_params).await;
+        tracing::debug!("vc_jwt_verify_r: {:?}", vc_jwt_verify_r);
+        assert!(vc_jwt_verify_r.is_ok());
+        let vc_jwt_verify_proof_r = vc_jwt_verify_r.unwrap();
+        tracing::debug!("vc_jwt_verify_proof_r: {:?}", vc_jwt_verify_proof_r);
+        assert!(vc_jwt_verify_proof_r.is_ok());
+    }
+
+    // Also read it in from the JSON string and verify it.
+    {
+        let parsed_vc_ldp =
+            ssi_claims::vc::v1::data_integrity::any_credential_from_json_str(&vc_ldp_json)
+                .expect("pass");
+        tracing::debug!("parsed_vc_ldp: {:?}", parsed_vc_ldp);
+        // TODO: Somehow assert that parsed_vc equals vc
+        let parsed_vc_ldp_verify_r = parsed_vc_ldp.verify(&verification_params).await;
+        tracing::debug!("parsed_vc_ldp_verify_r: {:?}", parsed_vc_ldp_verify_r);
+        assert!(parsed_vc_ldp_verify_r.is_ok());
+        let parsed_vc_ldp_verify_proof_r = parsed_vc_ldp_verify_r.unwrap();
+        tracing::debug!(
+            "parsed_vc_ldp_verify_proof_r: {:?}",
+            parsed_vc_ldp_verify_proof_r
+        );
+        assert!(parsed_vc_ldp_verify_proof_r.is_ok());
+    }
+
+    // Present vc_ldp as an LDP format VP.
+    {
+        // NOTE: It seems like it's necessary to deserialize the VC into a "generic" type, not the
+        // "specialized" type with SimpleCredentialSubject as above.
+        let parsed_vc_ldp: ssi_claims::data_integrity::AnyDataIntegrity<
+            ssi_claims::vc::AnyJsonCredential,
+        > = serde_json::from_str(&vc_ldp_json).expect("pass");
+        // tracing::debug!("parsed_vc_ldp: {:?}", parsed_vc_ldp);
+        let json_credential_or_jws =
+            ssi_claims::JsonCredentialOrJws::Credential(Box::new(parsed_vc_ldp));
+        let mut unsigned_presentation =
+            ssi_claims::vc::v1::JsonPresentation::new(None, None, vec![json_credential_or_jws]);
+        unsigned_presentation.holder =
+            Some(iref::UriBuf::from_str("https://example.org/#Holder").expect("pass"));
+        unsigned_presentation.id =
+            Some(iref::UriBuf::from_str("https://example.org/#PresentationId").expect("pass"));
+        // NOTE: The VerifiablePresentation data model DOES NOT include issuanceDate, expirationDate, or audience.
+        // See <https://www.w3.org/2018/credentials/v1> (this is the JSON-LD context URL for VCs and VPs).
+
+        let proof_options = {
+            let mut proof_options = ProofOptions::from_method(verification_method.clone());
+            proof_options.proof_purpose = ssi_verification_methods::ProofPurpose::Authentication;
+            proof_options.challenge = Some("1234567890".to_string());
+            proof_options.domains.push("example.org".to_string());
+            proof_options.nonce = Some("abcdefghijklmnopqrstuvwxyz".to_string());
+            proof_options
+        };
+
+        let vp_ldp_of_vc_ldp = cryptosuite
+            .sign(unsigned_presentation, &vm_resolver, &signer, proof_options)
+            .await
+            .expect("signature failed");
+        tracing::debug!("vp_ldp_of_vc_ldp: {:?}", vp_ldp_of_vc_ldp);
+        tracing::info!(
+            "vp_ldp_of_vc_ldp as JSON: {}",
+            serde_json::to_string(&vp_ldp_of_vc_ldp).expect("pass")
+        );
+
+        // Verify vp_ldp_of_vc_ldp
+        {
+            let vp_ldp_of_vc_ldp_verify_r = vp_ldp_of_vc_ldp.verify(&verification_params).await;
+            tracing::debug!("vp_ldp_of_vc_ldp_verify_r: {:?}", vp_ldp_of_vc_ldp_verify_r);
+            assert!(vp_ldp_of_vc_ldp_verify_r.is_ok());
+            let vp_ldp_of_vc_ldp_verify_proof_r = vp_ldp_of_vc_ldp_verify_r.unwrap();
+            tracing::debug!(
+                "vp_ldp_of_vc_ldp_verify_proof_r: {:?}",
+                vp_ldp_of_vc_ldp_verify_proof_r
+            );
+            assert!(vp_ldp_of_vc_ldp_verify_proof_r.is_ok());
+        }
+    }
+    // Present vc_ldp as a JWT format VP.
+    {
+        // NOTE: It seems like it's necessary to deserialize the VC into a "generic" type, not the
+        // "specialized" type with SimpleCredentialSubject as above.
+        let parsed_vc_ldp: ssi_claims::data_integrity::AnyDataIntegrity<
+            ssi_claims::vc::AnyJsonCredential,
+        > = serde_json::from_str(&vc_ldp_json).expect("pass");
+        let json_credential_or_jws =
+            ssi_claims::JsonCredentialOrJws::Credential(Box::new(parsed_vc_ldp));
+        let mut unsigned_presentation =
+            ssi_claims::vc::v1::JsonPresentation::new(None, None, vec![json_credential_or_jws]);
+        unsigned_presentation.holder =
+            Some(iref::UriBuf::from_str("https://example.org/#Holder").expect("pass"));
+        unsigned_presentation.id =
+            Some(iref::UriBuf::from_str("https://example.org/#PresentationId").expect("pass"));
+        // SEE: <https://www.w3.org/TR/2022/REC-vc-data-model-20220303/#jwt-encoding> for the JWT field mapping.
+        {
+            let issuance_date = DateTime::now();
+            let mut expiration_date = issuance_date.clone();
+            expiration_date.date_time += chrono::Duration::days(1);
+            unsigned_presentation
+                .additional_properties
+                .insert("issuanceDate".to_string(), issuance_date.to_string().into());
+            unsigned_presentation.additional_properties.insert(
+                "expirationDate".to_string(),
+                expiration_date.to_string().into(),
+            );
+            unsigned_presentation.additional_properties.insert(
+                "audience".to_string(),
+                "bob@lablaugh.law".to_string().into(),
+            );
+        }
+        tracing::debug!("unsigned_presentation: {:?}", unsigned_presentation);
+        tracing::debug!(
+            "unsigned_presentation as JSON: {}",
+            serde_json::to_string(&unsigned_presentation).expect("pass")
+        );
+
+        let vp_jwt_of_vc_ldp = unsigned_presentation
+            .to_jwt_claims()
+            .unwrap()
+            .sign(&priv_jwk)
+            .await
+            .expect("signature failed");
+        tracing::info!("vp_jwt_of_vc_ldp: {}", vp_jwt_of_vc_ldp);
+
+        // Verify vp_jwt_of_vc_ldp
+        {
+            let vp_jwt_of_vc_ldp_verify_r = vp_jwt_of_vc_ldp.verify(&verification_params).await;
+            tracing::debug!("vp_jwt_of_vc_ldp_verify_r: {:?}", vp_jwt_of_vc_ldp_verify_r);
+            assert!(vp_jwt_of_vc_ldp_verify_r.is_ok());
+            let vp_jwt_of_vc_ldp_verify_proof_r = vp_jwt_of_vc_ldp_verify_r.unwrap();
+            tracing::debug!(
+                "vp_jwt_of_vc_ldp_verify_proof_r: {:?}",
+                vp_jwt_of_vc_ldp_verify_proof_r
+            );
+            assert!(vp_jwt_of_vc_ldp_verify_proof_r.is_ok());
+        }
+    }
+    // Present vc_jwt as an LDP format VP.
+    {
+        let json_credential_or_jws = ssi_claims::JsonCredentialOrJws::<AnySuite>::Jws(
+            ssi_jws::JwsString::try_from(vc_jwt.clone().into_string()).expect("pass"),
+        );
+        let mut unsigned_presentation =
+            ssi_claims::vc::v1::JsonPresentation::new(None, None, vec![json_credential_or_jws]);
+        unsigned_presentation.holder =
+            Some(iref::UriBuf::from_str("https://example.org/#Holder").expect("pass"));
+        unsigned_presentation.id =
+            Some(iref::UriBuf::from_str("https://example.org/#PresentationId").expect("pass"));
+        // TODO: Add iat, nbf, exp (or whatever the LDP equivalent is)
+
+        let proof_options = {
+            let mut proof_options = ProofOptions::from_method(verification_method);
+            proof_options.proof_purpose = ssi_verification_methods::ProofPurpose::Authentication;
+            proof_options.challenge = Some("1234567890".to_string());
+            proof_options.domains.push("example.org".to_string());
+            proof_options.nonce = Some("abcdefghijklmnopqrstuvwxyz".to_string());
+            proof_options
+        };
+
+        let vp_ldp_of_vc_jwt = cryptosuite
+            .sign(unsigned_presentation, &vm_resolver, &signer, proof_options)
+            .await
+            .expect("signature failed");
+        tracing::debug!("vp_ldp_of_vc_jwt: {:?}", vp_ldp_of_vc_jwt);
+        tracing::info!(
+            "vp_ldp_of_vc_jwt as JSON: {}",
+            serde_json::to_string(&vp_ldp_of_vc_jwt).expect("pass")
+        );
+
+        // Verify vp_ldp_of_vc_jwt
+        {
+            let vp_ldp_of_vc_jwt_verify_r = vp_ldp_of_vc_jwt.verify(&verification_params).await;
+            tracing::debug!("vp_ldp_of_vc_jwt_verify_r: {:?}", vp_ldp_of_vc_jwt_verify_r);
+            assert!(vp_ldp_of_vc_jwt_verify_r.is_ok());
+            let vp_ldp_of_vc_jwt_verify_proof_r = vp_ldp_of_vc_jwt_verify_r.unwrap();
+            tracing::debug!(
+                "vp_ldp_of_vc_jwt_verify_proof_r: {:?}",
+                vp_ldp_of_vc_jwt_verify_proof_r
+            );
+            assert!(vp_ldp_of_vc_jwt_verify_proof_r.is_ok());
+        }
+    }
+    // Present vc_jwt as a JWT format VP.
+    {
+        let json_credential_or_jws = ssi_claims::JsonCredentialOrJws::<AnySuite>::Jws(
+            ssi_jws::JwsString::try_from(vc_jwt.clone().into_string()).expect("pass"),
+        );
+        let mut unsigned_presentation =
+            ssi_claims::vc::v1::JsonPresentation::new(None, None, vec![json_credential_or_jws]);
+        unsigned_presentation.holder =
+            Some(iref::UriBuf::from_str("https://example.org/#Holder").expect("pass"));
+        unsigned_presentation.id =
+            Some(iref::UriBuf::from_str("https://example.org/#PresentationId").expect("pass"));
+        // TODO: Add iat, nbf, exp.
+
+        let vp_jwt_of_vc_jwt = unsigned_presentation
+            .to_jwt_claims()
+            .unwrap()
+            .sign(&priv_jwk)
+            .await
+            .expect("signature failed");
+        tracing::info!("vp_jwt_of_vc_jwt: {}", vp_jwt_of_vc_jwt);
+
+        // Verify vp_jwt_of_vc_jwt
+        {
+            let vp_jwt_of_vc_jwt_verify_r = vp_jwt_of_vc_jwt.verify(&verification_params).await;
+            tracing::debug!("vp_jwt_of_vc_jwt_verify_r: {:?}", vp_jwt_of_vc_jwt_verify_r);
+            assert!(vp_jwt_of_vc_jwt_verify_r.is_ok());
+            let vp_jwt_of_vc_jwt_verify_proof_r = vp_jwt_of_vc_jwt_verify_r.unwrap();
+            tracing::debug!(
+                "vp_jwt_of_vc_jwt_verify_proof_r: {:?}",
+                vp_jwt_of_vc_jwt_verify_proof_r
+            );
+            assert!(vp_jwt_of_vc_jwt_verify_proof_r.is_ok());
+        }
+    }
+
+    // Update the wallet's DID and attempt to verify the same VC again.
+    // TODO: Figure out how to un-hack ssi crate so this works without hack.
+    // See https://github.com/spruceid/ssi/issues/687 and also the did-webplus-changes
+    // branch on the LedgerDomain fork of the ssi crate.
+    {
+        let _updated_controlled_did = software_wallet
+            .update_did(controlled_did.did(), None)
+            .await
+            .expect("pass");
+        // Verify
+        {
+            let vc_ldp_verify_r = vc_ldp.verify(&verification_params).await;
+            tracing::debug!("vc_ldp_verify_r: {:?}", vc_ldp_verify_r);
+            assert!(vc_ldp_verify_r.is_ok());
+            let vc_ldp_verify_proof_r = vc_ldp_verify_r.unwrap();
+            tracing::debug!("vc_ldp_verify_proof_r: {:?}", vc_ldp_verify_proof_r);
+            assert!(vc_ldp_verify_proof_r.is_ok());
+        }
+    }
+}
+
+#[tokio::test]
+async fn test_ssi_vc_issue_0() {
+    // TODO: Use env vars to be able to point to a "real" VDR.
+
+    let vdr_database_url = "postgres:///test_ssi_vc_issue_0_vdr";
+    let vdr_port = 13085;
+    let wallet_store_database_path = "tests/test_ssi_vc_issue_0.wallet-store.db";
+
+    let (vdr_handle, vdr_did_create_endpoint, software_wallet) =
+        setup_vdr_and_wallet(vdr_database_url, vdr_port, wallet_store_database_path).await;
+
+    test_ssi_vc_issue_0_impl(&software_wallet, &vdr_did_create_endpoint).await;
+
+    tracing::info!("Shutting down VDR");
+    vdr_handle.abort();
+}
+
+async fn setup_vdr_and_wallet(
+    vdr_database_url: &str,
+    vdr_port: u16,
+    wallet_store_database_path: &str,
+) -> (
+    tokio::task::JoinHandle<()>,
+    String,
+    did_webplus_software_wallet::SoftwareWallet,
+) {
     // Delete any existing database files so that we're starting from a consistent, blank start every time.
     // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
-    // TODO: postgres drop schema
+    // TODO: postgres drop schema if possible.
     if std::fs::exists(wallet_store_database_path).expect("pass") {
         std::fs::remove_file(wallet_store_database_path).expect("pass");
     }
 
     let vdr_config = did_webplus_vdr_lib::VDRConfig {
         did_hostname: "localhost".to_string(),
-        did_port_o: Some(14085),
-        listen_port: 14085,
-        database_url: "postgres:///test_ssi_jwt_issue_did_webplus_vdr".to_string(),
+        did_port_o: Some(vdr_port),
+        listen_port: vdr_port,
+        database_url: vdr_database_url.to_string(),
         database_max_connections: 10,
         vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
@@ -186,17 +622,20 @@ async fn test_ssi_jwt_issue_did_webplus() {
         Arc::new(wallet_storage)
     };
 
-    use storage_traits::StorageDynT;
-    let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
-    let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
-        transaction_b.as_mut(),
-        wallet_storage_a,
-        Some("fancy wallet".to_string()),
-        None,
-    )
-    .await
-    .expect("pass");
-    transaction_b.commit().await.expect("pass");
+    let software_wallet = {
+        use storage_traits::StorageDynT;
+        let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
+        let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
+            transaction_b.as_mut(),
+            wallet_storage_a,
+            Some("fancy wallet".to_string()),
+            None,
+        )
+        .await
+        .expect("pass");
+        transaction_b.commit().await.expect("pass");
+        software_wallet
+    };
 
     test_util::wait_until_service_is_up(
         "VDR",
@@ -210,10 +649,7 @@ async fn test_ssi_jwt_issue_did_webplus() {
         vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port
     );
 
-    test_ssi_jwt_issue_did_webplus_impl(&software_wallet, &vdr_did_create_endpoint).await;
-
-    tracing::info!("Shutting down VDR");
-    vdr_handle.abort();
+    (vdr_handle, vdr_did_create_endpoint, software_wallet)
 }
 
 // TEMP HACK
@@ -269,248 +705,4 @@ pub fn to_ssi_jwk(
         }
         _ => anyhow::bail!("unsupported key type: {:?}", signer_bytes.key_type()),
     }
-}
-
-async fn test_ssi_vc_issue_0_impl(
-    software_wallet: &did_webplus_software_wallet::SoftwareWallet,
-    vdr_did_create_endpoint: &str,
-) {
-    use serde::{Deserialize, Serialize};
-    // use ssi::{
-    //     claims::{
-    //         data_integrity::{AnySuite, CryptographicSuite, ProofOptions},
-    //         vc::syntax::NonEmptyVec,
-    //         VerificationParameters,
-    //     },
-    //     dids::DIDResolver,
-    //     verification_methods::SingleSecretSigner,
-    //     xsd::DateTime,
-    // };
-    use ssi_claims::{
-        data_integrity::{AnySuite, CryptographicSuite, ProofOptions},
-        vc::syntax::NonEmptyVec,
-        VerificationParameters,
-    };
-    use ssi_dids::DIDResolver;
-    use ssi_verification_methods::SingleSecretSigner;
-    // use static_iref::uri;
-    use xsd_types::DateTime;
-
-    // Have the wallet create a DID.
-    let controlled_did = software_wallet
-        .create_did(vdr_did_create_endpoint, None)
-        .await
-        .expect("pass");
-    // Get an appropriate signing key.
-    use did_webplus_wallet::Wallet;
-    let (verification_method_record, signer_bytes) = {
-        let locally_controlled_verification_method_filter =
-            did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
-                did_o: Some(controlled_did.did().to_owned()),
-                version_id_o: Some(controlled_did.query_version_id()),
-                key_purpose_o: Some(did_webplus_core::KeyPurpose::AssertionMethod),
-                key_id_o: None,
-                result_limit_o: None,
-            };
-        software_wallet
-            .get_locally_controlled_verification_method(
-                locally_controlled_verification_method_filter,
-            )
-            .await
-            .expect("pass")
-    };
-    // Create the DID URL which fully qualifies the specific key to be used.
-    let did_url = ssi_dids::DIDURLBuf::from_string(
-        verification_method_record
-            .did_key_resource_fully_qualified
-            .to_string(),
-    )
-    .expect("pass");
-
-    // Get the private JWK from the Signer.
-    let priv_jwk = to_ssi_jwk(
-        Some(
-            verification_method_record
-                .did_key_resource_fully_qualified
-                .as_str(),
-        ),
-        &signer_bytes,
-    )
-    .expect("pass");
-    tracing::debug!("priv_jwk: {:#?}", priv_jwk);
-
-    // Create a verification method resolver, which will be in charge of
-    // decoding the DID back into a public key.
-    // let vm_resolver = DIDJWK.into_vm_resolver();
-    let did_resolver = {
-        let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
-            .await
-            .expect("pass");
-        let did_doc_storage =
-            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
-            )
-            .await
-            .expect("pass");
-        let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
-        let did_resolver_full =
-            did_webplus_resolver::DIDResolverFull::new(did_doc_store, None, None).expect("pass");
-        let did_resolver_a = Arc::new(did_resolver_full);
-        did_webplus_ssi::DIDWebplus { did_resolver_a }
-    };
-    let vm_resolver = did_resolver.into_vm_resolver();
-
-    // Create a signer from the secret key.
-    // Here we use the simple `SingleSecretSigner` signer type which always uses
-    // the same provided secret key to sign messages.
-    let signer = SingleSecretSigner::new(priv_jwk.clone()).into_local();
-
-    // Turn the DID URL into a verification method reference.
-    let verification_method = did_url.clone().into_iri().into();
-
-    // Automatically pick a suitable Data-Integrity signature suite for our key.
-    let cryptosuite = AnySuite::pick(&priv_jwk, Some(&verification_method))
-        .expect("could not find appropriate cryptosuite");
-    // let cryptosuite = ssi::claims::data_integrity::suites::JsonWebSignature2020;
-
-    // Defines the shape of our custom claims.
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct MyCredentialSubject {
-        #[serde(rename = "https://example.org/#name")]
-        name: String,
-
-        #[serde(rename = "https://example.org/#email")]
-        email: String,
-    }
-
-    let credential = ssi_claims::vc::v1::JsonCredential::<MyCredentialSubject>::new(
-        Some(static_iref::uri!("https://example.org/#CredentialId").to_owned()),
-        // Apparently this issuer field doesn't matter for the verification process.
-        // TODO: Make this the issuer DID and verify that it gets checked, or if we have to check the relationship.
-        static_iref::uri!("https://example.org/#Issuer")
-            .to_owned()
-            .into(),
-        DateTime::now().into(),
-        NonEmptyVec::new(MyCredentialSubject {
-            name: "Grunty McParty".to_owned(),
-            email: "g@mc-p.org".to_owned(),
-        }),
-    );
-
-    let vc = cryptosuite
-        .sign(
-            credential,
-            &vm_resolver,
-            &signer,
-            ProofOptions::from_method(verification_method),
-        )
-        .await
-        .expect("signature failed");
-
-    tracing::debug!("vc: {:?}", vc);
-    let vc_json = serde_json::to_string(&vc).expect("pass");
-    tracing::info!("vc as JSON: {}", vc_json);
-
-    // Verify the VC
-    let verification_params = VerificationParameters::from_resolver(vm_resolver);
-    {
-        let vc_verify_r = vc.verify(&verification_params).await;
-        tracing::debug!("vc_verify_r: {:?}", vc_verify_r);
-        assert!(vc_verify_r.is_ok());
-        let vc_verify_proof_r = vc_verify_r.unwrap();
-        tracing::debug!("vc_verify_proof_r: {:?}", vc_verify_proof_r);
-        assert!(vc_verify_proof_r.is_ok());
-    }
-
-    // Update the wallet's DID and attempt to verify the same VC again.
-    // TODO: Figure out how to un-hack ssi crate so this works without hack.
-    {
-        let _updated_controlled_did = software_wallet
-            .update_did(controlled_did.did(), None)
-            .await
-            .expect("pass");
-        // Verify
-        {
-            let vc_verify_r = vc.verify(&verification_params).await;
-            tracing::debug!("vc_verify_r: {:?}", vc_verify_r);
-            assert!(vc_verify_r.is_ok());
-            let vc_verify_proof_r = vc_verify_r.unwrap();
-            tracing::debug!("vc_verify_proof_r: {:?}", vc_verify_proof_r);
-            assert!(vc_verify_proof_r.is_ok());
-        }
-    }
-}
-
-#[tokio::test]
-async fn test_ssi_vc_issue_0() {
-    // TODO: Use env vars to be able to point to a "real" VDR.
-
-    let wallet_store_database_path = "tests/test_ssi_vc_issue_0.wallet-store.db";
-
-    // Delete any existing database files so that we're starting from a consistent, blank start every time.
-    // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
-    // TODO: postgres drop schema
-    if std::fs::exists(wallet_store_database_path).expect("pass") {
-        std::fs::remove_file(wallet_store_database_path).expect("pass");
-    }
-
-    let vdr_config = did_webplus_vdr_lib::VDRConfig {
-        did_hostname: "localhost".to_string(),
-        did_port_o: Some(13085),
-        listen_port: 13085,
-        database_url: "postgres:///test_ssi_vc_issue_0_vdr".to_string(),
-        database_max_connections: 10,
-        vdg_base_url_v: Vec::new(),
-        http_scheme_override: Default::default(),
-    };
-    let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
-        .await
-        .expect("pass");
-
-    // While that's spinning up, let's create the wallet.
-    let wallet_storage_a = {
-        // TODO: Make this into a function, since it's a lot of duplication everywhere, and requires
-        // importing a bunch of crates.
-        let sqlite_pool = sqlx::SqlitePool::connect(
-            format!("sqlite://{}?mode=rwc", wallet_store_database_path).as_str(),
-        )
-        .await
-        .expect("pass");
-        let wallet_storage =
-            did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
-            )
-            .await
-            .expect("pass");
-        Arc::new(wallet_storage)
-    };
-
-    use storage_traits::StorageDynT;
-    let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
-    let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
-        transaction_b.as_mut(),
-        wallet_storage_a,
-        Some("fancy wallet".to_string()),
-        None,
-    )
-    .await
-    .expect("pass");
-    transaction_b.commit().await.expect("pass");
-
-    test_util::wait_until_service_is_up(
-        "VDR",
-        format!("http://localhost:{}/health", vdr_config.listen_port).as_str(),
-    )
-    .await;
-
-    let vdr_scheme = "http";
-    let vdr_did_create_endpoint = format!(
-        "{}://{}:{}",
-        vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port
-    );
-
-    test_ssi_vc_issue_0_impl(&software_wallet, &vdr_did_create_endpoint).await;
-
-    tracing::info!("Shutting down VDR");
-    vdr_handle.abort();
 }
