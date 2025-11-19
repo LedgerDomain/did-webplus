@@ -81,16 +81,12 @@ async fn test_vdg_wallet_operations_impl(use_path: bool) {
             .microledger()
             .view()
             .latest_did_document();
-        tracing::debug!(
-            "Alice's latest DID document: {}",
-            alice_did_document.serialize_canonically().expect("pass")
-        );
+        let alice_did_document_jcs = alice_did_document.serialize_canonically().expect("pass");
+        tracing::debug!("Alice's latest DID document: {}", alice_did_document_jcs);
         assert_eq!(
             reqwest::Client::new()
                 .post(&alice_did_documents_jsonl_url)
-                // This is probably ok for now, because the self-sign-and-hash verification process will
-                // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
-                .json(&alice_did_document)
+                .body(alice_did_document_jcs)
                 .send()
                 .await
                 .expect("pass")
@@ -232,16 +228,12 @@ async fn update_did(
             .microledger()
             .view()
             .latest_did_document();
-        tracing::debug!(
-            "Alice's latest DID document: {}",
-            alice_did_document.serialize_canonically().expect("pass")
-        );
+        let alice_did_document_jcs = alice_did_document.serialize_canonically().expect("pass");
+        tracing::debug!("Alice's latest DID document: {}", alice_did_document_jcs);
         assert_eq!(
             reqwest::Client::new()
                 .put(alice_did_documents_jsonl_url)
-                // This is probably ok for now, because the self-sign-and-hash verification process will
-                // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
-                .json(&alice_did_document)
+                .body(alice_did_document_jcs)
                 .send()
                 .await
                 .expect("pass")
