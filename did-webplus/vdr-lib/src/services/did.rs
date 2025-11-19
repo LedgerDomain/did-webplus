@@ -225,6 +225,13 @@ async fn create_did(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    // TODO: Is there any reason to wait for this to complete, e.g. to ensure that all VDG updates succeeded?
+    task::spawn(send_vdg_updates(
+        vdr_app_state.vdr_config.vdg_base_url_v.clone(),
+        did,
+        root_did_document.version_id,
+    ));
+
     Ok(())
 }
 
@@ -317,6 +324,7 @@ async fn update_did(
     task::spawn(send_vdg_updates(
         vdr_app_state.vdr_config.vdg_base_url_v.clone(),
         did,
+        new_did_document.version_id,
     ));
 
     Ok(())
@@ -335,6 +343,7 @@ lazy_static::lazy_static! {
 async fn send_vdg_updates(
     vdg_base_url_v: Vec<url::Url>,
     did: DID,
+    new_version_id: u32,
 ) -> anyhow::Result<Vec<(url::Url, reqwest::Result<reqwest::Response>)>> {
     tracing::trace!(?vdg_base_url_v, ?did, "VDR; send_vdg_updates");
     let mut join_set = tokio::task::JoinSet::new();
@@ -346,7 +355,11 @@ async fn send_vdg_updates(
         update_url.path_segments_mut().unwrap().push("update");
         // Note that `push` will percent-encode did_query!
         update_url.path_segments_mut().unwrap().push(did.as_str());
-        tracing::info!("POST-ing update to VDG: {}", update_url);
+        tracing::info!(
+            "VDR notifying VDG of DID update (new versionId: {}): {}",
+            new_version_id,
+            update_url
+        );
         // There is no reason to do these sequentially, so spawn a task for each one.
         join_set.spawn(async move {
             let result = VDG_CLIENT
@@ -355,7 +368,8 @@ async fn send_vdg_updates(
                 .await
                 .map_err(|err| {
                     tracing::error!(
-                        "error in POST-ing update to VDG: {}; error was: {}",
+                        "error in VDR notifying VDG of DID update (new versionId: {}): {}; error was: {}",
+                        new_version_id,
                         update_url,
                         err
                     );
