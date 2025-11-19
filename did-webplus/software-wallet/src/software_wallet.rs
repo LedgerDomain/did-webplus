@@ -112,6 +112,12 @@ impl Wallet for SoftwareWallet {
         vdr_did_create_endpoint: &str,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<DIDFullyQualified> {
+        tracing::debug!(
+            ?vdr_did_create_endpoint,
+            ?http_scheme_override_o,
+            "creating DID"
+        );
+
         // Parse the vdr_did_create_endpoint as a URL.
         let vdr_did_create_endpoint_url =
             url::Url::parse(vdr_did_create_endpoint).map_err(|e| {
@@ -310,6 +316,7 @@ impl Wallet for SoftwareWallet {
         did: &DIDStr,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<()> {
+        tracing::debug!(?did, ?http_scheme_override_o, "fetching DID");
         self.fetch_did_internal(did, http_scheme_override_o).await?;
         Ok(())
     }
@@ -318,6 +325,8 @@ impl Wallet for SoftwareWallet {
         did: &DIDStr,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<DIDFullyQualified> {
+        tracing::debug!(?did, ?http_scheme_override_o, "updating DID");
+
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
         let latest_did_document = self.fetch_did_internal(did, http_scheme_override_o).await?;

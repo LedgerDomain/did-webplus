@@ -58,7 +58,7 @@ This will stop and remove the services and the network, though it will leave the
 
 ## Notes
 
-The docker-compose will spin up docker containers for the did-webplus VDR, a PostgreSQL database, and an "autoheal" service which will restart the VDR if it goes down.  The VDR, which inside the docker network will be available at fancy.net:80, and that port will be mapped to the host machine to port 8085.  The healthcheck can be done manually via
+The docker-compose will spin up docker containers for the did-webplus VDR, a PostgreSQL database, and an "autoheal" service which will restart the VDR if it goes down.  The VDR, which inside the docker network will be available at dockerized.vdr.local:80, and that port will be mapped to the host machine to port 8085.  The healthcheck can be done manually via
 
     curl http://localhost:8085/health
 

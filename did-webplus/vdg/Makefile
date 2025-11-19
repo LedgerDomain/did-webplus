@@ -3,7 +3,7 @@
 SHELL = bash
 
 export VDG_PROJECT_NAME = did-webplus-vdg
-export VDG_CONTAINER_NAME = witness.org
+export VDG_CONTAINER_NAME = dockerized.vdg.local
 
 help:
 	@echo "Please use 'make <target>' where <target> is one of the following:"

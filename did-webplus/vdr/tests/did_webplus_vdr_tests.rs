@@ -13,18 +13,21 @@ fn overall_init() {
 async fn test_vdr_wallet_operations_impl(use_path: bool) {
     test_util::wait_until_service_is_up("Dockerized VDR", "http://localhost:8085/health").await;
 
-    let http_scheme_override_o = None;
+    let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
+        .with_override("dockerized.vdr.local".to_string(), "http")
+        .expect("pass");
+    let http_scheme_override_o = Some(&http_scheme_override);
 
     // Setup of mock services -- these are used locally to handle validation of DID documents, which will then
     // be sent to the real VDR.
     let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_hostname(
-        "fancy.net".into(),
-        None,
+        "dockerized.vdr.local".into(),
+        Some(8085),
         None,
     )));
     let mock_vdr_lam = {
         let mut mock_vdr_lam = HashMap::new();
-        mock_vdr_lam.insert("fancy.net".to_string(), mock_vdr_la.clone());
+        mock_vdr_lam.insert("dockerized.vdr.local".to_string(), mock_vdr_la.clone());
         mock_vdr_lam
     };
     let mock_vdr_client_a = Arc::new(MockVDRClient::new(
@@ -40,14 +43,11 @@ async fn test_vdr_wallet_operations_impl(use_path: bool) {
         None
     };
     let alice_did = alice_wallet
-        .create_did("fancy.net".to_string(), None, did_path_o)
+        .create_did("dockerized.vdr.local".to_string(), Some(8085), did_path_o)
         .expect("pass");
 
-    // The replace calls are hacky, but effective.
-    let alice_did_documents_jsonl_url = alice_did
-        .resolution_url_for_did_documents_jsonl(http_scheme_override_o)
-        .replace("fancy.net", "localhost:8085")
-        .replace("https", "http");
+    let alice_did_documents_jsonl_url =
+        alice_did.resolution_url_for_did_documents_jsonl(http_scheme_override_o);
     println!(
         "alice_did_documents_jsonl_url {}",
         alice_did_documents_jsonl_url

@@ -1,16 +1,16 @@
 use crate::VDGAppState;
 use axum::{
+    Router,
     extract::{Path, State},
     http::{
-        header::{self, CACHE_CONTROL, ETAG, LAST_MODIFIED},
         HeaderMap, HeaderValue, StatusCode,
+        header::{self, CACHE_CONTROL, ETAG, LAST_MODIFIED},
     },
     routing::{get, post},
-    Router,
 };
-use did_webplus_core::{DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, DID};
+use did_webplus_core::{DID, DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions};
 use did_webplus_resolver::DIDResolver;
-use time::{format_description::well_known, OffsetDateTime};
+use time::{OffsetDateTime, format_description::well_known};
 use tokio::task;
 
 pub fn get_routes(vdg_app_state: VDGAppState) -> Router {
@@ -312,7 +312,7 @@ fn headers_for_did_documents_jsonl(
     );
     headers.insert(ETAG, HeaderValue::from_str(hash).unwrap());
     headers.insert(
-        "X-VDG-Cache-Hit",
+        "X-DID-Webplus-VDG-Cache-Hit",
         HeaderValue::from_static(if did_resolution_metadata.did_document_resolved_locally {
             "true"
         } else {

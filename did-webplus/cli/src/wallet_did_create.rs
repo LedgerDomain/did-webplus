@@ -10,7 +10,7 @@ pub struct WalletDIDCreate {
     pub wallet_args: WalletArgs,
     /// Specify the URL of the VDR to use for DID creation.  If the URL's scheme is omitted, then "https" will be used.
     /// A scheme of "http" is only allowed if the hostname is "localhost".  The URL must not contain a query string or fragment.
-    #[arg(name = "vdr", env = "DID_WEBPLUS_VDR", short, long, value_name = "URL")]
+    #[arg(name = "vdr", env = "DID_WEBPLUS_VDR", short, long, value_name = "URL", value_parser = parse_url)]
     pub vdr_did_create_endpoint: url::Url,
     #[command(flatten)]
     pub http_scheme_override_args: HTTPSchemeOverrideArgs,
@@ -38,5 +38,19 @@ impl WalletDIDCreate {
             .print_newline_if_necessary(&mut std::io::stdout())?;
 
         Ok(())
+    }
+}
+
+/// This will ensure the URL has a scheme ("http" for "localhost", otherwise "https") and
+/// then parse it as a URL.
+fn parse_url(s: &str) -> Result<url::Url> {
+    if s.starts_with("http://") || s.starts_with("https://") {
+        Ok(url::Url::parse(s)?)
+    } else {
+        if s.starts_with("localhost") {
+            Ok(url::Url::parse(&format!("http://{}", s))?)
+        } else {
+            Ok(url::Url::parse(&format!("https://{}", s))?)
+        }
     }
 }
