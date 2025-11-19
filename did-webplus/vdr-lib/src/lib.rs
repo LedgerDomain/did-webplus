@@ -8,5 +8,6 @@ pub use crate::{spawn_vdr::spawn_vdr, vdr_app_state::VDRAppState, vdr_config::VD
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum LogFormat {
     Compact,
+    JSON,
     Pretty,
 }
