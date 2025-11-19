@@ -12,23 +12,23 @@ Root DID document (`versionId` 0):
 
 ```json
 {
-  "id": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA",
-  "selfHash": "uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA",
+  "id": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ",
+  "selfHash": "uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ",
   "updateRules": {
-    "hashedKey": "uHiALDuivdNdHulnKNQCnF7_btEO2pn8pejIc4xKPLBUyzA"
+    "hashedKey": "uHiCMmFumKCTx6yxWPtoRM_VZj4DvdcHs2KEBK941pr8SXQ"
   },
-  "validFrom": "2025-10-03T19:26:29.56Z",
+  "validFrom": "2025-11-19T01:43:26.979Z",
   "versionId": 0,
   "verificationMethod": [
     {
-      "id": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA#0",
+      "id": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ?selfHash=uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ&versionId=0#0",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA",
+      "controller": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA#0",
+        "kid": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ?selfHash=uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ&versionId=0#0",
         "kty": "OKP",
         "crv": "Ed25519",
-        "x": "jUBNyWh6vrvC551iYR9g6R0awx1eGxDDlHfR3gG2V1g"
+        "x": "iR2bJQmYXszbiuW1yfeRmLtBkGsEczp99ZfEuQSPxwM"
       }
     }
   ],
@@ -56,38 +56,38 @@ Next DID Document (`versionId` 1), in particular having new `updateRules`:
 
 ```json
 {
-  "id": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA",
-  "selfHash": "uHiBel_fCXh6jHWrnLRL0TjR3VpgeEGh_ZAALu91bknParA",
-  "prevDIDDocumentSelfHash": "uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA",
+  "id": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ",
+  "selfHash": "uHiCH05FmexvfpT8lxesItafqipzHvm_npUt4PRRCc8scEw",
+  "prevDIDDocumentSelfHash": "uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ",
   "updateRules": {
-    "key": "u7QGNAb4V8rfeWgnKBFlOg-hNpyvRdhneRnI8aUKPziqKbA"
+    "key": "u7QF0zsY-DxwlvuzDsosc0ZgD5drHhvNHXVkxwDDCMZHSIQ"
   },
   "proofs": [
-    "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoidTdRSERjOGNUSFlqTEVZOUx0QTZzczdyN1BqWGRmSEZyOTB5SUo3Y3pfSEYxakEiLCJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlfQ..lgQjZvV52dqKqM59tx6qMopeiSTU6mU4X11bpe5MzGK1xLljcoQT8qWYk2UyV6eKWkYI3UNWRL7piKxVfIWJBQ"
+    "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoidTdRRzJPMlZtMjJlMWc0djZWUnhqWTlRZ205WHFKQUtmX2IzY0g2T2M0UjBiaHciLCJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlfQ..gjcKygeSmc9XC8h6Eosu1zPkjVF9_vPTI5Dm0PbNT7UZU4GvfvN1NsVEBWcXTEcCL22CW1ID5rb3SmjtsJnxBg"
   ],
-  "validFrom": "2025-10-03T19:26:29.567Z",
+  "validFrom": "2025-11-19T01:43:26.992Z",
   "versionId": 1,
   "verificationMethod": [
     {
-      "id": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA#1",
+      "id": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ?selfHash=uHiCH05FmexvfpT8lxesItafqipzHvm_npUt4PRRCc8scEw&versionId=1#0",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA",
+      "controller": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA#1",
+        "kid": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ?selfHash=uHiCH05FmexvfpT8lxesItafqipzHvm_npUt4PRRCc8scEw&versionId=1#0",
         "kty": "OKP",
         "crv": "Ed25519",
-        "x": "jUBNyWh6vrvC551iYR9g6R0awx1eGxDDlHfR3gG2V1g"
+        "x": "I87S--BfzauBtdJ4FkYLj9-bOF8gwj6iOMIx_lE-vhM"
       }
     },
     {
-      "id": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA#0",
+      "id": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ?selfHash=uHiCH05FmexvfpT8lxesItafqipzHvm_npUt4PRRCc8scEw&versionId=1#1",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA",
+      "controller": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA#0",
+        "kid": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ?selfHash=uHiCH05FmexvfpT8lxesItafqipzHvm_npUt4PRRCc8scEw&versionId=1#1",
         "kty": "OKP",
         "crv": "Ed25519",
-        "x": "G8fiCRSTe7yTuI8gVM4qcUJ-KsNdQb53eMwCfCtMwmE"
+        "x": "iR2bJQmYXszbiuW1yfeRmLtBkGsEczp99ZfEuQSPxwM"
       }
     }
   ],
@@ -114,7 +114,7 @@ Note that the element in the `proofs` field is a JWS whose header decodes as:
 ```json
 {
   "alg": "Ed25519",
-  "kid": "u7QHDc8cTHYjLEY9LtA6ss7r7PjXdfHFr90yIJ7cz_HF1jA",
+  "kid": "u7QG2O2Vm22e1g4v6VRxjY9Qgm9XqJAKf_b3cH6Oc4R0bhw",
   "crit": [
     "b64"
   ],
@@ -122,20 +122,20 @@ Note that the element in the `proofs` field is a JWS whose header decodes as:
 }
 ```
 
-Note that the hash of the `kid` field of the JWS header is `uHiALDuivdNdHulnKNQCnF7_btEO2pn8pejIc4xKPLBUyzA` which should match the `hashedKey` field of the previous DID Document's `updateRules`.
+Note that the hash of the `kid` field of the JWS header is `uHiCMmFumKCTx6yxWPtoRM_VZj4DvdcHs2KEBK941pr8SXQ` which should match the `hashedKey` field of the previous DID Document's `updateRules`.
 
 Next DID Document (`versionId` 2), which shows how to deactivate a DID by setting `updateRules` to `{}`:
 
 ```json
 {
-  "id": "did:webplus:example.com:uHiBbwc0wsYWMlHZMw0FWia3tmMMaVqIGBME0MTzcbMn6gA",
-  "selfHash": "uHiBbvcmeBatdxnlQHvdojNtFqC57lAoTSmnZvr8UmatXdA",
-  "prevDIDDocumentSelfHash": "uHiBel_fCXh6jHWrnLRL0TjR3VpgeEGh_ZAALu91bknParA",
+  "id": "did:webplus:example.com:uHiAgZ9Z9FJ38ZGeQRZoFxxXfbpvRsg2DuPXJ5vzR1Uy3HQ",
+  "selfHash": "uHiCrJkmyeDz01JHbmu-ft17Gwx11Les974G0BIV9fGWoDQ",
+  "prevDIDDocumentSelfHash": "uHiCH05FmexvfpT8lxesItafqipzHvm_npUt4PRRCc8scEw",
   "updateRules": {},
   "proofs": [
-    "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoidTdRR05BYjRWOHJmZVdnbktCRmxPZy1oTnB5dlJkaG5lUm5JOGFVS1B6aXFLYkEiLCJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlfQ..5pro_jMfX9ZJL4Ki76PniiH1HwErmbJNEC6lerQSH3j77tOlQKxHM1cL2WjWOxyFTW4fOLLgkNWXP6x5BsISAg"
+    "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoidTdRRjB6c1ktRHh3bHZ1ekRzb3NjMFpnRDVkckhodk5IWFZreHdERENNWkhTSVEiLCJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlfQ..qBBCb1-4OHtnfyV_0KrUBpDE0aXhjBkYmCT5h7A0vtYtCGBVhfjUIRCrj3rJeO5h3N627uSdFcj2308Iaf6fAA"
   ],
-  "validFrom": "2025-10-03T19:26:29.61Z",
+  "validFrom": "2025-11-19T01:43:27.032Z",
   "versionId": 2,
   "verificationMethod": [],
   "authentication": [],
@@ -151,7 +151,7 @@ Removing all verification methods from a deactivated DID is RECOMMENDED so that 
 ```json
 {
   "alg": "Ed25519",
-  "kid": "u7QGNAb4V8rfeWgnKBFlOg-hNpyvRdhneRnI8aUKPziqKbA",
+  "kid": "u7QF0zsY-DxwlvuzDsosc0ZgD5drHhvNHXVkxwDDCMZHSIQ",
   "crit": [
     "b64"
   ],

@@ -186,6 +186,8 @@ fn test_example_creating_and_updating_a_did() {
         );
         // Add query params to bind this JWK to the latest DID doc.
         // Add (key ID) fragment to identify which key it is.
+        // It would be more accurate to retrieve this from latest_did_document itself, but
+        // this is a simple way to construct it manually.
         let did_key_resource_fully_qualified: DIDKeyResourceFullyQualified = did
             .with_queries(
                 &latest_did_document.self_hash,
@@ -195,7 +197,7 @@ fn test_example_creating_and_updating_a_did() {
             .with_fragment("0");
         priv_jwk_0.key_id = Some(did_key_resource_fully_qualified.to_string());
         println!(
-            "We set the private JWK's `kid` field (key ID) to include the query params and fragment, so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n",
+            "We set the private JWK's `kid` field (key ID) to match that of its public JWK's `kid` field in the DID document (in particular, including the query params `selfHash` and `versionId`), so that signatures produced by this private JWK identify which DID document was current as of signing, as well as identify which specific key was used to produce the signature (the alternative would be to attempt to verify the signature against all applicable public keys listed in the DID document).  The private JWK is now:\n\n```json\n{}\n```\n",
             serde_json::to_string_pretty(&priv_jwk_0).expect("pass")
         );
         (microledger, priv_jwk_0)
@@ -304,7 +306,7 @@ fn test_example_creating_and_updating_a_did() {
             priv_jwk_1.key_id = Some(did_key_resource_fully_qualified.to_string());
         }
         println!(
-            "We set the `kid` field of each private JWK to point to the current DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n",
+            "We set/update the `kid` field of each private JWK to match that of the public JWK in the updated DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n",
             serde_json::to_string_pretty(&priv_jwk_0).expect("pass"),
             serde_json::to_string_pretty(&priv_jwk_1).expect("pass")
         );
@@ -428,7 +430,7 @@ fn test_example_creating_and_updating_a_did() {
             priv_jwk_2.key_id = Some(did_key_resource_fully_qualified.to_string());
         }
         println!(
-            "We set the `kid` field of each private JWK to point to the current DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n\n```json\n{}\n```\n",
+            "We set/update the `kid` field of each private JWK to match that of the public JWK in the updated DID document:\n\n```json\n{}\n```\n\n```json\n{}\n```\n\n```json\n{}\n```\n",
             serde_json::to_string_pretty(&priv_jwk_0).expect("pass"),
             serde_json::to_string_pretty(&priv_jwk_1).expect("pass"),
             serde_json::to_string_pretty(&priv_jwk_2).expect("pass")
