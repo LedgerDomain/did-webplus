@@ -51,6 +51,8 @@ services:
       context: ../..
       dockerfile: did-webplus/vdr/Dockerfile
       target: runtime
+      args:
+        RELEASE_TYPE: release
     environment:
       DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@database:5432/postgres?sslmode=disable
       DID_WEBPLUS_VDR_DID_HOSTNAME: dockerized.vdr.local
@@ -60,7 +62,7 @@ services:
       # Options are "compact", "json", and "pretty" (which is very verbose but much better for debugging)
       DID_WEBPLUS_VDR_LOG_FORMAT: compact
       RUST_BACKTRACE: '1'
-      RUST_LOG: 'hyper=warn,sqlx=info,debug'
+      RUST_LOG: 'info,did_webplus=debug'
     entrypoint:
       - /usr/local/bin/did-webplus-vdr
     ports:

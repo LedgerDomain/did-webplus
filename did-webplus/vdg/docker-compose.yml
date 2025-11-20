@@ -71,6 +71,8 @@ services:
       context: ../..
       dockerfile: did-webplus/vdg/Dockerfile
       target: runtime
+      args:
+        RELEASE_TYPE: release
     environment:
       DID_WEBPLUS_VDG_DATABASE_URL: postgres://postgres:postgres@vdg_database:5432/postgres?sslmode=disable
       DID_WEBPLUS_VDG_HTTP_SCHEME_OVERRIDE: 'dockerized.vdr.local=http'
@@ -78,7 +80,7 @@ services:
       # Options are "compact", "json", and "pretty" (which is very verbose but much better for debugging)
       DID_WEBPLUS_VDG_LOG_FORMAT: compact
       RUST_BACKTRACE: '1'
-      RUST_LOG: 'hyper=warn,sqlx=info,did_webplus_vdg=trace,debug'
+      RUST_LOG: 'info,did_webplus_vdg=trace,debug'
 
     entrypoint:
       - /bin/sh
@@ -112,6 +114,8 @@ services:
       context: ../..
       dockerfile: did-webplus/vdr/Dockerfile
       target: runtime
+      args:
+        RELEASE_TYPE: release
     environment:
       DID_WEBPLUS_VDR_DATABASE_URL: postgres://postgres:postgres@vdr_database:5432/postgres?sslmode=disable
       DID_WEBPLUS_VDR_DID_HOSTNAME: dockerized.vdr.local
@@ -122,7 +126,7 @@ services:
       # Options are "compact", "json", and "pretty" (which is very verbose but much better for debugging)
       DID_WEBPLUS_VDR_LOG_FORMAT: compact
       RUST_BACKTRACE: '1'
-      RUST_LOG: 'hyper=warn,sqlx=info,debug'
+      RUST_LOG: 'info,did_webplus=debug'
 
     entrypoint:
       - /usr/local/bin/did-webplus-vdr
