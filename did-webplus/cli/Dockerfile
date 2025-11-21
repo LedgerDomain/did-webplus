@@ -1,7 +1,7 @@
 ################################################################
 # Builder Image                                                #
 ################################################################
-FROM rust:1.88 AS builder
+FROM rust:1.90 AS builder
 WORKDIR /workdir
 
 # Install deps/reqs
@@ -28,10 +28,10 @@ RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/workdir/target \
     if [ "$RELEASE_TYPE" = "release" ]; then \
-        SQLX_OFFLINE=true cargo build --package did-webplus-cli --bin did-webplus --release; \
+        SQLX_OFFLINE=true cargo build --package did-webplus-cli --bin did-webplus --all-features --release; \
         mv /workdir/target/release/did-webplus /usr/local/bin/did-webplus; \
     else \
-        SQLX_OFFLINE=true cargo build --package did-webplus-cli --bin did-webplus; \
+        SQLX_OFFLINE=true cargo build --package did-webplus-cli --bin did-webplus --all-features; \
         mv /workdir/target/debug/did-webplus /usr/local/bin/did-webplus; \
     fi
 

@@ -87,13 +87,13 @@ pub async fn self_hashable_json_from(
         schema_self_hash_url
     );
 
-    if schema_self_hash_url.keri_hash_o().is_none() {
+    if schema_self_hash_url.mb_hash_o().is_none() {
         return Err(Error::Malformed(
             "VJSON \"$schema\" URL must be a valid and complete VJSONURL".into(),
         ));
     }
     let schema_value = vjson_resolver
-        .resolve_vjson_value(schema_self_hash_url.keri_hash_o().unwrap())
+        .resolve_vjson_value(schema_self_hash_url.mb_hash_o().unwrap())
         .await?;
 
     tracing::trace!(
@@ -175,16 +175,16 @@ pub fn validate_against_json_schema(
 pub async fn sign_and_self_hash_vjson(
     value: &mut serde_json::Value,
     kid: String,
-    signer: &dyn selfsign::Signer,
+    signer: &dyn signature_dyn::SignerDynT,
     vjson_resolver: &dyn VJSONResolver,
     verifier_resolver_o: Option<&dyn verifier_resolver::VerifierResolver>,
-) -> Result<selfhash::KERIHash> {
+) -> Result<mbx::MBHash> {
     if !kid.starts_with("did:") {
         return Err(Error::Malformed("kid must start with \"did:\"".into()));
     }
     // TODO (maybe): Could resolve the DID here to ensure it's valid as a sanity check, but it's not strictly necessary.
 
-    use selfhash::{HashFunction, SelfHashable};
+    use selfhash::{HashFunctionT, SelfHashableT};
 
     // Swap out the value with a null value, so that we can take ownership for use in SelfHashableJSON.
     let mut owned_value = serde_json::Value::Null;
@@ -218,8 +218,9 @@ pub async fn sign_and_self_hash_vjson(
         self_hashable_json_from(owned_value, vjson_resolver).await?;
 
     let jws = {
+        let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
         self_hashable_json
-            .set_self_hash_slots_to(selfhash::Blake3.placeholder_hash())
+            .set_self_hash_slots_to(&mb_hash_function.placeholder_hash())
             .map_err(error_internal_error)?;
         tracing::debug!(
             "JSON that will be signed: {}",
@@ -244,12 +245,11 @@ pub async fn sign_and_self_hash_vjson(
     value_object.insert("proofs".to_owned(), serde_json::Value::Array(proofs));
 
     // Self-hash the JSON with the "proofs" field populated.
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
     let self_hash = self_hashable_json
-        .self_hash(selfhash::Blake3.new_hasher())
+        .self_hash(mb_hash_function.new_hasher())
         .map_err(error_internal_error)?
-        .to_keri_hash()
-        .map_err(error_internal_error)?
-        .into_owned();
+        .to_owned();
 
     owned_value = self_hashable_json.into_value();
 

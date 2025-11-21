@@ -1,3 +1,7 @@
+use did_webplus_core::{
+    DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, HTTPSchemeOverride,
+};
+
 use crate::{verifier_resolver_impl, DIDResolver, Error, HTTPError, Result, REQWEST_CLIENT};
 use std::sync::Arc;
 
@@ -13,15 +17,14 @@ pub struct DIDResolverThin {
 impl DIDResolverThin {
     pub fn new(
         vdg_host: &str,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> Result<Self> {
         // Set the HTTP scheme appropriately.
-        let http_scheme =
-            did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_host_from(
-                http_scheme_override_o,
-                vdg_host,
-            )
-            .map_err(|e| Error::MalformedVDGHost(e.to_string().into()))?;
+        let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
+            http_scheme_override_o,
+            vdg_host,
+        )
+        .map_err(|e| Error::MalformedVDGHost(e.to_string().into()))?;
         let vdg_base_url =
             url::Url::parse(&format!("{}://{}/", http_scheme, vdg_host)).map_err(|e| {
                 Error::MalformedVDGHost(
@@ -56,38 +59,76 @@ impl DIDResolver for DIDResolverThin {
     async fn resolve_did_document_string(
         &self,
         did_query: &str,
-        requested_did_document_metadata: did_webplus_core::RequestedDIDDocumentMetadata,
-    ) -> Result<(String, did_webplus_core::DIDDocumentMetadata)> {
+        did_resolution_options: DIDResolutionOptions,
+    ) -> Result<(String, DIDDocumentMetadata, DIDResolutionMetadata)> {
         tracing::debug!(
-            "DIDResolverThin::resolve_did_document_string; did_query: {}; requested_did_document_metadata: {:?}",
+            "DIDResolverThin::resolve_did_document_string; did_query: {}; did_resolution_options: {:?}",
             did_query,
-            requested_did_document_metadata
+            did_resolution_options,
         );
 
-        if requested_did_document_metadata.constant
-            || requested_did_document_metadata.idempotent
-            || requested_did_document_metadata.currency
-        {
-            panic!("Temporary limitation: RequestedDIDDocumentMetadata must be empty for DIDResolverThin");
-        }
-
-        let resolution_url = {
-            let mut resolution_url = self.vdg_base_url.clone();
-            resolution_url.path_segments_mut().unwrap().push("webplus");
-            resolution_url.path_segments_mut().unwrap().push("v1");
-            resolution_url.path_segments_mut().unwrap().push("resolve");
+        let vdg_resolution_url = {
+            let mut vdg_resolution_url = self.vdg_base_url.clone();
+            vdg_resolution_url
+                .path_segments_mut()
+                .unwrap()
+                .push("webplus");
+            vdg_resolution_url.path_segments_mut().unwrap().push("v1");
+            vdg_resolution_url
+                .path_segments_mut()
+                .unwrap()
+                .push("resolve");
             // Note that `push` will percent-encode did_query!
-            resolution_url.path_segments_mut().unwrap().push(did_query);
-            tracing::debug!("DID resolution URL: {}", resolution_url);
-            resolution_url
+            vdg_resolution_url
+                .path_segments_mut()
+                .unwrap()
+                .push(did_query);
+            tracing::debug!("DID resolution URL: {}", vdg_resolution_url);
+            vdg_resolution_url
+        };
+        let header_map = {
+            let mut header_map = reqwest::header::HeaderMap::new();
+            if did_resolution_options.request_creation {
+                header_map.insert(
+                    "X-DID-Request-Creation-Metadata",
+                    reqwest::header::HeaderValue::from_static("true"),
+                );
+            }
+            if did_resolution_options.request_next {
+                header_map.insert(
+                    "X-DID-Request-Next-Metadata",
+                    reqwest::header::HeaderValue::from_static("true"),
+                );
+            }
+            if did_resolution_options.request_latest {
+                header_map.insert(
+                    "X-DID-Request-Latest-Metadata",
+                    reqwest::header::HeaderValue::from_static("true"),
+                );
+            }
+            if did_resolution_options.request_deactivated {
+                header_map.insert(
+                    "X-DID-Request-Deactivated-Metadata",
+                    reqwest::header::HeaderValue::from_static("true"),
+                );
+            }
+            if did_resolution_options.local_resolution_only {
+                header_map.insert(
+                    "X-DID-Local-Resolution-Only",
+                    reqwest::header::HeaderValue::from_static("true"),
+                );
+            }
+            header_map
         };
         // TODO: Consolidate all the REQWEST_CLIENT-s
         let response = REQWEST_CLIENT
-            .get(resolution_url)
+            .get(vdg_resolution_url)
+            .headers(header_map)
             .send()
             .await
             .map_err(|e| {
                 tracing::error!("Error sending request to VDG: {}", e);
+                // TODO: Produce Error::DIDResolutionFailure2
                 Error::DIDResolutionFailure(HTTPError {
                     status_code: e.status().unwrap(),
                     description: e.to_string().into(),
@@ -96,19 +137,106 @@ impl DIDResolver for DIDResolverThin {
             .error_for_status()
             .map_err(|e| {
                 tracing::error!("Error getting response from VDG: {}", e);
+                // TODO: Produce Error::DIDResolutionFailure2
                 Error::DIDResolutionFailure(HTTPError {
                     status_code: e.status().unwrap(),
                     description: e.to_string().into(),
                 })
             })?;
+        // Read DIDDocumentMetadata out of response headers
+        let did_document_metadata = {
+            let did_document_metadata_str = response
+                .headers()
+                .get("X-DID-Document-Metadata")
+                .ok_or_else(|| {
+                    Error::DIDResolutionFailure(HTTPError {
+                        status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                        description: "X-DID-Document-Metadata header not found in VDG's response"
+                            .into(),
+                    })
+                })?
+                .to_str()
+                .map_err(|e| {
+                    // TODO: Produce Error::DIDResolutionFailure2
+                    Error::DIDResolutionFailure(HTTPError {
+                        status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                        description: format!(
+                            "Failed to convert X-DID-Document-Metadata header to string in VDG's response; error was: {}",
+                            e
+                        ).into(),
+                    })
+                })?;
+            tracing::debug!(
+                "X-DID-Document-Metadata header: {}",
+                did_document_metadata_str
+            );
+            let did_document_metadata =
+                serde_json::from_str(&did_document_metadata_str).map_err(|_| {
+                    Error::DIDResolutionFailure(HTTPError {
+                    status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    description:
+                        "Failed to deserialize X-DID-Document-Metadata header from VDG's response"
+                            .into(),
+                })
+                })?;
+            tracing::debug!(
+                "Deserialized DIDDocumentMetadata: {:?}",
+                did_document_metadata
+            );
+            did_document_metadata
+        };
+        // Read DIDResolutionMetadata out of response headers
+        let did_resolution_metadata = {
+            let did_resolution_metadata_str = response
+                .headers()
+                .get("X-DID-Resolution-Metadata")
+                .ok_or_else(|| {
+                    // TODO: Produce Error::DIDResolutionFailure2
+                    Error::DIDResolutionFailure(HTTPError {
+                        status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                        description: "X-DID-Resolution-Metadata header not found in VDG's response"
+                            .into(),
+                    })
+                })?
+                .to_str()
+                .map_err(|e| {
+                    // TODO: Produce Error::DIDResolutionFailure2
+                    Error::DIDResolutionFailure(HTTPError {
+                        status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                        description: format!(
+                            "Failed to convert X-DID-Resolution-Metadata header to string in VDG's response; error was: {}",
+                            e
+                        ).into(),
+                    })
+                })?;
+            tracing::debug!(
+                "X-DID-Resolution-Metadata header: {}",
+                did_resolution_metadata_str
+            );
+            let did_resolution_metadata = serde_json::from_str(&did_resolution_metadata_str)
+                .map_err(|_| {
+                    // TODO: Produce Error::DIDResolutionFailure2
+                    Error::DIDResolutionFailure(HTTPError {
+                    status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                    description:
+                        "Failed to deserialize X-DID-Resolution-Metadata header from VDG's response"
+                            .into(),
+                })
+                })?;
+            tracing::debug!(
+                "Deserialized DIDResolutionMetadata: {:?}",
+                did_resolution_metadata
+            );
+            did_resolution_metadata
+        };
+        // Read DIDDocument string out of response body
         let did_document_string = response.text().await.map_err(|e| {
+            // TODO: Produce Error::DIDResolutionFailure2
             Error::DIDResolutionFailure(HTTPError {
                 status_code: e.status().unwrap(),
                 description: e.to_string().into(),
             })
         })?;
-
-        // TODO: Implement metadata (requires VDG support)
 
         tracing::trace!(
             "DIDResolverThin::resolve_did_document_string; successfully resolved DID document: {}",
@@ -116,11 +244,8 @@ impl DIDResolver for DIDResolverThin {
         );
         Ok((
             did_document_string,
-            did_webplus_core::DIDDocumentMetadata {
-                constant_o: None,
-                idempotent_o: None,
-                currency_o: None,
-            },
+            did_document_metadata,
+            did_resolution_metadata,
         ))
     }
     fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {
@@ -137,7 +262,7 @@ impl verifier_resolver::VerifierResolver for DIDResolverThin {
     async fn resolve(
         &self,
         verifier_str: &str,
-    ) -> verifier_resolver::Result<Box<dyn selfsign::Verifier>> {
+    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
         verifier_resolver_impl(verifier_str, self).await
     }
 }

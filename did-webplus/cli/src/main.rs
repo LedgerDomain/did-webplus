@@ -5,6 +5,7 @@ mod did_key_generate;
 mod did_key_sign_jws;
 mod did_key_sign_vjson;
 mod did_list;
+mod did_resolution_options_args;
 mod did_resolve;
 mod did_resolver_args;
 mod did_resolver_factory;
@@ -38,6 +39,7 @@ pub use crate::{
     did_key_sign_jws::DIDKeySignJWS,
     did_key_sign_vjson::DIDKeySignVJSON,
     did_list::DIDList,
+    did_resolution_options_args::DIDResolutionOptionsArgs,
     did_resolve::DIDResolve,
     did_resolver_args::{DIDResolverArgs, DIDResolverType},
     did_resolver_factory::DIDResolverFactory,

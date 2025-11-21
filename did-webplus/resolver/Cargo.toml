@@ -2,24 +2,26 @@
 name = "did-webplus-resolver"
 version = "0.1.0"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
+anyhow = "1.0.94"
 async-trait = "0.1.80"
-did-webplus-core = { path = "../core", features = ["tracing"] }
+did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional = true }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }
 futures = "0.3.31"                                                                       # TEMP HACK
 lazy_static = "1.4.0"
+mbx = { version = "0.1.0", features = ["signature-dyn"] }
 reqwest = "0.12.5"
-selfsign = "0.6.0"
 serde_json = "1.0.107"
+signature-dyn = { version = "0.1.0", features = ["ssi-multicodec"] }
 storage-traits = { path = "../../storage-traits" }
 thiserror = "1.0.60"
 time = "0.3"
 tracing = "0.1.37"
-url = "2.5.0"
+url = "2.5.4"
 verifier-resolver = { path = "../../verifier-resolver" }
 
 [dev-dependencies]
@@ -30,6 +32,9 @@ did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
+rand = "0.8"
+selfhash = "0.5.0"
 sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
 test-util = { path = "../../test-util" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }

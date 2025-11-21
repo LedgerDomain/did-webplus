@@ -1,4 +1,4 @@
-use crate::{parse_did_document, DIDDocRecord, DIDDocRecordFilter, DIDDocStorage, Result};
+use crate::{DIDDocRecord, DIDDocRecordFilter, DIDDocStorage, Result, parse_did_document};
 use did_webplus_core::{DIDDocument, DIDStr};
 use std::sync::Arc;
 
@@ -61,14 +61,16 @@ impl DIDDocStore {
                 .iter()
                 .zip(did_document_v.iter())
                 .zip(prev_did_document_oi)
-                .map(|((&_did_document_jcs, did_document), prev_did_document_o)| {
+                .map(|((&did_document_jcs, did_document), prev_did_document_o)| {
                     // TEMP HACK -- copying is not ideal.  Figure out how to do this without copying.
                     // Maybe re-borrowing?  It would need to be aware of a lifetime that ends at the call to join_all.
                     let prev_did_document_o = prev_did_document_o.cloned();
                     let did_document = did_document.clone();
+                    let did_document_jcs = did_document_jcs.to_string();
                     tokio::task::spawn(async move {
+                        did_document.verify_is_canonically_serialized(&did_document_jcs)?;
                         let validate_r = did_document.verify_nonrecursive(prev_did_document_o.as_ref()).map(|_keri_hash| ());
-                        tracing::trace!("validating predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}; result: {:?}", did_document.version_id(), prev_did_document_o.as_ref().map(|did_document| did_document.version_id()), validate_r);
+                        tracing::trace!("validating predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}; result: {:?}", did_document.version_id, prev_did_document_o.as_ref().map(|did_document| did_document.version_id), validate_r);
                         validate_r
                     })
                 }).collect::<Vec<_>>();
@@ -93,15 +95,15 @@ impl DIDDocStore {
                 );
                 tracing::trace!(
                     "validating and storing predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}",
-                    did_document.version_id(),
-                    prev_did_document_o.map(|did_document| did_document.version_id())
+                    did_document.version_id,
+                    prev_did_document_o.map(|did_document| did_document.version_id)
                 );
                 let time_start = time::OffsetDateTime::now_utc();
                 did_document.verify_nonrecursive(prev_did_document_o)?;
                 let duration = time::OffsetDateTime::now_utc() - time_start;
                 tracing::info!(
-                    "Time taken to validate predecessor DID document with versionId {}: {:.3}",
-                    did_document.version_id(),
+                    "Time taken to validate predecessor DID document with versionId {}: {:?}",
+                    did_document.version_id,
                     duration
                 );
             }
@@ -125,7 +127,7 @@ impl DIDDocStore {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         self.did_doc_storage_a
             .get_did_doc_record_with_self_hash(transaction_o, did, self_hash)
@@ -141,13 +143,13 @@ impl DIDDocStore {
             .get_did_doc_record_with_version_id(transaction_o, did, version_id)
             .await
     }
-    pub async fn get_latest_did_doc_record(
+    pub async fn get_latest_known_did_doc_record(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
     ) -> Result<Option<DIDDocRecord>> {
         self.did_doc_storage_a
-            .get_latest_did_doc_record(transaction_o, did)
+            .get_latest_known_did_doc_record(transaction_o, did)
             .await
     }
     // TEMP HACK
@@ -165,15 +167,6 @@ impl DIDDocStore {
                     version_id_o: None,
                 },
             )
-            .await
-    }
-    pub async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> Result<u64> {
-        self.did_doc_storage_a
-            .get_known_did_documents_jsonl_octet_length(transaction_o, did)
             .await
     }
     pub async fn get_did_documents_jsonl_range(
@@ -230,14 +223,20 @@ impl DIDDocStore {
             assert!(previous_did_document_jcs_octet_length >= 0);
 
             if range_end_exclusive < did_doc_record.did_documents_jsonl_octet_length {
-                assert!(range_end_exclusive > previous_did_document_jcs_octet_length, "if this assertion fails, then get_did_doc_records_for_did_documents_jsonl_range returned more DIDDocRecord-s (at the end) than necessary");
+                assert!(
+                    range_end_exclusive > previous_did_document_jcs_octet_length,
+                    "if this assertion fails, then get_did_doc_records_for_did_documents_jsonl_range returned more DIDDocRecord-s (at the end) than necessary"
+                );
                 // If appropriate, truncate the end of did_document_jcs because the range doesn't include it.
                 segment.truncate(
                     (range_end_exclusive - previous_did_document_jcs_octet_length) as usize,
                 );
             }
             if range_begin_inclusive > previous_did_document_jcs_octet_length {
-                assert!(range_begin_inclusive < did_doc_record.did_documents_jsonl_octet_length, "if this assertion fails, then get_did_doc_records_for_did_documents_jsonl_range returned more DIDDocRecord-s (at the beginning) than necessary");
+                assert!(
+                    range_begin_inclusive < did_doc_record.did_documents_jsonl_octet_length,
+                    "if this assertion fails, then get_did_doc_records_for_did_documents_jsonl_range returned more DIDDocRecord-s (at the beginning) than necessary"
+                );
                 // If appropriate, truncate the beginning of did_document_jcs because the range doesn't include it.
                 segment.drain(
                     0..(range_begin_inclusive - previous_did_document_jcs_octet_length) as usize,

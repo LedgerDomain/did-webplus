@@ -2,7 +2,7 @@
 
 This example can be run via command:
 
-    cargo test --all-features -- --nocapture test_signature_generation_with_witness
+    cargo test -p did-webplus-core --all-features -- --nocapture test_signature_generation_with_witness
 
 By specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.
 
@@ -14,8 +14,8 @@ We generate a private key and create a DID using the public key for the verifica
 {
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "QBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM",
-  "d": "dhs3jwc1zjM06ByXv4gkiIDIhw6aaQ-j7yXwsenx4kw"
+  "x": "UDfcxn5tiXG7f9J0e0XQxsTTk9IciiLDLpqmXduOjZc",
+  "d": "Kl1O8viuVxsyb_Nxsh4FpyIeWMH1NxKn4-ANJ9HwIpk"
 }
 ```
 
@@ -23,39 +23,40 @@ Root DID document (represented in 'pretty' JSON for readability; actual DID docu
 
 ```json
 {
-  "id": "did:webplus:example.com:EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o",
-  "selfHash": "EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o",
-  "selfSignature": "0Bvx1TMz2WrQRBeRYl2CqJRZFoGUJK_AnsrVg-aC04K4CdRNfHX2S0sXRIKwfANKN-9yjI9h4E5_0EExVsYMtkBA",
-  "selfSignatureVerifier": "DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM",
-  "validFrom": "2023-09-29T07:00:26.208134325Z",
+  "id": "did:webplus:example.com:uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg",
+  "selfHash": "uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg",
+  "updateRules": {
+    "key": "u7QFQN9zGfm2Jcbt_0nR7RdDGxNOT0hyKIsMumqZd246Nlw"
+  },
+  "validFrom": "2025-10-03T18:56:01.126Z",
   "versionId": 0,
   "verificationMethod": [
     {
-      "id": "did:webplus:example.com:EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM",
+      "id": "did:webplus:example.com:uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg#0",
       "type": "JsonWebKey2020",
-      "controller": "did:webplus:example.com:EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o",
+      "controller": "did:webplus:example.com:uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg",
       "publicKeyJwk": {
-        "kid": "did:webplus:example.com:EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM",
+        "kid": "did:webplus:example.com:uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg#0",
         "kty": "OKP",
-        "crv": "ed25519",
-        "x": "QBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM"
+        "crv": "Ed25519",
+        "x": "UDfcxn5tiXG7f9J0e0XQxsTTk9IciiLDLpqmXduOjZc"
       }
     }
   ],
   "authentication": [
-    "#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM"
+    "#0"
   ],
   "assertionMethod": [
-    "#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM"
+    "#0"
   ],
   "keyAgreement": [
-    "#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM"
+    "#0"
   ],
   "capabilityInvocation": [
-    "#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM"
+    "#0"
   ],
   "capabilityDelegation": [
-    "#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM"
+    "#0"
   ]
 }
 ```
@@ -64,11 +65,11 @@ We set the private JWK's `kid` field (key ID) to include the query params and fr
 
 ```json
 {
-  "kid": "did:webplus:example.com:EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o?versionId=0&selfHash=EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM",
+  "kid": "did:webplus:example.com:uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg?selfHash=uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg&versionId=0#0",
   "kty": "OKP",
   "crv": "Ed25519",
-  "x": "QBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM",
-  "d": "dhs3jwc1zjM06ByXv4gkiIDIhw6aaQ-j7yXwsenx4kw"
+  "x": "UDfcxn5tiXG7f9J0e0XQxsTTk9IciiLDLpqmXduOjZc",
+  "d": "Kl1O8viuVxsyb_Nxsh4FpyIeWMH1NxKn4-ANJ9HwIpk"
 }
 ```
 
@@ -82,14 +83,14 @@ We'll sign a JSON payload and produce a JWS.  The payload is:
 
 The resulting JWS is:
 
-    eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmV4YW1wbGUuY29tOkVwRGdQTGZXTXN1dVNzQkZnVUlSTGc3RTZ3Y0tfOFhQSlJxdW5ORHlmRDlvP3ZlcnNpb25JZD0wJnNlbGZIYXNoPUVwRGdQTGZXTXN1dVNzQkZnVUlSTGc3RTZ3Y0tfOFhQSlJxdW5ORHlmRDlvI0RRQnhEcDMxamg4MjRRYlJOSHppUUN3N2RoMnlJT0phOTN3d05YWkpXQ1NNIn0.eyJISVBQT1MiOiJtdWNoIGJldHRlciB0aGFuIE9TVFJJQ0hFUyJ9.e968c268HCupGt6oPI22DnFfWCYBcb9-j2meyGKqEzYxbUlVgdYmdwve6kxlgjpvKvGJsLtS83Nmgtt41q8uAQ
+    eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmV4YW1wbGUuY29tOnVIaUIzMU9qN3NFWmNnT3BIMHJfeUJjUWZaVlZBREN1UDVvV08yUTR5SHVBc0pnP3NlbGZIYXNoPXVIaUIzMU9qN3NFWmNnT3BIMHJfeUJjUWZaVlZBREN1UDVvV08yUTR5SHVBc0pnJnZlcnNpb25JZD0wIzAifQ.eyJISVBQT1MiOiJtdWNoIGJldHRlciB0aGFuIE9TVFJJQ0hFUyJ9.QjyRn0FTFy0SINeJwN3i2t11Au2dpE6BmchRUHBNGZxIlTZTaNhGIzts2-ghcEBiFm7AjSS60FdKg_FlZiUEBA
 
 Decoding the JWS, the header is:
 
 ```json
 {
   "alg": "EdDSA",
-  "kid": "did:webplus:example.com:EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o?versionId=0&selfHash=EpDgPLfWMsuuSsBFgUIRLg7E6wcK_8XPJRqunNDyfD9o#DQBxDp31jh824QbRNHziQCw7dh2yIOJa93wwNXZJWCSM"
+  "kid": "did:webplus:example.com:uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg?selfHash=uHiB31Oj7sEZcgOpH0r_yBcQfZVVADCuP5oWO2Q4yHuAsJg&versionId=0#0"
 }
 ```
 

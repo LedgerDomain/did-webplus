@@ -1,6 +1,5 @@
 use crate::{
-    DIDResourceFullyQualified, DIDStr, DIDWebplusURIComponents, Error, Fragment,
-    RelativeResourceStr,
+    DIDResourceFullyQualified, DIDStr, DIDURIComponents, Error, Fragment, RelativeResourceStr,
 };
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
@@ -15,11 +14,11 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
     }
     pub fn with_queries(
         &self,
-        query_self_hash: &selfhash::KERIHashStr,
+        query_self_hash: &mbx::MBHashStr,
         query_version_id: u32,
     ) -> DIDResourceFullyQualified<F> {
         DIDResourceFullyQualified::new(
-            self.host(),
+            self.hostname(),
             self.port_o(),
             self.path_o(),
             self.root_self_hash(),
@@ -31,12 +30,12 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
     pub fn without_fragment(&self) -> &DIDStr {
         DIDStr::new_ref(self.1.split_once('#').unwrap().0).expect("programmer error: this should not fail due to guarantees in construction of DIDResource")
     }
-    fn uri_components(&self) -> DIDWebplusURIComponents {
-        DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDResource")
+    fn uri_components(&self) -> DIDURIComponents<'_> {
+        DIDURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDResource")
     }
-    /// Host of the VDR that acts as the authority/origin for this DID.
-    pub fn host(&self) -> &str {
-        self.uri_components().host
+    /// Hostname of the VDR that acts as the authority/origin for this DID.
+    pub fn hostname(&self) -> &str {
+        self.uri_components().hostname
     }
     /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
     /// for this DID, or None if not specified.
@@ -51,7 +50,7 @@ impl<F: 'static + Fragment + ?Sized> DIDResourceStr<F> {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+    pub fn root_self_hash(&self) -> &mbx::MBHashStr {
         self.uri_components().root_self_hash
     }
     /// This is the relative resource portion of the DID URI, which is the '#' char and everything following.
@@ -73,15 +72,23 @@ impl<F: 'static + Fragment + ?Sized> pneutype::Validate for DIDResourceStr<F> {
     type Data = str;
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
-        let did_webplus_uri_components = DIDWebplusURIComponents::try_from(data)?;
-        if did_webplus_uri_components.has_query() {
-            return Err(Error::Malformed("DIDResource must not have a query"));
+        let did_uri_components = DIDURIComponents::try_from(data)?;
+        if did_uri_components.has_query() {
+            return Err(Error::Malformed("DIDResource must not have a query".into()));
         }
-        if !did_webplus_uri_components.has_fragment() {
-            return Err(Error::Malformed("DIDResource must have a fragment"));
+        if !did_uri_components.has_fragment() {
+            return Err(Error::Malformed("DIDResource must have a fragment".into()));
         }
-        F::validate(did_webplus_uri_components.fragment_o.unwrap())
-            .map_err(|_| Error::Malformed("DIDResource fragment is malformed"))?;
+        F::validate(did_uri_components.fragment_o.unwrap()).map_err(|e| {
+            Error::Malformed(
+                format!(
+                    "DIDResource fragment ({:?}) is malformed: {}",
+                    did_uri_components.fragment_o.unwrap(),
+                    e
+                )
+                .into(),
+            )
+        })?;
         Ok(())
     }
 }

@@ -2,6 +2,7 @@ use crate::{
     DIDDocument, DIDDocumentMetadata, DIDDocumentMetadataConstant, DIDDocumentMetadataCurrency,
     DIDDocumentMetadataIdempotent, DIDStr, Error, MicroledgerView, RequestedDIDDocumentMetadata,
 };
+use std::ops::Deref;
 
 /// Async version of the MicroledgerView trait, which defines the read-only portion of the DID
 /// microledger data model.  The trait is defined generally enough so that it could be implemented
@@ -39,7 +40,7 @@ pub trait MicroledgerViewAsync<'v> {
     /// Returns the node whose DID document has the given self-hash.
     async fn did_document_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<&'v DIDDocument, Error>;
     /// Returns the node that is valid at the given time.
     async fn did_document_valid_at_time(
@@ -63,7 +64,7 @@ pub trait MicroledgerViewAsync<'v> {
     ) -> DIDDocumentMetadata {
         let constant_o = if requested_did_document_metadata.constant {
             Some(DIDDocumentMetadataConstant {
-                created: self.root_did_document().await.valid_from(),
+                created: self.root_did_document().await.valid_from,
             })
         } else {
             None
@@ -78,9 +79,9 @@ pub trait MicroledgerViewAsync<'v> {
                 None
             };
             let next_update_o =
-                next_did_document_o.map(|next_did_document| next_did_document.valid_from());
+                next_did_document_o.map(|next_did_document| next_did_document.valid_from);
             let next_version_id_o =
-                next_did_document_o.map(|next_did_document| next_did_document.version_id());
+                next_did_document_o.map(|next_did_document| next_did_document.version_id);
             Some(DIDDocumentMetadataIdempotent {
                 next_update_o,
                 next_version_id_o,
@@ -91,8 +92,8 @@ pub trait MicroledgerViewAsync<'v> {
         let currency_o = if requested_did_document_metadata.currency {
             let latest_did_document = self.latest_did_document().await;
             Some(DIDDocumentMetadataCurrency {
-                most_recent_update: latest_did_document.valid_from(),
-                most_recent_version_id: latest_did_document.version_id(),
+                most_recent_update: latest_did_document.valid_from,
+                most_recent_version_id: latest_did_document.version_id,
             })
         } else {
             None
@@ -116,7 +117,7 @@ pub trait MicroledgerViewAsync<'v> {
     async fn resolve(
         &self,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHashStr>,
+        self_hash_o: Option<&mbx::MBHashStr>,
         requested_did_document_metadata: RequestedDIDDocumentMetadata,
     ) -> Result<(&'v DIDDocument, DIDDocumentMetadata), Error> {
         let did_document = match (version_id_o, self_hash_o) {
@@ -125,7 +126,7 @@ pub trait MicroledgerViewAsync<'v> {
             (None, None) => self.latest_did_document().await,
             (Some(version_id), Some(self_hash)) => {
                 let did_document = self.did_document_for_version_id(version_id).await?;
-                if did_document.self_hash().as_keri_hash_str() != self_hash {
+                if did_document.self_hash.deref() != self_hash {
                     return Err(Error::Invalid("The self-hash of the DID document for given version_id does not match the given self-hash"));
                 }
                 did_document
@@ -168,7 +169,7 @@ impl<'v, V: MicroledgerView<'v> + Sync> MicroledgerViewAsync<'v> for V {
     }
     async fn did_document_for_self_hash(
         &self,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<&'v DIDDocument, Error> {
         MicroledgerView::did_document_for_self_hash(self, self_hash)
     }

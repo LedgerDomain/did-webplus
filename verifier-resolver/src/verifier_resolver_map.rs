@@ -48,7 +48,7 @@ impl VerifierResolverMap {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl VerifierResolver for VerifierResolverMap {
-    async fn resolve(&self, verifier_str: &str) -> Result<Box<dyn selfsign::Verifier>> {
+    async fn resolve(&self, verifier_str: &str) -> Result<Box<dyn signature_dyn::VerifierDynT>> {
         let verifier_class = self.classify_verifier(verifier_str)?;
         if let Some(verifier_resolver) = self.verifier_resolver_m.get(verifier_class) {
             Ok(verifier_resolver.resolve(verifier_str).await?)

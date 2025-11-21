@@ -5,7 +5,7 @@ authors = [
     "Ben Nichols <ben.nichols@ledgerdomain.com>",
     "Victor Dods <victor.dods@ledgerdomain.com>",
 ]
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -30,7 +30,7 @@ did-webplus-cli-lib = { path = "../cli-lib", features = [
     "ed25519-dalek",
     "k256",
 ] }
-did-webplus-core = { path = "../core", features = ["tracing"] }
+did-webplus-core = { path = "../core" }
 did-webplus-doc-storage-mock = { path = "../doc-storage-mock" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-jws = { path = "../jws", features = ["wasm-bindgen"] }
@@ -42,18 +42,14 @@ did-webplus-wallet-storage-mock = { path = "../wallet-storage-mock" }
 js-sys = "0.3.76"
 # TODO: Try to get rid of this, it's only used to initialize the logger using log::Level
 log = "0.4.21"
-selfhash = "0.4.0"
-selfsign = { version = "0.6.0", features = [
-    "ed25519-dalek",
-    "k256",
-    "wasm-bindgen",
-] }
+selfhash = "0.5.0"
 serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
+signature-dyn = "0.1.0"
 storage-traits = { path = "../../storage-traits" }
 time = { version = "0.3", features = ["wasm-bindgen"] }
 tracing = { version = "0.1.37", features = ["log"] }
-url = "2.5.0"
+url = "2.5.4"
 uuid = "1.9.1"
 verifier-resolver = { path = "../../verifier-resolver" }
 vjson-core = { path = "../../vjson/core" }

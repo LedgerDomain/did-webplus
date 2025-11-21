@@ -28,6 +28,16 @@ Ensure you're in the did-webplus-cli dir.  Then run:
 
 This will build and install the `did-webplus` binary to `~/.cargo/bin` (or wherever cargo is configured to install binaries), and should be accessible on your path.
 
+## Running against the dockerized demo VDR and VDG services
+
+After installing the native binary, follow instructions [here](../vdg) to spin up the dockerized demo VDR and VDG services.  Once they're up and running, the `did-webplus` CLI tool can be run against them by first setting certain environment variables to point to the dockerized services.
+
+    export DID_WEBPLUS_VDG=dockerized.vdg.local:8086
+    export DID_WEBPLUS_VDG=dockerized.vdr.local:8085
+    export DID_WEBPLUS_HTTP_SCHEME_OVERRIDE=dockerized.vdr.local=http,dockerized.vdg.local=http
+
+Once these are set, follow instructions below for how to run various commands.  Note that this will all be running purely locally, and no DID documents will be accessible from outside the local machine.
+
 ## Building and running the dockerized CLI tool
 
 The main reason this dockerized version of the CLI tool exists is so that it can run against the VDR and VDG running inside the docker network that is spun up by the docker-compose in [`did-webplus-vdg`](../vdg).  You must build and run that docker-compose before this dockerized did-webplus-cli tool is useful.
@@ -54,17 +64,19 @@ Here is a sequence of commands that will exercise the various operations of the 
 
 #### Wallet-based DID Create
 
-This command will create a new DID, along with an associated set of private keys, and publish the DID document to the VDR `http://fancy.net` (the VDR service running in the docker-compose).
+This command will create a new DID, along with an associated set of private keys, and publish the DID document to the VDR `http://dockerized.vdr.local` (the VDR service running in the docker-compose).
 
     did-webplus wallet did create
 
-It will print the fully-qualified DID (which means the query parameters that specify the selfHash and versionId of the latest DID document are present), e.g.
+It will print the fully-qualified DID (which means the query parameters that specify the `selfHash` and `versionId` of the latest DID document are present), e.g.
 
-    did:webplus:fancy.net:E2_dR0fIZkOd4KwcyRCu2oIftcN3wBCJoXwlVtH5Uw7E?selfHash=E2_dR0fIZkOd4KwcyRCu2oIftcN3wBCJoXwlVtH5Uw7E&versionId=0
+    did:webplus:dockerized.vdr.local%3A8085:uHiAPukNGyeIoJnlwRBVbCTAQ-Bc_Hpo7lYyo-nuXoHXvHg?selfHash=uHiAPukNGyeIoJnlwRBVbCTAQ-Bc_Hpo7lYyo-nuXoHXvHg&versionId=0
 
 The DID is the portion before the `?`:
 
-    did:webplus:fancy.net:E2_dR0fIZkOd4KwcyRCu2oIftcN3wBCJoXwlVtH5Uw7E
+    did:webplus:dockerized.vdr.local%3A8085:uHiAPukNGyeIoJnlwRBVbCTAQ-Bc_Hpo7lYyo-nuXoHXvHg
+
+Note that the VDR host `dockerized.vdr.local:8085` is percent-encoded in the DID as `dockerized.vdr.local%3A8085`.
 
 #### Wallet-based DID List
 
@@ -74,7 +86,7 @@ You can list the DIDs that the wallet controls:
 
 E.g. output:
 
-    ["did:webplus:fancy.net:E2_dR0fIZkOd4KwcyRCu2oIftcN3wBCJoXwlVtH5Uw7E"]
+    ["did:webplus:dockerized.vdr.local%3A8085:uHiAPukNGyeIoJnlwRBVbCTAQ-Bc_Hpo7lYyo-nuXoHXvHg"]
 
 #### Wallet-based DID Update
 
@@ -84,7 +96,7 @@ This command will update the DID by rotating all of its associated keys and publ
 
 It will print the updated, fully-qualified DID; notice the versionId value:
 
-    did:webplus:fancy.net:E2_dR0fIZkOd4KwcyRCu2oIftcN3wBCJoXwlVtH5Uw7E?selfHash=E1b4RvaFQYk4Ab1u-c9tpTpICX1uf2YbZd9IknPZ1ayw&versionId=1
+    did:webplus:dockerized.vdr.local%3A8085:uHiAPukNGyeIoJnlwRBVbCTAQ-Bc_Hpo7lYyo-nuXoHXvHg?selfHash=uHiCYGj_YQVt-SpDDdehBeUnj4SSDCxC-XPRrrpezlnxdSQ&versionId=1
 
 #### Wallet-based DID Sign JWS
 
@@ -94,26 +106,26 @@ Now produce a JWS that is signed by the DID:
 
 This will output the JWS:
 
-    eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmZhbmN5Lm5ldDpFMl9kUjBmSVprT2Q0S3djeVJDdTJvSWZ0Y04zd0JDSm9Yd2xWdEg1VXc3RT9zZWxmSGFzaD1FMWI0UnZhRlFZazRBYjF1LWM5dHBUcElDWDF1ZjJZYlpkOUlrblBaMWF5dyZ2ZXJzaW9uSWQ9MSNETlJGWk03WEhfRHgwRFh0NTFqUmpoeHkyMGV6Y29PSTloRkhiZFp1bjV0OCJ9.eyJibGFoIjogMTIzfQo.hSz0zqDGee946eqAUfzt2Wpc0XA0UHKWcZZOouwvRmU4Yp8Axs-TyybgmhYfpNnrGAz-2wVQ8s4tiVx9vLY3DA
+    eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnBsdXM6ZG9ja2VyaXplZC52ZHIubG9jYWwlM0E4MDg1OnVIaUFQdWtOR3llSW9Kbmx3UkJWYkNUQVEtQmNfSHBvN2xZeW8tbnVYb0hYdkhnP3NlbGZIYXNoPXVIaUNZR2pfWVFWdC1TcEREZGVoQmVVbmo0U1NEQ3hDLVhQUnJycGV6bG54ZFNRJnZlcnNpb25JZD0xIzEifQ.eyJibGFoIjogMTIzfQo.SNx7TEpJsYR0RkiE8oMB6Mn5KtcpVxCOQNUnd5DqMn8o6WlkNeREtKzUx8KKRdGX80Col3qPJdRSns0H0hf0Bg
 
 which decodes as:
 
     {
         "header": {
-            "alg": "EdDSA",
-            "kid": "did:webplus:fancy.net:E2_dR0fIZkOd4KwcyRCu2oIftcN3wBCJoXwlVtH5Uw7E?selfHash=E1b4RvaFQYk4Ab1u-c9tpTpICX1uf2YbZd9IknPZ1ayw&versionId=1#DNRFZM7XH_Dx0DXt51jRjhxy20ezcoOI9hFHbdZun5t8"
+            "alg": "Ed25519",
+            "kid": "did:webplus:dockerized.vdr.local%3A8085:uHiAPukNGyeIoJnlwRBVbCTAQ-Bc_Hpo7lYyo-nuXoHXvHg?selfHash=uHiCYGj_YQVt-SpDDdehBeUnj4SSDCxC-XPRrrpezlnxdSQ&versionId=1#1"
         },
         "payload": {
             "blah": 123
         },
-        "signature": "hSz0zqDGee946eqAUfzt2Wpc0XA0UHKWcZZOouwvRmU4Yp8Axs-TyybgmhYfpNnrGAz-2wVQ8s4tiVx9vLY3DA"
+        "signature": "SNx7TEpJsYR0RkiE8oMB6Mn5KtcpVxCOQNUnd5DqMn8o6WlkNeREtKzUx8KKRdGX80Col3qPJdRSns0H0hf0Bg"
     }
 
 #### Verify JWS
 
 Notice how the fully-qualified DID is used in the `"kid"` field of the JWS header.  This is used in verifying the JWS:
 
-    echo eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmZhbmN5Lm5ldDpFMl9kUjBmSVprT2Q0S3djeVJDdTJvSWZ0Y04zd0JDSm9Yd2xWdEg1VXc3RT9zZWxmSGFzaD1FMWI0UnZhRlFZazRBYjF1LWM5dHBUcElDWDF1ZjJZYlpkOUlrblBaMWF5dyZ2ZXJzaW9uSWQ9MSNETlJGWk03WEhfRHgwRFh0NTFqUmpoeHkyMGV6Y29PSTloRkhiZFp1bjV0OCJ9.eyJibGFoIjogMTIzfQo.hSz0zqDGee946eqAUfzt2Wpc0XA0UHKWcZZOouwvRmU4Yp8Axs-TyybgmhYfpNnrGAz-2wVQ8s4tiVx9vLY3DA | did-webplus jws verify
+    echo eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnBsdXM6ZG9ja2VyaXplZC52ZHIubG9jYWwlM0E4MDg1OnVIaUFQdWtOR3llSW9Kbmx3UkJWYkNUQVEtQmNfSHBvN2xZeW8tbnVYb0hYdkhnP3NlbGZIYXNoPXVIaUNZR2pfWVFWdC1TcEREZGVoQmVVbmo0U1NEQ3hDLVhQUnJycGV6bG54ZFNRJnZlcnNpb25JZD0xIzEifQ.eyJibGFoIjogMTIzfQo.SNx7TEpJsYR0RkiE8oMB6Mn5KtcpVxCOQNUnd5DqMn8o6WlkNeREtKzUx8KKRdGX80Col3qPJdRSns0H0hf0Bg | did-webplus jws verify
 
 If the JWS was successfully verified, it will print nothing and return with exit code 0 (success).  Otherwise the JWS failed verification and an error message will be printed and a nonzero exit code will be returned.
 
@@ -125,13 +137,13 @@ Verifiable JSON (VJSON) will be detailed more later, but the TL;DR is that VJSON
 
 The output is the same JSON blob but self-hashed.  Note that this output is deterministic, unlike the above examples that use a randomly-generated private key.
 
-    {"$id":"vjson:///EmqDmhcydd2EcA8I3redEszzf3lVRe6QMNZKNk6_n0QU","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","selfHash":"EmqDmhcydd2EcA8I3redEszzf3lVRe6QMNZKNk6_n0QU","some":[true,"fancy","data"]}
+    {"$id":"vjson:///uHiCD_PkZCu47kFpYaVM24wfbdJwpkd7qJNInnPPyKy2Kig","$schema":"vjson:///uHiAqyDN1_izR799JHTkUBDSKMy0-P0RK0Hegzoc4GqwDPg","selfHash":"uHiCD_PkZCu47kFpYaVM24wfbdJwpkd7qJNInnPPyKy2Kig","some":[true,"fancy","data"]}
 
 #### VJSON Verify
 
 This VJSON can be verified (note the necessary single quotes in the `echo` command):
 
-    echo '{"$id":"vjson:///EmqDmhcydd2EcA8I3redEszzf3lVRe6QMNZKNk6_n0QU","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","selfHash":"EmqDmhcydd2EcA8I3redEszzf3lVRe6QMNZKNk6_n0QU","some":[true,"fancy","data"]}' | did-webplus vjson verify
+    echo '{"$id":"vjson:///uHiCD_PkZCu47kFpYaVM24wfbdJwpkd7qJNInnPPyKy2Kig","$schema":"vjson:///uHiAqyDN1_izR799JHTkUBDSKMy0-P0RK0Hegzoc4GqwDPg","selfHash":"uHiCD_PkZCu47kFpYaVM24wfbdJwpkd7qJNInnPPyKy2Kig","some":[true,"fancy","data"]}' | did-webplus vjson verify
 
 If verified, it will print the verified VJSON and return with exit code 0 (success).  If invalid, it will print an error message and return with nonzero exit code.
 
@@ -145,22 +157,22 @@ Using the same JSON blob as the previous example:
 
 The output is the signed, self-hashed VJSON.
 
-    {"$id":"vjson:///EKNo4-U0r3ToVqk9kQofzQZZT21-F3Q7HmaAOFRQ5m0w","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","proofs":["eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmZhbmN5Lm5ldDpFMl9kUjBmSVprT2Q0S3djeVJDdTJvSWZ0Y04zd0JDSm9Yd2xWdEg1VXc3RT9zZWxmSGFzaD1FMWI0UnZhRlFZazRBYjF1LWM5dHBUcElDWDF1ZjJZYlpkOUlrblBaMWF5dyZ2ZXJzaW9uSWQ9MSNETlJGWk03WEhfRHgwRFh0NTFqUmpoeHkyMGV6Y29PSTloRkhiZFp1bjV0OCJ9..K1v0p7f0UV9ktLO8UJ4h1cafILgZGS6t7KKZJWBqitsccM27KPvG-XG_iPwq-ArVijw4rxxnOoEHeaJwAWsnCA"],"selfHash":"EKNo4-U0r3ToVqk9kQofzQZZT21-F3Q7HmaAOFRQ5m0w","some":[true,"fancy","data"]}
+    {"$id":"vjson:///uHiCuwBDk_DLyfvc3nDUMr1-yRqZ3w6ebwbW8kdjvGPFCxQ","$schema":"vjson:///uHiAqyDN1_izR799JHTkUBDSKMy0-P0RK0Hegzoc4GqwDPg","proofs":["eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnBsdXM6ZG9ja2VyaXplZC52ZHIubG9jYWwlM0E4MDg1OnVIaUFQdWtOR3llSW9Kbmx3UkJWYkNUQVEtQmNfSHBvN2xZeW8tbnVYb0hYdkhnP3NlbGZIYXNoPXVIaUNZR2pfWVFWdC1TcEREZGVoQmVVbmo0U1NEQ3hDLVhQUnJycGV6bG54ZFNRJnZlcnNpb25JZD0xIzEifQ..9r0_A263DDA7FNIbEBdEzk1wNZxm3ZGcate0sq1h3kcl4DTd_aS23_elziZ1KzyZwdquzVMna2x2MdSMun2YBw"],"selfHash":"uHiCuwBDk_DLyfvc3nDUMr1-yRqZ3w6ebwbW8kdjvGPFCxQ","some":[true,"fancy","data"]}
 
 Note that the JWS in the proofs field decodes as
 
     {
         "header": {
-            "alg": "EdDSA",
-            "kid": "did:webplus:fancy.net:E2_dR0fIZkOd4KwcyRCu2oIftcN3wBCJoXwlVtH5Uw7E?selfHash=E1b4RvaFQYk4Ab1u-c9tpTpICX1uf2YbZd9IknPZ1ayw&versionId=1#DNRFZM7XH_Dx0DXt51jRjhxy20ezcoOI9hFHbdZun5t8"
+            "alg": "Ed25519",
+            "kid": "did:webplus:dockerized.vdr.local%3A8085:uHiAPukNGyeIoJnlwRBVbCTAQ-Bc_Hpo7lYyo-nuXoHXvHg?selfHash=uHiCYGj_YQVt-SpDDdehBeUnj4SSDCxC-XPRrrpezlnxdSQ&versionId=1#1"
         },
         "payload": null,
-        "signature": "K1v0p7f0UV9ktLO8UJ4h1cafILgZGS6t7KKZJWBqitsccM27KPvG-XG_iPwq-ArVijw4rxxnOoEHeaJwAWsnCA"
+        "signature": "9r0_A263DDA7FNIbEBdEzk1wNZxm3ZGcate0sq1h3kcl4DTd_aS23_elziZ1KzyZwdquzVMna2x2MdSMun2YBw"
     }
 
 That `"payload": null` indicates that the JWS has a detached payload which is derived from the VJSON.  This VJSON can be verified:
 
-    echo '{"$id":"vjson:///EKNo4-U0r3ToVqk9kQofzQZZT21-F3Q7HmaAOFRQ5m0w","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","proofs":["eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmZhbmN5Lm5ldDpFMl9kUjBmSVprT2Q0S3djeVJDdTJvSWZ0Y04zd0JDSm9Yd2xWdEg1VXc3RT9zZWxmSGFzaD1FMWI0UnZhRlFZazRBYjF1LWM5dHBUcElDWDF1ZjJZYlpkOUlrblBaMWF5dyZ2ZXJzaW9uSWQ9MSNETlJGWk03WEhfRHgwRFh0NTFqUmpoeHkyMGV6Y29PSTloRkhiZFp1bjV0OCJ9..K1v0p7f0UV9ktLO8UJ4h1cafILgZGS6t7KKZJWBqitsccM27KPvG-XG_iPwq-ArVijw4rxxnOoEHeaJwAWsnCA"],"selfHash":"EKNo4-U0r3ToVqk9kQofzQZZT21-F3Q7HmaAOFRQ5m0w","some":[true,"fancy","data"]}' | did-webplus vjson verify
+    echo '{"$id":"vjson:///uHiCuwBDk_DLyfvc3nDUMr1-yRqZ3w6ebwbW8kdjvGPFCxQ","$schema":"vjson:///uHiAqyDN1_izR799JHTkUBDSKMy0-P0RK0Hegzoc4GqwDPg","proofs":["eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnBsdXM6ZG9ja2VyaXplZC52ZHIubG9jYWwlM0E4MDg1OnVIaUFQdWtOR3llSW9Kbmx3UkJWYkNUQVEtQmNfSHBvN2xZeW8tbnVYb0hYdkhnP3NlbGZIYXNoPXVIaUNZR2pfWVFWdC1TcEREZGVoQmVVbmo0U1NEQ3hDLVhQUnJycGV6bG54ZFNRJnZlcnNpb25JZD0xIzEifQ..9r0_A263DDA7FNIbEBdEzk1wNZxm3ZGcate0sq1h3kcl4DTd_aS23_elziZ1KzyZwdquzVMna2x2MdSMun2YBw"],"selfHash":"uHiCuwBDk_DLyfvc3nDUMr1-yRqZ3w6ebwbW8kdjvGPFCxQ","some":[true,"fancy","data"]}' | did-webplus vjson verify
 
 Upon verification success, the VJSON blob will be printed and the process will return with exit code 0.
 
@@ -172,29 +184,29 @@ This VJSON can be fed back in to add another signature.  Let's use a different k
 
 The output VJSON now has two elements in the "proofs" array:
 
-    {"$id":"vjson:///EAVZnBb1f0zhx7l-88VV4PJO72B1ndAMv4iYJuDneYvU","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","proofs":["eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmZhbmN5Lm5ldDpFMl9kUjBmSVprT2Q0S3djeVJDdTJvSWZ0Y04zd0JDSm9Yd2xWdEg1VXc3RT9zZWxmSGFzaD1FMWI0UnZhRlFZazRBYjF1LWM5dHBUcElDWDF1ZjJZYlpkOUlrblBaMWF5dyZ2ZXJzaW9uSWQ9MSNETlJGWk03WEhfRHgwRFh0NTFqUmpoeHkyMGV6Y29PSTloRkhiZFp1bjV0OCJ9..K1v0p7f0UV9ktLO8UJ4h1cafILgZGS6t7KKZJWBqitsccM27KPvG-XG_iPwq-ArVijw4rxxnOoEHeaJwAWsnCA","eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmZhbmN5Lm5ldDpFMl9kUjBmSVprT2Q0S3djeVJDdTJvSWZ0Y04zd0JDSm9Yd2xWdEg1VXc3RT9zZWxmSGFzaD1FMWI0UnZhRlFZazRBYjF1LWM5dHBUcElDWDF1ZjJZYlpkOUlrblBaMWF5dyZ2ZXJzaW9uSWQ9MSNENWVZOVpMR1RRc0JWLS0wVHZPVHJNc0RwVU11WEU4QnJKOU81bDcxcEpsNCJ9..s2R_dYHmgxcwz3NuKscmjWVYMNl_qvOrbvMWsda2AELzfQHftVt6TNW_RrnMsgo1uig2La-Wxhbv4D_uWsRrDw"],"selfHash":"EAVZnBb1f0zhx7l-88VV4PJO72B1ndAMv4iYJuDneYvU","some":[true,"fancy","data"]}
+    {"$id":"vjson:///uHiCxo_1ukEC79b6YVYTUECFvg5ga4j3hzsazvdMij9Q35g","$schema":"vjson:///uHiAqyDN1_izR799JHTkUBDSKMy0-P0RK0Hegzoc4GqwDPg","proofs":["eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnBsdXM6ZG9ja2VyaXplZC52ZHIubG9jYWwlM0E4MDg1OnVIaUFQdWtOR3llSW9Kbmx3UkJWYkNUQVEtQmNfSHBvN2xZeW8tbnVYb0hYdkhnP3NlbGZIYXNoPXVIaUNZR2pfWVFWdC1TcEREZGVoQmVVbmo0U1NEQ3hDLVhQUnJycGV6bG54ZFNRJnZlcnNpb25JZD0xIzEifQ..9r0_A263DDA7FNIbEBdEzk1wNZxm3ZGcate0sq1h3kcl4DTd_aS23_elziZ1KzyZwdquzVMna2x2MdSMun2YBw","eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnBsdXM6ZG9ja2VyaXplZC52ZHIubG9jYWwlM0E4MDg1OnVIaUFQdWtOR3llSW9Kbmx3UkJWYkNUQVEtQmNfSHBvN2xZeW8tbnVYb0hYdkhnP3NlbGZIYXNoPXVIaUNZR2pfWVFWdC1TcEREZGVoQmVVbmo0U1NEQ3hDLVhQUnJycGV6bG54ZFNRJnZlcnNpb25JZD0xIzAifQ..359zjS7wn2XFmDAQBCUIx2ete26MwSXvWbrkbKqyQ6yirWS6s6evrfTLc15T6JbTMV66QeY80PxgZyk3tRr8Aw"],"selfHash":"uHiCxo_1ukEC79b6YVYTUECFvg5ga4j3hzsazvdMij9Q35g","some":[true,"fancy","data"]}
 
 The second JWS in the proofs field decodes as
 
     {
         "header": {
-            "alg": "EdDSA",
-            "kid": "did:webplus:fancy.net:E2_dR0fIZkOd4KwcyRCu2oIftcN3wBCJoXwlVtH5Uw7E?selfHash=E1b4RvaFQYk4Ab1u-c9tpTpICX1uf2YbZd9IknPZ1ayw&versionId=1#D5eY9ZLGTQsBV--0TvOTrMsDpUMuXE8BrJ9O5l71pJl4"
+            "alg": "Ed25519",
+            "kid": "did:webplus:dockerized.vdr.local%3A8085:uHiAPukNGyeIoJnlwRBVbCTAQ-Bc_Hpo7lYyo-nuXoHXvHg?selfHash=uHiCYGj_YQVt-SpDDdehBeUnj4SSDCxC-XPRrrpezlnxdSQ&versionId=1#0"
         },
         "payload": null,
-        "signature": "s2R_dYHmgxcwz3NuKscmjWVYMNl_qvOrbvMWsda2AELzfQHftVt6TNW_RrnMsgo1uig2La-Wxhbv4D_uWsRrDw"
+        "signature": "359zjS7wn2XFmDAQBCUIx2ete26MwSXvWbrkbKqyQ6yirWS6s6evrfTLc15T6JbTMV66QeY80PxgZyk3tRr8Aw"
     }
 
 #### VJSON Verify
 
 To verify the VJSON:
 
-    echo '{"$id":"vjson:///EAVZnBb1f0zhx7l-88VV4PJO72B1ndAMv4iYJuDneYvU","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","proofs":["eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmZhbmN5Lm5ldDpFMl9kUjBmSVprT2Q0S3djeVJDdTJvSWZ0Y04zd0JDSm9Yd2xWdEg1VXc3RT9zZWxmSGFzaD1FMWI0UnZhRlFZazRBYjF1LWM5dHBUcElDWDF1ZjJZYlpkOUlrblBaMWF5dyZ2ZXJzaW9uSWQ9MSNETlJGWk03WEhfRHgwRFh0NTFqUmpoeHkyMGV6Y29PSTloRkhiZFp1bjV0OCJ9..K1v0p7f0UV9ktLO8UJ4h1cafILgZGS6t7KKZJWBqitsccM27KPvG-XG_iPwq-ArVijw4rxxnOoEHeaJwAWsnCA","eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDp3ZWJwbHVzOmZhbmN5Lm5ldDpFMl9kUjBmSVprT2Q0S3djeVJDdTJvSWZ0Y04zd0JDSm9Yd2xWdEg1VXc3RT9zZWxmSGFzaD1FMWI0UnZhRlFZazRBYjF1LWM5dHBUcElDWDF1ZjJZYlpkOUlrblBaMWF5dyZ2ZXJzaW9uSWQ9MSNENWVZOVpMR1RRc0JWLS0wVHZPVHJNc0RwVU11WEU4QnJKOU81bDcxcEpsNCJ9..s2R_dYHmgxcwz3NuKscmjWVYMNl_qvOrbvMWsda2AELzfQHftVt6TNW_RrnMsgo1uig2La-Wxhbv4D_uWsRrDw"],"selfHash":"EAVZnBb1f0zhx7l-88VV4PJO72B1ndAMv4iYJuDneYvU","some":[true,"fancy","data"]}' | did-webplus vjson verify
+    echo '{"$id":"vjson:///uHiCxo_1ukEC79b6YVYTUECFvg5ga4j3hzsazvdMij9Q35g","$schema":"vjson:///uHiAqyDN1_izR799JHTkUBDSKMy0-P0RK0Hegzoc4GqwDPg","proofs":["eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnBsdXM6ZG9ja2VyaXplZC52ZHIubG9jYWwlM0E4MDg1OnVIaUFQdWtOR3llSW9Kbmx3UkJWYkNUQVEtQmNfSHBvN2xZeW8tbnVYb0hYdkhnP3NlbGZIYXNoPXVIaUNZR2pfWVFWdC1TcEREZGVoQmVVbmo0U1NEQ3hDLVhQUnJycGV6bG54ZFNRJnZlcnNpb25JZD0xIzEifQ..9r0_A263DDA7FNIbEBdEzk1wNZxm3ZGcate0sq1h3kcl4DTd_aS23_elziZ1KzyZwdquzVMna2x2MdSMun2YBw","eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYnBsdXM6ZG9ja2VyaXplZC52ZHIubG9jYWwlM0E4MDg1OnVIaUFQdWtOR3llSW9Kbmx3UkJWYkNUQVEtQmNfSHBvN2xZeW8tbnVYb0hYdkhnP3NlbGZIYXNoPXVIaUNZR2pfWVFWdC1TcEREZGVoQmVVbmo0U1NEQ3hDLVhQUnJycGV6bG54ZFNRJnZlcnNpb25JZD0xIzAifQ..359zjS7wn2XFmDAQBCUIx2ete26MwSXvWbrkbKqyQ6yirWS6s6evrfTLc15T6JbTMV66QeY80PxgZyk3tRr8Aw"],"selfHash":"uHiCxo_1ukEC79b6YVYTUECFvg5ga4j3hzsazvdMij9Q35g","some":[true,"fancy","data"]}' | did-webplus vjson verify
 
 Notice that the selfHash field has changed each time a proof was added.
--   With no `proofs` field, the `selfHash` field was `EmqDmhcydd2EcA8I3redEszzf3lVRe6QMNZKNk6_n0QU`.
--   With one element in `proofs`, the `selfHash` field was `EKNo4-U0r3ToVqk9kQofzQZZT21-F3Q7HmaAOFRQ5m0w`.
--   With two elements in `proofs`, the `selfHash` field was `EAVZnBb1f0zhx7l-88VV4PJO72B1ndAMv4iYJuDneYvU`.
+-   With no `proofs` field, the `selfHash` field was `uHiCD_PkZCu47kFpYaVM24wfbdJwpkd7qJNInnPPyKy2Kig`.
+-   With one element in `proofs`, the `selfHash` field was `uHiCuwBDk_DLyfvc3nDUMr1-yRqZ3w6ebwbW8kdjvGPFCxQ`.
+-   With two elements in `proofs`, the `selfHash` field was `uHiCxo_1ukEC79b6YVYTUECFvg5ga4j3hzsazvdMij9Q35g`.
 
 This is because the self-hash is computed over the whole VJSON, including the `proofs` field.
 
@@ -206,7 +218,7 @@ Finally, using a `did:webplus` DID may require contact with the VDR and/or VDG, 
 
 This will print the `did:key` form of the corresponding public key, e.g.
 
-    did:key:z6Mkik24Ex6UmQu6mWnaVo7hvtKY8HtwbdCyWDNE15vfE9z7
+    did:key:z6MkhikuRnfovBGisSrYh68kHy2HX17NV5SM1PWnk7xtXn43
 
 #### DID-Key From-Private
 
@@ -216,7 +228,7 @@ If you need to print this public `did:key` again, run:
 
 and it will print the expected DID:
 
-    did:key:z6Mkik24Ex6UmQu6mWnaVo7hvtKY8HtwbdCyWDNE15vfE9z7
+    did:key:z6MkhikuRnfovBGisSrYh68kHy2HX17NV5SM1PWnk7xtXn43
 
 #### DID-Key Sign JWS
 
@@ -226,24 +238,24 @@ You can sign JWS and VJSON using `did:key`:
 
 Output, e.g.:
 
-    eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDprZXk6ejZNa2lrMjRFeDZVbVF1Nm1XbmFWbzdodnRLWThIdHdiZEN5V0RORTE1dmZFOXo3I3o2TWtpazI0RXg2VW1RdTZtV25hVm83aHZ0S1k4SHR3YmRDeVdETkUxNXZmRTl6NyJ9.eyJmYW5jeSI6ICJzdHVmZiJ9Cg.rBnCybgXyM5XE9Vq4Xlqo-KqB7ir8ItEGyFxgzv6a5DWr61jDzQ4Chxovu7Gxnw-46OL9D4KnDDol7RgGS41Aw
+    eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOmtleTp6Nk1raGlrdVJuZm92Qkdpc1NyWWg2OGtIeTJIWDE3TlY1U00xUFduazd4dFhuNDMjejZNa2hpa3VSbmZvdkJHaXNTclloNjhrSHkySFgxN05WNVNNMVBXbms3eHRYbjQzIn0.eyJmYW5jeSI6ICJzdHVmZiJ9Cg.Src2dyt6SIesZUp4qfZ_wUADdGBDUH3bZamjiKgpr9oNGEdEF3XtADzgrZdSRboyoywAtAW4p2sj-MgFB6yWBg
 
 which decodes into:
 
     {
         "header": {
-            "alg": "EdDSA",
-            "kid": "did:key:z6Mkik24Ex6UmQu6mWnaVo7hvtKY8HtwbdCyWDNE15vfE9z7#z6Mkik24Ex6UmQu6mWnaVo7hvtKY8HtwbdCyWDNE15vfE9z7"
+            "alg": "Ed25519",
+            "kid": "did:key:z6MkhikuRnfovBGisSrYh68kHy2HX17NV5SM1PWnk7xtXn43#z6MkhikuRnfovBGisSrYh68kHy2HX17NV5SM1PWnk7xtXn43"
         },
         "payload": {
             "fancy": "stuff"
         },
-        "signature": "rBnCybgXyM5XE9Vq4Xlqo-KqB7ir8ItEGyFxgzv6a5DWr61jDzQ4Chxovu7Gxnw-46OL9D4KnDDol7RgGS41Aw"
+        "signature": "Src2dyt6SIesZUp4qfZ_wUADdGBDUH3bZamjiKgpr9oNGEdEF3XtADzgrZdSRboyoywAtAW4p2sj-MgFB6yWBg"
     }
 
 Verify via:
 
-    echo eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDprZXk6ejZNa2lrMjRFeDZVbVF1Nm1XbmFWbzdodnRLWThIdHdiZEN5V0RORTE1dmZFOXo3I3o2TWtpazI0RXg2VW1RdTZtV25hVm83aHZ0S1k4SHR3YmRDeVdETkUxNXZmRTl6NyJ9.eyJmYW5jeSI6ICJzdHVmZiJ9Cg.rBnCybgXyM5XE9Vq4Xlqo-KqB7ir8ItEGyFxgzv6a5DWr61jDzQ4Chxovu7Gxnw-46OL9D4KnDDol7RgGS41Aw | did-webplus jws verify
+    echo eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOmtleTp6Nk1raGlrdVJuZm92Qkdpc1NyWWg2OGtIeTJIWDE3TlY1U00xUFduazd4dFhuNDMjejZNa2hpa3VSbmZvdkJHaXNTclloNjhrSHkySFgxN05WNVNNMVBXbms3eHRYbjQzIn0.eyJmYW5jeSI6ICJzdHVmZiJ9Cg.Src2dyt6SIesZUp4qfZ_wUADdGBDUH3bZamjiKgpr9oNGEdEF3XtADzgrZdSRboyoywAtAW4p2sj-MgFB6yWBg | did-webplus jws verify
 
 #### DID-Key Sign VJSON
 
@@ -253,21 +265,21 @@ Similarly,
 
 Output, e.g.:
 
-    {"$id":"vjson:///EvS7ZzM4h7NFx2VxMZCp9RufAJ1mBuFpCqwtsasrvSmQ","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","fancy":"stuff","proofs":["eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDprZXk6ejZNa2lrMjRFeDZVbVF1Nm1XbmFWbzdodnRLWThIdHdiZEN5V0RORTE1dmZFOXo3I3o2TWtpazI0RXg2VW1RdTZtV25hVm83aHZ0S1k4SHR3YmRDeVdETkUxNXZmRTl6NyJ9..d9YHzF14VCOsB9c0m6fgPVGfRLfXnsKn1tuMklxGKOu8RkYY99eHeZR37uiKucJc1Uj0MFa3i-AYDx_ksfqMBg"],"selfHash":"EvS7ZzM4h7NFx2VxMZCp9RufAJ1mBuFpCqwtsasrvSmQ"}
+    {"$id":"vjson:///uHiDnfDRmFXvmRfJWR7EkVrwJWVvJPCVyvOqyWGH_EdG2hA","$schema":"vjson:///uHiAqyDN1_izR799JHTkUBDSKMy0-P0RK0Hegzoc4GqwDPg","fancy":"stuff","proofs":["eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOmtleTp6Nk1raGlrdVJuZm92Qkdpc1NyWWg2OGtIeTJIWDE3TlY1U00xUFduazd4dFhuNDMjejZNa2hpa3VSbmZvdkJHaXNTclloNjhrSHkySFgxN05WNVNNMVBXbms3eHRYbjQzIn0..ipPx6m4Akc1jAgDWCS3u_PcPZ3XBztQl28DEj6t0pi-qUcEvonpudGEBzryKc1Ee_VyCO0olmRvcXtuzMkdKAQ"],"selfHash":"uHiDnfDRmFXvmRfJWR7EkVrwJWVvJPCVyvOqyWGH_EdG2hA"}
 
 where the JWS decodes into:
 
     {
         "header": {
-            "alg": "EdDSA",
-            "kid": "did:key:z6Mkik24Ex6UmQu6mWnaVo7hvtKY8HtwbdCyWDNE15vfE9z7#z6Mkik24Ex6UmQu6mWnaVo7hvtKY8HtwbdCyWDNE15vfE9z7"
+            "alg": "Ed25519",
+            "kid": "did:key:z6MkhikuRnfovBGisSrYh68kHy2HX17NV5SM1PWnk7xtXn43#z6MkhikuRnfovBGisSrYh68kHy2HX17NV5SM1PWnk7xtXn43"
         },
         "payload": null,
-        "signature": "d9YHzF14VCOsB9c0m6fgPVGfRLfXnsKn1tuMklxGKOu8RkYY99eHeZR37uiKucJc1Uj0MFa3i-AYDx_ksfqMBg"
+        "signature": "ipPx6m4Akc1jAgDWCS3u_PcPZ3XBztQl28DEj6t0pi-qUcEvonpudGEBzryKc1Ee_VyCO0olmRvcXtuzMkdKAQ"
     }
 
 Verify via:
 
-    echo '{"$id":"vjson:///EvS7ZzM4h7NFx2VxMZCp9RufAJ1mBuFpCqwtsasrvSmQ","$schema":"vjson:///EnD4KcLMLmGSjEliVPgBdMsEC2B_brlSXPV2pu7W90Xc","fancy":"stuff","proofs":["eyJhbGciOiJFZERTQSIsImtpZCI6ImRpZDprZXk6ejZNa2lrMjRFeDZVbVF1Nm1XbmFWbzdodnRLWThIdHdiZEN5V0RORTE1dmZFOXo3I3o2TWtpazI0RXg2VW1RdTZtV25hVm83aHZ0S1k4SHR3YmRDeVdETkUxNXZmRTl6NyJ9..d9YHzF14VCOsB9c0m6fgPVGfRLfXnsKn1tuMklxGKOu8RkYY99eHeZR37uiKucJc1Uj0MFa3i-AYDx_ksfqMBg"],"selfHash":"EvS7ZzM4h7NFx2VxMZCp9RufAJ1mBuFpCqwtsasrvSmQ"}' | did-webplus vjson verify
+    echo '{"$id":"vjson:///uHiDnfDRmFXvmRfJWR7EkVrwJWVvJPCVyvOqyWGH_EdG2hA","$schema":"vjson:///uHiAqyDN1_izR799JHTkUBDSKMy0-P0RK0Hegzoc4GqwDPg","fancy":"stuff","proofs":["eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOmtleTp6Nk1raGlrdVJuZm92Qkdpc1NyWWg2OGtIeTJIWDE3TlY1U00xUFduazd4dFhuNDMjejZNa2hpa3VSbmZvdkJHaXNTclloNjhrSHkySFgxN05WNVNNMVBXbms3eHRYbjQzIn0..ipPx6m4Akc1jAgDWCS3u_PcPZ3XBztQl28DEj6t0pi-qUcEvonpudGEBzryKc1Ee_VyCO0olmRvcXtuzMkdKAQ"],"selfHash":"uHiDnfDRmFXvmRfJWR7EkVrwJWVvJPCVyvOqyWGH_EdG2hA"}' | did-webplus vjson verify
 
 Note that it's possible to create multiple wallets, `did:webplus` DIDs, and private keys for use with `did:key` using the various commandline arguments of `did-webplus`.  The default values for these arguments have been set up for convenience to use the uniquely determinable thing (e.g. wallet, DID) if there is exactly one, otherwise require more specific commandline arguments to specify which one to use.

@@ -12,8 +12,8 @@ pub struct DIDList {
     #[arg(name = "did", long, value_name = "DID")]
     pub did_o: Option<did_webplus_core::DID>,
     /// If specified, limit results to DID documents having the given self-hash.
-    #[arg(name = "self-hash", long, value_name = "HASH", value_parser = parse_keri_hash_from_string)]
-    pub self_hash_o: Option<selfhash::KERIHash>,
+    #[arg(name = "self-hash", long, value_name = "HASH", value_parser = parse_mbhash_from_string)]
+    pub self_hash_o: Option<mbx::MBHash>,
     /// If specified, limit results to DID documents having the given version ID.
     #[arg(name = "version-id", long, value_name = "ID")]
     pub version_id_o: Option<u32>,
@@ -27,8 +27,8 @@ pub struct DIDList {
     pub newline_args: NewlineArgs,
 }
 
-fn parse_keri_hash_from_string(s: &str) -> Result<selfhash::KERIHash> {
-    selfhash::KERIHash::try_from(s)
+fn parse_mbhash_from_string(s: &str) -> Result<mbx::MBHash> {
+    mbx::MBHash::try_from(s)
         .map_err(|e| anyhow::anyhow!("Invalid --self-hash argument value {}; error was: {}", s, e))
 }
 
@@ -51,8 +51,7 @@ impl DIDList {
         for did_doc_record in did_doc_record_v.into_iter() {
             let did = did_webplus_core::DIDStr::new_ref(&did_doc_record.did).unwrap();
             let did_string = if self.fully_qualified {
-                let query_self_hash =
-                    selfhash::KERIHashStr::new_ref(&did_doc_record.self_hash).unwrap();
+                let query_self_hash = mbx::MBHashStr::new_ref(&did_doc_record.self_hash).unwrap();
                 let did_fully_qualified =
                     did.with_queries(query_self_hash, did_doc_record.version_id as u32);
                 did_fully_qualified.to_string()

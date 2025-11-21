@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use did_webplus_core::{DIDStr, Error, DID};
+use did_webplus_core::{DID, DIDStr, Error};
 
 use crate::{ControlledDID, VDRClient};
 
@@ -42,7 +42,8 @@ impl MockWallet {
         let did = controlled_did.did().to_owned();
         assert!(
             !self.controlled_did_m.contains_key(&did),
-            "programmer error: DID already exists -- this is so unlikely that it's almost certainly a bug");
+            "programmer error: DID already exists -- this is so unlikely that it's almost certainly a bug"
+        );
         self.controlled_did_m.insert(did.clone(), controlled_did);
         Ok(did)
     }
@@ -54,11 +55,11 @@ impl MockWallet {
     pub fn controlled_did(&self, did: &DIDStr) -> Result<&ControlledDID, Error> {
         self.controlled_did_m
             .get(did)
-            .ok_or(Error::NotFound("DID not found"))
+            .ok_or(Error::NotFound("DID not found".into()))
     }
     pub fn controlled_did_mut(&mut self, did: &DIDStr) -> Result<&mut ControlledDID, Error> {
         self.controlled_did_m
             .get_mut(did)
-            .ok_or(Error::NotFound("DID not found"))
+            .ok_or(Error::NotFound("DID not found".into()))
     }
 }

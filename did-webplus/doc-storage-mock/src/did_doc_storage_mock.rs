@@ -10,7 +10,7 @@ struct DIDDocStorageMockState {
     next_did_doc_record_primary_key: usize,
     /// This is what actually stores the DIDDocRecords.
     did_doc_record_m: HashMap<usize, DIDDocRecord>,
-    index_by_self_hash_m: HashMap<selfhash::KERIHash, usize>,
+    index_by_self_hash_m: HashMap<mbx::MBHash, usize>,
     index_by_did_and_version_id_m: HashMap<(DID, u32), usize>,
     index_by_latest_m: HashMap<DID, usize>,
 }
@@ -30,7 +30,7 @@ impl DIDDocStorageMockState {
         let did_doc_record_primary_key = self.next_did_doc_record_primary_key;
         self.next_did_doc_record_primary_key += 1;
         let did_doc_record = DIDDocRecord {
-            self_hash: did_document.self_hash().to_string(),
+            self_hash: did_document.self_hash.to_string(),
             did: did_document.did.to_string(),
             version_id: did_document.version_id as i64,
             valid_from: did_document.valid_from,
@@ -42,7 +42,7 @@ impl DIDDocStorageMockState {
         self.did_doc_record_m
             .insert(did_doc_record_primary_key, did_doc_record);
         self.index_by_self_hash_m
-            .insert(did_document.self_hash().clone(), did_doc_record_primary_key);
+            .insert(did_document.self_hash.clone(), did_doc_record_primary_key);
         self.index_by_did_and_version_id_m.insert(
             (did_document.did.clone(), did_document.version_id),
             did_doc_record_primary_key,
@@ -50,7 +50,7 @@ impl DIDDocStorageMockState {
         self.index_by_latest_m
             .insert(did_document.did.clone(), did_doc_record_primary_key);
     }
-    fn get_by_self_hash(&self, self_hash: &selfhash::KERIHashStr) -> Option<&DIDDocRecord> {
+    fn get_by_self_hash(&self, self_hash: &mbx::MBHashStr) -> Option<&DIDDocRecord> {
         self.index_by_self_hash_m
             .get(self_hash)
             .map(|primary_key| self.did_doc_record_m.get(&primary_key))
@@ -115,8 +115,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         //     "DIDDocStorageMock attempting to add DIDDocRecord with self-hash {}",
         //     did_doc_record.self_hash,
         // );
+        use selfhash::HashRefT;
         assert!(
-            did_document.self_hash_o.is_some(),
+            !did_document.self_hash.is_placeholder(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
         let mut state_g = self.state_la.write().unwrap();
@@ -137,8 +138,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         for (&did_document_jcs, did_document) in
             did_document_jcs_v.iter().zip(did_document_v.iter())
         {
+            use selfhash::HashRefT;
             assert!(
-                did_document.self_hash_o.is_some(),
+                !did_document.self_hash.is_placeholder(),
                 "programmer error: self_hash is expected to be present on a valid DID document"
             );
             state_g.add(did_document, did_document_jcs.to_string());
@@ -149,7 +151,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         let state_g = self.state_la.read().unwrap();
         let did_doc_record_o = state_g.get_by_self_hash(self_hash);
@@ -171,7 +173,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         let did_doc_record_o = state_g.get_by_did_and_version_id(did.to_owned(), version_id);
         Ok(did_doc_record_o.cloned())
     }
-    async fn get_latest_did_doc_record(
+    async fn get_latest_known_did_doc_record(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
@@ -188,24 +190,6 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageMock {
         let state_g = self.state_la.read().unwrap();
         let did_doc_record_v = state_g.get(did_doc_record_filter);
         Ok(did_doc_record_v)
-    }
-    async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> Result<u64> {
-        let state_g = self.state_la.read().unwrap();
-        let did_doc_record_v = state_g.get(&DIDDocRecordFilter {
-            did_o: Some(did.to_string()),
-            ..Default::default()
-        });
-        let mut size = 0;
-        for did_doc_record in did_doc_record_v {
-            size += did_doc_record.did_document_jcs.len() as u64;
-            // One more byte for the trailing newline.
-            size += 1;
-        }
-        Ok(size)
     }
     async fn get_did_doc_records_for_did_documents_jsonl_range(
         &self,

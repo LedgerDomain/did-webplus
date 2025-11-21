@@ -1,0 +1,68 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT \n                    priv_key_usages.rowid,\n                    priv_key_usages.wallets_rowid,\n                    priv_keys.pub_key,\n                    priv_keys.hashed_pub_key,\n                    priv_key_usages.used_at,\n                    priv_key_usages.usage_type,\n                    priv_key_usages.usage_spec_o,\n                    priv_key_usages.verification_method_o,\n                    priv_key_usages.key_purpose_o\n                FROM priv_key_usages\n                INNER JOIN priv_keys\n                    ON priv_key_usages.priv_keys_rowid = priv_keys.rowid\n                WHERE priv_key_usages.wallets_rowid = $1\n                    AND (NOT $2 OR priv_keys.pub_key = $3)\n                    AND (NOT $4 OR priv_key_usages.usage_type = $5)\n                    AND (NOT $6 OR priv_key_usages.used_at >= $7)\n                    AND (NOT $8 OR priv_key_usages.used_at <= $9)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "rowid",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "wallets_rowid",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "pub_key",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "hashed_pub_key",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "used_at",
+        "ordinal": 4,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "usage_type",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "usage_spec_o",
+        "ordinal": 6,
+        "type_info": "Blob"
+      },
+      {
+        "name": "verification_method_o",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "key_purpose_o",
+        "ordinal": 8,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "0bf87f314972e671b512f3b924b56bba408cad624835ae7b50ab3c2a15f506ec"
+}

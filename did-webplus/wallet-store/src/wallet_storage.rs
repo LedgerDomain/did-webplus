@@ -4,7 +4,7 @@ use crate::{
     PrivKeyUsageRecord, PrivKeyUsageRecordFilter, Result, WalletRecord, WalletRecordFilter,
     WalletStorageCtx,
 };
-use did_webplus_core::DIDKeyResourceFullyQualifiedStr;
+use did_webplus_core::{now_utc_milliseconds, DIDKeyResourceFullyQualifiedStr};
 use std::sync::Arc;
 
 /// Trait which defines the storage interface for a WalletStore.
@@ -20,7 +20,7 @@ pub trait WalletStorage:
     ) -> Result<WalletStorageCtx> {
         // Create a random UUID for the wallet.  The chance of collision is so low that
         // it's more likely a programmer error if it happens.
-        let now_utc = time::OffsetDateTime::now_utc();
+        let now_utc = now_utc_milliseconds();
         for _ in 0..5 {
             let wallet_uuid = uuid::Uuid::new_v4();
             // This awkward if-let (and the one below) is because we have to control the lifetime of the
@@ -78,13 +78,13 @@ pub trait WalletStorage:
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifierStr,
+        pub_key: &mbx::MBPubKeyStr,
     ) -> Result<()>;
     async fn get_priv_key(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
-        pub_key: &selfsign::KERIVerifierStr,
+        pub_key: &mbx::MBPubKeyStr,
     ) -> Result<Option<PrivKeyRecord>>;
     async fn get_priv_keys(
         &self,

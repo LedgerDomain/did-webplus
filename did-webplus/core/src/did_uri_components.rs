@@ -1,19 +1,19 @@
-use crate::{parse_did_query_params, Error};
+use crate::{Error, parse_did_query_params};
 
 #[derive(Debug)]
-pub struct DIDWebplusURIComponents<'a> {
-    pub host: &'a str,
+pub struct DIDURIComponents<'a> {
+    pub hostname: &'a str,
     pub port_o: Option<u16>,
     pub path_o: Option<&'a str>,
-    pub root_self_hash: &'a selfhash::KERIHashStr,
-    pub query_self_hash_o: Option<&'a selfhash::KERIHashStr>,
+    pub root_self_hash: &'a mbx::MBHashStr,
+    pub query_self_hash_o: Option<&'a mbx::MBHashStr>,
     pub query_version_id_o: Option<u32>,
     /// This is the fragment with the leading '#' char, if present.
     pub relative_resource_o: Option<&'a str>,
     pub fragment_o: Option<&'a str>,
 }
 
-impl<'a> DIDWebplusURIComponents<'a> {
+impl<'a> DIDURIComponents<'a> {
     pub fn has_query(&self) -> bool {
         self.query_self_hash_o.is_some() || self.query_version_id_o.is_some()
     }
@@ -22,9 +22,9 @@ impl<'a> DIDWebplusURIComponents<'a> {
     }
 }
 
-impl<'a> std::fmt::Display for DIDWebplusURIComponents<'a> {
+impl<'a> std::fmt::Display for DIDURIComponents<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "did:webplus:{}", self.host)?;
+        write!(f, "did:webplus:{}", self.hostname)?;
         if let Some(port) = self.port_o {
             write!(f, "%3A{}", port)?;
         }
@@ -55,35 +55,50 @@ impl<'a> std::fmt::Display for DIDWebplusURIComponents<'a> {
 
 // TODO: Consider making a version of this that assumes that checks the constraints in debug_assert
 // but otherwise assumes that the constraints are already satisfied, so it's faster to parse.
-impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
+impl<'a> TryFrom<&'a str> for DIDURIComponents<'a> {
     type Error = Error;
     fn try_from(s: &'a str) -> Result<Self, Self::Error> {
+        let original_s = s;
         if !s.starts_with("did:webplus:") {
             return Err(Error::Malformed(
-                "did:webplus URI is expected to start with 'did:webplus:'",
+                format!(
+                    "did:webplus URI ({:?}) is expected to start with 'did:webplus:'",
+                    original_s
+                )
+                .into(),
             ));
         }
         // Get rid of the "did:webplus:" prefix.
         let s = s.strip_prefix("did:webplus:").unwrap();
 
-        let (host_and_maybe_port, remainder) = s.split_once(':').ok_or(Error::Malformed(
-            "did:webplus URI is expected to have a third ':' after the host",
+        let (hostname_and_maybe_port, remainder) = s.split_once(':').ok_or(Error::Malformed(
+            format!(
+                "did:webplus URI ({:?}) is expected to have a third ':' after the hostname",
+                original_s
+            )
+            .into(),
         ))?;
-        let (host, port_o) = if let Some((host, after_percent_str)) =
-            host_and_maybe_port.split_once('%')
+        let (hostname, port_o) = if let Some((hostname, after_percent_str)) =
+            hostname_and_maybe_port.split_once('%')
         {
             if !after_percent_str.starts_with("3A") {
-                return Err(Error::Malformed("did:webplus URI may only have an embedded %3A (the percent-encoding of ':'), but it had some other percent-encoded char"));
+                return Err(Error::Malformed(format!("did:webplus URI ({:?}) may only have an embedded %3A (the percent-encoding of ':'), but it had some other percent-encoded char", original_s).into()));
             }
             let port_str = after_percent_str.strip_prefix("3A").unwrap();
-            let port: u16 = port_str
-                .parse()
-                .map_err(|_| Error::Malformed("did:webplus URI port must be a valid integer"))?;
-            (host, Some(port))
+            let port: u16 = port_str.parse().map_err(|_| {
+                Error::Malformed(
+                    format!(
+                        "did:webplus URI ({:?}) port must be a valid integer",
+                        original_s
+                    )
+                    .into(),
+                )
+            })?;
+            (hostname, Some(port))
         } else {
-            (host_and_maybe_port, None)
+            (hostname_and_maybe_port, None)
         };
-        // TODO: Validation on host
+        // TODO: Validation on hostname
 
         let (uri_path, query_o, relative_resource_o, fragment_o) =
             if let Some((uri_path, query_and_maybe_fragment)) = remainder.split_once('?') {
@@ -111,7 +126,11 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         // TODO: Stronger validation
         if uri_path.contains('/') || uri_path.contains('%') {
             return Err(Error::Malformed(
-                "did:webplus URI path must not contain '/' or '%'",
+                format!(
+                    "did:webplus URI ({:?}) path must not contain '/' or '%'",
+                    original_s
+                )
+                .into(),
             ));
         }
 
@@ -122,14 +141,14 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
             // TODO: More path validation.
             for path_component in path.split(':') {
                 if path_component.is_empty() {
-                    return Err(Error::Malformed("did:webplus URI path must not have empty path components (i.e. two ':' chars in a row)"));
+                    return Err(Error::Malformed(format!("did:webplus URI ({:?}) path must not have empty path components (i.e. two ':' chars in a row)", original_s).into()));
                 }
             }
             (Some(path), root_self_hash_str)
         } else {
             (None, uri_path)
         };
-        let root_self_hash = selfhash::KERIHashStr::new_ref(root_self_hash_str)?;
+        let root_self_hash = mbx::MBHashStr::new_ref(root_self_hash_str)?;
 
         // Parse the query portion.
         let (query_self_hash_o, query_version_id_o) = if let Some(query) = query_o {
@@ -139,7 +158,7 @@ impl<'a> TryFrom<&'a str> for DIDWebplusURIComponents<'a> {
         };
 
         Ok(Self {
-            host,
+            hostname,
             port_o,
             path_o,
             root_self_hash,

@@ -23,10 +23,9 @@ impl DIDResolverFactory {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl did_webplus_resolver::DIDResolverFactory for DIDResolverFactory {
-    #[allow(elided_named_lifetimes)]
-    async fn did_resolver(
-        &self,
-    ) -> did_webplus_resolver::Result<&dyn did_webplus_resolver::DIDResolver> {
+    async fn did_resolver<'s>(
+        &'s self,
+    ) -> did_webplus_resolver::Result<&'s dyn did_webplus_resolver::DIDResolver> {
         if let Some(did_resolver_b) = self.did_resolver_bc.get() {
             return Ok(did_resolver_b.as_ref());
         }

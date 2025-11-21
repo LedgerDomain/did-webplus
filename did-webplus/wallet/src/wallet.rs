@@ -37,6 +37,15 @@ pub trait Wallet: Send + Sync {
         did: &DIDStr,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<DIDFullyQualified>;
+    /// Deactivate a locally-controlled DID by removing all verification methods from the DID document
+    /// and setting its update rules to UpdatesDisallowed.  Returns the fully qualified DID corresponding
+    /// to the updated DID document.  Note that this is an extremely irreversible action; the DID can't
+    /// ever be updated again
+    async fn deactivate_did(
+        &self,
+        did: &DIDStr,
+        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    ) -> Result<DIDFullyQualified>;
 
     // Below here are lower-level methods for accessing controlled DIDs and verification methods (i.e. private keys).
 
@@ -93,7 +102,12 @@ pub trait Wallet: Send + Sync {
     async fn get_locally_controlled_verification_methods(
         &self,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Vec<(VerificationMethodRecord, Box<dyn selfsign::Signer>)>>;
+    ) -> Result<
+        Vec<(
+            VerificationMethodRecord,
+            signature_dyn::SignerBytes<'static>,
+        )>,
+    >;
     /// Calls get_locally_controlled_verification_methods and returns the single result if there is exactly one.
     /// Otherwise, returns an error.  Note that this method will ignore the result_limit_o field of the filter.
     // TODO: Make a LocallyControlledVerificationMethodsFilter separate from LocallyControlledVerificationMethodFilter,
@@ -101,7 +115,10 @@ pub trait Wallet: Send + Sync {
     async fn get_locally_controlled_verification_method(
         &self,
         mut locally_controlled_verification_method_filter: LocallyControlledVerificationMethodFilter,
-    ) -> Result<(VerificationMethodRecord, Box<dyn selfsign::Signer>)> {
+    ) -> Result<(
+        VerificationMethodRecord,
+        signature_dyn::SignerBytes<'static>,
+    )> {
         locally_controlled_verification_method_filter.result_limit_o = Some(2);
         let query_result_v = self
             .get_locally_controlled_verification_methods(

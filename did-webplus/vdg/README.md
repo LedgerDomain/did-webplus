@@ -58,7 +58,7 @@ This will stop and remove the services and the network, though it will leave the
 
 ## Notes
 
-The docker-compose will spin up docker containers for the did-webplus VDG, a PostgreSQL database, and an "autoheal" service which will restart the VDG if it goes down.  The VDG, which inside the docker network will be available at witness.org:80, and that port will be mapped to the host machine to port 8086.  The healthcheck can be done manually via
+The docker-compose will spin up docker containers for the did-webplus VDG, a PostgreSQL database, and an "autoheal" service which will restart the VDG if it goes down.  The VDG, which inside the docker network will be available at dockerized.vdg.local:80, and that port will be mapped to the host machine to port 8086.  The healthcheck can be done manually via
 
     curl http://localhost:8086/health
 

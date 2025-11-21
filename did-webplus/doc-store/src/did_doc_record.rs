@@ -24,18 +24,24 @@ impl DIDDocRecord {
                     self.self_hash.to_string().into(),
                 )
             })?;
-
-        let did_document_self_hash = did_document.self_hash_o.as_ref().ok_or_else(|| {
+        did_document.verify_is_canonically_serialized(self.did_document_jcs.as_str())?;
+        // Note that if this check succeeds, then in particular, all the self-hash slots are equal,
+        // and in particular, are equal to `did_document.self_hash`.
+        use selfhash::SelfHashableT;
+        did_document.verify_self_hashes().map_err(|err| {
             Error::RecordCorruption(
-                "Parsed DID doc is missing \"selfHash\" field".into(),
+                format!("Parsed DID doc failed to verify self-hashes: {}", err).into(),
                 self.self_hash.to_string().into(),
             )
         })?;
-        if did_document_self_hash.as_str() != self.self_hash.as_str() {
+        use selfhash::HashRefT;
+        assert!(!did_document.self_hash.is_placeholder());
+
+        if did_document.self_hash.as_str() != self.self_hash.as_str() {
             return Err(Error::RecordCorruption(
                 format!(
                     "Parsed DID doc \"selfHash\" field {} doesn't match that of stored record",
-                    did_document_self_hash
+                    did_document.self_hash.as_str()
                 )
                 .into(),
                 self.self_hash.to_string().into(),
@@ -58,26 +64,16 @@ impl DIDDocRecord {
         }
 
         if did_document.valid_from != self.valid_from {
-            return Err(Error::RecordCorruption(format!("Parsed DID doc \"validFrom\" field {} doesn't match stored record's valid_from {}", did_document.valid_from, self.valid_from).into(), self.self_hash.to_string().into()));
+            return Err(Error::RecordCorruption(format!("Parsed DID doc \"validFrom\" field {} doesn't match stored record's valid_from {} (note that timestamps must have precision no greater than milliseconds for interoperability with javascript systems)", did_document.valid_from, self.valid_from).into(), self.self_hash.to_string().into()));
+        }
+
+        if did_document.valid_from.nanosecond() % 1_000_000 != 0 {
+            return Err(Error::RecordCorruption(format!("Parsed DID doc \"validFrom\" field {} exceeds millisecond precision (this limit is required for interoperability with javascript systems)", did_document.valid_from).into(), self.self_hash.to_string().into()));
         }
 
         if self.did_documents_jsonl_octet_length < self.did_document_jcs.len() as i64 + 1 {
             return Err(Error::RecordCorruption(format!("Inconsistent: DID doc record did_documents_jsonl_octet_length {} is less than did_document_jcs.len() + 1 (which is {})", self.did_documents_jsonl_octet_length, self.did_document_jcs.len() + 1).into(), self.self_hash.to_string().into()));
         }
-
-        use selfsign::SelfSignAndHashable;
-        did_document
-            .verify_self_signatures_and_hashes()
-            .map_err(|err| {
-                Error::RecordCorruption(
-                    format!(
-                        "Parsed DID doc failed to verify self-signatures and hashes: {}",
-                        err
-                    )
-                    .into(),
-                    self.self_hash.to_string().into(),
-                )
-            })?;
 
         Ok(())
     }

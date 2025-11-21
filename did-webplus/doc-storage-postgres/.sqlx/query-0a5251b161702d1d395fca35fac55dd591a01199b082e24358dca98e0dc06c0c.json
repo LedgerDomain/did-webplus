@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO did_document_records(did, version_id, valid_from, self_hash, did_documents_jsonl_octet_length, did_document_jcs)\n                    VALUES (\n                        $1,\n                        $2,\n                        $3,\n                        $4,\n                        COALESCE(\n                            (\n                                SELECT did_documents_jsonl_octet_length\n                                FROM did_document_records\n                                WHERE did = $1\n                                ORDER BY version_id DESC\n                                LIMIT 1\n                            ),\n                            0\n                        ) + OCTET_LENGTH($5) + 1,\n                        $5\n                    )\n                    ON CONFLICT DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Timestamptz",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0a5251b161702d1d395fca35fac55dd591a01199b082e24358dca98e0dc06c0c"
+}

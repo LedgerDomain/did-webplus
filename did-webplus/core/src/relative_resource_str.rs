@@ -16,11 +16,16 @@ impl<F: 'static + Fragment + ?Sized> pneutype::Validate for RelativeResourceStr<
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
         if !data.starts_with('#') {
-            return Err(Error::Malformed("RelativeResource must start with '#'"));
+            return Err(Error::Malformed(
+                format!("RelativeResource ({:?}) must start with '#'", data).into(),
+            ));
         }
         let fragment = data.strip_prefix('#').unwrap();
-        F::validate(fragment)
-            .map_err(|_| Error::Malformed("RelativeResource fragment is malformed"))?;
+        F::validate(fragment).map_err(|_| {
+            Error::Malformed(
+                format!("RelativeResource fragment ({:?}) is malformed", fragment).into(),
+            )
+        })?;
         Ok(())
     }
 }

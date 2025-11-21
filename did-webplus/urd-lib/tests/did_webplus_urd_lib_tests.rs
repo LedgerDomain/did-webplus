@@ -84,7 +84,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
         use did_webplus_wallet_store::WalletStorage;
         let did_doc_record = wallet_storage_a
             .as_did_doc_storage()
-            .get_latest_did_doc_record(None, controlled_did.did())
+            .get_latest_known_did_doc_record(None, controlled_did.did())
             .await
             .expect("pass")
             .expect("pass");
@@ -114,7 +114,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
         use did_webplus_wallet_store::WalletStorage;
         let did_doc_record = wallet_storage_a
             .as_did_doc_storage()
-            .get_latest_did_doc_record(None, controlled_did.did())
+            .get_latest_known_did_doc_record(None, controlled_did.did())
             .await
             .expect("pass")
             .expect("pass");
@@ -146,7 +146,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
             use did_webplus_wallet_store::WalletStorage;
             let did_doc_record = wallet_storage_a
                 .as_did_doc_storage()
-                .get_latest_did_doc_record(None, controlled_did.did())
+                .get_latest_known_did_doc_record(None, controlled_did.did())
                 .await
                 .expect("pass")
                 .expect("pass");

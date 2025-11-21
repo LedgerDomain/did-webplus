@@ -1,7 +1,9 @@
 use crate::{
     mock_resolver_internal::MockResolverInternal, MockVDG, MockVDR, MockVerifiedCache, Resolver,
 };
-use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
+use did_webplus_core::{
+    DIDDocument, DIDDocumentMetadata, DIDStr, Error,
+};
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -63,7 +65,7 @@ impl Resolver for MockResolverFull {
         } else {
             let mut mock_vdr_g = self
                 .mock_vdr_lam
-                .get_mut(did.host())
+                .get_mut(did.hostname())
                 .expect("programmer error: all mock VDRs should have been supplied correctly")
                 .write()
                 .unwrap();
@@ -82,9 +84,9 @@ impl Resolver for MockResolverFull {
     fn resolve_did_document<'s>(
         &'s mut self,
         did: &DIDStr,
-        self_hash_o: Option<&selfhash::KERIHashStr>,
+        self_hash_o: Option<&mbx::MBHashStr>,
         version_id_o: Option<u32>,
-        requested_did_document_metadata: RequestedDIDDocumentMetadata,
+        did_resolution_options: did_webplus_core::DIDResolutionOptions,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         if let Some(mock_vdg_la) = self.mock_vdg_lao.as_ref() {
             let mut mock_vdg_g = mock_vdg_la.write().unwrap();
@@ -92,7 +94,7 @@ impl Resolver for MockResolverFull {
                 did,
                 version_id_o,
                 self_hash_o,
-                requested_did_document_metadata,
+                did_resolution_options,
                 &mut MockResolverInternal {
                     user_agent: self.user_agent.as_str(),
                     vds: mock_vdg_g.deref_mut(),
@@ -101,7 +103,7 @@ impl Resolver for MockResolverFull {
         } else {
             let mut mock_vdr_g = self
                 .mock_vdr_lam
-                .get_mut(did.host())
+                .get_mut(did.hostname())
                 .expect("programmer error: all mock VDRs should have been supplied correctly")
                 .write()
                 .unwrap();
@@ -109,7 +111,7 @@ impl Resolver for MockResolverFull {
                 did,
                 version_id_o,
                 self_hash_o,
-                requested_did_document_metadata,
+                did_resolution_options,
                 &mut MockResolverInternal {
                     user_agent: self.user_agent.as_str(),
                     vds: mock_vdr_g.deref_mut(),

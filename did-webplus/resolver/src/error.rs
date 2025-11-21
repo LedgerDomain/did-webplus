@@ -5,8 +5,11 @@ use std::borrow::Cow;
 pub enum Error {
     #[error(transparent)]
     DIDDocStoreError(#[from] did_webplus_doc_store::Error),
+    // TODO: This could/should store DIDResolutionMetadata, potentially also with HTTPError?
     #[error("DID resolution failure: {0}")]
     DIDResolutionFailure(HTTPError),
+    #[error("DID resolution failure; DIDResolutionMetadata: {0}")]
+    DIDResolutionFailure2(did_webplus_core::DIDResolutionMetadata),
     #[error("Failed constraint: {0}")]
     FailedConstraint(Cow<'static, str>),
     #[error("Generic error: {0}")]

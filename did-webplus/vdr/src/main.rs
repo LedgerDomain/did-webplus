@@ -41,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
 
     match root.log_format {
         LogFormat::Compact => tracing_subscriber_fmt.compact().init(),
+        LogFormat::JSON => tracing_subscriber_fmt.json().init(),
         LogFormat::Pretty => tracing_subscriber_fmt.pretty().init(),
     };
 

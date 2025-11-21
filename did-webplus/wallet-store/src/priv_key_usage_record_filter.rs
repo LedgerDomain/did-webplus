@@ -1,8 +1,11 @@
+use std::ops::Deref;
+
 use crate::{PrivKeyUsageRecord, PrivKeyUsageType};
 
 #[derive(Default)]
 pub struct PrivKeyUsageRecordFilter {
-    pub pub_key_o: Option<selfsign::KERIVerifier>,
+    pub pub_key_o: Option<mbx::MBPubKey>,
+    // TODO: Add more filters (did, key purpose, etc., maybe hashed_pub_key)
     pub usage_type_o: Option<PrivKeyUsageType>,
     pub used_at_or_after_o: Option<time::OffsetDateTime>,
     pub used_at_or_before_o: Option<time::OffsetDateTime>,
@@ -11,7 +14,7 @@ pub struct PrivKeyUsageRecordFilter {
 impl PrivKeyUsageRecordFilter {
     pub fn matches(&self, priv_key_usage_record: &PrivKeyUsageRecord) -> bool {
         if let Some(pub_key) = self.pub_key_o.as_deref() {
-            if priv_key_usage_record.pub_key.as_keri_verifier_str() != pub_key {
+            if priv_key_usage_record.pub_key.deref() != pub_key {
                 return false;
             }
         }

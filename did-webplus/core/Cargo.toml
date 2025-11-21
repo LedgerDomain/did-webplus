@@ -5,17 +5,27 @@ authors = [
     "Victor Dods <victor.dods@ledgerdomain.com>",
     "Ben Nichols <ben.nichols@ledgerdomain.com>",
 ]
-edition = "2021"
+edition = "2024"
 
 [features]
-async-traits = ["dep:async-trait"]
 clap = ["dep:clap"]
-ed25519-dalek = ["selfsign/ed25519-dalek"]
-k256 = ["selfsign/k256"]
-tracing = ["dep:tracing"]
+ed25519-dalek = [
+    "did-webplus-jws/ed25519-dalek",
+    "dep:ed25519-dalek",
+    "signature-dyn/ed25519-dalek",
+]
+ed448-goldilocks = [
+    "did-webplus-jws/ed448-goldilocks",
+    "dep:ed448-goldilocks",
+    "signature-dyn/ed448-goldilocks",
+]
+k256 = ["did-webplus-jws/k256", "dep:k256", "signature-dyn/k256"]
+p256 = ["did-webplus-jws/p256", "dep:p256", "signature-dyn/p256"]
+p384 = ["did-webplus-jws/p384", "dep:p384", "signature-dyn/p384"]
+p521 = ["did-webplus-jws/p521", "dep:p521", "signature-dyn/p521"]
 
 [dependencies]
-async-trait = { version = "0.1.80", optional = true }
+base64 = { version = "0.21.4", default-features = false }
 clap = { version = "4.5.4", optional = true, features = ["derive"] }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
@@ -23,30 +33,57 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "from",
     "into",
 ] }
+did-webplus-jws = { path = "../jws", features = ["mbx"] }
+ed25519-dalek = { version = "2.2.0", optional = true }
+ed448-goldilocks = { version = "0.14.0-pre.4", optional = true }
 enum-map = "2.7.3"
 flagset = "0.4.6"
+k256 = { version = "0.13.1", optional = true }
+mbx = { version = "0.1.0", features = [
+    "ed25519-dalek",
+    "ed448-goldilocks",
+    "k256",
+    "p256",
+    "p384",
+    "p521",
+    "serde",
+    "signature-dyn",
+] }
+p256 = { version = "0.13.2", optional = true }
+p384 = { version = "0.13.1", optional = true }
+p521 = { version = "0.14.0-pre.11", optional = true, features = ["ecdsa"] }
 pneutype = "0.5.1"
-selfhash = { version = "0.4.0", features = ["serde", "blake3"] }
-selfsign = { version = "0.6.0", features = ["serde", "jcs"] }
+selfhash = { version = "0.5.0", features = ["blake3", "jcs", "mbx", "serde"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json_canonicalizer = "0.3.0"
 serde_json = "1.0.107"
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
+signature = "2.2.0"
+signature-dyn = { version = "0.1.0", features = ["ssi-multicodec"] }
+ssi-multicodec = "0.2.0"
 thiserror = { version = "1.0.60", default-features = false }
-time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
-tracing = { version = "0.1.37", optional = true }
+time = { version = "0.3", features = ["macros", "serde", "serde-well-known"] }
+tracing = "0.1.37"
+verifier-resolver = { path = "../../verifier-resolver" }
 
 [dev-dependencies]
-ed25519-dalek = { version = "2.0.0", features = ["digest", "rand_core"] }
+ctor = "0.4.1"
+did-key = { path = "../../did-key", features = [
+    "ed25519-dalek",
+    "verifier-resolver",
+] }
+did-webplus-jws = { path = "../jws", features = ["ed25519-dalek"] }
+ed25519-dalek = { version = "2.2.0", features = ["digest", "rand_core"] }
 rand = "0.8"
-selfsign = { version = "0.6.0", features = ["ed25519-dalek"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
-ssi-jwk = { version = "0.1.1", default-features = false, features = [
+ssi-jwk = { version = "0.3.2", default-features = false, features = [
     "ed25519",
 ] }
-ssi-jws = { version = "0.1.0", default-features = false, features = [
+ssi-jws = { version = "0.3.1", default-features = false, features = [
     "ed25519",
 ] }
+test-util = { path = "../../test-util" }
+url = "2.5.4"

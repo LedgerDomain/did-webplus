@@ -2,7 +2,7 @@
 name = "vjson-core"
 version = "0.1.0"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 async-trait = "0.1.80"
@@ -11,11 +11,16 @@ did-webplus-jws = { path = "../../did-webplus/jws" }
 jsonpath_lib = "0.3.0"
 jsonschema = { version = "0.18.3", default-features = false }
 lazy_static = "1.4.0"
-selfhash = { version = "0.4.0", features = ["self-hashable-json", "serde"] }
-selfsign = "0.6.0"
+mbx = "0.1.0"
+selfhash = { version = "0.5.0", features = [
+    "mbx",
+    "self-hashable-json",
+    "serde",
+] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
+signature-dyn = "0.1.0"
 thiserror = "1.0.60"
 tracing = "0.1.37"
 verifier-resolver = { path = "../../verifier-resolver" }

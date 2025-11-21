@@ -6,7 +6,7 @@ fn overall_init() {
     test_util::ctor_overall_init();
 }
 
-async fn test_did_key_generate_write_read_sign_jws_verify_impl(key_type: selfsign::KeyType) {
+async fn test_did_key_generate_write_read_sign_jws_verify_impl(key_type: signature_dyn::KeyType) {
     let private_key_path = std::path::PathBuf::from(format!(
         "tests/test_did_key_generate_write_read_sign_jws_verify.{:?}.priv.pem",
         key_type
@@ -17,7 +17,8 @@ async fn test_did_key_generate_write_read_sign_jws_verify_impl(key_type: selfsig
 
     let signer_b = did_webplus_cli_lib::private_key_generate(key_type);
     let did = did_webplus_cli_lib::did_key_from_private(signer_b.as_ref()).expect("pass");
-    did_webplus_cli_lib::private_key_write_to_pkcs8_pem_file(signer_b.as_ref(), &private_key_path)
+    let signer_bytes = signer_b.to_signer_bytes();
+    did_webplus_cli_lib::private_key_write_to_pkcs8_pem_file(&signer_bytes, &private_key_path)
         .expect("pass");
 
     let read_signer_b =
@@ -25,10 +26,7 @@ async fn test_did_key_generate_write_read_sign_jws_verify_impl(key_type: selfsig
     let read_did = did_webplus_cli_lib::did_key_from_private(read_signer_b.as_ref()).expect("pass");
     // Check that the DIDs and the signers are the same.
     assert_eq!(read_did, did);
-    assert_eq!(
-        read_signer_b.to_private_key_bytes(),
-        signer_b.to_private_key_bytes()
-    );
+    assert_eq!(read_signer_b.to_signer_bytes(), signer_bytes);
 
     let payload = r#"{"blah": 123}"#;
     // Sign and then verify an attached-payload JWS
@@ -65,15 +63,15 @@ async fn test_did_key_generate_write_read_sign_jws_verify_impl(key_type: selfsig
 
 #[tokio::test]
 async fn test_did_key_generate_write_read_sign_jws_verify_ed25519() {
-    test_did_key_generate_write_read_sign_jws_verify_impl(selfsign::KeyType::Ed25519).await;
+    test_did_key_generate_write_read_sign_jws_verify_impl(signature_dyn::KeyType::Ed25519).await;
 }
 
 #[tokio::test]
 async fn test_did_key_generate_write_read_sign_jws_verify_secp256k1() {
-    test_did_key_generate_write_read_sign_jws_verify_impl(selfsign::KeyType::Secp256k1).await;
+    test_did_key_generate_write_read_sign_jws_verify_impl(signature_dyn::KeyType::Secp256k1).await;
 }
 
-async fn test_did_key_sign_vjson_verify_impl(key_type: selfsign::KeyType) {
+async fn test_did_key_sign_vjson_verify_impl(key_type: signature_dyn::KeyType) {
     let private_key_path = std::path::PathBuf::from(format!(
         "tests/test_did_key_sign_vjson_verify.{:?}.priv.pem",
         key_type
@@ -184,12 +182,12 @@ async fn test_did_key_sign_vjson_verify_impl(key_type: selfsign::KeyType) {
 
 #[tokio::test]
 async fn test_did_key_sign_vjson_verify_ed25519_dalek() {
-    test_did_key_sign_vjson_verify_impl(selfsign::KeyType::Ed25519).await;
+    test_did_key_sign_vjson_verify_impl(signature_dyn::KeyType::Ed25519).await;
 }
 
 #[tokio::test]
 async fn test_did_key_sign_vjson_verify_k256() {
-    test_did_key_sign_vjson_verify_impl(selfsign::KeyType::Secp256k1).await;
+    test_did_key_sign_vjson_verify_impl(signature_dyn::KeyType::Secp256k1).await;
 }
 
 fn price_quote_schema() -> serde_json::Value {
@@ -241,11 +239,7 @@ fn price_quote_schema() -> serde_json::Value {
     )
 }
 
-fn price_quote(
-    schema_self_hash: &selfhash::KERIHashStr,
-    item: &str,
-    price: &str,
-) -> serde_json::Value {
+fn price_quote(schema_self_hash: &mbx::MBHashStr, item: &str, price: &str) -> serde_json::Value {
     serde_json::json!(
         {
             "$schema": format!("vjson:///{}", schema_self_hash),
@@ -328,7 +322,6 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
             did_doc_store,
             None,
             http_scheme_override_o.cloned(),
-            did_webplus_resolver::FetchPattern::Batch,
         )
         .unwrap()
     };
@@ -481,7 +474,6 @@ async fn test_wallet_did_sign_vjson_verify() {
             did_doc_store,
             None,
             http_scheme_override_o.cloned(),
-            did_webplus_resolver::FetchPattern::Batch,
         )
         .unwrap()
     };

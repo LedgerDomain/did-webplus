@@ -1,4 +1,4 @@
-use crate::{DIDFullyQualifiedStr, DIDWebplusURIComponents, Error};
+use crate::{DIDFullyQualifiedStr, DIDURIComponents, Error};
 
 /// A DIDFullyQualified is a DID that has query params selfHash and versionId specified.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
@@ -13,22 +13,26 @@ pub struct DIDFullyQualified(String);
 impl DIDFullyQualified {
     /// Construct a DIDFullyQualified with specified components.
     pub fn new(
-        host: &str,
+        hostname: &str,
         port_o: Option<u16>,
         path_o: Option<&str>,
-        root_self_hash: &selfhash::KERIHashStr,
-        query_self_hash: &selfhash::KERIHashStr,
+        root_self_hash: &mbx::MBHashStr,
+        query_self_hash: &mbx::MBHashStr,
         query_version_id: u32,
     ) -> Result<Self, Error> {
-        // TODO: Complete validation of host
-        if host.contains(':') || host.contains('/') {
+        // TODO: Complete validation of hostname
+        if hostname.contains(':') || hostname.contains('/') {
             return Err(Error::Malformed(
-                "DIDFullyQualified host must not contain ':' or '/'",
+                format!(
+                    "DIDFullyQualified hostname ({:?}) must not contain ':' or '/'",
+                    hostname
+                )
+                .into(),
             ));
         }
 
-        let s = DIDWebplusURIComponents {
-            host,
+        let s = DIDURIComponents {
+            hostname,
             port_o,
             path_o,
             root_self_hash,

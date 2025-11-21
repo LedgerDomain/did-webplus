@@ -11,11 +11,7 @@ postgres = ["dep:did-webplus-doc-storage-postgres"]
 anyhow = { version = "1.0", features = ["backtrace"] }
 axum = "0.8.4"
 clap = { version = "4.5.4", features = ["derive", "env"] }
-did-webplus-core = { path = "../core", features = [
-    "ed25519-dalek",
-    "k256",
-    "tracing",
-] }
+did-webplus-core = { path = "../core", features = ["ed25519-dalek", "k256"] }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional = true }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }

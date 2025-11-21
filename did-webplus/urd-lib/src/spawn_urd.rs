@@ -59,11 +59,11 @@ async fn resolve_did(
 ) -> Result<String, (StatusCode, String)> {
     // TODO: Is this log message necessary?
     tracing::info!("Resolving DID query: {}", query);
-    let (did_document, _did_document_metadata) = urd_app_state
+    let (did_document, _did_document_metadata, _did_resolution_metadata) = urd_app_state
         .did_resolver_a
         .resolve_did_document_string(
             &query,
-            did_webplus_core::RequestedDIDDocumentMetadata::none(),
+            did_webplus_core::DIDResolutionOptions::no_metadata(false),
         )
         .await
         .unwrap();

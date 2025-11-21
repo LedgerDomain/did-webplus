@@ -1,41 +1,56 @@
-// TODO: Use Cow<'static, str>
+use std::borrow::Cow;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Already exists: {0}")]
-    AlreadyExists(&'static str),
+    AlreadyExists(Cow<'static, str>),
     #[error("Invalid: {0}")]
-    Invalid(&'static str),
+    Invalid(Cow<'static, str>),
     #[error("Invalid DID microledger: {0}")]
-    InvalidDIDMicroledger(&'static str),
+    InvalidDIDMicroledger(Cow<'static, str>),
     #[error("Invalid did:webplus create operation: {0}")]
-    InvalidDIDCreateOperation(&'static str),
+    InvalidDIDCreateOperation(Cow<'static, str>),
     #[error("Invalid did:webplus update operation: {0}")]
-    InvalidDIDUpdateOperation(&'static str),
-    #[error("Invalid self-signature or self-hash: {0}")]
-    InvalidSelfSignatureOrSelfHash(&'static str),
+    InvalidDIDUpdateOperation(Cow<'static, str>),
     #[error("Malformed: {0}")]
-    Malformed(&'static str),
+    Malformed(Cow<'static, str>),
     #[error("Malformed {0} method: {1}")]
-    MalformedKeyId(&'static str, &'static str),
+    MalformedKeyId(Cow<'static, str>, Cow<'static, str>),
     #[error("Not found: {0}")]
-    NotFound(&'static str),
+    NotFound(Cow<'static, str>),
     #[error("Generic error: {0}")]
-    Generic(&'static str),
+    Generic(Cow<'static, str>),
+    #[error("MBC error: {0}")]
+    MBCError(mbx::Error),
     #[error("Self-hash error: {0}")]
     SelfHashError(selfhash::Error),
-    #[error("Self-sign error: {0}")]
-    SelfSignError(selfsign::Error),
+    #[error("Signature error: {0}")]
+    SignatureError(signature_dyn::Error),
     #[error("Serialization error: {0}")]
-    Serialization(&'static str),
+    Serialization(Cow<'static, str>),
+    #[error("Signing error: {0}")]
+    SigningError(Cow<'static, str>),
     #[error("Unrecognized: {0}")]
-    Unrecognized(&'static str),
+    Unrecognized(Cow<'static, str>),
     #[error("Unsupported: {0}")]
-    Unsupported(&'static str),
+    Unsupported(Cow<'static, str>),
 }
 
 impl From<&'static str> for Error {
     fn from(s: &'static str) -> Self {
-        Self::Generic(s)
+        Self::Generic(Cow::Borrowed(s))
+    }
+}
+
+impl From<String> for Error {
+    fn from(s: String) -> Self {
+        Self::Generic(Cow::Owned(s))
+    }
+}
+
+impl From<mbx::Error> for Error {
+    fn from(e: mbx::Error) -> Self {
+        Self::MBCError(e)
     }
 }
 
@@ -45,8 +60,8 @@ impl From<selfhash::Error> for Error {
     }
 }
 
-impl From<selfsign::Error> for Error {
-    fn from(e: selfsign::Error) -> Self {
-        Self::SelfSignError(e)
+impl From<signature_dyn::Error> for Error {
+    fn from(e: signature_dyn::Error) -> Self {
+        Self::SignatureError(e)
     }
 }

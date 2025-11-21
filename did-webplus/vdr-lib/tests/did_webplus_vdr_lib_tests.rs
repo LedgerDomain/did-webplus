@@ -1,7 +1,6 @@
-use did_webplus_mock::{MockVDR, MockVDRClient, MockWallet};
+use did_webplus_mock::{MicroledgerView, MockVDR, MockVDRClient, MockWallet};
 use std::{
     collections::HashMap,
-    ops::Deref,
     sync::{Arc, RwLock},
 };
 
@@ -61,21 +60,25 @@ async fn test_vdr_operations() {
 // NOTE: This is a very low-level test that doesn't require the wallet.  It would be much easier
 // to do this from a Wallet.  Maybe get rid of this test in favor of a Wallet-driven test (though
 // that would be testing two pieces of software at the same time).
-async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>, use_path: bool) {
+async fn test_vdr_wallet_operations_impl(
+    vdr_hostname: &str,
+    did_port_o: Option<u16>,
+    use_path: bool,
+) {
     let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
-        .with_override(vdr_host.to_string(), "http")
+        .with_override(vdr_hostname.to_string(), "http")
         .expect("pass");
     let http_scheme_override_o = Some(&http_scheme_override);
 
     // Setup of mock services
-    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_host(
-        vdr_host.into(),
+    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_hostname(
+        vdr_hostname.into(),
         did_port_o,
         None,
     )));
     let mock_vdr_lam = {
         let mut mock_vdr_lam = HashMap::new();
-        mock_vdr_lam.insert(vdr_host.to_string(), mock_vdr_la.clone());
+        mock_vdr_lam.insert(vdr_hostname.to_string(), mock_vdr_la.clone());
         mock_vdr_lam
     };
     let mock_vdr_client_a = Arc::new(MockVDRClient::new(
@@ -91,31 +94,33 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
         None
     };
     let alice_did = alice_wallet
-        .create_did(vdr_host.to_string(), did_port_o, did_path_o)
+        .create_did(vdr_hostname.to_string(), did_port_o, did_path_o)
         .expect("pass");
-    let alice_did_url = alice_did.resolution_url(http_scheme_override_o);
-    tracing::trace!("alice_did_url: {}", alice_did_url);
+    let alice_did_documents_jsonl_url =
+        alice_did.resolution_url_for_did_documents_jsonl(http_scheme_override_o);
+    tracing::trace!(
+        "alice_did_documents_jsonl_url: {}",
+        alice_did_documents_jsonl_url
+    );
 
     // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it created with the mock VDR and sends it to the real VDR.
     {
-        use did_webplus_core::MicroledgerView;
         let alice_did_document = alice_wallet
             .controlled_did(&alice_did)
             .expect("pass")
             .microledger()
             .view()
             .latest_did_document();
+        let alice_did_document_jcs = alice_did_document.serialize_canonically().expect("pass");
         tracing::debug!(
-            "Alice's latest DID document: {}",
-            alice_did_document.serialize_canonically().expect("pass")
+            "Alice's latest DID document (HTTP POST-ing DID document to VDR): {}",
+            alice_did_document_jcs
         );
         assert_eq!(
             test_util::REQWEST_CLIENT
-                .post(&alice_did_url)
-                // This is probably ok for now, because the self-sign-and-hash verification process will
-                // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
-                .json(&alice_did_document)
+                .post(&alice_did_documents_jsonl_url)
+                .body(alice_did_document_jcs)
                 .send()
                 .await
                 .expect("pass")
@@ -123,10 +128,10 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
             reqwest::StatusCode::OK
         );
     }
-    // Resolve the DID
+    // Fetch all DID documents for this DID.
     assert_eq!(
         test_util::REQWEST_CLIENT
-            .get(&alice_did_url)
+            .get(&alice_did_documents_jsonl_url)
             .send()
             .await
             .expect("pass")
@@ -139,68 +144,22 @@ async fn test_vdr_wallet_operations_impl(vdr_host: &str, did_port_o: Option<u16>
         // Hacky way to test the VDR without using a real Wallet.
         // This uses the DID document it updated with the mock VDR and sends it to the real VDR.
         {
-            use did_webplus_core::MicroledgerView;
             let alice_did_document = alice_wallet
                 .controlled_did(&alice_did)
                 .expect("pass")
                 .microledger()
                 .view()
                 .latest_did_document();
+            let alice_did_document_jcs = alice_did_document.serialize_canonically().expect("pass");
             tracing::debug!(
-                "Alice's latest DID document: {}",
-                alice_did_document.serialize_canonically().expect("pass")
+                "Alice's latest DID document (HTTP PUT-ing DID document to VDR): {}",
+                alice_did_document_jcs
             );
+            // Fetch all DID documents for this DID again.
             assert_eq!(
                 test_util::REQWEST_CLIENT
-                    .put(&alice_did_url)
-                    // This is probably ok for now, because the self-sign-and-hash verification process will
-                    // re-canonicalize the document.  But it should still be re-canonicalized before being stored.
-                    .json(&alice_did_document)
-                    .send()
-                    .await
-                    .expect("pass")
-                    .status(),
-                reqwest::StatusCode::OK
-            );
-            // Resolve the DID
-            let alice_did_url_self_hash = alice_did.resolution_url_for_self_hash(
-                alice_did_document.self_hash().deref(),
-                http_scheme_override_o,
-            );
-            tracing::trace!(
-                "alice_did_url with query self-hash: {}",
-                alice_did_url_self_hash
-            );
-            let alice_did_url_version_id = alice_did.resolution_url_for_version_id(
-                alice_did_document.version_id(),
-                http_scheme_override_o,
-            );
-            tracing::trace!(
-                "alice_did_url with query version_id: {}",
-                alice_did_url_version_id
-            );
-            assert_eq!(
-                test_util::REQWEST_CLIENT
-                    .get(&alice_did_url)
-                    .send()
-                    .await
-                    .expect("pass")
-                    .status(),
-                reqwest::StatusCode::OK
-            );
-            // Do some query-specific GETs
-            assert_eq!(
-                test_util::REQWEST_CLIENT
-                    .get(&alice_did_url_self_hash)
-                    .send()
-                    .await
-                    .expect("pass")
-                    .status(),
-                reqwest::StatusCode::OK
-            );
-            assert_eq!(
-                test_util::REQWEST_CLIENT
-                    .get(&alice_did_url_version_id)
+                    .put(&alice_did_documents_jsonl_url)
+                    .body(alice_did_document_jcs)
                     .send()
                     .await
                     .expect("pass")

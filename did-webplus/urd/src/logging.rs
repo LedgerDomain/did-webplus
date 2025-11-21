@@ -1,6 +1,7 @@
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum LogFormat {
     Compact,
+    JSON,
     Pretty,
 }
 
@@ -20,6 +21,7 @@ pub fn init_logging(log_format: LogFormat) {
 
     match log_format {
         LogFormat::Compact => tracing_subscriber_fmt.compact().init(),
+        LogFormat::JSON => tracing_subscriber_fmt.json().init(),
         LogFormat::Pretty => tracing_subscriber_fmt.pretty().init(),
     }
 }

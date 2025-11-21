@@ -1,7 +1,7 @@
 ################################################################
 # Builder Image                                                #
 ################################################################
-FROM rust:1.88.0-slim as builder
+FROM rust:1.90.0-slim as builder
 MAINTAINER Victor Dods <victor.dods@ledgerdomain.com>
 WORKDIR /workdir
 

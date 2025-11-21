@@ -1,5 +1,6 @@
 use crate::{
-    error_invalid_vjson, error_record_corruption, vjson_record::VJSONRecord, Result, VJSONStorage,
+    error_invalid_vjson, error_record_corruption, now_utc_milliseconds, vjson_record::VJSONRecord,
+    Result, VJSONStorage,
 };
 use std::sync::Arc;
 use vjson_core::{VJSONResolver, Validate, DEFAULT_SCHEMA};
@@ -35,7 +36,7 @@ impl VJSONStore {
         let mut transaction_b = vjson_storage_a.begin_transaction().await?;
         let vjson_record = VJSONRecord {
             self_hash: DEFAULT_SCHEMA.self_hash.clone(),
-            added_at: time::OffsetDateTime::now_utc(),
+            added_at: now_utc_milliseconds(),
             vjson_jcs: DEFAULT_SCHEMA.jcs.clone(),
         };
         vjson_storage_a
@@ -63,7 +64,7 @@ impl VJSONStore {
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
         already_exists_policy: AlreadyExistsPolicy,
         // TODO: optional expected schema
-    ) -> Result<selfhash::KERIHash> {
+    ) -> Result<mbx::MBHash> {
         // This performs the full validation of VJSON against its schema.
         let self_hash = vjson_value
             .validate_and_return_self_hash(self, verifier_resolver)
@@ -72,7 +73,7 @@ impl VJSONStore {
         // Now that it's verified, JCS-serialize it for storage.
         let vjson_record = VJSONRecord {
             self_hash: self_hash.clone(),
-            added_at: time::OffsetDateTime::now_utc(),
+            added_at: now_utc_milliseconds(),
             vjson_jcs: serde_json_canonicalizer::to_string(&vjson_value).unwrap(),
         };
         tracing::trace!(
@@ -95,7 +96,7 @@ impl VJSONStore {
         verifier_resolver: &dyn verifier_resolver::VerifierResolver,
         already_exists_policy: AlreadyExistsPolicy,
         // TODO: optional expected schema
-    ) -> Result<(selfhash::KERIHash, serde_json::Value)> {
+    ) -> Result<(mbx::MBHash, serde_json::Value)> {
         tracing::trace!("VJSONStore::add_vjson_str: vjson_str: {}", vjson_str);
         // We have to parse the VJSON string to get the self-hash and to validate it.
         let vjson_value: serde_json::Value =
@@ -115,7 +116,7 @@ impl VJSONStore {
     pub async fn get_vjson_value(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
         // TODO: optional expected schema
     ) -> Result<serde_json::Value> {
         let vjson_record = self.get_vjson_record(transaction_o, self_hash).await?;
@@ -127,7 +128,7 @@ impl VJSONStore {
     pub async fn get_vjson_record(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
         // TODO: optional expected schema
     ) -> Result<VJSONRecord> {
         self.vjson_storage_a
@@ -151,10 +152,7 @@ impl storage_traits::StorageDynT for VJSONStore {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl VJSONResolver for VJSONStore {
-    async fn resolve_vjson_string(
-        &self,
-        self_hash: &selfhash::KERIHashStr,
-    ) -> vjson_core::Result<String> {
+    async fn resolve_vjson_string(&self, self_hash: &mbx::MBHashStr) -> vjson_core::Result<String> {
         let vjson_record = self
             .get_vjson_record(None, self_hash)
             .await

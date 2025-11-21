@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO priv_key_usages(\n                    wallets_rowid,\n                    priv_keys_rowid,\n                    used_at,\n                    usage_type,\n                    usage_spec_o,\n                    verification_method_o,\n                    key_purpose_o\n                )\n                VALUES ($1, (SELECT rowid FROM priv_keys WHERE wallets_rowid = $1 AND pub_key = $2), $3, $4, $5, $6, $7);\n\n                UPDATE priv_keys\n                SET last_used_at_o = $8, usage_count = usage_count+1\n                WHERE wallets_rowid = $9 AND pub_key = $10\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 10
+    },
+    "nullable": []
+  },
+  "hash": "095ed39c8d5cbfd748bd163adf70d223444a15ac61a828f0e1bb0468ed526c47"
+}

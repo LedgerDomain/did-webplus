@@ -34,7 +34,7 @@ pub struct DIDResolverArgs {
         default_value = "sqlite://~/.did-webplus/did-doc-store.db?mode=rwc"
     )]
     pub did_doc_store_db_url_o: Option<String>,
-    /// Specify the host of the VDG to use (i.e. hostname and optional port number).  URLs for various operations
+    /// Specify the host of the VDG to use (host is a hostname and optional port number).  URLs for various operations
     /// of the VDG will be constructed from this.  This should not include the scheme (i.e. the "https://" part).
     /// This is required if the resolver is set to "thin", but is optional if the resolver is set to "full".
     #[arg(name = "vdg", env = "DID_WEBPLUS_VDG", long, value_name = "HOST")]
@@ -60,7 +60,6 @@ impl DIDResolverArgs {
                     did_doc_store,
                     self.vdg_host_o.as_deref(),
                     http_scheme_override_o,
-                    did_webplus_resolver::FetchPattern::Batch,
                 )?))
             }
             DIDResolverType::Thin => {
@@ -75,7 +74,10 @@ impl DIDResolverArgs {
                 }
 
                 let vdg_host = self.vdg_host_o.unwrap();
-                anyhow::ensure!(vdg_host.find("://").is_none(), "VDG host must not contain a scheme; i.e. it must omit the \"https://\" portion");
+                anyhow::ensure!(
+                    vdg_host.find("://").is_none(),
+                    "VDG host must not contain a scheme; i.e. it must omit the \"https://\" portion"
+                );
 
                 Ok(Box::new(did_webplus_resolver::DIDResolverThin::new(
                     &vdg_host,

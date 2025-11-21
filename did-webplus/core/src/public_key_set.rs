@@ -19,6 +19,9 @@ impl<V: Clone + std::fmt::Debug> PublicKeySet<V> {
             KeyPurpose::KeyAgreement => &self.key_agreement_v,
             KeyPurpose::CapabilityInvocation => &self.capability_invocation_v,
             KeyPurpose::CapabilityDelegation => &self.capability_delegation_v,
+            KeyPurpose::UpdateDIDDocument => {
+                panic!("programmer error: UpdateDIDDocument is not a valid KeyPurpose for a verification method");
+            }
         }
     }
     pub fn iter(&self) -> impl Iterator<Item = &V> {

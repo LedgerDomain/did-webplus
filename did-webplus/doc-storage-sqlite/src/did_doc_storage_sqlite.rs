@@ -31,14 +31,15 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         did_document: &DIDDocument,
         did_document_jcs: &str,
     ) -> Result<()> {
+        use selfhash::HashRefT;
         assert!(
-            did_document.self_hash_o.is_some(),
+            !did_document.self_hash.is_placeholder(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
         let did_str = did_document.did.as_str();
-        let version_id = did_document.version_id() as i64;
-        let valid_from = did_document.valid_from();
-        let self_hash_str = did_document.self_hash().as_str();
+        let version_id = did_document.version_id as i64;
+        let valid_from = did_document.valid_from;
+        let self_hash_str = did_document.self_hash.as_str();
         // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
         // and that means that the DID document is verifiably already present in the database.
         let query = sqlx::query!(
@@ -101,14 +102,15 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
 
             // TEMP HACK -- should just call add_did_document, but there's some compiler error regarding lifetimes of transaction_o
 
+            use selfhash::HashRefT;
             assert!(
-                did_document.self_hash_o.is_some(),
+                !did_document.self_hash.is_placeholder(),
                 "programmer error: self_hash is expected to be present on a valid DID document"
             );
             let did_str = did_document.did.as_str();
-            let version_id = did_document.version_id() as i64;
-            let valid_from = did_document.valid_from();
-            let self_hash_str = did_document.self_hash().as_str();
+            let version_id = did_document.version_id as i64;
+            let valid_from = did_document.valid_from;
+            let self_hash_str = did_document.self_hash.as_str();
             // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
             // and that means that the DID document is verifiably already present in the database.
             let query = sqlx::query!(
@@ -159,7 +161,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<Option<DIDDocRecord>> {
         let did_str = did.as_str();
         let self_hash_str = self_hash.as_str();
@@ -225,7 +227,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         .transpose()?;
         Ok(did_doc_record_o)
     }
-    async fn get_latest_did_doc_record(
+    async fn get_latest_known_did_doc_record(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
@@ -302,47 +304,6 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         .map(|did_doc_record_sqlite| did_doc_record_sqlite.try_into())
         .collect::<Result<Vec<_>>>()?;
         Ok(did_doc_record_v)
-    }
-    async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> Result<u64> {
-        let did_str = did.as_str();
-        let query = sqlx::query!(
-            r#"
-                SELECT COALESCE(
-                    (
-                        SELECT did_documents_jsonl_octet_length
-                        FROM did_document_records
-                        WHERE did = $1
-                        ORDER BY version_id DESC
-                        LIMIT 1
-                    ),
-                    0
-                ) AS did_documents_jsonl_octet_length
-            "#,
-            did_str
-        );
-        let did_documents_jsonl_octet_length = if let Some(transaction) = transaction_o {
-            query
-                .fetch_one(
-                    transaction
-                        .as_any_mut()
-                        .downcast_mut::<sqlx::Transaction<'static, sqlx::Sqlite>>()
-                        .unwrap()
-                        .as_mut(),
-                )
-                .await?
-                .did_documents_jsonl_octet_length
-        } else {
-            query
-                .fetch_one(&self.sqlite_pool)
-                .await?
-                .did_documents_jsonl_octet_length
-        };
-        let did_documents_jsonl_octet_length = did_documents_jsonl_octet_length as u64;
-        Ok(did_documents_jsonl_octet_length)
     }
     async fn get_did_doc_records_for_did_documents_jsonl_range(
         &self,

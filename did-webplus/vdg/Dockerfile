@@ -1,7 +1,7 @@
 ################################################################
 # Builder Image                                                #
 ################################################################
-FROM rust:1.88 AS builder
+FROM rust:1.90 AS builder
 WORKDIR /workdir
 
 # Install deps/reqs

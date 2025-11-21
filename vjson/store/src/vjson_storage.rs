@@ -22,6 +22,6 @@ pub trait VJSONStorage: Send + storage_traits::StorageDynT + Sync {
     async fn get_vjson_str(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<VJSONRecord>;
 }

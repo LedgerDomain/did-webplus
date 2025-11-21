@@ -1,4 +1,4 @@
-use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
+use did_webplus_core::{DIDDocument, DIDStr, Error};
 use std::borrow::Cow;
 
 /// VDS = Verifiable Data Source (this is defined to be the common property that VDR and VDG both have).
@@ -25,7 +25,7 @@ pub trait VDS {
     /// This resolves the given DID, returning the DID document and its metadata.  The metadata
     /// is needed for determining the validity duration of a DID document so as to be able to
     /// determine if a signing key was active at a given time.  Only the metadata requested in
-    /// the RequestedDIDDocumentMetadata struct will be returned.  Requesting less metadata may
+    /// the DIDResolutionOptions struct will be returned.  Requesting less metadata may
     /// result in a faster resolution in some implementations of this trait, as some operations
     /// may be able to occur with fewer or no network operations, though the specifics depend
     /// on the implementation.
@@ -36,7 +36,7 @@ pub trait VDS {
         requester_user_agent: &str,
         did: &DIDStr,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHashStr>,
-        requested_did_document_metadata: RequestedDIDDocumentMetadata,
-    ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error>;
+        self_hash_o: Option<&mbx::MBHashStr>,
+        did_resolution_options: did_webplus_core::DIDResolutionOptions,
+    ) -> did_webplus_core::Result<(Cow<'s, DIDDocument>, did_webplus_core::DIDDocumentMetadata)>;
 }

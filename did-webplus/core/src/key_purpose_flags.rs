@@ -17,6 +17,11 @@ impl KeyPurposeFlags {
     pub fn contains(self, key_purpose: KeyPurpose) -> bool {
         (self & Self::from(key_purpose)) != Self::NONE
     }
+    /// Returns true iff the given key_purpose_flags has a nonzero intersection with this KeyPurposeFlags
+    /// value (considered as a set).
+    pub fn intersects(self, key_purpose_flags: Self) -> bool {
+        (self & key_purpose_flags) != Self::NONE
+    }
 }
 
 impl std::ops::BitAnd for KeyPurposeFlags {
@@ -98,7 +103,7 @@ impl TryFrom<u8> for KeyPurposeFlags {
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         if value > KeyPurposeFlags::ALL.integer_value() {
             Err(Error::Malformed(
-                "KeyPurposeFlags (value out of valid range)",
+                format!("KeyPurposeFlags (value out of valid range): {}", value).into(),
             ))
         } else {
             Ok(Self(value))

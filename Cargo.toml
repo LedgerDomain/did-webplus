@@ -1,7 +1,15 @@
 [patch.crates-io]
+mbx = { git = "https://github.com/LedgerDomain/mbx", rev = "mbx-v0.1.0" }
 pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", branch = "vjson" }
-selfsign = { git = "https://github.com/LedgerDomain/selfsign", branch = "jsonpath" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.5.0" }
+signature-dyn = { git = "https://github.com/LedgerDomain/signature-dyn", rev = "signature-dyn-v0.1.0" }
+ssi-claims = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
+ssi-dids = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
+ssi-jwk = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
+ssi-jws = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
+ssi-multicodec = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
+ssi-vc = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
+ssi-verification-methods = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 
 [workspace]
 resolver = "2"
@@ -19,6 +27,7 @@ members = [
     "did-webplus/resolver",
     "did-webplus/software-wallet",
     "did-webplus/software-wallet-indexeddb",
+    "did-webplus/ssi",
     "did-webplus/urd",
     "did-webplus/urd-lib",
     "did-webplus/vdg",

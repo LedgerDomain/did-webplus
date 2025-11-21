@@ -13,3 +13,21 @@ pub use crate::{
     vjson_store::{AlreadyExistsPolicy, VJSONStore},
 };
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// This function returns the current time in UTC with millisecond precision.  This precision
+/// limit is required for interoperability with javascript systems (see
+/// <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now>).
+pub fn now_utc_milliseconds() -> time::OffsetDateTime {
+    truncated_to_milliseconds(time::OffsetDateTime::now_utc())
+}
+
+pub fn is_truncated_to_milliseconds(t: time::OffsetDateTime) -> bool {
+    t.nanosecond() % 1_000_000 == 0
+}
+
+pub fn truncated_to_milliseconds(t: time::OffsetDateTime) -> time::OffsetDateTime {
+    let milliseconds = t.millisecond();
+    let t = t.replace_millisecond(milliseconds).unwrap();
+    assert!(is_truncated_to_milliseconds(t));
+    t
+}

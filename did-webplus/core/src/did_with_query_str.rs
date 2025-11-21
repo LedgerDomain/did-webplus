@@ -1,4 +1,4 @@
-use crate::{DIDStr, DIDWebplusURIComponents, Error, HTTPSchemeOverride};
+use crate::{DIDStr, DIDURIComponents, Error, HTTPSchemeOverride};
 use std::fmt::Write;
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuStr)]
@@ -12,12 +12,12 @@ impl DIDWithQueryStr {
         let (did, _query_params) = self.0.split_once('?').expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery");
         DIDStr::new_ref(did).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
     }
-    fn uri_components(&self) -> DIDWebplusURIComponents {
-        DIDWebplusURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
+    fn uri_components(&self) -> DIDURIComponents<'_> {
+        DIDURIComponents::try_from(self.as_str()).expect("programmer error: this should not fail due to guarantees in construction of DIDWithQuery")
     }
-    /// Host of the VDR that acts as the authority/origin for this DID.
-    pub fn host(&self) -> &str {
-        self.uri_components().host
+    /// Hostname of the VDR that acts as the authority/origin for this DID.
+    pub fn hostname(&self) -> &str {
+        self.uri_components().hostname
     }
     /// This gives the port (if specified in the DID) of the VDR that acts as the authority/origin
     /// for this DID, or None if not specified.
@@ -32,11 +32,11 @@ impl DIDWithQueryStr {
         self.uri_components().path_o
     }
     /// This is the self-hash of the root DID document, which is what makes it a unique ID.
-    pub fn root_self_hash(&self) -> &selfhash::KERIHashStr {
+    pub fn root_self_hash(&self) -> &mbx::MBHashStr {
         self.uri_components().root_self_hash
     }
     /// Returns the query selfHash value if present, otherwise None.
-    pub fn query_self_hash_o(&self) -> Option<&selfhash::KERIHashStr> {
+    pub fn query_self_hash_o(&self) -> Option<&mbx::MBHashStr> {
         self.uri_components().query_self_hash_o
     }
     /// Returns the query versionId value if present, otherwise None.
@@ -49,11 +49,11 @@ impl DIDWithQueryStr {
     pub fn resolution_url(&self, http_scheme_override_o: Option<&HTTPSchemeOverride>) -> String {
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_scheme_override_o,
-            self.host(),
+            self.hostname(),
         )
         .unwrap();
         // Form the base URL
-        let mut url = format!("{}://{}", http_scheme, self.host());
+        let mut url = format!("{}://{}", http_scheme, self.hostname());
         if let Some(port) = self.port_o() {
             url.push(':');
             url.write_fmt(format_args!("{}", port)).unwrap();
@@ -94,14 +94,16 @@ impl pneutype::Validate for DIDWithQueryStr {
     type Data = str;
     type Error = Error;
     fn validate(data: &Self::Data) -> Result<(), Self::Error> {
-        let did_webplus_uri_components = DIDWebplusURIComponents::try_from(data)?;
-        if !did_webplus_uri_components.has_query() {
+        let did_uri_components = DIDURIComponents::try_from(data)?;
+        if !did_uri_components.has_query() {
             return Err(Error::Malformed(
-                "DIDWithQuery must have at least one of selfHash and/or versionId query params specified",
+                format!("DIDWithQuery ({:?}) must have at least one of selfHash and/or versionId query params specified", data).into(),
             ));
         }
-        if did_webplus_uri_components.has_fragment() {
-            return Err(Error::Malformed("DIDWithQuery must not have a fragment"));
+        if did_uri_components.has_fragment() {
+            return Err(Error::Malformed(
+                format!("DIDWithQuery ({:?}) must not have a fragment", data).into(),
+            ));
         }
         Ok(())
     }

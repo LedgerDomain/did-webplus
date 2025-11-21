@@ -1,4 +1,6 @@
-use crate::{DIDResolverArgs, HTTPSchemeOverrideArgs, NewlineArgs, Result};
+use crate::{
+    DIDResolutionOptionsArgs, DIDResolverArgs, HTTPSchemeOverrideArgs, NewlineArgs, Result,
+};
 use std::io::Write;
 
 /// Perform DID resolution for a given query URI, using the "full" resolver, which does all
@@ -15,7 +17,20 @@ pub struct DIDResolve {
     #[command(flatten)]
     pub did_resolver_args: DIDResolverArgs,
     #[command(flatten)]
+    pub did_resolution_options_args: DIDResolutionOptionsArgs,
+    #[command(flatten)]
     pub http_scheme_override_args: HTTPSchemeOverrideArgs,
+    /// If true, print the DID document, DID document metadata, and DID resolution metadata as JSON to stdout.
+    /// Otherwise, print the DID document, DID document metadata, and DID resolution metadata as JSON to stderr,
+    /// and print the DID document as a string to stdout.
+    #[arg(
+        name = "json",
+        env = "DID_WEBPLUS_RESOLVE_AS_JSON",
+        short = 'j',
+        long,
+        default_value = "false"
+    )]
+    pub json: bool,
     #[command(flatten)]
     pub newline_args: NewlineArgs,
 }
@@ -24,18 +39,50 @@ impl DIDResolve {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
         let http_scheme_override_o = Some(self.http_scheme_override_args.http_scheme_override);
-        let did_resolver_b = self.did_resolver_args.get_did_resolver(http_scheme_override_o).await?;
+        let did_resolver_b = self
+            .did_resolver_args
+            .get_did_resolver(http_scheme_override_o)
+            .await?;
+        let did_resolution_options = self
+            .did_resolution_options_args
+            .get_did_resolution_options();
 
         // Do the processing
-        // TODO: Handle metadata
-        let did_document_string =
-            did_webplus_cli_lib::did_resolve_string(&self.did_query, did_resolver_b.as_ref())
-                .await?;
+        let (did_document_string, did_document_metadata, did_resolution_metadata) =
+            did_webplus_cli_lib::did_resolve_string(
+                &self.did_query,
+                did_resolver_b.as_ref(),
+                did_resolution_options,
+            )
+            .await?;
 
-        // Print the DID document string, then optional newline.
-        std::io::stdout().write_all(did_document_string.as_bytes())?;
-        self.newline_args
-            .print_newline_if_necessary(&mut std::io::stdout())?;
+        #[derive(serde::Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct DIDResolveOutput {
+            did_document: String,
+            did_document_metadata: did_webplus_core::DIDDocumentMetadata,
+            did_resolution_metadata: did_webplus_core::DIDResolutionMetadata,
+        }
+        let output = DIDResolveOutput {
+            did_document: did_document_string.clone(),
+            did_document_metadata,
+            did_resolution_metadata,
+        };
+
+        if self.json {
+            serde_json::to_writer_pretty(&mut std::io::stdout(), &output)?;
+            self.newline_args
+                .print_newline_if_necessary(&mut std::io::stdout())?;
+        } else {
+            // Print the DID document, DID document metadata, and DID resolution metadata as JSON to stderr.
+            serde_json::to_writer_pretty(&mut std::io::stderr(), &output)?;
+            std::io::stderr().write_all(b"\n")?;
+
+            // Print the DID document string, then optional newline.
+            std::io::stdout().write_all(did_document_string.as_bytes())?;
+            self.newline_args
+                .print_newline_if_necessary(&mut std::io::stdout())?;
+        }
 
         Ok(())
     }

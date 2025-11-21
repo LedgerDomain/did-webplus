@@ -7,7 +7,7 @@ use did_webplus_core::{DIDFullyQualified, DIDKeyResourceFullyQualified, DID};
 pub enum PrivKeyUsage {
     /// Optionally contains the DID that was created.
     DIDCreate { created_did_o: Option<DID> },
-    /// Optionally contains the DIDWithQuery with selfHash and versionId that was used in the update.
+    /// Optionally contains the DIDFullyQualified that resulted from the update.
     DIDUpdate {
         updated_did_fully_qualified_o: Option<DIDFullyQualified>,
     },
@@ -29,9 +29,7 @@ pub enum PrivKeyUsage {
     // priv key and the other pub key.  Because encrypted communication typically involves generating an ephemeral
     // keypair for the session, and only using the shared secret to encrypt that, this would only be a risk if the
     // comms channel could be monitored (past or future).
-    KeyExchange {
-        other_o: Option<selfsign::KERIVerifier>,
-    },
+    KeyExchange { other_o: Option<mbx::MBPubKey> },
     /// Contains the DID URI for the other pub key that was used in the key exchange.
     // TODO: Is this a risk?  Since the wallet contains this priv key, the shared secret could be derived from this
     // priv key and the other pub key.  Because encrypted communication typically involves generating an ephemeral
@@ -40,6 +38,8 @@ pub enum PrivKeyUsage {
     KeyExchangeWithDID {
         other_o: Option<DIDKeyResourceFullyQualified>,
     },
+    /// Generic usage data for usage that doesn't fit into the other categories.
+    Generic { usage_spec_o: Option<Vec<u8>> },
 }
 
 impl PrivKeyUsage {
@@ -54,6 +54,7 @@ impl PrivKeyUsage {
             Self::SignVP { .. } => PrivKeyUsageType::SignVP,
             Self::KeyExchange { .. } => PrivKeyUsageType::KeyExchange,
             Self::KeyExchangeWithDID { .. } => PrivKeyUsageType::KeyExchangeWithDID,
+            Self::Generic { .. } => PrivKeyUsageType::Generic,
         }
     }
     // TODO: When everything is a proper newtype, then this could return &[u8]
@@ -90,6 +91,9 @@ impl PrivKeyUsage {
             Self::KeyExchangeWithDID { other_o } => other_o
                 .as_ref()
                 .map(|other| other.to_string().as_bytes().to_vec()),
+            Self::Generic { usage_spec_o } => {
+                usage_spec_o.as_ref().map(|usage_spec| usage_spec.to_vec())
+            }
         }
     }
     pub fn try_from_priv_key_usage_type_and_spec(

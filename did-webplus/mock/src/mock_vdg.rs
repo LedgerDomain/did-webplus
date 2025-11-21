@@ -1,5 +1,5 @@
 use crate::{MockResolverInternal, MockVDR, MockVerifiedCache, VDS};
-use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error, RequestedDIDDocumentMetadata};
+use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error};
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -15,7 +15,7 @@ pub struct MockVDG {
     user_agent: String,
     /// This is the VDG's local verified cache of all DIDs it has resolved.
     mock_verified_cache: MockVerifiedCache,
-    /// Mock connections to VDRs.  The key is the host of the VDR.
+    /// Mock connections to VDRs.  The key is the hostname of the VDR.
     mock_vdr_lam: HashMap<String, Arc<RwLock<MockVDR>>>,
     /// Optional simulated network latency duration.  If present, then all VDG operations will sleep
     /// for this duration before beginning their work.
@@ -58,7 +58,7 @@ impl VDS for MockVDG {
         // This write lock isn't great because the VDR might not actually be hit.
         let mock_vdr_la = self
             .mock_vdr_lam
-            .get(did.host())
+            .get(did.hostname())
             .expect("programmer error: all mock VDRs should have been supplied correctly");
         let mut mock_vdr_g = mock_vdr_la.write().unwrap();
         let mut mock_resolver_internal = MockResolverInternal {
@@ -78,8 +78,8 @@ impl VDS for MockVDG {
         requester_user_agent: &str,
         did: &DIDStr,
         version_id_o: Option<u32>,
-        self_hash_o: Option<&selfhash::KERIHashStr>,
-        requested_did_document_metadata: RequestedDIDDocumentMetadata,
+        self_hash_o: Option<&mbx::MBHashStr>,
+        did_resolution_options: did_webplus_core::DIDResolutionOptions,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!(
             "MockVDG({:?})::resolve;\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
@@ -90,7 +90,7 @@ impl VDS for MockVDG {
         // This write lock isn't great because the VDR might not actually be hit.
         let mock_vdr_la = self
             .mock_vdr_lam
-            .get(did.host())
+            .get(did.hostname())
             .expect("programmer error: all mock VDRs should have been supplied correctly");
         let mut mock_vdr_g = mock_vdr_la.write().unwrap();
         let mut mock_resolver_internal = MockResolverInternal {
@@ -101,7 +101,7 @@ impl VDS for MockVDG {
             did,
             version_id_o,
             self_hash_o,
-            requested_did_document_metadata,
+            did_resolution_options,
             &mut mock_resolver_internal,
         )
     }

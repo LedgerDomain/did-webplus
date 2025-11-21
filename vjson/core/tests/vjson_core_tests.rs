@@ -9,7 +9,7 @@ fn overall_init() {
 }
 
 struct TestVJSONResolver {
-    vjson_m: HashMap<selfhash::KERIHash, String>,
+    vjson_m: HashMap<mbx::MBHash, String>,
 }
 
 impl TestVJSONResolver {
@@ -23,10 +23,7 @@ impl TestVJSONResolver {
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl vjson_core::VJSONResolver for TestVJSONResolver {
-    async fn resolve_vjson_string(
-        &self,
-        self_hash: &selfhash::KERIHashStr,
-    ) -> vjson_core::Result<String> {
+    async fn resolve_vjson_string(&self, self_hash: &mbx::MBHashStr) -> vjson_core::Result<String> {
         Ok(self
             .vjson_m
             .get(self_hash)
@@ -60,19 +57,18 @@ async fn test_vjson_core_0() {
     {
         use rand::Rng;
         let value =
-            serde_json::json!({ "blah": rand::thread_rng().gen::<f64>(), "$id": "vjson:///" });
+            serde_json::json!({ "blah": rand::thread_rng().r#gen::<f64>(), "$id": "vjson:///" });
 
         let (mut self_hashable_json, _schema_value) =
             vjson_core::self_hashable_json_from(value, &vjson_resolver)
                 .await
                 .expect("pass");
-        use selfhash::{HashFunction, SelfHashable};
+        use selfhash::{HashFunctionT, SelfHashableT};
+        let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
         let self_hash = self_hashable_json
-            .self_hash(selfhash::Blake3.new_hasher())
+            .self_hash(mb_hash_function.new_hasher())
             .expect("pass")
-            .to_keri_hash()
-            .expect("pass")
-            .into_owned();
+            .to_owned();
 
         // Verify the newly created VJSON.
         let validated_self_hash = self_hashable_json

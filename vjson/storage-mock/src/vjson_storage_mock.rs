@@ -6,7 +6,7 @@ use vjson_store::{AlreadyExistsPolicy, Error, Result, VJSONRecord};
 
 #[derive(Clone)]
 pub struct VJSONStorageMock {
-    vjson_record_ml: Arc<RwLock<HashMap<selfhash::KERIHash, VJSONRecord>>>,
+    vjson_record_ml: Arc<RwLock<HashMap<mbx::MBHash, VJSONRecord>>>,
 }
 
 impl VJSONStorageMock {
@@ -65,7 +65,7 @@ impl vjson_store::VJSONStorage for VJSONStorageMock {
     async fn get_vjson_str(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        self_hash: &selfhash::KERIHashStr,
+        self_hash: &mbx::MBHashStr,
     ) -> Result<VJSONRecord> {
         tracing::debug!("VJSONStorageMock::get_vjson_str({})", self_hash);
         let vjson_record_mg = self.vjson_record_ml.read().unwrap();

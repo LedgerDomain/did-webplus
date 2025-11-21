@@ -9,6 +9,5 @@ pub struct VerificationMethodRecord {
     // pub key_purpose_s: HashSet<KeyPurpose>,
     pub key_purpose_flags: KeyPurposeFlags,
     /// Specifies the pub key itself.
-    // TODO: Should this be pub JWK, since that's what represented in the DID doc's verification method itself?
-    pub pub_key: selfsign::KERIVerifier,
+    pub pub_key: mbx::MBPubKey,
 }

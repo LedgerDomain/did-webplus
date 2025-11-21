@@ -3,7 +3,7 @@
 SHELL = bash
 
 export VDR_PROJECT_NAME = did-webplus-vdr
-export VDR_CONTAINER_NAME = fancy.net
+export VDR_CONTAINER_NAME = dockerized.vdr.local
 
 help:
 	@echo "Please use 'make <target>' where <target> is one of the following:"

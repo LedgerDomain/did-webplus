@@ -1,34 +1,22 @@
-use crate::{DIDStr, Error, DID_KEY_ED25519_PREFIX, DID_KEY_SECP256K1_PREFIX};
-use pneutype::Validate;
+use crate::{DIDStr, Error};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(as_pneu_str = "as_did_key_str", borrow = "DIDStr")]
 #[cfg_attr(feature = "serde", pneu_string(deserialize, serialize))]
 pub struct DID(String);
 
-impl TryFrom<&selfsign::VerifierBytes<'_>> for DID {
+impl TryFrom<&mbx::MBPubKeyStr> for DID {
     type Error = Error;
-    fn try_from(verifier_bytes: &selfsign::VerifierBytes<'_>) -> Result<Self, Self::Error> {
-        // Create the byte array that has the two prefix bytes.
-        let mut byte_v = Vec::with_capacity(2 + verifier_bytes.verifying_key_byte_v.len());
-        match verifier_bytes.key_type {
-            selfsign::KeyType::Ed25519 => {
-                byte_v.extend_from_slice(&DID_KEY_ED25519_PREFIX);
-                byte_v.extend_from_slice(&verifier_bytes.verifying_key_byte_v);
-            }
-            selfsign::KeyType::Secp256k1 => {
-                byte_v.extend_from_slice(&DID_KEY_SECP256K1_PREFIX);
-                byte_v.extend_from_slice(&verifier_bytes.verifying_key_byte_v);
-            }
-        }
-        let did_key_string = format!(
-            "did:key:{}",
-            multibase::encode(multibase::Base::Base58Btc, byte_v)
-        );
-        debug_assert!(
-            DIDStr::validate(&did_key_string).is_ok(),
-            "programmer error"
-        );
-        Ok(Self(did_key_string))
+    fn try_from(pub_key: &mbx::MBPubKeyStr) -> Result<Self, Self::Error> {
+        Ok(Self(format!("did:key:{}", pub_key.as_str())))
+    }
+}
+
+impl TryFrom<&signature_dyn::VerifierBytes<'_>> for DID {
+    type Error = Error;
+    fn try_from(verifier_bytes: &signature_dyn::VerifierBytes<'_>) -> Result<Self, Self::Error> {
+        let pub_key = mbx::MBPubKey::try_from_verifier_bytes(mbx::Base::Base58Btc, verifier_bytes)
+            .map_err(|e| anyhow::anyhow!("could not decode verifier bytes: {}", e))?;
+        Ok(Self(format!("did:key:{}", pub_key.as_str())))
     }
 }
