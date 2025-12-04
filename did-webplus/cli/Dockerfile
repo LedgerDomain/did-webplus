@@ -20,7 +20,7 @@ ADD Cargo.toml .
 ADD . .
 
 # This is either "release" or "debug"
-ARG RELEASE_TYPE="debug"
+ARG RELEASE_TYPE="release"
 ARG CARGO_BUILD_ARGS=""
 
 # Build for release or debug, and make sure it builds...
