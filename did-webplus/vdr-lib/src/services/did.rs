@@ -355,7 +355,7 @@ async fn send_vdg_updates(
         update_url.path_segments_mut().unwrap().push("update");
         // Note that `push` will percent-encode did_query!
         update_url.path_segments_mut().unwrap().push(did.as_str());
-        tracing::info!(
+        tracing::debug!(
             "VDR notifying VDG of DID update (new versionId: {}): {}",
             new_version_id,
             update_url
@@ -365,16 +365,20 @@ async fn send_vdg_updates(
             let result = VDG_CLIENT
                 .post(update_url.as_str())
                 .send()
-                .await
-                .map_err(|err| {
+                .await;
+            match &result {
+                Ok(_) => {
+                    tracing::debug!("success in VDR notifying VDG of DID update (new versionId: {}): {}", new_version_id, update_url);
+                }
+                Err(err) => {
                     tracing::error!(
                         "error in VDR notifying VDG of DID update (new versionId: {}): {}; error was: {}",
                         new_version_id,
                         update_url,
                         err
                     );
-                    err
-                });
+                }
+            }
             (update_url, result)
         });
     }
