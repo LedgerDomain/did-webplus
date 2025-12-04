@@ -55,9 +55,10 @@ EXPOSE 80
 # Curl is needed for docker-compose healthcheck.
 # OpenSSL is needed for root certs.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl openssl \
+    && apt-get install -y --no-install-recommends ca-certificates curl openssl \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
 
 # Then copy in our pre-built app
 COPY --from=builder /usr/local/bin/did-webplus-vdr /usr/local/bin/

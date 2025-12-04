@@ -55,7 +55,9 @@ FROM debian:bookworm-slim AS runtime
 # curl: HTTP request tool
 # jq: JSON parser
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl nmap curl jq
+    && apt-get install -y --no-install-recommends ca-certificates curl openssl nmap jq \
+    && update-ca-certificates
+
 # TEMP HACK: don't apt-get clear or delete the lists, so that it's possible to
 # apt-get install more packages that are useful for development/debugging.  The
 # production docker image will clean and delete, and maybe not include nmap, curl, jq, etc.
