@@ -1,4 +1,4 @@
-use did_webplus_core::{DIDStr, HTTPHeadersFor, HTTPSchemeOverride};
+use did_webplus_core::{DIDStr, HTTPHeadersFor, HTTPOptions, HTTPSchemeOverride};
 use reqwest::StatusCode;
 use std::borrow::Cow;
 
@@ -141,15 +141,13 @@ async fn http_get_range_bytes(
 pub async fn fetch_did_documents_jsonl_update(
     did: &DIDStr,
     vdg_base_url_o: Option<&url::Url>,
-    http_headers_for_o: Option<&HTTPHeadersFor>,
-    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    http_options_o: Option<&HTTPOptions>,
     known_did_documents_jsonl_octet_length: u64,
 ) -> HTTPResult<String> {
     tracing::trace!(
         ?did,
         ?vdg_base_url_o,
-        ?http_headers_for_o,
-        ?http_scheme_override_o,
+        ?http_options_o,
         ?known_did_documents_jsonl_octet_length,
         "fetch_did_documents_jsonl_update"
     );
@@ -158,7 +156,7 @@ pub async fn fetch_did_documents_jsonl_update(
     let did_documents_jsonl_url = if let Some(vdg_base_url) = vdg_base_url_o {
         // Apply the http_scheme_override_o to the vdg_base_url.
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
-            http_scheme_override_o,
+            http_options_o.as_ref().map(|o| &o.http_scheme_override),
             vdg_base_url.host_str().unwrap(),
         )
         .unwrap();
@@ -188,21 +186,23 @@ pub async fn fetch_did_documents_jsonl_update(
             .push("did-documents.jsonl");
         did_documents_jsonl_url
     } else {
-        url::Url::parse(&did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
-            .map_err(|e| HTTPError {
-                status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-                description: format!(
-                    "Failed to parse DID resolution URL for did-documents.jsonl; error was: {}",
-                    e
-                )
-                .into(),
-            })?
+        url::Url::parse(&did.resolution_url_for_did_documents_jsonl(
+            http_options_o.map(|o| &o.http_scheme_override),
+        ))
+        .map_err(|e| HTTPError {
+            status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+            description: format!(
+                "Failed to parse DID resolution URL for did-documents.jsonl; error was: {}",
+                e
+            )
+            .into(),
+        })?
     };
     let did_documents_jsonl_update_r = http_get_range_bytes(
         did,
         &did_documents_jsonl_url,
         known_did_documents_jsonl_octet_length,
-        http_headers_for_o,
+        http_options_o.map(|o| &o.http_headers_for),
     )
     .await;
     let duration = std::time::SystemTime::now()

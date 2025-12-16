@@ -16,6 +16,7 @@ mod did_with_query;
 mod did_with_query_str;
 mod error;
 mod http_headers_for;
+mod http_options;
 mod http_scheme_override;
 mod key_purpose;
 mod key_purpose_flags;
@@ -52,6 +53,7 @@ pub use crate::{
     did_with_query_str::DIDWithQueryStr,
     error::Error,
     http_headers_for::{HTTPHeader, HTTPHeadersFor},
+    http_options::HTTPOptions,
     http_scheme_override::HTTPSchemeOverride,
     key_purpose::KeyPurpose,
     key_purpose_flags::KeyPurposeFlags,

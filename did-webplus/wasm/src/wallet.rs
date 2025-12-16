@@ -1,4 +1,4 @@
-use crate::{HTTPHeadersFor, HTTPSchemeOverride, into_js_value};
+use crate::{HTTPOptions, into_js_value};
 use std::{ops::Deref, sync::Arc};
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
@@ -38,20 +38,14 @@ impl Wallet {
     pub fn create_did(
         &self,
         vdr_did_create_endpoint: String,
-        http_headers_for_o: Option<HTTPHeadersFor>,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
+        http_options_o: Option<HTTPOptions>,
     ) -> js_sys::Promise {
         let wallet = self.clone();
-        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
-        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
+        let http_options_o = http_options_o.map(|o| o.into());
         wasm_bindgen_futures::future_to_promise(async move {
             let controlled_did = wallet
                 .deref()
-                .create_did(
-                    vdr_did_create_endpoint.as_str(),
-                    http_headers_for_o.as_ref(),
-                    http_scheme_override_o.as_ref(),
-                )
+                .create_did(vdr_did_create_endpoint.as_str(), http_options_o.as_ref())
                 .await
                 .map_err(into_js_value)?;
             let did = controlled_did.did();
@@ -61,24 +55,16 @@ impl Wallet {
     }
     /// Retrieve all DID document updates for the given DID from the VDR, verify them, and store the latest DID document.
     // TODO: Figure out how to update any other local doc stores.
-    pub fn fetch_did(
-        &self,
-        did: String,
-        http_headers_for_o: Option<HTTPHeadersFor>,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
-    ) -> js_sys::Promise {
+    pub fn fetch_did(&self, did: String, http_options_o: Option<HTTPOptions>) -> js_sys::Promise {
         let wallet = self.clone();
-        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
-        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
+        let http_options_o = http_options_o.map(|o| o.into());
+        // let http_headers_for_o = http_headers_for_o.map(|o| o.into());
+        // let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         wasm_bindgen_futures::future_to_promise(async move {
             let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
             wallet
                 .deref()
-                .fetch_did(
-                    did,
-                    http_headers_for_o.as_ref(),
-                    http_scheme_override_o.as_ref(),
-                )
+                .fetch_did(did, http_options_o.as_ref())
                 .await
                 .map_err(into_js_value)?;
             Ok(JsValue::NULL)
@@ -89,24 +75,16 @@ impl Wallet {
     /// only if there are other wallets that control this DID and that have updated the DID document since the last
     /// time this wallet updated the DID document.  Returns the fully qualified DID corresponding to the updated
     /// DID doc (i.e. the DID with selfHash and versionId query params).
-    pub fn update_did(
-        &self,
-        did: String,
-        http_headers_for_o: Option<HTTPHeadersFor>,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
-    ) -> js_sys::Promise {
+    pub fn update_did(&self, did: String, http_options_o: Option<HTTPOptions>) -> js_sys::Promise {
         let wallet = self.clone();
-        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
-        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
+        let http_options_o = http_options_o.map(|o| o.into());
+        // let http_headers_for_o = http_headers_for_o.map(|o| o.into());
+        // let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         wasm_bindgen_futures::future_to_promise(async move {
             let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
             let controlled_did = wallet
                 .deref()
-                .update_did(
-                    did,
-                    http_headers_for_o.as_ref(),
-                    http_scheme_override_o.as_ref(),
-                )
+                .update_did(did, http_options_o.as_ref())
                 .await
                 .map_err(into_js_value)?;
             tracing::debug!("updated DID: {}", controlled_did);
@@ -120,21 +98,15 @@ impl Wallet {
     pub fn deactivate_did(
         &self,
         did: String,
-        http_headers_for_o: Option<HTTPHeadersFor>,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
+        http_options_o: Option<HTTPOptions>,
     ) -> js_sys::Promise {
         let wallet = self.clone();
-        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
-        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
+        let http_options_o = http_options_o.map(|o| o.into());
         wasm_bindgen_futures::future_to_promise(async move {
             let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
             let controlled_did = wallet
                 .deref()
-                .deactivate_did(
-                    did,
-                    http_headers_for_o.as_ref(),
-                    http_scheme_override_o.as_ref(),
-                )
+                .deactivate_did(did, http_options_o.as_ref())
                 .await
                 .map_err(into_js_value)?;
             tracing::debug!("deactivated DID: {}", controlled_did);

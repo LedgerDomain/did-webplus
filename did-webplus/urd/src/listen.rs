@@ -69,8 +69,10 @@ impl Listen {
         let did_resolver_full = did_webplus_urd_lib::create_did_resolver_full(
             &self.database_url,
             self.vdg_host_o.as_deref(),
-            Some(self.http_headers_for),
-            Some(self.http_scheme_override),
+            Some(did_webplus_core::HTTPOptions {
+                http_headers_for: self.http_headers_for,
+                http_scheme_override: self.http_scheme_override,
+            }),
         )
         .await?;
 

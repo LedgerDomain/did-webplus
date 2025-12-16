@@ -42,11 +42,13 @@ impl DIDResolve {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
 
-        let http_headers_for_o = Some(self.http_headers_args.http_headers_for);
-        let http_scheme_override_o = Some(self.http_scheme_override_args.http_scheme_override);
+        let http_options_o = Some(did_webplus_core::HTTPOptions {
+            http_headers_for: self.http_headers_args.http_headers_for.clone(),
+            http_scheme_override: self.http_scheme_override_args.http_scheme_override.clone(),
+        });
         let did_resolver_b = self
             .did_resolver_args
-            .get_did_resolver(http_headers_for_o, http_scheme_override_o)
+            .get_did_resolver(http_options_o)
             .await?;
         let did_resolution_options = self
             .did_resolution_options_args

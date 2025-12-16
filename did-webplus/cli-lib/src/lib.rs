@@ -286,14 +286,12 @@ pub async fn vjson_verify(
 pub async fn wallet_did_create(
     wallet: &dyn did_webplus_wallet::Wallet,
     vdr_did_create_endpoint: &str,
-    http_headers_for_o: Option<&did_webplus_core::HTTPHeadersFor>,
-    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    http_options_o: Option<&did_webplus_core::HTTPOptions>,
 ) -> Result<did_webplus_core::DIDFullyQualified> {
     Ok(wallet
         .create_did(
             vdr_did_create_endpoint,
-            http_headers_for_o,
-            http_scheme_override_o,
+            http_options_o,
         )
         .await?)
 }
@@ -301,11 +299,10 @@ pub async fn wallet_did_create(
 pub async fn wallet_did_update(
     wallet: &dyn did_webplus_wallet::Wallet,
     did: &did_webplus_core::DIDStr,
-    http_headers_for_o: Option<&did_webplus_core::HTTPHeadersFor>,
-    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    http_options_o: Option<&did_webplus_core::HTTPOptions>,
 ) -> Result<did_webplus_core::DIDFullyQualified> {
     Ok(wallet
-        .update_did(&did, http_headers_for_o, http_scheme_override_o)
+        .update_did(&did, http_options_o)
         .await?)
 }
 

@@ -37,7 +37,12 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
     let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
         .with_override(vdr_config.did_hostname.clone(), "http")
         .unwrap();
-    let vdr_scheme = http_scheme_override
+    let http_options = did_webplus_core::HTTPOptions {
+        http_headers_for,
+        http_scheme_override,
+    };
+    let vdr_scheme = http_options
+        .http_scheme_override
         .determine_http_scheme_for_host(&vdr_config.did_hostname)
         .unwrap();
     let vdr_did_create_endpoint = format!(
@@ -48,18 +53,14 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
     use did_webplus_wallet::Wallet;
 
     let controlled_did = software_wallet
-        .create_did(
-            vdr_did_create_endpoint.as_str(),
-            Some(&http_headers_for),
-            Some(&http_scheme_override),
-        )
+        .create_did(vdr_did_create_endpoint.as_str(), Some(&http_options))
         .await
         .expect("pass");
     let did = controlled_did.did();
     tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 
     let controlled_did = software_wallet
-        .update_did(&did, Some(&http_headers_for), Some(&http_scheme_override))
+        .update_did(&did, Some(&http_options))
         .await
         .expect("pass");
     tracing::debug!("updated DID: {}", controlled_did);

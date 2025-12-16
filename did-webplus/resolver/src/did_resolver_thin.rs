@@ -1,5 +1,5 @@
 use did_webplus_core::{
-    DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, HTTPHeadersFor,
+    DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, HTTPHeadersFor, HTTPOptions,
     HTTPSchemeOverride,
 };
 
@@ -17,14 +17,10 @@ pub struct DIDResolverThin {
 }
 
 impl DIDResolverThin {
-    pub fn new(
-        vdg_host: &str,
-        http_headers_for_o: Option<HTTPHeadersFor>,
-        http_scheme_override_o: Option<&HTTPSchemeOverride>,
-    ) -> Result<Self> {
+    pub fn new(vdg_host: &str, http_options_o: Option<HTTPOptions>) -> Result<Self> {
         // Set the HTTP scheme appropriately.
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
-            http_scheme_override_o,
+            http_options_o.as_ref().map(|o| &o.http_scheme_override),
             vdg_host,
         )
         .map_err(|e| Error::MalformedVDGHost(e.to_string().into()))?;
@@ -52,7 +48,7 @@ impl DIDResolverThin {
         tracing::debug!("VDG base URL: {}", vdg_base_url);
         Ok(Self {
             vdg_base_url,
-            http_headers_for_o,
+            http_headers_for_o: http_options_o.map(|o| o.http_headers_for),
         })
     }
 }

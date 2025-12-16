@@ -24,15 +24,16 @@ impl WalletDIDCreate {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
         let wallet = self.wallet_args.open_wallet().await?;
-        let http_headers_for_o = Some(self.http_headers_args.http_headers_for);
-        let http_scheme_override_o = Some(self.http_scheme_override_args.http_scheme_override);
+        let http_options_o = Some(did_webplus_core::HTTPOptions {
+            http_headers_for: self.http_headers_args.http_headers_for.clone(),
+            http_scheme_override: self.http_scheme_override_args.http_scheme_override.clone(),
+        });
 
         // Do the processing
         let created_did = did_webplus_cli_lib::wallet_did_create(
             &wallet,
             self.vdr_did_create_endpoint.as_str(),
-            http_headers_for_o.as_ref(),
-            http_scheme_override_o.as_ref(),
+            http_options_o.as_ref(),
         )
         .await?;
 

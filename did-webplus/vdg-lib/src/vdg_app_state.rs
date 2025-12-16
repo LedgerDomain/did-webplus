@@ -3,8 +3,6 @@ use crate::VDGConfig;
 #[derive(Clone)]
 pub struct VDGAppState {
     pub did_doc_store: did_webplus_doc_store::DIDDocStore,
-    // pub http_headers_for_o: Option<did_webplus_core::HTTPHeadersFor>,
-    // pub http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
     pub vdg_config: VDGConfig,
 }
 

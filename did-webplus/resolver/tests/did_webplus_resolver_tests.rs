@@ -218,7 +218,7 @@ async fn test_did_resolver() {
     // Create a DID.
     use did_webplus_wallet::Wallet;
     let mut controlled_did = software_wallet
-        .create_did(services.vdr_url.as_str(), None, None)
+        .create_did(services.vdr_url.as_str(), None)
         .await
         .expect("pass");
     let did = controlled_did.did().to_owned();
@@ -242,7 +242,6 @@ async fn test_did_resolver() {
                 did_doc_store,
                 vdg_host_o.as_deref(),
                 None,
-                None,
             )
             .unwrap();
             did_resolver_full_m.insert(vdg_host_o, did_resolver_full);
@@ -261,10 +260,7 @@ async fn test_did_resolver() {
         // Start a timer just to see how long it takes to create the DID and update it many times.
         let time_start = std::time::SystemTime::now();
         for _ in 0..update_count {
-            controlled_did = software_wallet
-                .update_did(&did, None, None)
-                .await
-                .expect("pass");
+            controlled_did = software_wallet.update_did(&did, None).await.expect("pass");
         }
         // Stop the timer.
         let duration = std::time::SystemTime::now()
@@ -327,7 +323,7 @@ async fn test_did_resolver() {
         // Now to test DIDResolverThin:
         {
             let did_resolver_thin =
-                did_webplus_resolver::DIDResolverThin::new(services.vdg_host(), None, None)
+                did_webplus_resolver::DIDResolverThin::new(services.vdg_host(), None)
                     .expect("pass");
 
             // Start the timer
@@ -379,11 +375,11 @@ async fn create_did_resolver_full(
             .await
             .expect("pass");
     let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
-    did_webplus_resolver::DIDResolverFull::new(did_doc_store, vdg_host_o, None, None).expect("pass")
+    did_webplus_resolver::DIDResolverFull::new(did_doc_store, vdg_host_o, None).expect("pass")
 }
 
 async fn create_did_resolver_thin(vdg_host: &str) -> did_webplus_resolver::DIDResolverThin {
-    did_webplus_resolver::DIDResolverThin::new(vdg_host, None, None).expect("pass")
+    did_webplus_resolver::DIDResolverThin::new(vdg_host, None).expect("pass")
 }
 
 async fn test_did_resolver_impl(
@@ -396,7 +392,7 @@ async fn test_did_resolver_impl(
     // Create a DID.
     use did_webplus_wallet::Wallet;
     let controlled_did_0 = software_wallet
-        .create_did(services.vdr_url.as_str(), None, None)
+        .create_did(services.vdr_url.as_str(), None)
         .await
         .expect("pass");
     let did = controlled_did_0.did().to_owned();
@@ -641,10 +637,7 @@ async fn test_did_resolver_impl(
     }
 
     // Update the DID so that resolution produces different results.
-    let controlled_did_1 = software_wallet
-        .update_did(&did, None, None)
-        .await
-        .expect("pass");
+    let controlled_did_1 = software_wallet.update_did(&did, None).await.expect("pass");
     tracing::info!(
         "Updated DID: {} (fully qualified: {})",
         did,
@@ -883,7 +876,7 @@ async fn test_did_resolver_impl(
 
     // Deactivate the DID.  This changes what metadata can be resolved locally.
     let controlled_did_2 = software_wallet
-        .deactivate_did(&did, None, None)
+        .deactivate_did(&did, None)
         .await
         .expect("pass");
     tracing::info!(

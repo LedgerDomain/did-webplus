@@ -88,7 +88,7 @@ async fn test_vdr_wallet_operations_impl(
             // This just doesn't match the VDR's test API key
             reqwest::header::HeaderValue::from_static("i am so bad"),
         );
-        bad_header_map_v.push(reqwest::header::HeaderMap::new());
+        bad_header_map_v.push(bad_header_map);
 
         let mut bad_header_map = reqwest::header::HeaderMap::new();
         bad_header_map.insert(
