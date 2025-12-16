@@ -4,7 +4,6 @@ use crate::{DIDDocStoreArgs, Result};
 pub enum DIDResolverType {
     Full,
     Thin,
-    Raw,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -83,12 +82,6 @@ impl DIDResolverArgs {
                     &vdg_host,
                     http_options_o,
                 )?))
-            }
-            DIDResolverType::Raw => {
-                // No extra validation needed.
-                Ok(Box::new(did_webplus_resolver::DIDResolverRaw {
-                    http_options_o,
-                }))
             }
         }
     }

@@ -37,14 +37,6 @@ impl DIDResolver {
                 .map_err(into_js_value)?;
         Ok(Self(Arc::new(did_resolver_thin)))
     }
-    /// Create a "raw" DIDResolver that bypasses all verification and only fetches DID documents.
-    /// This is only meant for testing/development and should never be used in production.
-    pub fn new_raw(http_options_o: Option<HTTPOptions>) -> Result<Self> {
-        let did_resolver_raw = did_webplus_resolver::DIDResolverRaw {
-            http_options_o: http_options_o.map(|o| o.into()),
-        };
-        Ok(Self(Arc::new(did_resolver_raw)))
-    }
 }
 
 impl std::ops::Deref for DIDResolver {
