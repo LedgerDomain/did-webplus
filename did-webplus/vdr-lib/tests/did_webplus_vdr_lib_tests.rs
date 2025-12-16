@@ -10,6 +10,8 @@ fn overall_init() {
     test_util::ctor_overall_init();
 }
 
+const TEST_AUTHZ_API_KEY: &str = "spam spam spam spam spam! wonderful spam! lovely spam!";
+
 // TODO: Maybe make separate sqlite and postgres versions of this test?
 #[tokio::test]
 async fn test_vdr_operations() {
@@ -26,6 +28,10 @@ async fn test_vdr_operations() {
         database_max_connections: 10,
         vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
+        test_authz_api_key_vo: Some(vec![
+            TEST_AUTHZ_API_KEY.to_string(),
+            "other test api key".to_string(),
+        ]),
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
@@ -65,6 +71,44 @@ async fn test_vdr_wallet_operations_impl(
     did_port_o: Option<u16>,
     use_path: bool,
 ) {
+    // Create the HTTP header map with the test API key.
+    let mut header_map = reqwest::header::HeaderMap::new();
+    header_map.insert(
+        reqwest::header::HeaderName::from_static("x-api-key"),
+        reqwest::header::HeaderValue::from_static(TEST_AUTHZ_API_KEY),
+    );
+
+    // Create some HTTP header maps with bad test API keys.
+    let bad_header_map_v = {
+        let mut bad_header_map_v = Vec::new();
+
+        let mut bad_header_map = reqwest::header::HeaderMap::new();
+        bad_header_map.insert(
+            reqwest::header::HeaderName::from_static("x-api-key"),
+            // This just doesn't match the VDR's test API key
+            reqwest::header::HeaderValue::from_static("i am so bad"),
+        );
+        bad_header_map_v.push(reqwest::header::HeaderMap::new());
+
+        let mut bad_header_map = reqwest::header::HeaderMap::new();
+        bad_header_map.insert(
+            reqwest::header::HeaderName::from_static("x-api-key"),
+            // This trims to an empty string
+            reqwest::header::HeaderValue::from_static("   "),
+        );
+        bad_header_map_v.push(bad_header_map);
+
+        let mut bad_header_map = reqwest::header::HeaderMap::new();
+        bad_header_map.insert(
+            reqwest::header::HeaderName::from_static("x-api-key"),
+            // This is not an ASCII string
+            reqwest::header::HeaderValue::from_bytes(b"\xFF").unwrap(),
+        );
+        bad_header_map_v.push(bad_header_map);
+
+        bad_header_map_v
+    };
+
     let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
         .with_override(vdr_hostname.to_string(), "http")
         .expect("pass");
@@ -93,6 +137,7 @@ async fn test_vdr_wallet_operations_impl(
     } else {
         None
     };
+
     let alice_did = alice_wallet
         .create_did(vdr_hostname.to_string(), did_port_o, did_path_o)
         .expect("pass");
@@ -114,13 +159,35 @@ async fn test_vdr_wallet_operations_impl(
             .latest_did_document();
         let alice_did_document_jcs = alice_did_document.serialize_canonically().expect("pass");
         tracing::debug!(
+            "first, issuing some unauthorized requests to test test-authz-api-keys functionality"
+        );
+        // First verify that the VDR rejects requests with bad test API keys.
+        for bad_header_map in bad_header_map_v.iter() {
+            let status = test_util::REQWEST_CLIENT
+                .post(&alice_did_documents_jsonl_url)
+                .headers(bad_header_map.clone())
+                .body(alice_did_document_jcs.clone())
+                .send()
+                .await
+                .expect("pass")
+                .status();
+            assert!(
+                status == reqwest::StatusCode::UNAUTHORIZED
+                    || status == reqwest::StatusCode::BAD_REQUEST,
+                "expected UNAUTHORIZED or BAD_REQUEST status, got {:?}",
+                status
+            );
+        }
+
+        tracing::debug!(
             "Alice's latest DID document (HTTP POST-ing DID document to VDR): {}",
             alice_did_document_jcs
         );
         assert_eq!(
             test_util::REQWEST_CLIENT
                 .post(&alice_did_documents_jsonl_url)
-                .body(alice_did_document_jcs)
+                .headers(header_map.clone())
+                .body(alice_did_document_jcs.clone())
                 .send()
                 .await
                 .expect("pass")
@@ -155,10 +222,33 @@ async fn test_vdr_wallet_operations_impl(
                 "Alice's latest DID document (HTTP PUT-ing DID document to VDR): {}",
                 alice_did_document_jcs
             );
+
+            // First verify that the VDR rejects requests with bad test API keys.
+            tracing::debug!(
+                "issuing some unauthorized requests to test test-authz-api-keys functionality"
+            );
+            for bad_header_map in bad_header_map_v.iter() {
+                let status = test_util::REQWEST_CLIENT
+                    .put(&alice_did_documents_jsonl_url)
+                    .headers(bad_header_map.clone())
+                    .body(alice_did_document_jcs.clone())
+                    .send()
+                    .await
+                    .expect("pass")
+                    .status();
+                assert!(
+                    status == reqwest::StatusCode::UNAUTHORIZED
+                        || status == reqwest::StatusCode::BAD_REQUEST,
+                    "expected UNAUTHORIZED or BAD_REQUEST status, got {:?}",
+                    status
+                );
+            }
+
             // Fetch all DID documents for this DID again.
             assert_eq!(
                 test_util::REQWEST_CLIENT
                     .put(&alice_did_documents_jsonl_url)
+                    .headers(header_map.clone())
                     .body(alice_did_document_jcs)
                     .send()
                     .await

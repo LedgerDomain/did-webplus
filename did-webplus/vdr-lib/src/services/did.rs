@@ -164,10 +164,13 @@ async fn get_did_document_jsonl_impl(
 #[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]
 async fn create_did(
     State(vdr_app_state): State<VDRAppState>,
+    header_map: HeaderMap,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
+
+    vdr_app_state.verify_authorization(&header_map)?;
 
     let did = DID::from_did_documents_jsonl_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),
@@ -238,10 +241,13 @@ async fn create_did(
 #[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]
 async fn update_did(
     State(vdr_app_state): State<VDRAppState>,
+    header_map: HeaderMap,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
+
+    vdr_app_state.verify_authorization(&header_map)?;
 
     let did = DID::from_did_documents_jsonl_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),

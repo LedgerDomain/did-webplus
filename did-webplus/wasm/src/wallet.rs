@@ -1,6 +1,6 @@
-use crate::{into_js_value, HTTPSchemeOverride};
+use crate::{HTTPHeadersFor, HTTPSchemeOverride, into_js_value};
 use std::{ops::Deref, sync::Arc};
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 #[wasm_bindgen]
 #[derive(Clone)]
@@ -38,15 +38,18 @@ impl Wallet {
     pub fn create_did(
         &self,
         vdr_did_create_endpoint: String,
+        http_headers_for_o: Option<HTTPHeadersFor>,
         http_scheme_override_o: Option<HTTPSchemeOverride>,
     ) -> js_sys::Promise {
         let wallet = self.clone();
+        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
         let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         wasm_bindgen_futures::future_to_promise(async move {
             let controlled_did = wallet
                 .deref()
                 .create_did(
                     vdr_did_create_endpoint.as_str(),
+                    http_headers_for_o.as_ref(),
                     http_scheme_override_o.as_ref(),
                 )
                 .await
@@ -61,15 +64,21 @@ impl Wallet {
     pub fn fetch_did(
         &self,
         did: String,
+        http_headers_for_o: Option<HTTPHeadersFor>,
         http_scheme_override_o: Option<HTTPSchemeOverride>,
     ) -> js_sys::Promise {
         let wallet = self.clone();
+        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
         let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         wasm_bindgen_futures::future_to_promise(async move {
             let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
             wallet
                 .deref()
-                .fetch_did(did, http_scheme_override_o.as_ref())
+                .fetch_did(
+                    did,
+                    http_headers_for_o.as_ref(),
+                    http_scheme_override_o.as_ref(),
+                )
                 .await
                 .map_err(into_js_value)?;
             Ok(JsValue::NULL)
@@ -83,18 +92,52 @@ impl Wallet {
     pub fn update_did(
         &self,
         did: String,
+        http_headers_for_o: Option<HTTPHeadersFor>,
         http_scheme_override_o: Option<HTTPSchemeOverride>,
     ) -> js_sys::Promise {
         let wallet = self.clone();
+        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
         let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         wasm_bindgen_futures::future_to_promise(async move {
             let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
             let controlled_did = wallet
                 .deref()
-                .update_did(did, http_scheme_override_o.as_ref())
+                .update_did(
+                    did,
+                    http_headers_for_o.as_ref(),
+                    http_scheme_override_o.as_ref(),
+                )
                 .await
                 .map_err(into_js_value)?;
             tracing::debug!("updated DID: {}", controlled_did);
+            Ok(controlled_did.to_string().into())
+        })
+    }
+    /// Deactivate a locally-controlled DID by removing all verification methods from the DID document
+    /// and setting its update rules to UpdatesDisallowed.  Returns the fully qualified DID corresponding
+    /// to the updated DID document.  Note that this is an extremely irreversible action; the DID can't
+    /// ever be updated again.
+    pub fn deactivate_did(
+        &self,
+        did: String,
+        http_headers_for_o: Option<HTTPHeadersFor>,
+        http_scheme_override_o: Option<HTTPSchemeOverride>,
+    ) -> js_sys::Promise {
+        let wallet = self.clone();
+        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
+        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
+        wasm_bindgen_futures::future_to_promise(async move {
+            let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
+            let controlled_did = wallet
+                .deref()
+                .deactivate_did(
+                    did,
+                    http_headers_for_o.as_ref(),
+                    http_scheme_override_o.as_ref(),
+                )
+                .await
+                .map_err(into_js_value)?;
+            tracing::debug!("deactivated DID: {}", controlled_did);
             Ok(controlled_did.to_string().into())
         })
     }

@@ -1,4 +1,4 @@
-use crate::{into_js_value, DIDDocStore, HTTPSchemeOverride, Result};
+use crate::{DIDDocStore, HTTPHeadersFor, HTTPSchemeOverride, Result, into_js_value};
 use std::sync::Arc;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -20,11 +20,13 @@ impl DIDResolver {
     pub fn new_full(
         did_doc_store: DIDDocStore,
         vdg_host_o: Option<String>,
+        http_headers_for_o: Option<HTTPHeadersFor>,
         http_scheme_override_o: Option<HTTPSchemeOverride>,
     ) -> Result<Self> {
         let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
             did_doc_store.into_inner(),
             vdg_host_o.as_deref(),
+            http_headers_for_o.map(|o| o.into()),
             http_scheme_override_o.map(|o| o.into()),
         )
         .map_err(into_js_value)?;
@@ -33,12 +35,17 @@ impl DIDResolver {
     /// Create a "thin" DIDResolver that operates against the given trusted VDG.
     pub fn new_thin(
         vdg_host: &str,
+        http_headers_for_o: Option<HTTPHeadersFor>,
         http_scheme_override_o: Option<HTTPSchemeOverride>,
     ) -> Result<Self> {
+        let http_headers_for_o = http_headers_for_o.map(|o| o.into());
         let http_scheme_override_o = http_scheme_override_o.map(|o| o.into());
-        let did_resolver_thin =
-            did_webplus_resolver::DIDResolverThin::new(vdg_host, http_scheme_override_o.as_ref())
-                .map_err(into_js_value)?;
+        let did_resolver_thin = did_webplus_resolver::DIDResolverThin::new(
+            vdg_host,
+            http_headers_for_o,
+            http_scheme_override_o.as_ref(),
+        )
+        .map_err(into_js_value)?;
         Ok(Self(Arc::new(did_resolver_thin)))
     }
     /// Create a "raw" DIDResolver that bypasses all verification and only fetches DID documents.

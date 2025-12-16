@@ -277,11 +277,13 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
         database_max_connections: 10,
         vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
+        test_authz_api_key_vo: None,
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
         .expect("pass");
 
+    let http_headers_for_o: Option<&did_webplus_core::HTTPHeadersFor> = None;
     let http_scheme_override_o = None;
     let vdr_scheme = did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_host_from(
         http_scheme_override_o,
@@ -321,6 +323,7 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
         did_webplus_resolver::DIDResolverFull::new(
             did_doc_store,
             None,
+            http_headers_for_o.cloned(),
             http_scheme_override_o.cloned(),
         )
         .unwrap()
@@ -347,6 +350,7 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
     let controlled_did = did_webplus_cli_lib::wallet_did_create(
         &software_wallet,
         &vdr_did_create_endpoint,
+        http_headers_for_o,
         http_scheme_override_o,
     )
     .await
@@ -354,10 +358,14 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
     let did = controlled_did.did();
     tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 
-    let controlled_did =
-        did_webplus_cli_lib::wallet_did_update(&software_wallet, did, http_scheme_override_o)
-            .await
-            .expect("pass");
+    let controlled_did = did_webplus_cli_lib::wallet_did_update(
+        &software_wallet,
+        did,
+        http_headers_for_o,
+        http_scheme_override_o,
+    )
+    .await
+    .expect("pass");
     tracing::debug!("updated DID: {} - fully qualified: {}", did, controlled_did);
 
     let payload = r#"{"splunge": true}"#;
@@ -429,11 +437,13 @@ async fn test_wallet_did_sign_vjson_verify() {
         database_max_connections: 10,
         vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
+        test_authz_api_key_vo: None,
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
         .expect("pass");
 
+    let http_headers_for_o: Option<&did_webplus_core::HTTPHeadersFor> = None;
     let http_scheme_override_o = None;
     let vdr_scheme = did_webplus_core::HTTPSchemeOverride::determine_http_scheme_for_host_from(
         http_scheme_override_o,
@@ -473,6 +483,7 @@ async fn test_wallet_did_sign_vjson_verify() {
         did_webplus_resolver::DIDResolverFull::new(
             did_doc_store,
             None,
+            http_headers_for_o.cloned(),
             http_scheme_override_o.cloned(),
         )
         .unwrap()
@@ -499,6 +510,7 @@ async fn test_wallet_did_sign_vjson_verify() {
     let controlled_did = did_webplus_cli_lib::wallet_did_create(
         &software_wallet,
         &vdr_did_create_endpoint,
+        http_headers_for_o,
         http_scheme_override_o,
     )
     .await

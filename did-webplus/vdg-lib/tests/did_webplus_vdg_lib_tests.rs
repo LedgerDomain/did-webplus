@@ -11,6 +11,8 @@ fn overall_init() {
     test_util::ctor_overall_init();
 }
 
+const TEST_AUTHZ_API_KEY: &str = "it's.....";
+
 // const CACHE_DAYS: u64 = 365;
 
 fn test_cache_headers(headers: &reqwest::header::HeaderMap, did_document: &DIDDocument) {
@@ -47,7 +49,12 @@ async fn test_vdg_operations() {
         listen_port: 10086,
         database_url: "postgres:///test_vdg_operations_vdg".to_string(),
         database_max_connections: 10,
+        http_headers_for: Default::default(),
         http_scheme_override: Default::default(),
+        test_authz_api_key_vo: Some(vec![
+            TEST_AUTHZ_API_KEY.to_string(),
+            "yet another test api key".to_string(),
+        ]),
     };
     let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
         .await
@@ -63,6 +70,7 @@ async fn test_vdg_operations() {
         database_max_connections: 10,
         vdg_base_url_v: vec![vdg_base_url.clone()],
         http_scheme_override: Default::default(),
+        test_authz_api_key_vo: None,
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
@@ -110,6 +118,44 @@ async fn test_vdg_wallet_operations_impl(
     vdr_did_port_o: Option<u16>,
     use_path: bool,
 ) {
+    // Create the HTTP header map with the test API key.
+    let mut header_map = reqwest::header::HeaderMap::new();
+    header_map.insert(
+        reqwest::header::HeaderName::from_static("x-api-key"),
+        reqwest::header::HeaderValue::from_static(TEST_AUTHZ_API_KEY),
+    );
+
+    // Create some HTTP header maps with bad test API keys.
+    let bad_header_map_v = {
+        let mut bad_header_map_v = Vec::new();
+
+        let mut bad_header_map = reqwest::header::HeaderMap::new();
+        bad_header_map.insert(
+            reqwest::header::HeaderName::from_static("x-api-key"),
+            // This just doesn't match the VDR's test API key
+            reqwest::header::HeaderValue::from_static("i am so bad"),
+        );
+        bad_header_map_v.push(reqwest::header::HeaderMap::new());
+
+        let mut bad_header_map = reqwest::header::HeaderMap::new();
+        bad_header_map.insert(
+            reqwest::header::HeaderName::from_static("x-api-key"),
+            // This trims to an empty string
+            reqwest::header::HeaderValue::from_static("   "),
+        );
+        bad_header_map_v.push(bad_header_map);
+
+        let mut bad_header_map = reqwest::header::HeaderMap::new();
+        bad_header_map.insert(
+            reqwest::header::HeaderName::from_static("x-api-key"),
+            // This is not an ASCII string
+            reqwest::header::HeaderValue::from_bytes(b"\xFF").unwrap(),
+        );
+        bad_header_map_v.push(bad_header_map);
+
+        bad_header_map_v
+    };
+
     let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
         .with_override(vdr_hostname.to_string(), "http")
         .expect("pass");
@@ -198,7 +244,24 @@ async fn test_vdg_wallet_operations_impl(
 
     // Simplest test of the VDG for now.
     {
-        let response: reqwest::Response = get_did_response(vdg_base_url, alice_did.as_str()).await;
+        // First, test the bad api keys and make sure they're rejected.
+        tracing::debug!(
+            "issuing some unauthorized requests to test test-authz-api-keys functionality"
+        );
+        for bad_header_map in bad_header_map_v.iter() {
+            let response: reqwest::Response =
+                get_did_response(vdg_base_url, alice_did.as_str(), bad_header_map.clone()).await;
+            let status = response.status();
+            assert!(
+                status == reqwest::StatusCode::UNAUTHORIZED
+                    || status == reqwest::StatusCode::BAD_REQUEST,
+                "expected UNAUTHORIZED or BAD_REQUEST status, got {:?}",
+                status
+            );
+        }
+
+        let response: reqwest::Response =
+            get_did_response(vdg_base_url, alice_did.as_str(), header_map.clone()).await;
         assert_eq!(response.status(), reqwest::StatusCode::OK);
         let response_headers = response.headers().clone();
         let alice_did_document =
@@ -212,7 +275,8 @@ async fn test_vdg_wallet_operations_impl(
         );
     }
     // Run it again to make sure the VDG has cached stuff.
-    let response: reqwest::Response = get_did_response(vdg_base_url, alice_did.as_str()).await;
+    let response: reqwest::Response =
+        get_did_response(vdg_base_url, alice_did.as_str(), header_map.clone()).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     let response_headers = response.headers().clone();
     let alice_did_document =
@@ -227,8 +291,12 @@ async fn test_vdg_wallet_operations_impl(
 
     // Ask for a particular version that the VDG is known to have to see if it hits the VDR.
     let alice_did_version_id_query = format!("{}?versionId=3", alice_did);
-    let response: reqwest::Response =
-        get_did_response(vdg_base_url, &alice_did_version_id_query).await;
+    let response: reqwest::Response = get_did_response(
+        vdg_base_url,
+        &alice_did_version_id_query,
+        header_map.clone(),
+    )
+    .await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     let response_headers = response.headers().clone();
     let alice_did_document =
@@ -252,7 +320,8 @@ async fn test_vdg_wallet_operations_impl(
         .latest_did_document();
     let alice_did_self_hash_query =
         format!("{}?selfHash={}", alice_did, alice_did_document.self_hash);
-    let response = get_did_response(vdg_base_url, &alice_did_self_hash_query).await;
+    let response =
+        get_did_response(vdg_base_url, &alice_did_self_hash_query, header_map.clone()).await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert!(
         response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
@@ -266,7 +335,12 @@ async fn test_vdg_wallet_operations_impl(
         "{}?selfHash={}&versionId={}",
         alice_did, alice_did_document.self_hash, alice_did_document.version_id
     );
-    let response = get_did_response(vdg_base_url, &alice_did_self_hash_version_query).await;
+    let response = get_did_response(
+        vdg_base_url,
+        &alice_did_self_hash_version_query,
+        header_map.clone(),
+    )
+    .await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert!(
         response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
@@ -284,6 +358,7 @@ async fn test_vdg_wallet_operations_impl(
     let response = get_did_response(
         vdg_base_url,
         &alice_did_self_hash_version_inconsistent_query,
+        header_map.clone(),
     )
     .await;
     assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
@@ -291,13 +366,17 @@ async fn test_vdg_wallet_operations_impl(
     // Ask for a particular version that the VDG is known to have, but with a bad selfHash
     // to see if it will return an error.
     let alice_did_bad_query = format!("{}?versionId=3&selfHash=XXXX", alice_did);
-    let response = get_did_response(vdg_base_url, &alice_did_bad_query).await;
+    let response = get_did_response(vdg_base_url, &alice_did_bad_query, header_map.clone()).await;
     assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
 
     // Ask for a particular version that the VDG is known not to have to see if it errors correctly.
     let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
-    let response: reqwest::Response =
-        get_did_response(vdg_base_url, &alice_did_version_id_query).await;
+    let response: reqwest::Response = get_did_response(
+        vdg_base_url,
+        &alice_did_version_id_query,
+        header_map.clone(),
+    )
+    .await;
     assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
 
     // update the did again
@@ -313,8 +392,12 @@ async fn test_vdg_wallet_operations_impl(
 
     // Ask for the new version to see if the VDG has been notified of the update.
     let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
-    let response: reqwest::Response =
-        get_did_response(vdg_base_url, &alice_did_version_id_query).await;
+    let response: reqwest::Response = get_did_response(
+        vdg_base_url,
+        &alice_did_version_id_query,
+        header_map.clone(),
+    )
+    .await;
     assert_eq!(response.status(), reqwest::StatusCode::OK);
     assert_eq!(
         response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
@@ -367,7 +450,11 @@ async fn update_did(
     }
 }
 
-async fn get_did_response(vdg_base_url: &url::Url, did_query: &str) -> reqwest::Response {
+async fn get_did_response(
+    vdg_base_url: &url::Url,
+    did_query: &str,
+    header_map: reqwest::header::HeaderMap,
+) -> reqwest::Response {
     // NOTE: This has to be the same logic as in DIDResolverThin::resolve_did_document_string.
     let mut vdg_resolution_url = vdg_base_url.clone();
     vdg_resolution_url
@@ -387,6 +474,7 @@ async fn get_did_response(vdg_base_url: &url::Url, did_query: &str) -> reqwest::
     tracing::trace!(?vdg_resolution_url, "Checking VDG response for DID query");
     test_util::REQWEST_CLIENT
         .get(vdg_resolution_url.as_str())
+        .headers(header_map)
         .send()
         .await
         .expect("pass")

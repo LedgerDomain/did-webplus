@@ -18,6 +18,7 @@ pub trait Wallet: Send + Sync {
     async fn create_did(
         &self,
         vdr_did_create_endpoint: &str,
+        http_headers_for_o: Option<&did_webplus_core::HTTPHeadersFor>,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<DIDFullyQualified>;
     /// Retrieve all DID document updates for the given DID from the VDR, verify them, and store the latest DID document.
@@ -25,6 +26,7 @@ pub trait Wallet: Send + Sync {
     async fn fetch_did(
         &self,
         did: &DIDStr,
+        http_headers_for_o: Option<&did_webplus_core::HTTPHeadersFor>,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<()>;
     /// Retrieve the latest DID document from the VDR, rotate the key(s) of a locally-controlled DID, update
@@ -35,15 +37,17 @@ pub trait Wallet: Send + Sync {
     async fn update_did(
         &self,
         did: &DIDStr,
+        http_headers_for_o: Option<&did_webplus_core::HTTPHeadersFor>,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<DIDFullyQualified>;
     /// Deactivate a locally-controlled DID by removing all verification methods from the DID document
     /// and setting its update rules to UpdatesDisallowed.  Returns the fully qualified DID corresponding
     /// to the updated DID document.  Note that this is an extremely irreversible action; the DID can't
-    /// ever be updated again
+    /// ever be updated again.
     async fn deactivate_did(
         &self,
         did: &DIDStr,
+        http_headers_for_o: Option<&did_webplus_core::HTTPHeadersFor>,
         http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<DIDFullyQualified>;
 

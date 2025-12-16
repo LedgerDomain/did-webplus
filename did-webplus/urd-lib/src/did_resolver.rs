@@ -4,6 +4,7 @@ use std::sync::Arc;
 pub async fn create_did_resolver_full(
     database_url: &str,
     vdg_host_o: Option<&str>,
+    http_headers_for_o: Option<did_webplus_core::HTTPHeadersFor>,
     http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
 ) -> Result<did_webplus_resolver::DIDResolverFull> {
     let did_doc_store = if database_url.starts_with("postgres://") {
@@ -40,6 +41,7 @@ pub async fn create_did_resolver_full(
     let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
         did_doc_store,
         vdg_host_o.as_deref(),
+        http_headers_for_o,
         http_scheme_override_o,
     )?;
     Ok(did_resolver_full)

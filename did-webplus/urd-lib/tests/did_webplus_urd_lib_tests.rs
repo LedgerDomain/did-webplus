@@ -18,6 +18,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
         database_max_connections: 10,
         vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
+        test_authz_api_key_vo: None,
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await
@@ -26,7 +27,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
 
     let urd_listen_port = 60002;
     let urd_did_resolver_full =
-        did_webplus_urd_lib::create_did_resolver_full("sqlite://:memory:", None, None)
+        did_webplus_urd_lib::create_did_resolver_full("sqlite://:memory:", None, None, None)
             .await
             .expect("pass");
     let urd_handle =
@@ -72,7 +73,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
     // Create a DID.
     use did_webplus_wallet::Wallet;
     let controlled_did = software_wallet
-        .create_did(&vdr_url, None)
+        .create_did(&vdr_url, None, None)
         .await
         .expect("pass");
     let did = controlled_did.did();
@@ -140,7 +141,10 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
 
     // Do a cycle of update_did and resolve via URD.
     for _ in 0..5 {
-        let controlled_did = software_wallet.update_did(did, None).await.expect("pass");
+        let controlled_did = software_wallet
+            .update_did(did, None, None)
+            .await
+            .expect("pass");
         {
             // Get the latest DID document -- this is the expected value.
             use did_webplus_wallet_store::WalletStorage;

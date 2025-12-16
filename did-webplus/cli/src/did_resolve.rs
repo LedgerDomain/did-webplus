@@ -1,5 +1,6 @@
 use crate::{
-    DIDResolutionOptionsArgs, DIDResolverArgs, HTTPSchemeOverrideArgs, NewlineArgs, Result,
+    DIDResolutionOptionsArgs, DIDResolverArgs, HTTPHeadersArgs, HTTPSchemeOverrideArgs,
+    NewlineArgs, Result,
 };
 use std::io::Write;
 
@@ -18,6 +19,8 @@ pub struct DIDResolve {
     pub did_resolver_args: DIDResolverArgs,
     #[command(flatten)]
     pub did_resolution_options_args: DIDResolutionOptionsArgs,
+    #[command(flatten)]
+    pub http_headers_args: HTTPHeadersArgs,
     #[command(flatten)]
     pub http_scheme_override_args: HTTPSchemeOverrideArgs,
     /// If true, print the DID document, DID document metadata, and DID resolution metadata as JSON to stdout.
@@ -38,10 +41,12 @@ pub struct DIDResolve {
 impl DIDResolve {
     pub async fn handle(self) -> Result<()> {
         // Handle CLI args and input
+
+        let http_headers_for_o = Some(self.http_headers_args.http_headers_for);
         let http_scheme_override_o = Some(self.http_scheme_override_args.http_scheme_override);
         let did_resolver_b = self
             .did_resolver_args
-            .get_did_resolver(http_scheme_override_o)
+            .get_did_resolver(http_headers_for_o, http_scheme_override_o)
             .await?;
         let did_resolution_options = self
             .did_resolution_options_args

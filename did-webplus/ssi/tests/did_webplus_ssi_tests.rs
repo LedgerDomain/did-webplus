@@ -63,7 +63,7 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
 ) {
     // Have the wallet create a DID.
     let controlled_did = software_wallet
-        .create_did(vdr_did_create_endpoint, None)
+        .create_did(vdr_did_create_endpoint, None, None)
         .await
         .expect("pass");
     // Get an appropriate signing key.
@@ -128,7 +128,8 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
             .expect("pass");
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
         let did_resolver_full =
-            did_webplus_resolver::DIDResolverFull::new(did_doc_store, None, None).expect("pass");
+            did_webplus_resolver::DIDResolverFull::new(did_doc_store, None, None, None)
+                .expect("pass");
         let did_resolver_a = Arc::new(did_resolver_full);
         did_webplus_ssi::DIDWebplus { did_resolver_a }
     };
@@ -176,7 +177,7 @@ async fn test_ssi_vc_issue_0_impl(
 
     // Have the wallet create a DID.
     let controlled_did = software_wallet
-        .create_did(vdr_did_create_endpoint, None)
+        .create_did(vdr_did_create_endpoint, None, None)
         .await
         .expect("pass");
     // Get an appropriate signing key.
@@ -231,7 +232,8 @@ async fn test_ssi_vc_issue_0_impl(
             .expect("pass");
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
         let did_resolver_full =
-            did_webplus_resolver::DIDResolverFull::new(did_doc_store, None, None).expect("pass");
+            did_webplus_resolver::DIDResolverFull::new(did_doc_store, None, None, None)
+                .expect("pass");
         let did_resolver_a = Arc::new(did_resolver_full);
         did_webplus_ssi::DIDWebplus { did_resolver_a }
     };
@@ -543,7 +545,7 @@ async fn test_ssi_vc_issue_0_impl(
     // branch on the LedgerDomain fork of the ssi crate.
     {
         let _updated_controlled_did = software_wallet
-            .update_did(controlled_did.did(), None)
+            .update_did(controlled_did.did(), None, None)
             .await
             .expect("pass");
         // Verify
@@ -599,6 +601,7 @@ async fn setup_vdr_and_wallet(
         database_max_connections: 10,
         vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
+        test_authz_api_key_vo: None,
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await

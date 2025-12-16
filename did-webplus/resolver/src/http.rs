@@ -1,4 +1,4 @@
-use did_webplus_core::{DIDStr, HTTPSchemeOverride};
+use did_webplus_core::{DIDStr, HTTPHeadersFor, HTTPSchemeOverride};
 use reqwest::StatusCode;
 use std::borrow::Cow;
 
@@ -27,8 +27,9 @@ pub type HTTPResult<T> = std::result::Result<T, HTTPError>;
 /// content size is the same as the known length of the did-documents.jsonl file.
 async fn http_get_range_bytes(
     did: &DIDStr,
-    url: &str,
+    url: &url::Url,
     known_did_documents_jsonl_octet_length: u64,
+    http_headers_for_o: Option<&HTTPHeadersFor>,
 ) -> HTTPResult<String> {
     let header_map = {
         let mut header_map = reqwest::header::HeaderMap::new();
@@ -40,12 +41,29 @@ async fn http_get_range_bytes(
             ))
             .unwrap(),
         );
+        if let Some(http_headers_for) = http_headers_for_o {
+            let http_header_v = http_headers_for
+                .http_headers_for_hostname(url.host_str().unwrap())
+                .unwrap_or_default();
+            for http_header in http_header_v {
+                header_map.insert(
+                    reqwest::header::HeaderName::from_bytes(http_header.name.as_bytes()).map_err(|e| HTTPError {
+                        status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                        description: format!("Failed to parse HTTP header name from {:?}; error was: {}", http_header.name, e).into(),
+                    })?,
+                    reqwest::header::HeaderValue::from_str(&http_header.value).map_err(|e| HTTPError {
+                        status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                        description: format!("Failed to parse HTTP header {:?} value to HeaderValue; error was: {}", http_header, e).into(),
+                    })?,
+                );
+            }
+        }
         header_map
     };
     // This is ridiculous.
     let response = REQWEST_CLIENT
         .clone()
-        .get(url)
+        .get(url.as_str())
         .headers(header_map)
         .send()
         .await
@@ -123,12 +141,14 @@ async fn http_get_range_bytes(
 pub async fn fetch_did_documents_jsonl_update(
     did: &DIDStr,
     vdg_base_url_o: Option<&url::Url>,
+    http_headers_for_o: Option<&HTTPHeadersFor>,
     http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
     known_did_documents_jsonl_octet_length: u64,
 ) -> HTTPResult<String> {
     tracing::trace!(
         ?did,
         ?vdg_base_url_o,
+        ?http_headers_for_o,
         ?http_scheme_override_o,
         ?known_did_documents_jsonl_octet_length,
         "fetch_did_documents_jsonl_update"
@@ -166,14 +186,23 @@ pub async fn fetch_did_documents_jsonl_update(
             .path_segments_mut()
             .unwrap()
             .push("did-documents.jsonl");
-        did_documents_jsonl_url.to_string()
+        did_documents_jsonl_url
     } else {
-        did.resolution_url_for_did_documents_jsonl(http_scheme_override_o)
+        url::Url::parse(&did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
+            .map_err(|e| HTTPError {
+                status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
+                description: format!(
+                    "Failed to parse DID resolution URL for did-documents.jsonl; error was: {}",
+                    e
+                )
+                .into(),
+            })?
     };
     let did_documents_jsonl_update_r = http_get_range_bytes(
         did,
-        did_documents_jsonl_url.as_str(),
+        &did_documents_jsonl_url,
         known_did_documents_jsonl_octet_length,
+        http_headers_for_o,
     )
     .await;
     let duration = std::time::SystemTime::now()

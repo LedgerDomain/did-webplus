@@ -1,8 +1,9 @@
 use did_webplus_core::{
-    DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, HTTPSchemeOverride,
+    DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, HTTPHeadersFor,
+    HTTPSchemeOverride,
 };
 
-use crate::{verifier_resolver_impl, DIDResolver, Error, HTTPError, Result, REQWEST_CLIENT};
+use crate::{DIDResolver, Error, HTTPError, REQWEST_CLIENT, Result, verifier_resolver_impl};
 use std::sync::Arc;
 
 /// Use a trusted VDG to resolve a DID.  This amounts to completely outsourcing fetching and verification
@@ -12,11 +13,13 @@ use std::sync::Arc;
 pub struct DIDResolverThin {
     /// Specifies the "base" URL of the VDG to use.  URLs for various operations of the VDG will be constructed from this.
     vdg_base_url: url::Url,
+    http_headers_for_o: Option<HTTPHeadersFor>,
 }
 
 impl DIDResolverThin {
     pub fn new(
         vdg_host: &str,
+        http_headers_for_o: Option<HTTPHeadersFor>,
         http_scheme_override_o: Option<&HTTPSchemeOverride>,
     ) -> Result<Self> {
         // Set the HTTP scheme appropriately.
@@ -47,7 +50,10 @@ impl DIDResolverThin {
             ));
         }
         tracing::debug!("VDG base URL: {}", vdg_base_url);
-        Ok(Self { vdg_base_url })
+        Ok(Self {
+            vdg_base_url,
+            http_headers_for_o,
+        })
     }
 }
 
@@ -117,6 +123,17 @@ impl DIDResolver for DIDResolverThin {
                     "X-DID-Local-Resolution-Only",
                     reqwest::header::HeaderValue::from_static("true"),
                 );
+            }
+            if let Some(http_headers_for) = self.http_headers_for_o.as_ref() {
+                let http_header_v = http_headers_for
+                    .http_headers_for_hostname(vdg_resolution_url.host_str().unwrap())
+                    .unwrap_or_default();
+                for http_header in http_header_v {
+                    header_map.insert(
+                        reqwest::header::HeaderName::from_bytes(http_header.name.as_bytes()).map_err(|e| Error::GenericError(format!("Failed to parse HTTP header name from {:?}; error was: {}", http_header.name, e).into()))?,
+                        reqwest::header::HeaderValue::from_str(&http_header.value).map_err(|e| Error::GenericError(format!("Failed to parse HTTP header {:?} value to HeaderValue; error was: {}", http_header, e).into()))?,
+                    );
+                }
             }
             header_map
         };

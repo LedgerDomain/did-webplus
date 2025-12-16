@@ -22,6 +22,7 @@ pub struct DIDResolverFull {
     /// so that this resolver can take part in the scope of agreement defined by the VDG.  Without
     /// using a VDG, a DIDResolverFull has a scope of agreement that only contains itself.
     vdg_base_url_o: Option<url::Url>,
+    http_headers_for_o: Option<did_webplus_core::HTTPHeadersFor>,
     http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
 }
 
@@ -29,6 +30,7 @@ impl DIDResolverFull {
     pub fn new(
         did_doc_store: did_webplus_doc_store::DIDDocStore,
         vdg_host_o: Option<&str>,
+        http_headers_for_o: Option<did_webplus_core::HTTPHeadersFor>,
         http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
     ) -> Result<Self> {
         let vdg_base_url_o = if let Some(vdg_host) = vdg_host_o {
@@ -44,6 +46,7 @@ impl DIDResolverFull {
         Ok(Self {
             did_doc_store,
             vdg_base_url_o,
+            http_headers_for_o,
             http_scheme_override_o,
         })
     }
@@ -534,6 +537,7 @@ impl DIDResolverFull {
         let did_documents_jsonl_update = fetch_did_documents_jsonl_update(
             &did,
             self.vdg_base_url_o.as_ref(),
+            self.http_headers_for_o.as_ref(),
             self.http_scheme_override_o.as_ref(),
             known_did_documents_jsonl_octet_length,
         )
