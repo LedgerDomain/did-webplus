@@ -29,7 +29,7 @@ pub struct VDGConfig {
     /// a VDG if it were a proxy for another VDG.
     #[arg(
         name = "http-headers-for",
-        env = "DID_WEBPLUS_HTTP_HEADERS_FOR",
+        env = "DID_WEBPLUS_VDG_HTTP_HEADERS_FOR",
         long,
         default_value = "",
         value_parser = did_webplus_core::HTTPHeadersFor::parse_from_semicolon_separated_pairs,
