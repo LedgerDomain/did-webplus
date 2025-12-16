@@ -59,8 +59,10 @@ impl TryFrom<&str> for HTTPHeadersFor {
     type Error = Error;
     fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
         let mut http_header_vm = HashMap::new();
-        let hostname_and_http_header_strs_v = s.split(';');
-        for hostname_and_http_header_strs in hostname_and_http_header_strs_v {
+        for hostname_and_http_header_strs in s.split(';') {
+            if hostname_and_http_header_strs.is_empty() {
+                continue;
+            }
             let (hostname, http_header_strs) = hostname_and_http_header_strs
                 .split_once('=')
                 .ok_or(Error::Malformed(
