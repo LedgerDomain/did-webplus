@@ -11,7 +11,7 @@ impl VDRAppState {
         &self,
         header_map: &axum::http::HeaderMap,
     ) -> Result<(), (axum::http::StatusCode, String)> {
-        if let Some(test_api_keys) = self.vdr_config.test_authz_api_key_vo.as_deref() {
+        if let Some(test_authz_api_key_v) = self.vdr_config.test_authz_api_key_vo.as_deref() {
             tracing::trace!("VDR test API keys are enabled; conducting authorization check");
             if let Some(api_key) = header_map.get("x-api-key") {
                 let api_key_string = api_key
@@ -23,7 +23,7 @@ impl VDRAppState {
                         )
                     })?
                     .to_string();
-                if !test_api_keys.contains(&api_key_string) {
+                if !test_authz_api_key_v.contains(&api_key_string) {
                     tracing::error!("API key not authorized");
                     Err((
                         axum::http::StatusCode::UNAUTHORIZED,

@@ -19,14 +19,14 @@ pub struct MockVDG {
     mock_vdr_lam: HashMap<String, Arc<RwLock<MockVDR>>>,
     /// Optional simulated network latency duration.  If present, then all VDG operations will sleep
     /// for this duration before beginning their work.
-    simulated_latency_o: Option<time::Duration>,
+    simulated_latency_o: Option<std::time::Duration>,
 }
 
 impl MockVDG {
     pub fn new(
         user_agent: String,
         mock_vdr_lam: HashMap<String, Arc<RwLock<MockVDR>>>,
-        simulated_latency_o: Option<time::Duration>,
+        simulated_latency_o: Option<std::time::Duration>,
     ) -> Self {
         let mock_verified_cache =
             MockVerifiedCache::empty(format!("{}'s MockVerifiedCache", user_agent));

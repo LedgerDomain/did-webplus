@@ -12,14 +12,14 @@ pub struct MockVDR {
     microledger_m: std::collections::HashMap<DID, Microledger>,
     /// Optional simulated network latency duration.  If present, then all VDR operations will sleep
     /// for this duration before beginning their work.
-    simulated_latency_o: Option<time::Duration>,
+    simulated_latency_o: Option<std::time::Duration>,
 }
 
 impl MockVDR {
     pub fn new_with_hostname(
         hostname: String,
         did_port_o: Option<u16>,
-        simulated_latency_o: Option<time::Duration>,
+        simulated_latency_o: Option<std::time::Duration>,
     ) -> Self {
         Self {
             hostname,

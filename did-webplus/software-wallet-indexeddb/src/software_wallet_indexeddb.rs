@@ -335,7 +335,7 @@ impl SoftwareWalletIndexedDB {
     async fn fetch_did_internal(
         &self,
         did: &DIDStr,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> did_webplus_wallet::Result<did_webplus_core::DIDDocument> {
         // Note the version of the known latest DID document.  This will only differ from the actual latest
         // version if more than one wallet controls the DID.
@@ -347,7 +347,7 @@ impl SoftwareWalletIndexedDB {
         let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
             did_doc_store,
             self.vdg_host_o.as_deref(),
-            http_scheme_override_o.cloned(),
+            http_options_o.cloned(),
         )
         .unwrap();
         use did_webplus_resolver::DIDResolver;
@@ -370,7 +370,7 @@ impl SoftwareWalletIndexedDB {
         operation: &'static str,
         did_document_jcs: &str,
         did: &DIDStr,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> did_webplus_wallet::Result<()> {
         if operation != "create" && operation != "update" {
             return Err(did_webplus_wallet::Error::Malformed(
@@ -394,17 +394,32 @@ impl SoftwareWalletIndexedDB {
         request_init.set_body(&JsValue::from_str(did_document_jcs));
 
         let request = web_sys::Request::new_with_str_and_init(
-            &did.resolution_url_for_did_documents_jsonl(http_scheme_override_o),
+            &did.resolution_url_for_did_documents_jsonl(
+                http_options_o.as_ref().map(|o| &o.http_scheme_override),
+            ),
             &request_init,
         )
         .map_err(|_| {
             did_webplus_wallet::Error::HTTPRequestError("Failed to create a request".into())
         })?;
-        tracing::trace!("created HTTP request: {:?}", request);
+
         request
             .headers()
             .set("Content-Type", "application/json")
             .unwrap();
+        if let Some(http_headers_for) = http_options_o.map(|o| &o.http_headers_for) {
+            let http_header_v = http_headers_for
+                .http_headers_for_hostname(did.hostname())
+                .unwrap_or_default();
+            for http_header in http_header_v {
+                request
+                    .headers()
+                    .set(&http_header.name, &http_header.value)
+                    .unwrap();
+            }
+        }
+        tracing::trace!("created HTTP request: {:?}", request);
+
         use wasm_bindgen_futures::wasm_bindgen::JsCast;
         let response: web_sys::Response =
             JsFuture::from(web_sys::window().unwrap().fetch_with_request(&request))
@@ -678,7 +693,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     async fn create_did(
         &self,
         vdr_did_create_endpoint: &str,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> did_webplus_wallet::Result<DIDFullyQualified> {
         tracing::debug!(
             vdr_did_create_endpoint,
@@ -697,7 +712,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     .into(),
                 )
             })?;
-        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
         if vdr_did_create_endpoint_url.host_str().is_none() {
             return Err(did_webplus_wallet::Error::InvalidVDRDIDCreateURL(
                 format!(
@@ -885,7 +899,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // POST the DID document to the VDR to create the DID.  If an error occurs, then delete the
         // provisional records.
         match self
-            .post_or_put_did_document("create", &did_document_jcs, &did, http_scheme_override_o)
+            .post_or_put_did_document("create", &did_document_jcs, &did, http_options_o)
             .await
         {
             Ok(()) => (),
@@ -984,28 +998,26 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     async fn fetch_did(
         &self,
         _did: &DIDStr,
-        _http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        _http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> did_webplus_wallet::Result<()> {
         todo!()
     }
     async fn update_did(
         &self,
         did: &DIDStr,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> did_webplus_wallet::Result<DIDFullyQualified> {
         tracing::debug!(
-            "SoftwareWalletIndexedDB::update_did; did: {}; http_scheme_override_o: {:?}",
+            "SoftwareWalletIndexedDB::update_did; did: {}; http_options_o: {:?}",
             did,
-            http_scheme_override_o
+            http_options_o
         );
 
         let did = did.to_owned();
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let latest_did_document = self
-            .fetch_did_internal(&did, http_scheme_override_o)
-            .await?;
+        let latest_did_document = self.fetch_did_internal(&did, http_options_o).await?;
         let did_fully_qualified = did.with_queries(
             &latest_did_document.self_hash,
             latest_did_document.version_id,
@@ -1338,7 +1350,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 "update",
                 updated_did_document_jcs.as_str(),
                 &did,
-                http_scheme_override_o,
+                http_options_o,
             )
             .await
         {
@@ -1461,7 +1473,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     async fn deactivate_did(
         &self,
         _did: &DIDStr,
-        _http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        _http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> did_webplus_wallet::Result<DIDFullyQualified> {
         // Wait until this is factored with update_did and create_did (in SoftwareWallet and Self)
         todo!()

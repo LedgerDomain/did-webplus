@@ -67,20 +67,22 @@ pub struct VDRConfig {
         value_parser = did_webplus_core::HTTPSchemeOverride::parse_from_comma_separated_pairs
     )]
     pub http_scheme_override: did_webplus_core::HTTPSchemeOverride,
-    /// Optionally specify a set of values to check against the "x-api-key" HTTP header value of requests
-    /// in order to check authorization for the HTTP requests that mediate DID creation and update operations.
-    /// If the "x-api-key" HTTP header value is not present in the request, or is present but does not match
-    /// any of the specified values, then the request is rejected.  All other HTTP requests (fetching
-    /// did-documents.jsonl and health check) are allowed without authorization.  If this is set, then
-    /// the VDR will perform this authorization check.  If not set, no authorization check will be done.
-    /// This is a very coarse grained mechanism meant to be used only for testing and development.
-    /// Real authorization checks should be done via reverse proxy or similar mechanism.
+    /// Optionally specify a comma-delimited list of strings to check against the "x-api-key" HTTP header
+    /// value of requests in order to check authorization for the HTTP requests that mediate DID creation
+    /// and update operations.  If the "x-api-key" HTTP header value is not present in the request, or is
+    /// present but does not match any of the specified values, then the request is rejected.  All other
+    /// HTTP requests (fetching did-documents.jsonl and health check) are allowed without authorization.
+    /// If this is set, then the VDR will perform this authorization check -- note that if it is set and
+    /// is empty, then authorization checks will always be denied.  If this is not set, no authorization
+    /// check will be done.  This is a very coarse grained mechanism meant to be used only for testing and
+    /// development.  Real authorization checks should be done via reverse proxy or similar mechanism.
+    /// Note that each string in the list will be whitespace-trimmed before being parsed.
     #[arg(
         name = "test-authz-api-keys",
         env = "DID_WEBPLUS_VDR_TEST_AUTHZ_API_KEYS",
         long,
         value_name = "API_KEYS",
-        default_value = "",
+        default_value = None,
         value_parser = parse_comma_separated_api_keys_into_strings,
     )]
     pub test_authz_api_key_vo: Option<Vec<String>>,
@@ -114,11 +116,11 @@ fn parse_comma_separated_api_keys_into_strings(s: &str) -> anyhow::Result<Option
             .split(',')
             .map(|api_key| {
                 let api_key = api_key.trim();
-                if api_key.is_empty() {
-                    Err(anyhow::anyhow!("API key must be nonempty"))
-                } else {
-                    Ok(api_key.to_string())
-                }
+                anyhow::ensure!(
+                    !api_key.is_empty(),
+                    "whitespace-trimmed API key must be nonempty"
+                );
+                Ok(api_key.to_string())
             })
             .collect::<anyhow::Result<Vec<String>>>()?;
         Ok(Some(api_keys_v))

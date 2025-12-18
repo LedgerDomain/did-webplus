@@ -1,4 +1,4 @@
-use crate::{HTTPHeadersFor, HTTPSchemeOverride, Result};
+use crate::{HTTPHeadersFor, HTTPSchemeOverride};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
@@ -7,8 +7,8 @@ pub struct HTTPOptions(did_webplus_core::HTTPOptions);
 
 #[wasm_bindgen]
 impl HTTPOptions {
-    pub fn new() -> Result<Self> {
-        Ok(Self(did_webplus_core::HTTPOptions::default()))
+    pub fn new() -> Self {
+        Self(did_webplus_core::HTTPOptions::default())
     }
     pub fn set_http_headers_for(&mut self, http_headers_for: HTTPHeadersFor) {
         self.0.http_headers_for = http_headers_for.into();
