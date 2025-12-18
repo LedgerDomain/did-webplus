@@ -22,6 +22,16 @@ pub struct Listen {
     /// that only contains itself.
     #[arg(name = "vdg", long, env = "DID_WEBPLUS_URD_VDG", value_name = "HOST")]
     pub vdg_host_o: Option<String>,
+    /// Optionally specify a semicolon-separated list of comma-separated list of `name=value` pairs
+    /// defining the HTTP headers to use for each of the specified hosts.
+    #[arg(
+        name = "http-headers-for",
+        env = "DID_WEBPLUS_URD_HTTP_HEADERS_FOR",
+        long,
+        default_value = "",
+        value_parser = did_webplus_core::HTTPHeadersFor::parse_from_semicolon_separated_pairs,
+    )]
+    pub http_headers_for: did_webplus_core::HTTPHeadersFor,
     /// Optionally specify a comma-separated list of `hostname=scheme` pairs defining the scheme to use
     /// for each of the specified hosts.  The default did:webplus resolution rules specify that
     /// localhost uses the "http" scheme, and everything else uses the "https" scheme.  This
@@ -59,7 +69,10 @@ impl Listen {
         let did_resolver_full = did_webplus_urd_lib::create_did_resolver_full(
             &self.database_url,
             self.vdg_host_o.as_deref(),
-            Some(self.http_scheme_override),
+            Some(did_webplus_core::HTTPOptions {
+                http_headers_for: self.http_headers_for,
+                http_scheme_override: self.http_scheme_override,
+            }),
         )
         .await?;
 

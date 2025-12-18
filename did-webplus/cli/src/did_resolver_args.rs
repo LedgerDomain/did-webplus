@@ -4,7 +4,6 @@ use crate::{DIDDocStoreArgs, Result};
 pub enum DIDResolverType {
     Full,
     Thin,
-    Raw,
 }
 
 #[derive(clap::Args, Clone, Debug)]
@@ -44,7 +43,7 @@ pub struct DIDResolverArgs {
 impl DIDResolverArgs {
     pub async fn get_did_resolver(
         self,
-        http_scheme_override_o: Option<did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<did_webplus_core::HTTPOptions>,
     ) -> Result<Box<dyn did_webplus_resolver::DIDResolver>> {
         match self.did_resolver_type {
             DIDResolverType::Full => {
@@ -59,7 +58,7 @@ impl DIDResolverArgs {
                 Ok(Box::new(did_webplus_resolver::DIDResolverFull::new(
                     did_doc_store,
                     self.vdg_host_o.as_deref(),
-                    http_scheme_override_o,
+                    http_options_o,
                 )?))
             }
             DIDResolverType::Thin => {
@@ -81,14 +80,8 @@ impl DIDResolverArgs {
 
                 Ok(Box::new(did_webplus_resolver::DIDResolverThin::new(
                     &vdg_host,
-                    http_scheme_override_o.as_ref(),
+                    http_options_o,
                 )?))
-            }
-            DIDResolverType::Raw => {
-                // No extra validation needed.
-                Ok(Box::new(did_webplus_resolver::DIDResolverRaw {
-                    http_scheme_override_o,
-                }))
             }
         }
     }

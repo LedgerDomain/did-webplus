@@ -77,7 +77,7 @@ impl SoftwareWallet {
     async fn fetch_did_internal(
         &self,
         did: &DIDStr,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<did_webplus_core::DIDDocument> {
         // Note the version of the known latest DID document.  This will only differ from the actual latest
         // version if more than one wallet controls the DID.
@@ -88,7 +88,7 @@ impl SoftwareWallet {
                 self.wallet_storage_a.clone().as_did_doc_storage_a(),
             ),
             self.vdg_host_o.as_deref(),
-            http_scheme_override_o.cloned(),
+            http_options_o.cloned(),
         )
         .unwrap();
         use did_webplus_resolver::DIDResolver;
@@ -110,13 +110,9 @@ impl Wallet for SoftwareWallet {
     async fn create_did(
         &self,
         vdr_did_create_endpoint: &str,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified> {
-        tracing::debug!(
-            ?vdr_did_create_endpoint,
-            ?http_scheme_override_o,
-            "creating DID"
-        );
+        tracing::debug!(?vdr_did_create_endpoint, ?http_options_o, "creating DID");
 
         // Parse the vdr_did_create_endpoint as a URL.
         let vdr_did_create_endpoint_url =
@@ -249,11 +245,31 @@ impl Wallet for SoftwareWallet {
                 )
                 .await?;
 
+            let header_map = {
+                let mut header_map = reqwest::header::HeaderMap::new();
+                if let Some(http_headers_for) = http_options_o.map(|o| &o.http_headers_for) {
+                    if let Some(http_header_v) =
+                        http_headers_for.http_headers_for_hostname(did.hostname())
+                    {
+                        for http_header in http_header_v {
+                            header_map.insert(
+                                reqwest::header::HeaderName::from_bytes(http_header.name.as_bytes()).map_err(|e| Error::Malformed(format!("Failed to parse HTTP header name from {:?}; error was: {}", http_header.name, e).into()))?,
+                                reqwest::header::HeaderValue::from_str(&http_header.value).map_err(|e| Error::Malformed(format!("Failed to parse HTTP header {:?} value to HeaderValue; error was: {}", http_header, e).into()))?,
+                            );
+                        }
+                    }
+                }
+                header_map
+            };
+
             // HTTP POST is for DID create operation.
             tracing::trace!("HTTP POST-ing DID document to VDR: {}", did_document_jcs);
             REQWEST_CLIENT
                 .clone()
-                .post(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
+                .post(did.resolution_url_for_did_documents_jsonl(
+                    http_options_o.map(|o| &o.http_scheme_override),
+                ))
+                .headers(header_map)
                 .body(did_document_jcs)
                 .send()
                 .await
@@ -314,22 +330,22 @@ impl Wallet for SoftwareWallet {
     async fn fetch_did(
         &self,
         did: &DIDStr,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<()> {
-        tracing::debug!(?did, ?http_scheme_override_o, "fetching DID");
-        self.fetch_did_internal(did, http_scheme_override_o).await?;
+        tracing::debug!(?did, ?http_options_o, "fetching DID");
+        self.fetch_did_internal(did, http_options_o).await?;
         Ok(())
     }
     async fn update_did(
         &self,
         did: &DIDStr,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified> {
-        tracing::debug!(?did, ?http_scheme_override_o, "updating DID");
+        tracing::debug!(?did, ?http_options_o, "updating DID");
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let latest_did_document = self.fetch_did_internal(did, http_scheme_override_o).await?;
+        let latest_did_document = self.fetch_did_internal(did, http_options_o).await?;
 
         // Rotate the appropriate set of keys.  Record the creation timestamp.
         let now_utc = now_utc_milliseconds();
@@ -485,6 +501,23 @@ impl Wallet for SoftwareWallet {
                 )
                 .await?;
 
+            let header_map = {
+                let mut header_map = reqwest::header::HeaderMap::new();
+                if let Some(http_headers_for) = http_options_o.map(|o| &o.http_headers_for) {
+                    if let Some(http_header_v) =
+                        http_headers_for.http_headers_for_hostname(did.hostname())
+                    {
+                        for http_header in http_header_v {
+                            header_map.insert(
+                                reqwest::header::HeaderName::from_bytes(http_header.name.as_bytes()).map_err(|e| Error::Malformed(format!("Failed to parse HTTP header name from {:?}; error was: {}", http_header.name, e).into()))?,
+                                reqwest::header::HeaderValue::from_str(&http_header.value).map_err(|e| Error::Malformed(format!("Failed to parse HTTP header {:?} value to HeaderValue; error was: {}", http_header, e).into()))?,
+                            );
+                        }
+                    }
+                }
+                header_map
+            };
+
             // HTTP PUT is for DID update operation.
             tracing::trace!(
                 "HTTP PUT-ing DID document to VDR: {}",
@@ -492,7 +525,10 @@ impl Wallet for SoftwareWallet {
             );
             REQWEST_CLIENT
                 .clone()
-                .put(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
+                .put(did.resolution_url_for_did_documents_jsonl(
+                    http_options_o.map(|o| &o.http_scheme_override),
+                ))
+                .headers(header_map)
                 .body(updated_did_document_jcs)
                 .send()
                 .await
@@ -595,13 +631,14 @@ impl Wallet for SoftwareWallet {
     async fn deactivate_did(
         &self,
         did: &DIDStr,
-        http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified> {
+        tracing::debug!(?did, ?http_options_o, "deactivating DID");
         // TODO: Factor this with update_did and create_did.
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let latest_did_document = self.fetch_did_internal(did, http_scheme_override_o).await?;
+        let latest_did_document = self.fetch_did_internal(did, http_options_o).await?;
 
         // Record the DID update timestamp.
         let now_utc = now_utc_milliseconds();
@@ -740,6 +777,24 @@ impl Wallet for SoftwareWallet {
                 )
                 .await?;
 
+            // Form the HTTP headers.
+            let header_map = {
+                let mut header_map = reqwest::header::HeaderMap::new();
+                if let Some(http_headers_for) = http_options_o.map(|o| &o.http_headers_for) {
+                    if let Some(http_header_v) =
+                        http_headers_for.http_headers_for_hostname(did.hostname())
+                    {
+                        for http_header in http_header_v {
+                            header_map.insert(
+                                reqwest::header::HeaderName::from_bytes(http_header.name.as_bytes()).map_err(|e| Error::Malformed(format!("Failed to parse HTTP header name from {:?}; error was: {}", http_header.name, e).into()))?,
+                                reqwest::header::HeaderValue::from_str(&http_header.value).map_err(|e| Error::Malformed(format!("Failed to parse HTTP header {:?} value to HeaderValue; error was: {}", http_header, e).into()))?,
+                        );
+                        }
+                    }
+                }
+                header_map
+            };
+
             // HTTP PUT is for DID update operation (which includes deactivation).
             tracing::trace!(
                 "HTTP PUT-ing DID document to VDR: {}",
@@ -747,7 +802,10 @@ impl Wallet for SoftwareWallet {
             );
             REQWEST_CLIENT
                 .clone()
-                .put(did.resolution_url_for_did_documents_jsonl(http_scheme_override_o))
+                .put(did.resolution_url_for_did_documents_jsonl(
+                    http_options_o.map(|o| &o.http_scheme_override),
+                ))
+                .headers(header_map)
                 .body(deactivated_did_document_jcs)
                 .send()
                 .await

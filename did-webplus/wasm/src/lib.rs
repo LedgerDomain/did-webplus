@@ -1,6 +1,8 @@
 mod did;
 mod did_doc_store;
 mod did_resolver;
+mod http_headers_for;
+mod http_options;
 mod http_scheme_override;
 mod jws;
 mod key_type;
@@ -15,6 +17,8 @@ pub use crate::{
     did::did_resolve,
     did_doc_store::DIDDocStore,
     did_resolver::DIDResolver,
+    http_headers_for::HTTPHeadersFor,
+    http_options::HTTPOptions,
     http_scheme_override::HTTPSchemeOverride,
     key_type::KeyType,
     signer::Signer,
@@ -27,7 +31,7 @@ pub use crate::{
 pub type Error = JsValue;
 pub type Result<T> = std::result::Result<T, JsValue>;
 
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 pub fn into_js_value<T: std::fmt::Display>(t: T) -> JsValue {
     JsValue::from(t.to_string())

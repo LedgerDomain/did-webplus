@@ -1,4 +1,4 @@
-use crate::{HTTPSchemeOverride, into_js_value};
+use crate::{HTTPOptions, into_js_value};
 use std::{ops::Deref, sync::Arc};
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
@@ -76,15 +76,12 @@ impl Wallet {
     pub async fn create_did(
         &self,
         vdr_did_create_endpoint: String,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
+        http_options_o: Option<HTTPOptions>,
     ) -> Result<String, JsValue> {
-        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
+        let http_options_o = http_options_o.map(|o| o.into());
         let controlled_did = self
             .deref()
-            .create_did(
-                vdr_did_create_endpoint.as_str(),
-                http_scheme_override_o.as_ref(),
-            )
+            .create_did(vdr_did_create_endpoint.as_str(), http_options_o.as_ref())
             .await
             .map_err(into_js_value)?;
         let did = controlled_did.did();
@@ -96,12 +93,12 @@ impl Wallet {
     pub async fn fetch_did(
         &self,
         did: String,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
+        http_options_o: Option<HTTPOptions>,
     ) -> Result<(), JsValue> {
         let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
-        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
+        let http_options_o = http_options_o.map(|o| o.into());
         self.deref()
-            .fetch_did(did, http_scheme_override_o.as_ref())
+            .fetch_did(did, http_options_o.as_ref())
             .await
             .map_err(into_js_value)?;
         Ok(())
@@ -114,17 +111,39 @@ impl Wallet {
     pub async fn update_did(
         &self,
         did: String,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
+        http_options_o: Option<HTTPOptions>,
     ) -> Result<String, JsValue> {
         let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
-        let http_scheme_override_o = http_scheme_override_o.map(Into::into);
+        let http_options_o = http_options_o.map(|o| o.into());
         let controlled_did = self
             .deref()
-            .update_did(did, http_scheme_override_o.as_ref())
+            .update_did(did, http_options_o.as_ref())
             .await
             .map_err(into_js_value)?;
         tracing::debug!("updated DID: {}", controlled_did);
         Ok(controlled_did.to_string())
+    }
+    /// Deactivate a locally-controlled DID by removing all verification methods from the DID document
+    /// and setting its update rules to UpdatesDisallowed.  Returns the fully qualified DID corresponding
+    /// to the updated DID document.  Note that this is an extremely irreversible action; the DID can't
+    /// ever be updated again.
+    pub fn deactivate_did(
+        &self,
+        did: String,
+        http_options_o: Option<HTTPOptions>,
+    ) -> js_sys::Promise {
+        let wallet = self.clone();
+        let http_options_o = http_options_o.map(|o| o.into());
+        wasm_bindgen_futures::future_to_promise(async move {
+            let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
+            let controlled_did = wallet
+                .deref()
+                .deactivate_did(did, http_options_o.as_ref())
+                .await
+                .map_err(into_js_value)?;
+            tracing::debug!("deactivated DID: {}", controlled_did);
+            Ok(controlled_did.to_string().into())
+        })
     }
     /// Returns the list of DIDs that this wallet controls, subject to the given filter.
     pub async fn get_controlled_dids(&self, did_o: Option<String>) -> Result<Vec<String>, JsValue> {

@@ -286,19 +286,24 @@ pub async fn vjson_verify(
 pub async fn wallet_did_create(
     wallet: &dyn did_webplus_wallet::Wallet,
     vdr_did_create_endpoint: &str,
-    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    http_options_o: Option<&did_webplus_core::HTTPOptions>,
 ) -> Result<did_webplus_core::DIDFullyQualified> {
     Ok(wallet
-        .create_did(vdr_did_create_endpoint, http_scheme_override_o)
+        .create_did(
+            vdr_did_create_endpoint,
+            http_options_o,
+        )
         .await?)
 }
 
 pub async fn wallet_did_update(
     wallet: &dyn did_webplus_wallet::Wallet,
     did: &did_webplus_core::DIDStr,
-    http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    http_options_o: Option<&did_webplus_core::HTTPOptions>,
 ) -> Result<did_webplus_core::DIDFullyQualified> {
-    Ok(wallet.update_did(&did, http_scheme_override_o).await?)
+    Ok(wallet
+        .update_did(&did, http_options_o)
+        .await?)
 }
 
 /// List DIDs controlled by the given wallet.  Optionally filter on the given DID.

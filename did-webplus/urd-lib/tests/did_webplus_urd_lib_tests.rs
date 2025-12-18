@@ -18,6 +18,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
         database_max_connections: 10,
         vdg_base_url_v: Vec::new(),
         http_scheme_override: Default::default(),
+        test_authz_api_key_vo: None,
     };
     let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
         .await

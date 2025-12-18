@@ -39,7 +39,7 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
 
             let vdg_app_state = VDGAppState {
                 did_doc_store,
-                http_scheme_override_o: Some(vdg_config.http_scheme_override),
+                vdg_config: vdg_config.clone(),
             };
 
             let app = axum::Router::new()
@@ -68,10 +68,14 @@ pub async fn spawn_vdg(vdg_config: VDGConfig) -> anyhow::Result<tokio::task::Joi
 
         #[cfg(not(feature = "postgres"))]
         {
-            panic!("postgres database is only supported by VDG if the `postgres` feature was enabled when building it");
+            panic!(
+                "postgres database is only supported by VDG if the `postgres` feature was enabled when building it"
+            );
         }
     } else if vdg_config.database_url.starts_with("sqlite://") {
-        panic!("VDG should not be run with SQLite DB backend, as SQLite can't handle concurrent writes.  Use Postgres instead.");
+        panic!(
+            "VDG should not be run with SQLite DB backend, as SQLite can't handle concurrent writes.  Use Postgres instead."
+        );
         // #[cfg(feature = "sqlite")]
         // {
         //     use anyhow::Context;

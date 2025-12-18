@@ -1,5 +1,6 @@
 use crate::{
-    DIDResolverArgs, DIDResolverFactory, DIDWebplusVerifierResolver, HTTPSchemeOverrideArgs,
+    DIDResolverArgs, DIDResolverFactory, DIDWebplusVerifierResolver, HTTPHeadersArgs,
+    HTTPSchemeOverrideArgs,
 };
 
 /// Arguments for specifying how to resolve a public key (aka verifier) from a string.
@@ -8,6 +9,8 @@ use crate::{
 pub struct VerifierResolverArgs {
     #[command(flatten)]
     pub did_resolver_args: DIDResolverArgs,
+    #[command(flatten)]
+    pub http_headers_args: HTTPHeadersArgs,
     #[command(flatten)]
     pub http_scheme_args: HTTPSchemeOverrideArgs,
 }
@@ -21,6 +24,7 @@ impl VerifierResolverArgs {
                 Box::new(DIDWebplusVerifierResolver {
                     did_resolver_factory_b: Box::new(DIDResolverFactory::new(
                         self.did_resolver_args,
+                        self.http_headers_args,
                         self.http_scheme_args,
                     )),
                 }),

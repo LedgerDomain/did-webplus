@@ -47,7 +47,7 @@ build:
 
 # Docker build bypassing
 docker-build:
-	DOCKER_BUILDKIT=1 docker build --platform=linux/amd64 -t $(VDG_PROJECT_NAME):latest ..
+	DOCKER_BUILDKIT=1 docker build --platform=linux/amd64 -t $(VDG_PROJECT_NAME):latest -f ./Dockerfile ../..
 
 # Notes: To remove cache add --no-cache
 #        To see progress add --progress plain

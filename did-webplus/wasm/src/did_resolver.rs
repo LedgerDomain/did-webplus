@@ -1,4 +1,4 @@
-use crate::{into_js_value, DIDDocStore, HTTPSchemeOverride, Result};
+use crate::{DIDDocStore, HTTPOptions, Result, into_js_value};
 use std::sync::Arc;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -20,34 +20,22 @@ impl DIDResolver {
     pub fn new_full(
         did_doc_store: DIDDocStore,
         vdg_host_o: Option<String>,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
+        http_options_o: Option<HTTPOptions>,
     ) -> Result<Self> {
         let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
             did_doc_store.into_inner(),
             vdg_host_o.as_deref(),
-            http_scheme_override_o.map(|o| o.into()),
+            http_options_o.map(|o| o.into()),
         )
         .map_err(into_js_value)?;
         Ok(Self(Arc::new(did_resolver_full)))
     }
     /// Create a "thin" DIDResolver that operates against the given trusted VDG.
-    pub fn new_thin(
-        vdg_host: &str,
-        http_scheme_override_o: Option<HTTPSchemeOverride>,
-    ) -> Result<Self> {
-        let http_scheme_override_o = http_scheme_override_o.map(|o| o.into());
+    pub fn new_thin(vdg_host: &str, http_options_o: Option<HTTPOptions>) -> Result<Self> {
         let did_resolver_thin =
-            did_webplus_resolver::DIDResolverThin::new(vdg_host, http_scheme_override_o.as_ref())
+            did_webplus_resolver::DIDResolverThin::new(vdg_host, http_options_o.map(|o| o.into()))
                 .map_err(into_js_value)?;
         Ok(Self(Arc::new(did_resolver_thin)))
-    }
-    /// Create a "raw" DIDResolver that bypasses all verification and only fetches DID documents.
-    /// This is only meant for testing/development and should never be used in production.
-    pub fn new_raw(http_scheme_override_o: Option<HTTPSchemeOverride>) -> Result<Self> {
-        let did_resolver_raw = did_webplus_resolver::DIDResolverRaw {
-            http_scheme_override_o: http_scheme_override_o.map(|o| o.into()),
-        };
-        Ok(Self(Arc::new(did_resolver_raw)))
     }
 }
 

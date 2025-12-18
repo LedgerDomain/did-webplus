@@ -164,10 +164,13 @@ async fn get_did_document_jsonl_impl(
 #[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]
 async fn create_did(
     State(vdr_app_state): State<VDRAppState>,
+    header_map: HeaderMap,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
+
+    vdr_app_state.verify_authorization(&header_map)?;
 
     let did = DID::from_did_documents_jsonl_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),
@@ -238,10 +241,13 @@ async fn create_did(
 #[tracing::instrument(ret(Debug), err(Debug), skip(vdr_app_state, did_document_body))]
 async fn update_did(
     State(vdr_app_state): State<VDRAppState>,
+    header_map: HeaderMap,
     Path(path): Path<String>,
     did_document_body: String,
 ) -> Result<(), (StatusCode, String)> {
     assert!(!path.starts_with('/'));
+
+    vdr_app_state.verify_authorization(&header_map)?;
 
     let did = DID::from_did_documents_jsonl_resolution_url(
         vdr_app_state.vdr_config.did_hostname.as_str(),
@@ -355,7 +361,7 @@ async fn send_vdg_updates(
         update_url.path_segments_mut().unwrap().push("update");
         // Note that `push` will percent-encode did_query!
         update_url.path_segments_mut().unwrap().push(did.as_str());
-        tracing::info!(
+        tracing::debug!(
             "VDR notifying VDG of DID update (new versionId: {}): {}",
             new_version_id,
             update_url
@@ -365,16 +371,20 @@ async fn send_vdg_updates(
             let result = VDG_CLIENT
                 .post(update_url.as_str())
                 .send()
-                .await
-                .map_err(|err| {
+                .await;
+            match &result {
+                Ok(_) => {
+                    tracing::debug!("success in VDR notifying VDG of DID update (new versionId: {}): {}", new_version_id, update_url);
+                }
+                Err(err) => {
                     tracing::error!(
                         "error in VDR notifying VDG of DID update (new versionId: {}): {}; error was: {}",
                         new_version_id,
                         update_url,
                         err
                     );
-                    err
-                });
+                }
+            }
             (update_url, result)
         });
     }

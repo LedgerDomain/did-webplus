@@ -79,7 +79,9 @@ impl Services {
                 listen_port: vdg_listen_port,
                 database_url: vdg_database_url,
                 database_max_connections: 10,
+                http_headers_for: Default::default(),
                 http_scheme_override: Default::default(),
+                test_authz_api_key_vo: None,
             };
             let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
                 .await
@@ -120,6 +122,7 @@ impl Services {
             database_max_connections: 10,
             vdg_base_url_v,
             http_scheme_override: Default::default(),
+            test_authz_api_key_vo: None,
         };
         let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
             .await

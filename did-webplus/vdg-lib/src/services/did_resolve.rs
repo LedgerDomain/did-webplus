@@ -53,12 +53,17 @@ async fn get_did_document_jsonl(
         header_map
     );
 
+    vdg_app_state.verify_authorization(&header_map)?;
+
     // Ensure that the VDG has the latest did-documents.jsonl file from the VDR.
     {
         let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
             vdg_app_state.did_doc_store.clone(),
             None,
-            vdg_app_state.http_scheme_override_o.clone(),
+            Some(did_webplus_core::HTTPOptions {
+                http_headers_for: vdg_app_state.vdg_config.http_headers_for.clone(),
+                http_scheme_override: vdg_app_state.vdg_config.http_scheme_override.clone(),
+            }),
         )
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         did_resolver_full
@@ -179,6 +184,7 @@ async fn resolve_did(
     // Note that did_query, which is expected to be a DID or a DIDWithQuery, is automatically URL-decoded by axum.
     Path(did_query): Path<String>,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    vdg_app_state.verify_authorization(&header_map)?;
     resolve_did_impl(&vdg_app_state, Some(header_map), did_query).await
 }
 
@@ -248,7 +254,10 @@ async fn resolve_did_impl(
     let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
         vdg_app_state.did_doc_store.clone(),
         None,
-        vdg_app_state.http_scheme_override_o.clone(),
+        Some(did_webplus_core::HTTPOptions {
+            http_headers_for: vdg_app_state.vdg_config.http_headers_for.clone(),
+            http_scheme_override: vdg_app_state.vdg_config.http_scheme_override.clone(),
+        }),
     )
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 

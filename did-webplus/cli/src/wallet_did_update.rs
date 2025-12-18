@@ -1,5 +1,6 @@
 use crate::{
-    get_uniquely_determinable_did, HTTPSchemeOverrideArgs, NewlineArgs, Result, WalletArgs,
+    HTTPHeadersArgs, HTTPSchemeOverrideArgs, NewlineArgs, Result, WalletArgs,
+    get_uniquely_determinable_did,
 };
 use std::io::Write;
 
@@ -11,6 +12,8 @@ use std::io::Write;
 pub struct WalletDIDUpdate {
     #[command(flatten)]
     pub wallet_args: WalletArgs,
+    #[command(flatten)]
+    pub http_headers_args: HTTPHeadersArgs,
     #[command(flatten)]
     pub http_scheme_override_args: HTTPSchemeOverrideArgs,
     /// Specify the DID to be updated.  If not specified and there is exactly one DID controlled by
@@ -27,12 +30,14 @@ impl WalletDIDUpdate {
         // Handle CLI args and input
         let wallet = self.wallet_args.open_wallet().await?;
         let did = get_uniquely_determinable_did(&wallet, self.did_o).await?;
-        let http_scheme_override_o = Some(self.http_scheme_override_args.http_scheme_override);
+        let http_options_o = Some(did_webplus_core::HTTPOptions {
+            http_headers_for: self.http_headers_args.http_headers_for.clone(),
+            http_scheme_override: self.http_scheme_override_args.http_scheme_override.clone(),
+        });
 
         // Do the processing
         let updated_did =
-            did_webplus_cli_lib::wallet_did_update(&wallet, &did, http_scheme_override_o.as_ref())
-                .await?;
+            did_webplus_cli_lib::wallet_did_update(&wallet, &did, http_options_o.as_ref()).await?;
 
         // Print the fully-qualified form of the updated DID and optional newline.
         std::io::stdout().write_all(updated_did.as_bytes())?;
