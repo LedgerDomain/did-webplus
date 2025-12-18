@@ -15,15 +15,23 @@ async fn test_software_wallet_indexeddb_basic() {
             "test_software_wallet_indexeddb_basic".to_string(),
             1,
             Some("test_software_wallet_indexeddb_basic Wallet #0".to_string()),
+            None,
         )
         .await
         .expect("pass");
 
     tracing::debug!("software_wallet_indexeddb: {:?}", software_wallet_indexeddb);
 
+    let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
+        .with_override("vdr.did-webplus-wasm.test".to_string(), "http")
+        .expect("pass");
+
     use did_webplus_wallet::Wallet;
     let controlled_did = software_wallet_indexeddb
-        .create_did("http://localhost:12321")
+        .create_did(
+            "https://vdr.did-webplus-wasm.test:8085",
+            Some(&http_scheme_override),
+        )
         .await
         .expect("pass");
     tracing::debug!("controlled_did: {:?}", controlled_did);
@@ -31,7 +39,7 @@ async fn test_software_wallet_indexeddb_basic() {
     tracing::debug!("did: {:?}", did);
 
     let controlled_did = software_wallet_indexeddb
-        .update_did(&did, "http")
+        .update_did(&did, Some(&http_scheme_override))
         .await
         .expect("pass");
     tracing::debug!("controlled_did: {:?}", controlled_did);

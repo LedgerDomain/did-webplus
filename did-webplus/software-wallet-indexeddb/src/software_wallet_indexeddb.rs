@@ -1,15 +1,14 @@
 use crate::Result;
 use anyhow::Context;
 use did_webplus_core::{
-    DIDDocument, DIDDocumentCreateParams, DIDDocumentUpdateParams, DIDFullyQualified, DIDStr,
-    KeyPurpose, KeyPurposeFlags,
+    now_utc_milliseconds, DIDDocument, DIDFullyQualified, DIDStr, KeyPurpose, KeyPurposeFlags,
+    RootLevelUpdateRules, UpdateKey,
 };
 use did_webplus_doc_store::DIDDocRecord;
 use did_webplus_wallet_store::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyUsage, PrivKeyUsageRecord,
     VerificationMethodRecord, WalletRecord, WalletStorageCtx,
 };
-use selfsign::{Signer, Verifier};
 use std::borrow::Cow;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::wasm_bindgen::JsValue;
@@ -60,6 +59,11 @@ pub struct SoftwareWalletIndexedDB {
     #[allow(unused)]
     db_version: u32,
     ctx: WalletStorageCtx,
+    /// Optionally specifies the host (i.e. hostname and optional port number) of a VDG to use in the
+    /// DIDResolverFull for fetching DID documents.  This is used so that this resolver can take part
+    /// in the scope of agreement defined by the VDG.  Without using a VDG, a DIDResolverFull has a
+    /// scope of agreement that only contains itself.
+    vdg_host_o: Option<String>,
 }
 
 impl SoftwareWalletIndexedDB {
@@ -68,6 +72,7 @@ impl SoftwareWalletIndexedDB {
         db_name: String,
         db_version: u32,
         wallet_name_o: Option<String>,
+        vdg_host_o: Option<String>,
     ) -> Result<Self> {
         tracing::debug!(
             db_name,
@@ -91,6 +96,7 @@ impl SoftwareWalletIndexedDB {
             // Create a random UUID for the wallet.  The chance of collision is so low that
             // it's more likely a programmer error if it happens.
             let now_utc = time::OffsetDateTime::now_utc();
+            tracing::debug!("now_utc: {:?}", now_utc);
             for i in 0..5 {
                 let wallet_uuid = uuid::Uuid::new_v4();
                 tracing::debug!("attempt #{} to create wallet; wallet_uuid: {:?}", i, wallet_uuid);
@@ -125,9 +131,15 @@ impl SoftwareWalletIndexedDB {
             db_name,
             db_version,
             ctx,
+            vdg_host_o,
         })
     }
-    pub async fn open(db_name: String, db_version: u32, wallet_uuid: uuid::Uuid) -> Result<Self> {
+    pub async fn open(
+        db_name: String,
+        db_version: u32,
+        wallet_uuid: uuid::Uuid,
+        vdg_host_o: Option<String>,
+    ) -> Result<Self> {
         tracing::debug!(
             db_name,
             db_version,
@@ -173,6 +185,7 @@ impl SoftwareWalletIndexedDB {
             db_name,
             db_version,
             ctx,
+            vdg_host_o,
         })
     }
     /// Retrieves the database for this wallet.
@@ -331,18 +344,17 @@ impl SoftwareWalletIndexedDB {
         let did_doc_storage = self.clone();
         let did_doc_storage_a = std::sync::Arc::new(did_doc_storage);
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(did_doc_storage_a);
-        let did_resolver = did_webplus_resolver::DIDResolverFull::new(
+        let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
             did_doc_store,
-            None,
+            self.vdg_host_o.as_deref(),
             http_scheme_override_o.cloned(),
-            did_webplus_resolver::FetchPattern::Batch,
         )
-        .map_err(into_wallet_error)?;
+        .unwrap();
         use did_webplus_resolver::DIDResolver;
-        let (did_document, _did_doc_metadata) = did_resolver
+        let (did_document, _did_document_metadata, _did_resolution_metadata) = did_resolver_full
             .resolve_did_document(
                 did.as_str(),
-                did_webplus_core::RequestedDIDDocumentMetadata::none(),
+                did_webplus_core::DIDResolutionOptions::no_metadata(false),
             )
             .await
             .map_err(|e| {
@@ -382,7 +394,7 @@ impl SoftwareWalletIndexedDB {
         request_init.set_body(&JsValue::from_str(did_document_jcs));
 
         let request = web_sys::Request::new_with_str_and_init(
-            &did.resolution_url(http_scheme_override_o),
+            &did.resolution_url_for_did_documents_jsonl(http_scheme_override_o),
             &request_init,
         )
         .map_err(|_| {
@@ -513,7 +525,7 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
         did_document: &DIDDocument,
         did_document_jcs: &str,
     ) -> did_webplus_doc_store::Result<()> {
-        let self_hash = did_document.self_hash().to_string();
+        let self_hash = did_document.self_hash.to_string();
         let did = did_document.did.to_string();
         let version_id = did_document.version_id.try_into().unwrap();
         let valid_from = did_document.valid_from;
@@ -567,9 +579,9 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
     }
     async fn add_did_documents(
         &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did_document_jcs_v: &[&str],
-        did_document_v: &[DIDDocument],
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        _did_document_jcs_v: &[&str],
+        _did_document_v: &[DIDDocument],
     ) -> did_webplus_doc_store::Result<()> {
         unimplemented!("SoftwareWalletIndexedDB::add_did_documents");
     }
@@ -577,7 +589,7 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         _did: &DIDStr,
-        _self_hash: &selfhash::KERIHashStr,
+        _self_hash: &mbx::MBHashStr,
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         unimplemented!("SoftwareWalletIndexedDB::get_did_doc_record_with_self_hash");
     }
@@ -589,7 +601,7 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
     ) -> did_webplus_doc_store::Result<Option<DIDDocRecord>> {
         unimplemented!("SoftwareWalletIndexedDB::get_did_doc_record_with_version_id");
     }
-    async fn get_latest_did_doc_record(
+    async fn get_latest_known_did_doc_record(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         did: &DIDStr,
@@ -647,61 +659,12 @@ impl did_webplus_doc_store::DIDDocStorage for SoftwareWalletIndexedDB {
     ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
         unimplemented!("SoftwareWalletIndexedDB::get_did_doc_records");
     }
-    async fn get_known_did_documents_jsonl_octet_length(
-        &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-    ) -> did_webplus_doc_store::Result<u64> {
-        let did_documents_jsonl_octet_length = self
-            .db()
-            .await
-            .map_err(into_doc_store_error)?
-            .transaction(&[Self::DID_DOCUMENTS_OBJECT_STORE])
-            .run(async move |transaction| {
-                tracing::debug!(
-                    "starting transaction for get_known_did_documents_jsonl_octet_length"
-                );
-                let did_document_blob_cursor = transaction
-                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
-                    .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
-                    .cursor()
-                    // DID documents are stored in chronological order, so we need to go backwards.
-                    .direction(indexed_db::CursorDirection::Prev)
-                    .open()
-                    .await?;
-                tracing::trace!("got did_document_blob_cursor");
-                let did_document_blob_jsvalue_o = did_document_blob_cursor.value();
-                if let Some(did_document_blob_jsvalue) = did_document_blob_jsvalue_o {
-                    tracing::trace!(
-                        "got did_document_blob_jsvalue: {:?}",
-                        did_document_blob_jsvalue
-                    );
-                    let did_document_blob = serde_wasm_bindgen::from_value::<DIDDocumentBlob>(
-                        did_document_blob_jsvalue,
-                    )
-                    .map_err(|e| {
-                        Error::from(anyhow::anyhow!(
-                            "Database corruption in DID document; error was: {}",
-                            e
-                        ))
-                    })?;
-                    Ok(did_document_blob
-                        .did_doc_record
-                        .did_documents_jsonl_octet_length)
-                } else {
-                    Ok(0)
-                }
-            })
-            .await
-            .map_err(into_doc_store_error)?;
-        Ok(did_documents_jsonl_octet_length as u64)
-    }
     async fn get_did_doc_records_for_did_documents_jsonl_range(
         &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        did: &DIDStr,
-        range_begin_inclusive_o: Option<u64>,
-        range_end_exclusive_o: Option<u64>,
+        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
+        _did: &DIDStr,
+        _range_begin_inclusive_o: Option<u64>,
+        _range_end_exclusive_o: Option<u64>,
     ) -> did_webplus_doc_store::Result<Vec<DIDDocRecord>> {
         unimplemented!(
             "SoftwareWalletIndexedDB::get_did_doc_records_for_did_documents_jsonl_range"
@@ -764,8 +727,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         };
 
         // Generate an appropriate set of keys.  Record the creation timestamp.
-        let created_at = time::OffsetDateTime::now_utc();
-
+        let now_utc = now_utc_milliseconds();
         // TODO: This should use SubtleCrypto, not ed25519-dalek.
         // TODO: Somehow iterate?
         let priv_key_m = enum_map::enum_map! {
@@ -774,53 +736,61 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
             KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
             KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
         };
         // TODO: Somehow iterate?
         let pub_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => priv_key_m[KeyPurpose::Authentication].verifying_key(),
-            KeyPurpose::AssertionMethod => priv_key_m[KeyPurpose::AssertionMethod].verifying_key(),
-            KeyPurpose::KeyAgreement => priv_key_m[KeyPurpose::KeyAgreement].verifying_key(),
-            KeyPurpose::CapabilityInvocation => priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key(),
-            KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key(),
+            KeyPurpose::Authentication => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::Authentication].verifying_key()),
+            KeyPurpose::AssertionMethod => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::AssertionMethod].verifying_key()),
+            KeyPurpose::KeyAgreement => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::KeyAgreement].verifying_key()),
+            KeyPurpose::CapabilityInvocation => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key()),
+            KeyPurpose::CapabilityDelegation => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key()),
+            KeyPurpose::UpdateDIDDocument => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key()),
         };
 
-        // Form the self-signed-and-hashed root DID document.
-        let did_document = DIDDocument::create_root(
-            DIDDocumentCreateParams {
-                did_hostname: vdr_did_create_endpoint_url.host_str().unwrap().into(),
-                did_port_o: vdr_did_create_endpoint_url.port(),
-                did_path_o,
-                valid_from: time::OffsetDateTime::now_utc(),
-                public_key_set: did_webplus_core::PublicKeySet {
-                    authentication_v: vec![&pub_key_m[KeyPurpose::Authentication]],
-                    assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod]],
-                    key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement]],
-                    // Note that this is the one being used to self-sign the root DIDDocument.
-                    capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
-                    capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
-                },
-            },
-            &selfhash::Blake3,
-            &priv_key_m[KeyPurpose::CapabilityInvocation],
-        )
-        .expect("pass");
-        assert!(did_document.self_signature_verifier_o.is_some());
-        let did = did_document.did.clone();
-        let controlled_did = did.with_queries(did_document.self_hash(), 0);
-        let controlled_did_with_key_id = controlled_did
-            .with_fragment(did_document.self_signature_verifier_o.as_deref().unwrap());
+        // Define the update rules.  For now, just a single key.
+        let update_rules = RootLevelUpdateRules::from(UpdateKey {
+            pub_key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
+        });
 
-        // Serialize DID doc as JCS (JSON Canonicalization Scheme).  This is what gets POST'ed to the VDR.
+        // Form the unsigned root DID document.
+        let mut did_document = DIDDocument::create_unsigned_root(
+            vdr_did_create_endpoint_url.host_str().unwrap(),
+            vdr_did_create_endpoint_url.port(),
+            did_path_o.as_deref(),
+            update_rules,
+            now_utc,
+            did_webplus_core::PublicKeySet {
+                authentication_v: vec![&pub_key_m[KeyPurpose::Authentication]],
+                assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod]],
+                key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement]],
+                capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
+                capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
+            },
+            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+        )
+        .expect("programmer error");
+
+        // There's no need to sign the root DID document, but it is allowed.  There could be
+        // reasons outside of the did:webplus specification for doing so.
+
+        // Finalize the root DID document.
+        did_document.finalize(None).expect("programmer error");
+
+        // Sanity check.
+        did_document
+            .verify_root_nonrecursive()
+            .expect("programmer error");
+
+        // Now that the DID document is finalized, we can get the DID.
+        let did = did_document.did.clone();
+
+        tracing::trace!(?did, "created root DID document");
+
         let did_document_jcs = did_document
             .serialize_canonically()
             .expect("this shouldn't happen");
-
-        tracing::trace!(
-            "formed DID document (not yet stored anywhere); did: {}; controlled_did: {}; did_document_jcs: {}",
-            did,
-            controlled_did,
-            did_document_jcs
-        );
+        tracing::trace!("serialized root DID document: {}", did_document_jcs);
 
         // First, add the DID document, priv keys, and priv key usages to the database, but under
         // the "provisional" versions of those object stores.  Then the HTTP POST to the VDR will
@@ -829,26 +799,26 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
 
         let ctx_clone = self.ctx.clone();
         let did_clone = did.clone();
+        let did_document_clone = did_document.clone();
         let did_document_jcs_clone = did_document_jcs.clone();
-        let (did_document_blob_key, priv_key_blob_key_v, priv_key_usage_blob_key) = self
+        let (did_document_blob_key, priv_key_blob_key_v) = self
             .db()
             .await
             .map_err(into_wallet_error)?
             .transaction(&[
                 Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
                 Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
-                Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
             ])
             .rw()
             .run(async move |transaction| {
                 tracing::trace!("started transaction #1; adding provisional records for DID document, priv keys, and priv key usages");
-                // Add the DID document.
+                // Store the DID document.
                 let did_document_blob = DIDDocumentBlob {
                     did_doc_record: DIDDocRecord {
-                        self_hash: did_document.self_hash().to_string(),
-                        did: did_document.did.to_string(),
-                        version_id: did_document.version_id.try_into().unwrap(),
-                        valid_from: did_document.valid_from,
+                        self_hash: did_document_clone.self_hash.to_string(),
+                        did: did_document_clone.did.to_string(),
+                        version_id: did_document_clone.version_id.try_into().unwrap(),
+                        valid_from: did_document_clone.valid_from,
                         did_documents_jsonl_octet_length: did_document_jcs_clone.len() as i64 + 1,
                         did_document_jcs: did_document_jcs_clone,
                     },
@@ -860,22 +830,39 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     .await?;
                 tracing::trace!("added did_document_blob; did_document_blob_key: {:?}", did_document_blob_key);
 
-                // Add the priv keys.
+                // Store the priv keys.
                 let mut priv_key_blob_key_v = Vec::with_capacity(KeyPurpose::VARIANTS.len());
                 for key_purpose in KeyPurpose::VARIANTS {
                     tracing::trace!("adding priv key for key_purpose: {:?}", key_purpose);
+                    let pub_key = pub_key_m[key_purpose].clone();
+                    let hashed_pub_key = {
+                        let mut hasher = blake3::Hasher::new();
+                        hasher.update(pub_key.as_bytes());
+                        mbx::MBHash::from_blake3(mbx::Base::Base64Url, hasher)
+                    };
+                    let max_usage_count_o = if key_purpose == KeyPurpose::UpdateDIDDocument {
+                        Some(1)
+                    } else {
+                        None
+                    };
+                    let comment_o = Some("generated during DID create".to_string());
+                    use signature_dyn::SignerDynT;
                     let priv_key_blob = PrivKeyBlob {
                         wallets_rowid: ctx_clone.wallets_rowid,
                         priv_key_record: PrivKeyRecord {
-                            pub_key: pub_key_m[key_purpose].to_keri_verifier().into_owned(),
+                            pub_key,
+                            hashed_pub_key: hashed_pub_key.to_string(),
+                            did_restriction_o: Some(did_clone.to_string()),
                             key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
-                            created_at,
-                            last_used_at_o: Some(created_at),
-                            usage_count: 1,
+                            created_at: now_utc,
+                            last_used_at_o: None,
+                            max_usage_count_o,
+                            usage_count: 0,
                             deleted_at_o: None,
                             private_key_bytes_o: Some(
-                                priv_key_m[key_purpose].to_private_key_bytes().to_owned(),
+                                priv_key_m[key_purpose].to_signer_bytes().to_owned(),
                             ),
+                            comment_o,
                         },
                     };
                     let priv_key_blob_key = transaction
@@ -886,37 +873,10 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     priv_key_blob_key_v.push(priv_key_blob_key);
                 }
 
-                // Add the priv key usage for the DIDCreate.
-                tracing::trace!("adding priv key usage for DIDCreate");
-                let priv_key_usage_blob = PrivKeyUsageBlob {
-                    wallets_rowid: ctx_clone.wallets_rowid,
-                    priv_key_usage_record: PrivKeyUsageRecord {
-                        pub_key: did_document
-                            .self_signature_verifier_o
-                            .as_ref()
-                            .unwrap()
-                            .clone(),
-                        used_at: created_at,
-                        usage: PrivKeyUsage::DIDCreate {
-                            created_did_o: Some(did_clone.clone()),
-                        },
-                        verification_method_and_purpose_o: Some((
-                            controlled_did_with_key_id,
-                            KeyPurpose::CapabilityInvocation,
-                        )),
-                    },
-                };
-                let priv_key_usage_blob_key = transaction
-                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
-                    .put(&serde_wasm_bindgen::to_value(&priv_key_usage_blob).unwrap())
-                    .await?;
-                tracing::trace!("added priv key usage; priv_key_usage_blob_key: {:?}", priv_key_usage_blob_key);
-
                 tracing::trace!("transaction #1 succeeded");
                 Ok((
                     did_document_blob_key,
                     priv_key_blob_key_v,
-                    priv_key_usage_blob_key,
                 ))
             })
             .await
@@ -940,7 +900,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     .transaction(&[
                         Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
                         Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
-                        Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
                     ])
                     .rw()
                     .run(async move |transaction| {
@@ -956,11 +915,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                                 .delete(&priv_key_blob_key)
                                 .await?;
                         }
-
-                        transaction
-                            .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
-                            .delete(&priv_key_usage_blob_key)
-                            .await?;
 
                         tracing::trace!("undo of transaction #1 succeeded");
                         Ok(())
@@ -982,8 +936,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
                 Self::PRIV_KEYS_OBJECT_STORE,
                 Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
-                Self::PRIV_KEY_USAGES_OBJECT_STORE,
-                Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
             ])
             .rw()
             .run(async move |transaction| {
@@ -1018,25 +970,14 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         .await?;
                 }
 
-                let priv_key_usage_blob_jsvalue = transaction
-                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
-                    .get(&priv_key_usage_blob_key)
-                    .await?
-                    .unwrap();
-                transaction
-                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
-                    .delete(&priv_key_usage_blob_key)
-                    .await?;
-                transaction
-                    .object_store(Self::PRIV_KEY_USAGES_OBJECT_STORE)?
-                    .put(&priv_key_usage_blob_jsvalue)
-                    .await?;
-
                 tracing::trace!("transaction #2 succeeded");
                 Ok(())
             })
             .await
             .map_err(into_wallet_error)?;
+
+        // Derive the controlled DID.
+        let controlled_did = did.with_queries(&did_document.self_hash, 0);
 
         Ok(controlled_did)
     }
@@ -1066,7 +1007,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             .fetch_did_internal(&did, http_scheme_override_o)
             .await?;
         let did_fully_qualified = did.with_queries(
-            latest_did_document.self_hash(),
+            &latest_did_document.self_hash,
             latest_did_document.version_id,
         );
 
@@ -1079,15 +1020,16 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
             KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
             KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
         };
         // TODO: Somehow iterate?
-        use selfsign::Verifier;
         let pub_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => priv_key_m[KeyPurpose::Authentication].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::AssertionMethod => priv_key_m[KeyPurpose::AssertionMethod].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::KeyAgreement => priv_key_m[KeyPurpose::KeyAgreement].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::CapabilityInvocation => priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key().to_keri_verifier().into_owned(),
-            KeyPurpose::CapabilityDelegation => priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key().to_keri_verifier().into_owned(),
+            KeyPurpose::Authentication => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::Authentication].verifying_key()),
+            KeyPurpose::AssertionMethod => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::AssertionMethod].verifying_key()),
+            KeyPurpose::KeyAgreement => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::KeyAgreement].verifying_key()),
+            KeyPurpose::CapabilityInvocation => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityInvocation].verifying_key()),
+            KeyPurpose::CapabilityDelegation => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::CapabilityDelegation].verifying_key()),
+            KeyPurpose::UpdateDIDDocument => mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &priv_key_m[KeyPurpose::UpdateDIDDocument].verifying_key()),
         };
 
         // First, add the DID document, priv keys, and priv key usages to the database, but under
@@ -1119,13 +1061,12 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     let mut locally_controlled_verification_method_v = Vec::new();
                     // Go through latest_did_document and find the verification methods that are locally controlled,
                     // i.e. whose public keys match those in the priv_keys object store.
-                    let priv_keys_object_store = transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE)?;
+                    let priv_keys_object_store = transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE).unwrap();
                     for verification_method in latest_did_document.public_key_material.verification_method_v.iter() {
                         let wallets_rowid_as_f64_jsvalue = Self::wallets_rowid_as_f64_jsvalue(ctx_clone.wallets_rowid);
 
-                        let pub_key = verification_method.id.fragment();
-                        let pub_key_str = pub_key.as_str();
-                        let pub_key_str_jsvalue = JsValue::from(pub_key_str);
+                        let pub_key = mbx::MBPubKey::try_from(&verification_method.public_key_jwk).map_err(|e| Error::from(anyhow::anyhow!("error converting public key JWK to MBPubKey; error was: {}", e)))?;
+                        let pub_key_str_jsvalue = JsValue::from(pub_key.to_string());
 
                         let priv_key_blob_jsvalue_o = priv_keys_object_store.index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
                             .get(&JsValue::from(vec![wallets_rowid_as_f64_jsvalue, pub_key_str_jsvalue]))
@@ -1135,7 +1076,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             let verification_method_record = did_webplus_wallet_store::VerificationMethodRecord {
                                 did_key_resource_fully_qualified: did_fully_qualified.with_fragment(&verification_method.id.fragment()),
                                 key_purpose_flags,
-                                pub_key: pub_key.to_owned(),
+                                pub_key,
                             };
                             let priv_key_blob = serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue).map_err(|e| {
                                 Error::from(anyhow::anyhow!(
@@ -1150,31 +1091,55 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     tracing::trace!("found {} locally controlled verification methods for latest DID document", locally_controlled_verification_method_v.len());
                     locally_controlled_verification_method_v
                 };
-                // let locally_controlled_verification_method_v = 
-                //     Self::get_locally_controlled_verification_methods_internal(
-                //         Self::PRIV_KEYS_OBJECT_STORE,
-                //         &ctx_clone,
-                //         &transaction,
-                //         &LocallyControlledVerificationMethodFilter {
-                //             did_o: Some(did_clone.clone()),
-                //             version_id_o: Some(latest_did_document.version_id),
-                //             key_purpose_o: None,
-                //             key_id_o: None,
-                //             result_limit_o: None,
-                //         },
-                //     )
-                //     .await?;
 
-                // If there are no matching locally controlled verification methods, then this means that the DID
-                // doc has been changed by another wallet that controls this DID, and this wallet no longer controls
-                // any keys present in the DID doc, and so there's no way for it to proceed with the DID update.
-                if locally_controlled_verification_method_v.is_empty() {
-                    return Err(indexed_db::Error::from(Error::from(anyhow::Error::from(did_webplus_wallet::Error::NoSuitablePrivKeyFound(format!("this wallet has no locally-controlled verification methods for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", did_clone, latest_did_document.self_hash(), latest_did_document.version_id).into())))));
+                // Query all update keys.
+                let update_key_v = {
+                    tracing::trace!("getting update keys for latest DID document");
+                    let priv_key_record_filter = did_webplus_wallet_store::PrivKeyRecordFilter {
+                        pub_key_o: None,
+                        hashed_pub_key_o: None,
+                        did_o: Some(did_clone.to_string()),
+                        key_purpose_flags_o: Some(KeyPurposeFlags::from(KeyPurpose::UpdateDIDDocument)),
+                        is_not_deleted_o: Some(true),
+                    };
+                    let mut update_key_v = Vec::new();
+                    let priv_keys_object_store = transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE)?;
+                    let priv_key_blob_jsvalue_v = priv_keys_object_store.get_all(None).await?;
+                    for priv_key_blob_jsvalue in priv_key_blob_jsvalue_v {
+                        let priv_key_blob = serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue).map_err(|e| {
+                            Error::from(anyhow::anyhow!(
+                                "Database corruption in DID document; error was: {}",
+                                e
+                            ))
+                        })?;
+                        if priv_key_blob.wallets_rowid != ctx_clone.wallets_rowid {
+                            continue;
+                        }
+                        if !priv_key_record_filter.matches(&priv_key_blob.priv_key_record) {
+                            continue;
+                        }
+                        update_key_v.push(priv_key_blob.priv_key_record);
+                    }
+                    tracing::trace!("found {} update keys for latest DID document", update_key_v.len());
+                    update_key_v
+                };
+
+                // If there are no matching update keys, then this means that this wallet doesn't have
+                // the authority to update the DID.  This could happen if another wallet updated the DID
+                // and removed this wallet's update key.
+                if update_key_v.is_empty() {
+                    return Err(indexed_db::Error::from(Error::from(anyhow::anyhow!("this wallet has no update key for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", did_clone, latest_did_document.self_hash, latest_did_document.version_id))));
                 }
 
-                // Select the appropriate key to self-sign the updated DID document.
-                let (_, priv_key_record_for_update) = locally_controlled_verification_method_v.iter().find(|(verification_method_record, _priv_key_record)| verification_method_record.key_purpose_flags.contains(KeyPurpose::CapabilityInvocation)).ok_or_else(|| indexed_db::Error::from(Error::from(anyhow::Error::from(did_webplus_wallet::Error::NoSuitablePrivKeyFound(format!("this wallet has no locally-controlled {} verification method for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", KeyPurpose::CapabilityInvocation, did_clone, latest_did_document.self_hash(), latest_did_document.version_id).into())))))?;
-                tracing::trace!("selected priv key for update: {:?}", priv_key_record_for_update);
+                // TEMP HACK: Assume there will only be one update key per wallet.
+                assert_eq!(
+                    update_key_v.len(),
+                    1,
+                    "programmer error: assumption is that there should only be one update key per wallet"
+                );
+
+                // Select the appropriate key to sign the update.
+                let priv_key_record_for_update = &update_key_v[0];
                 let priv_key_for_update = priv_key_record_for_update
                     .private_key_bytes_o
                     .as_ref()
@@ -1182,38 +1147,58 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
                     );
 
-                // Form and self-sign-and-hash the updated DID document.
-                // TODO: Allow for other verification methods that were added by other wallets.
-                let updated_did_document = DIDDocument::update_from_previous(
-                    &latest_did_document,
-                    DIDDocumentUpdateParams {
-                        valid_from: now_utc,
-                        public_key_set: did_webplus_core::PublicKeySet {
-                            authentication_v: vec![&pub_key_m[KeyPurpose::Authentication].as_ref()],
-                            assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod].as_ref()],
-                            key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement].as_ref()],
-                            capability_invocation_v: vec![
-                                &pub_key_m[KeyPurpose::CapabilityInvocation].as_ref()
-                            ],
-                            capability_delegation_v: vec![
-                                &pub_key_m[KeyPurpose::CapabilityDelegation].as_ref()
-                            ],
-                        },
-                    },
-                    &selfhash::Blake3,
-                    priv_key_for_update,
-                ).map_err(|e| indexed_db::Error::from(Error::from(anyhow::Error::from(e))))?;
+                // Define the update rules.  For now, just a single key.
+                let update_rules = RootLevelUpdateRules::from(UpdateKey {
+                    pub_key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
+                });
 
-                // Serialize DID doc as JCS (JSON Canonicalization Scheme).  This is what gets PUT'ed to the VDR.
+                // Form the unsigned non-root DID document.
+                let mut updated_did_document = DIDDocument::create_unsigned_non_root(
+                    &latest_did_document,
+                    update_rules,
+                    now_utc,
+                    did_webplus_core::PublicKeySet {
+                        authentication_v: vec![&pub_key_m[KeyPurpose::Authentication]],
+                        assertion_method_v: vec![&pub_key_m[KeyPurpose::AssertionMethod]],
+                        key_agreement_v: vec![&pub_key_m[KeyPurpose::KeyAgreement]],
+                        capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
+                        capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
+                    },
+                    &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+                )
+                .expect("programmer error");
+
+                use signature_dyn::SignerDynT;
+                let signing_kid = mbx::MBPubKey::try_from_verifier_bytes(
+                    mbx::Base::Base64Url,
+                    &priv_key_for_update.verifier_bytes().map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error converting verifier bytes to MBPubKey; error was: {}", e))))?//.map_err(into_wallet_error)?,
+                    // &priv_key_for_update.verifier_bytes().expect("TEMP HACK")//.map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error converting verifier bytes to MBPubKey; error was: {}", e))))?//.map_err(into_wallet_error)?,
+                )
+                .expect("programmer error")
+                .to_string();
+
+                // The updated DID document must be signed by the UpdateDIDDocument key specified in the latest DID document.
+                let jws = updated_did_document
+                    .sign(signing_kid, priv_key_for_update)
+                    .expect("programmer error");
+
+                // Add the proof to the DID document.
+                updated_did_document.add_proof(jws.into_string());
+
+                // Finalize the DID document.
+                updated_did_document
+                    .finalize(Some(&latest_did_document))
+                    .expect("programmer error");
+
+                // Sanity check.
+                updated_did_document
+                    .verify_non_root_nonrecursive(&latest_did_document)
+                    .expect("programmer error");
+
                 let updated_did_document_jcs = updated_did_document
                     .serialize_canonically()
                     .expect("this shouldn't happen");
-
-                tracing::trace!(
-                    "formed updated DID document (not yet stored anywhere); did: {}; updated_did_document_jcs: {}",
-                    did_clone,
-                    updated_did_document_jcs
-                );
+                tracing::debug!("updated_did_document_jcs: {}", updated_did_document_jcs);
 
                 // Retrieve the latest DIDDocRecord to get the did_documents_jsonl_octet_length.
                 let latest_did_doc_record_cursor = transaction
@@ -1231,7 +1216,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             .map(|blob| blob.did_doc_record.did_documents_jsonl_octet_length)
                     })
                     .transpose()
-                    .map_err(|e| indexed_db::Error::User(Error::from(anyhow::anyhow!(e))))?
+                    .map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("Error while deserializing DIDDocumentBlob, this likely indicates database corruption; error was: {}", e))))?
                     .unwrap_or(0)
                     + updated_did_document_jcs.len() as i64
                     + 1;
@@ -1239,7 +1224,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 // Add the updated DID document.
                 let did_document_blob = DIDDocumentBlob {
                     did_doc_record: DIDDocRecord {
-                        self_hash: updated_did_document.self_hash().to_string(),
+                        self_hash: updated_did_document.self_hash.to_string(),
                         did: updated_did_document.did.to_string(),
                         version_id: updated_did_document.version_id.try_into().unwrap(),
                         valid_from: updated_did_document.valid_from,
@@ -1254,22 +1239,41 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     .await?;
                 tracing::trace!("added did_document_blob; did_document_blob_key: {:?}", did_document_blob_key);
 
-                // Add the priv keys.
+                // Store the priv keys.
                 let mut priv_key_blob_key_v = Vec::with_capacity(KeyPurpose::VARIANTS.len());
                 for key_purpose in KeyPurpose::VARIANTS {
                     tracing::trace!("adding priv key for key_purpose: {:?}", key_purpose);
+                    let pub_key = pub_key_m[key_purpose].clone();
+                    let hashed_pub_key = {
+                        let mut hasher = blake3::Hasher::new();
+                        hasher.update(pub_key.as_bytes());
+                        mbx::MBHash::from_blake3(mbx::Base::Base64Url, hasher)
+                    };
+                    let max_usage_count_o = if key_purpose == KeyPurpose::UpdateDIDDocument {
+                        Some(1)
+                    } else {
+                        None
+                    };
+                    let comment_o = Some(format!(
+                        "generated during DID update versionId {} -> {}",
+                        latest_did_document.version_id, updated_did_document.version_id
+                    ));
                     let priv_key_blob = PrivKeyBlob {
                         wallets_rowid: ctx_clone.wallets_rowid,
                         priv_key_record: PrivKeyRecord {
-                            pub_key: pub_key_m[key_purpose].clone(),
+                            pub_key,
+                            hashed_pub_key: hashed_pub_key.to_string(),
+                            did_restriction_o: Some(did_clone.to_string()),
                             key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
                             created_at: now_utc,
-                            last_used_at_o: Some(now_utc),
-                            usage_count: 1,
+                            last_used_at_o: None,
+                            max_usage_count_o,
+                            usage_count: 0,
                             deleted_at_o: None,
                             private_key_bytes_o: Some(
-                                priv_key_m[key_purpose].to_private_key_bytes().to_owned(),
+                                priv_key_m[key_purpose].to_signer_bytes().to_owned(),
                             ),
+                            comment_o,
                         },
                     };
                     let priv_key_blob_key = transaction
@@ -1280,41 +1284,40 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     priv_key_blob_key_v.push(priv_key_blob_key);
                 }
 
-                // Add the priv key usage for the DIDUpdate.
-                tracing::trace!("adding priv key usage for DIDUpdate");
                 let controlled_did = did_clone.with_queries(
-                    updated_did_document.self_hash(),
+                    &updated_did_document.self_hash,
                     updated_did_document.version_id,
                 );
-                let controlled_did_with_key_id = controlled_did.with_fragment(
-                    updated_did_document
-                        .self_signature_verifier_o
-                        .as_deref()
-                        .unwrap(),
-                );
+
+                // Store the priv key usage for the UpdateDIDDocument.
+                tracing::trace!("adding priv key usage for UpdateDIDDocument");
                 let priv_key_usage_blob = PrivKeyUsageBlob {
                     wallets_rowid: ctx_clone.wallets_rowid,
                     priv_key_usage_record: PrivKeyUsageRecord {
-                        pub_key: updated_did_document
-                            .self_signature_verifier_o
-                            .as_ref()
-                            .unwrap()
-                            .clone(),
+                        pub_key: priv_key_record_for_update.pub_key.clone(),
+                        hashed_pub_key: priv_key_record_for_update.hashed_pub_key.clone(),
                         used_at: now_utc,
                         usage: PrivKeyUsage::DIDUpdate {
                             updated_did_fully_qualified_o: Some(controlled_did.clone()),
                         },
-                        verification_method_and_purpose_o: Some((
-                            controlled_did_with_key_id,
-                            KeyPurpose::CapabilityInvocation,
-                        )),
-                    },
+                        verification_method_o: None,
+                        key_purpose_o: Some(KeyPurpose::UpdateDIDDocument),
+                    }
                 };
                 let priv_key_usage_blob_key = transaction
                     .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
                     .put(&serde_wasm_bindgen::to_value(&priv_key_usage_blob).unwrap())
                     .await?;
                 tracing::trace!("added priv key usage; priv_key_usage_blob_key: {:?}", priv_key_usage_blob_key);
+
+                // TODO: Collect priv key IDs to retire in the second transaction.
+                // // Retire the priv keys for the old locally-controlled verification methods.
+                // let priv_keys_provisional_object_store = transaction.object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?;
+                // for (_verification_method_record, priv_key_record) in locally_controlled_verification_method_v {
+                //     // TODO: Soft-delete the priv key.
+                // }
+                // // Retire the old update key.
+                // // TODO: Soft-delete the update key.
 
                 tracing::trace!("transaction #1 succeeded");
                 Ok((
@@ -1333,7 +1336,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         match self
             .post_or_put_did_document(
                 "update",
-                &updated_did_document_jcs,
+                updated_did_document_jcs.as_str(),
                 &did,
                 http_scheme_override_o,
             )
@@ -1450,16 +1453,28 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             .map_err(into_wallet_error)?;
 
         let controlled_did = did.with_queries(
-            updated_did_document.self_hash(),
+            &updated_did_document.self_hash,
             updated_did_document.version_id,
         );
         Ok(controlled_did)
     }
+    async fn deactivate_did(
+        &self,
+        _did: &DIDStr,
+        _http_scheme_override_o: Option<&did_webplus_core::HTTPSchemeOverride>,
+    ) -> did_webplus_wallet::Result<DIDFullyQualified> {
+        // Wait until this is factored with update_did and create_did (in SoftwareWallet and Self)
+        todo!()
+    }
     async fn get_locally_controlled_verification_methods(
         &self,
         _locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> did_webplus_wallet::Result<Vec<(VerificationMethodRecord, Box<dyn selfsign::Signer>)>>
-    {
+    ) -> did_webplus_wallet::Result<
+        Vec<(
+            VerificationMethodRecord,
+            signature_dyn::SignerBytes<'static>,
+        )>,
+    > {
         todo!()
     }
 }

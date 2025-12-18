@@ -74,6 +74,7 @@ services:
       target: runtime
     environment:
       DID_WEBPLUS_VDG_DATABASE_URL: postgres://postgres:postgres@vdg_did_webplus_wasm_test_database:5432/postgres?sslmode=disable
+      DID_WEBPLUS_VDG_HTTP_SCHEME_OVERRIDE: 'vdr.did-webplus-wasm.test=http'
       DID_WEBPLUS_VDG_LISTEN_PORT: 8086
       # Options are "compact" and "pretty" (which is very verbose)
       DID_WEBPLUS_VDG_LOG_FORMAT: compact
@@ -117,6 +118,7 @@ services:
       DID_WEBPLUS_VDR_DID_HOSTNAME: vdr.did-webplus-wasm.test
       DID_WEBPLUS_VDR_DID_PORT: 8085
       DID_WEBPLUS_VDR_GATEWAYS: http://vdg.did-webplus-wasm.test:8086
+      DID_WEBPLUS_VDR_HTTP_SCHEME_OVERRIDE: 'vdg.did-webplus-wasm.test=http'
       DID_WEBPLUS_VDR_LISTEN_PORT: 8085
       RUST_BACKTRACE: '1'
       RUST_LOG: 'hyper=warn,sqlx=info,debug'

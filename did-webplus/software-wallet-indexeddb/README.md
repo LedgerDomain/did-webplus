@@ -18,6 +18,8 @@ Note that you may need to install a few things:
 
 ## Running Tests
 
+Before running tests, the did-webplus VDR and VDG must be running.  See [did-webplus-wasm crate's README.md](../wasm/README.md) for instructions.
+
 Note that node.js does not support IndexedDB, and therefore this crate can not be run against node.js.
 
 ### Running Tests in Browser (Headless Mode)
@@ -55,27 +57,3 @@ When using the SDK or running the tests in the browser, logging messages will be
 | trace | debug   |
 
 When running the tests in headless browser mode, only the Rust debug level messages will be sent to stdout.  The `RUST_LOG` env var doesn't affect this (it applies to the wasm-pack process that runs the tests, but not the tests themselves).
-
-## Running Example
-
-TODO: IMPLEMENT EXAMPLE AND UPDATE THIS SECTION FOR THIS CRATE
-
-Ensure the wasm package has been built:
-
-    wasm-pack build --target web
-
-This should populate the `pkg` directory with various files, including:
-
-    did_webplus_wasm_bg.wasm
-    did_webplus_wasm_bg.wasm.d.ts
-    did_webplus_wasm.d.ts
-    did_webplus_wasm.js
-    .gitignore
-    package.json
-    README.md
-
-Then run a local web server to serve the example web page (index.html), e.g.
-
-    python3 -m http.server 3000
-
-and then load http://localhost:3000 in your web browser.  This is a very ugly -- but working -- example of some critical features of did-webplus running in a browser.

@@ -542,6 +542,7 @@ impl DIDResolverFull {
         let did_documents_jsonl_update_str = did_documents_jsonl_update.trim_end();
         tracing::trace!("got did-documents.jsonl update");
 
+        #[cfg(not(target_arch = "wasm32"))]
         let time_start = std::time::SystemTime::now();
         // TEMP HACK: Collate it all into memory
         // TODO: This needs to be bounded in memory, since the version_id comes from external
@@ -559,14 +560,17 @@ impl DIDResolverFull {
                 known_did_documents_jsonl_octet_length += did_document_jcs.len() as u64 + 1;
             }
         }
-        let duration = std::time::SystemTime::now()
-            .duration_since(time_start)
-            .expect("pass");
-        tracing::debug!(
-            "Time taken to assemble predecessor DID documents (vdg_base_url_o: {:?}): {:?}",
-            self.vdg_base_url_o.as_ref().map(|url| url.as_str()),
-            duration
-        );
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let duration = std::time::SystemTime::now()
+                .duration_since(time_start)
+                .expect("pass");
+            tracing::debug!(
+                "Time taken to assemble predecessor DID documents (vdg_base_url_o: {:?}): {:?}",
+                self.vdg_base_url_o.as_ref().map(|url| url.as_str()),
+                duration
+            );
+        }
 
         tracing::trace!("validating and storing predecessor DID documents");
 

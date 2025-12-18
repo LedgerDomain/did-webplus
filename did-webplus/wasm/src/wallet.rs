@@ -1,6 +1,6 @@
-use crate::{into_js_value, HTTPSchemeOverride};
+use crate::{HTTPSchemeOverride, into_js_value};
 use std::{ops::Deref, sync::Arc};
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
 #[wasm_bindgen]
 #[derive(Clone)]
@@ -34,12 +34,17 @@ impl Wallet {
     // TODO: Method for listing wallets in a given database.
     /// Create a new (IndexedDB-backed) wallet in the given database, with optional wallet name.
     #[cfg(target_arch = "wasm32")]
-    pub async fn create(db_name: String, wallet_name_o: Option<String>) -> Result<Self, JsValue> {
+    pub async fn create(
+        db_name: String,
+        wallet_name_o: Option<String>,
+        vdg_host_o: Option<String>,
+    ) -> Result<Self, JsValue> {
         let software_wallet_indexeddb =
             did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::create(
                 db_name,
                 did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::CURRENT_DB_VERSION,
                 wallet_name_o,
+                vdg_host_o,
             )
             .await
             .map_err(into_js_value)?;
@@ -47,13 +52,18 @@ impl Wallet {
     }
     /// Open an existing (IndexedDB-backed) wallet in the given database.
     #[cfg(target_arch = "wasm32")]
-    pub async fn open(db_name: String, wallet_uuid: String) -> Result<Self, JsValue> {
+    pub async fn open(
+        db_name: String,
+        wallet_uuid: String,
+        vdg_host_o: Option<String>,
+    ) -> Result<Self, JsValue> {
         let wallet_uuid = uuid::Uuid::parse_str(&wallet_uuid).map_err(into_js_value)?;
         let software_wallet_indexeddb =
             did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::open(
                 db_name,
                 did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::CURRENT_DB_VERSION,
                 wallet_uuid,
+                vdg_host_o,
             )
             .await
             .map_err(into_js_value)?;

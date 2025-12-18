@@ -1625,6 +1625,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "blake3",
  "console_error_panic_hook",
  "did-webplus-core",
  "did-webplus-doc-store",
@@ -1634,12 +1635,15 @@ dependencies = [
  "ed25519-dalek",
  "enum-map",
  "getrandom 0.2.16",
+ "getrandom 0.3.4",
  "indexed-db",
+ "mbx",
  "rand 0.8.5",
  "selfhash",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
+ "signature-dyn",
  "storage-traits",
  "time",
  "tracing",
@@ -1935,6 +1939,7 @@ dependencies = [
  "did-webplus-software-wallet-indexeddb",
  "did-webplus-wallet",
  "did-webplus-wallet-storage-mock",
+ "getrandom 0.3.4",
  "js-sys",
  "log",
  "selfhash",
@@ -2601,9 +2606,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi",
  "wasip2",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -7091,7 +7098,17 @@ dependencies = [
  "getrandom 0.3.4",
  "js-sys",
  "serde",
+ "uuid-rng-internal",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "uuid-rng-internal"
+version = "1.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23426b4394875bbc29a3074f94e1b52cd0eed2c8410c21a6edbfb033daef0aa1"
+dependencies = [
+ "getrandom 0.3.4",
 ]
 
 [[package]]

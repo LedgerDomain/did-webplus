@@ -19,14 +19,14 @@ pub struct MockVDG {
     mock_vdr_lam: HashMap<String, Arc<RwLock<MockVDR>>>,
     /// Optional simulated network latency duration.  If present, then all VDG operations will sleep
     /// for this duration before beginning their work.
-    simulated_latency_o: Option<std::time::Duration>,
+    simulated_latency_o: Option<time::Duration>,
 }
 
 impl MockVDG {
     pub fn new(
         user_agent: String,
         mock_vdr_lam: HashMap<String, Arc<RwLock<MockVDR>>>,
-        simulated_latency_o: Option<std::time::Duration>,
+        simulated_latency_o: Option<time::Duration>,
     ) -> Self {
         let mock_verified_cache =
             MockVerifiedCache::empty(format!("{}'s MockVerifiedCache", user_agent));
@@ -52,7 +52,10 @@ impl VDS for MockVDG {
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
-        println!("MockVDG({:?})::fetch_did_documents;\n    requester_user_agent: {}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}", self.user_agent, requester_user_agent, did, version_id_begin_o, version_id_end_o);
+        println!(
+            "MockVDG({:?})::fetch_did_documents;\n    requester_user_agent: {}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}",
+            self.user_agent, requester_user_agent, did, version_id_begin_o, version_id_end_o
+        );
         self.simulate_latency_if_necessary();
 
         // This write lock isn't great because the VDR might not actually be hit.

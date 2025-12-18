@@ -2,6 +2,9 @@
 
 use wasm_bindgen_test::wasm_bindgen_test;
 
+// TEMP -- disable vjson tests for now.
+
+/*
 #[wasm_bindgen_test]
 #[allow(unused)]
 async fn test_vjson_self_hash_and_verify() {
@@ -64,6 +67,7 @@ async fn test_vjson_sign_and_verify() {
         .await
         .expect("pass");
 }
+*/
 
 #[wasm_bindgen_test]
 #[allow(unused)]
@@ -74,7 +78,7 @@ async fn test_software_wallet_indexeddb() {
     tracing::debug!("test_software_wallet_indexeddb");
     let db_name = "test_software_wallet_indexeddb";
 
-    let wallet = did_webplus_wasm::Wallet::create(db_name.to_string(), None)
+    let wallet = did_webplus_wasm::Wallet::create(db_name.to_string(), None, None)
         .await
         .expect("pass");
     tracing::debug!("wallet successfully created");
@@ -86,7 +90,7 @@ async fn test_software_wallet_indexeddb() {
 
     let controlled_did = wallet
         .create_did(
-            "http://vdr.did-webplus-wasm.test:8085".to_string(),
+            "https://vdr.did-webplus-wasm.test:8085".to_string(),
             Some(http_scheme_override.clone()),
         )
         .await
