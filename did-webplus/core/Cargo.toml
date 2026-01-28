@@ -39,7 +39,7 @@ ed448-goldilocks = { version = "0.14.0-pre.4", optional = true }
 enum-map = "2.7.3"
 flagset = "0.4.6"
 k256 = { version = "0.13.1", optional = true }
-mbx = { version = "0.1.0", features = [
+mbx = { version = "0.1.1", features = [
     "ed25519-dalek",
     "ed448-goldilocks",
     "k256",
@@ -53,7 +53,12 @@ p256 = { version = "0.13.2", optional = true }
 p384 = { version = "0.13.1", optional = true }
 p521 = { version = "0.14.0-pre.11", optional = true, features = ["ecdsa"] }
 pneutype = "0.5.1"
-selfhash = { version = "0.5.0", features = ["blake3", "jcs", "mbx", "serde"] }
+selfhash = { version = "0.5.1", features = [
+    "all-hash-functions",
+    "jcs",
+    "mbx",
+    "serde",
+] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json_canonicalizer = "0.3.0"
 serde_json = "1.0.107"
@@ -76,6 +81,7 @@ did-key = { path = "../../did-key", features = [
 ] }
 did-webplus-jws = { path = "../jws", features = ["ed25519-dalek"] }
 ed25519-dalek = { version = "2.2.0", features = ["digest", "rand_core"] }
+mbx = { version = "0.1.1", features = ["codec-str"] }
 rand = "0.8"
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }

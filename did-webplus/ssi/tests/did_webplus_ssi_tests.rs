@@ -62,8 +62,16 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
     vdr_did_create_endpoint: &str,
 ) {
     // Have the wallet create a DID.
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
     let controlled_did = software_wallet
-        .create_did(vdr_did_create_endpoint, None)
+        .create_did(
+            did_webplus_wallet::CreateDIDParameters {
+                vdr_did_create_endpoint: vdr_did_create_endpoint,
+                mb_hash_function_for_did: &mb_hash_function,
+                mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+            },
+            None,
+        )
         .await
         .expect("pass");
     // Get an appropriate signing key.
@@ -175,8 +183,16 @@ async fn test_ssi_vc_issue_0_impl(
     use xsd_types::DateTime;
 
     // Have the wallet create a DID.
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
     let controlled_did = software_wallet
-        .create_did(vdr_did_create_endpoint, None)
+        .create_did(
+            did_webplus_wallet::CreateDIDParameters {
+                vdr_did_create_endpoint: vdr_did_create_endpoint,
+                mb_hash_function_for_did: &mb_hash_function,
+                mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+            },
+            None,
+        )
         .await
         .expect("pass");
     // Get an appropriate signing key.
@@ -543,7 +559,14 @@ async fn test_ssi_vc_issue_0_impl(
     // branch on the LedgerDomain fork of the ssi crate.
     {
         let _updated_controlled_did = software_wallet
-            .update_did(controlled_did.did(), None)
+            .update_did(
+                did_webplus_wallet::UpdateDIDParameters {
+                    did: &controlled_did.did(),
+                    change_mb_hash_function_for_self_hash_o: None,
+                    mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+                },
+                None,
+            )
             .await
             .expect("pass");
         // Verify

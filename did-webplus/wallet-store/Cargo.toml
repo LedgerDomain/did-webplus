@@ -11,8 +11,8 @@ sqlx = ["dep:sqlx"]
 async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
-mbx = "0.1.0"
-selfhash = "0.5.0"
+mbx = "0.1.1"
+selfhash = "0.5.1"
 signature-dyn = { version = "0.1.0", features = ["serde"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 sqlx = { version = "0.8.2", default-features = false, optional = true }

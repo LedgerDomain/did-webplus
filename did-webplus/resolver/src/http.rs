@@ -153,7 +153,8 @@ pub async fn fetch_did_documents_jsonl_update(
     );
 
     #[cfg(not(target_arch = "wasm32"))]
-    let time_start = std::time::SystemTime::now();
+    let time_start = time::OffsetDateTime::now_utc();
+
     let did_documents_jsonl_url = if let Some(vdg_base_url) = vdg_base_url_o {
         // Apply the http_scheme_override_o to the vdg_base_url.
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
@@ -206,17 +207,17 @@ pub async fn fetch_did_documents_jsonl_update(
         http_options_o.map(|o| &o.http_headers_for),
     )
     .await;
+
     #[cfg(not(target_arch = "wasm32"))]
     if let Ok(did_documents_jsonl_update) = &did_documents_jsonl_update_r {
-        let duration = std::time::SystemTime::now()
-            .duration_since(time_start)
-            .expect("pass");
+        let duration = time::OffsetDateTime::now_utc() - time_start;
         tracing::info!(
             "Time taken to do a range-based GET of {} bytes of did-documents.jsonl starting at byte {}: {:.3}",
             did_documents_jsonl_update.len(),
             known_did_documents_jsonl_octet_length,
-            duration.as_secs_f64(),
+            duration,
         );
     }
+
     did_documents_jsonl_update_r
 }

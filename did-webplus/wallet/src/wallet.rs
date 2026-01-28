@@ -5,6 +5,51 @@ use did_webplus_wallet_store::{
 };
 use std::collections::HashSet;
 
+#[derive(Clone, Debug)]
+pub struct CreateDIDParameters<'a> {
+    pub vdr_did_create_endpoint: &'a str,
+    /// Base and hash function to use for the self-hash of the root DID document, which is the self-hash
+    /// that forms part of the DID itself.  Base64Url is recommended for the base for compactness and
+    /// encode/decode speed.
+    pub mb_hash_function_for_did: &'a selfhash::MBHashFunction,
+    /// If Some(mb_hash_function), then the update key will be HashedUpdateKey ("hashedKey" in the
+    /// JSON form of the update rules -- this is a pre-rotation key, intended to be used only once
+    /// upon DID update), hashed using the specified base and hash function.  Using this is highly
+    /// recommended to protect against post-quantum attacks.  If None, then the update key will be
+    /// UpdateKey ("key" in the JSON form of the update rules).  It is recommended to always use a
+    /// HashedUpdateKey for pre-rotation keys.
+    pub mb_hash_function_for_update_key_o: Option<&'a selfhash::MBHashFunction>,
+}
+
+#[derive(Clone, Debug)]
+pub struct UpdateDIDParameters<'a> {
+    /// The DID to update.
+    pub did: &'a DIDStr,
+    /// If Some(mb_hash_function), then the self-hash of the updated DID document will be made
+    /// using the specified base and hash function.  If None, then the same base and hash function
+    /// as the one for the existing DID document will be used.  Typically, one would only change the
+    /// hash function if the hash function for the existing DID document was considered to be too weak.
+    pub change_mb_hash_function_for_self_hash_o: Option<&'a selfhash::MBHashFunction>,
+    /// If Some(mb_hash_function), then the update key will be HashedUpdateKey ("hashedKey" in the
+    /// JSON form of the update rules -- this is a pre-rotation key, intended to be used only once
+    /// upon DID update), hashed using the specified base and hash function.  Using this is highly
+    /// recommended to protect against post-quantum attacks.  If None, then the update key will be
+    /// UpdateKey ("key" in the JSON form of the update rules).  It is recommended to always use a
+    /// HashedUpdateKey for pre-rotation keys.
+    pub mb_hash_function_for_update_key_o: Option<&'a selfhash::MBHashFunction>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DeactivateDIDParameters<'a> {
+    /// The DID to deactivate.
+    pub did: &'a DIDStr,
+    /// If Some(mb_hash_function), then the self-hash of the deactivated DID document will be made
+    /// using the specified base and hash function.  If None, then the same base and hash function
+    /// as the one for the existing DID document will be used.  Typically, one would only change the
+    /// hash function if the hash function for the existing DID document was considered to be too weak.
+    pub change_mb_hash_function_for_self_hash_o: Option<&'a selfhash::MBHashFunction>,
+}
+
 /// Generalized wallet trait that can be implemented for any wallet type, e.g. edge wallet (software or hardware)
 /// or cloud wallet.  This trait is intended to be used by higher-level code that needs to interact with a wallet
 /// without knowing the specific implementation details of the wallet.
@@ -17,7 +62,7 @@ pub trait Wallet: Send + Sync {
     /// params; in this case, the query selfHash matches the DID doc selfHash, and the query versionId is 0).
     async fn create_did(
         &self,
-        vdr_did_create_endpoint: &str,
+        create_did_parameters: CreateDIDParameters<'_>,
         http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified>;
     /// Retrieve all DID document updates for the given DID from the VDR, verify them, and store the latest DID document.
@@ -34,7 +79,7 @@ pub trait Wallet: Send + Sync {
     /// DID doc (i.e. the DID with selfHash and versionId query params).
     async fn update_did(
         &self,
-        did: &DIDStr,
+        update_did_parameters: UpdateDIDParameters<'_>,
         http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified>;
     /// Deactivate a locally-controlled DID by removing all verification methods from the DID document
@@ -43,7 +88,7 @@ pub trait Wallet: Send + Sync {
     /// ever be updated again.
     async fn deactivate_did(
         &self,
-        did: &DIDStr,
+        deactivate_did_parameters: DeactivateDIDParameters<'_>,
         http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified>;
 

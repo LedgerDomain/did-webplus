@@ -50,20 +50,65 @@ async fn test_software_wallet_impl(software_wallet: &did_webplus_software_wallet
         vdr_scheme, vdr_config.did_hostname, vdr_config.listen_port
     );
 
-    use did_webplus_wallet::Wallet;
+    for &base in &[mbx::Base::Base58Btc, mbx::Base::Base64Url] {
+        for mb_hash_function in &[
+            selfhash::MBHashFunction::blake3(base),
+            // selfhash::MBHashFunction::sha224(base),
+            selfhash::MBHashFunction::sha256(base),
+            // selfhash::MBHashFunction::sha384(base),
+            selfhash::MBHashFunction::sha512(base),
+            // selfhash::MBHashFunction::sha3_224(base),
+            selfhash::MBHashFunction::sha3_256(base),
+            // selfhash::MBHashFunction::sha3_384(base),
+            // selfhash::MBHashFunction::sha3_512(base),
+        ] {
+            tracing::info!("Testing with mb_hash_function: {:?}", mb_hash_function);
 
-    let controlled_did = software_wallet
-        .create_did(vdr_did_create_endpoint.as_str(), Some(&http_options))
-        .await
-        .expect("pass");
-    let did = controlled_did.did();
-    tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
+            use did_webplus_wallet::Wallet;
+            let controlled_did = software_wallet
+                .create_did(
+                    did_webplus_wallet::CreateDIDParameters {
+                        vdr_did_create_endpoint: vdr_did_create_endpoint.as_str(),
+                        mb_hash_function_for_did: &mb_hash_function,
+                        mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+                    },
+                    Some(&http_options),
+                )
+                .await
+                .expect("pass");
+            let did = controlled_did.did();
+            tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 
-    let controlled_did = software_wallet
-        .update_did(&did, Some(&http_options))
-        .await
-        .expect("pass");
-    tracing::debug!("updated DID: {}", controlled_did);
+            let controlled_did = software_wallet
+                .update_did(
+                    did_webplus_wallet::UpdateDIDParameters {
+                        did: &did,
+                        change_mb_hash_function_for_self_hash_o: None,
+                        mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+                    },
+                    Some(&http_options),
+                )
+                .await
+                .expect("pass");
+            tracing::debug!("updated DID: {} - fully qualified: {}", did, controlled_did);
+
+            let deactivated_did = software_wallet
+                .deactivate_did(
+                    did_webplus_wallet::DeactivateDIDParameters {
+                        did: &did,
+                        change_mb_hash_function_for_self_hash_o: None,
+                    },
+                    Some(&http_options),
+                )
+                .await
+                .expect("pass");
+            tracing::debug!(
+                "deactivated DID: {} - fully qualified: {}",
+                did,
+                deactivated_did
+            );
+        }
+    }
 
     tracing::info!("Shutting down VDR");
     vdr_handle.abort();

@@ -78,10 +78,20 @@ impl Wallet {
         vdr_did_create_endpoint: String,
         http_options_o: Option<HTTPOptions>,
     ) -> Result<String, JsValue> {
+        // TEMP: Always use base64url and blake3.
+        // TODO: Make this configurable.
+        let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
         let http_options_o = http_options_o.map(|o| o.into());
         let controlled_did = self
             .deref()
-            .create_did(vdr_did_create_endpoint.as_str(), http_options_o.as_ref())
+            .create_did(
+                did_webplus_wallet::CreateDIDParameters {
+                    vdr_did_create_endpoint: vdr_did_create_endpoint.as_str(),
+                    mb_hash_function_for_did: &mb_hash_function,
+                    mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+                },
+                http_options_o.as_ref(),
+            )
             .await
             .map_err(into_js_value)?;
         let did = controlled_did.did();
@@ -113,11 +123,21 @@ impl Wallet {
         did: String,
         http_options_o: Option<HTTPOptions>,
     ) -> Result<String, JsValue> {
+        // TEMP: Always use base64url and blake3.
+        // TODO: Make this configurable.
+        let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
         let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
         let http_options_o = http_options_o.map(|o| o.into());
         let controlled_did = self
             .deref()
-            .update_did(did, http_options_o.as_ref())
+            .update_did(
+                did_webplus_wallet::UpdateDIDParameters {
+                    did: &did,
+                    change_mb_hash_function_for_self_hash_o: None,
+                    mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+                },
+                http_options_o.as_ref(),
+            )
             .await
             .map_err(into_js_value)?;
         tracing::debug!("updated DID: {}", controlled_did);
@@ -138,7 +158,13 @@ impl Wallet {
             let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
             let controlled_did = wallet
                 .deref()
-                .deactivate_did(did, http_options_o.as_ref())
+                .deactivate_did(
+                    did_webplus_wallet::DeactivateDIDParameters {
+                        did: &did,
+                        change_mb_hash_function_for_self_hash_o: None,
+                    },
+                    http_options_o.as_ref(),
+                )
                 .await
                 .map_err(into_js_value)?;
             tracing::debug!("deactivated DID: {}", controlled_did);

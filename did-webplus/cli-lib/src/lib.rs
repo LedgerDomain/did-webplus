@@ -288,9 +288,16 @@ pub async fn wallet_did_create(
     vdr_did_create_endpoint: &str,
     http_options_o: Option<&did_webplus_core::HTTPOptions>,
 ) -> Result<did_webplus_core::DIDFullyQualified> {
+    // TODO: CLI args to choose the base and hash function.
+    // For now, always use base64url and sha3-256.
+    let base64url_sha3_256 = selfhash::MBHashFunction::sha3_256(mbx::Base::Base64Url);
     Ok(wallet
         .create_did(
-            vdr_did_create_endpoint,
+            did_webplus_wallet::CreateDIDParameters {
+                vdr_did_create_endpoint,
+                mb_hash_function_for_did: &base64url_sha3_256,
+                mb_hash_function_for_update_key_o: Some(&base64url_sha3_256),
+            },
             http_options_o,
         )
         .await?)
@@ -301,8 +308,19 @@ pub async fn wallet_did_update(
     did: &did_webplus_core::DIDStr,
     http_options_o: Option<&did_webplus_core::HTTPOptions>,
 ) -> Result<did_webplus_core::DIDFullyQualified> {
+    // TODO: CLI args to choose the base and hash function.
+    // For now, always use base64url and sha3-256.
+    let base64url_sha3_256 = selfhash::MBHashFunction::sha3_256(mbx::Base::Base64Url);
     Ok(wallet
-        .update_did(&did, http_options_o)
+        .update_did(
+            did_webplus_wallet::UpdateDIDParameters {
+                did,
+                // None means use the same as the existing DID document.
+                change_mb_hash_function_for_self_hash_o: None,
+                mb_hash_function_for_update_key_o: Some(&base64url_sha3_256),
+            },
+            http_options_o,
+        )
         .await?)
 }
 

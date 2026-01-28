@@ -1,35 +1,33 @@
 use crate::{Error, Result};
 use mbx::{MBHash, MBHashStr, MBPubKey, MBPubKeyStr};
+use selfhash::HashRefT;
 
 #[derive(Clone, Debug)]
 pub struct ValidProofData {
     pub_key: MBPubKey,
-    // NOTE: For now we always assume Base64Url encoding on a Blake3 hash.
-    hashed_pub_key: MBHash,
 }
 
 impl ValidProofData {
     pub fn from_pub_key(pub_key: MBPubKey) -> Self {
-        use selfhash::HashFunctionT;
-        let mut hasher = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url).new_hasher();
-        use selfhash::HasherT;
-        hasher.update(pub_key.as_bytes());
-        let hashed_pub_key = hasher.finalize();
-        Self {
-            pub_key,
-            hashed_pub_key,
-        }
+        Self { pub_key }
     }
     pub fn pub_key(&self) -> &MBPubKeyStr {
         self.pub_key.as_mb_pub_key_str()
     }
-    pub fn hashed_pub_key(&self) -> &MBHashStr {
-        self.hashed_pub_key.as_mb_hash_str()
-    }
 }
 
 pub trait VerifyRulesT {
+    /// Verifies the update rules against the given valid proof data.  Returns Ok(()) if the rules are verified,
+    /// otherwise returns an error.
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()>;
+    /// For each pub key that in pub_key_v that occurs in the update rules (including the case where
+    /// the update rule is a hashed key equal to the hash of one of the given pub keys), adds the index
+    /// of the pub key to matching_pub_key_index_v.
+    fn find_matching_update_keys(
+        &self,
+        pub_key_v: &[&MBPubKey],
+        matching_pub_key_index_v: &mut Vec<usize>,
+    );
 }
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
@@ -41,6 +39,13 @@ impl VerifyRulesT for UpdatesDisallowed {
             "`UpdatesDisallowed` update rule prevents updates regardless of any valid proof data"
                 .into(),
         ))
+    }
+    fn find_matching_update_keys(
+        &self,
+        _pub_key_v: &[&MBPubKey],
+        _matching_pub_key_index_v: &mut Vec<usize>,
+    ) {
+        // No keys match
     }
 }
 
@@ -66,6 +71,17 @@ impl VerifyRulesT for UpdateKey {
             .into(),
         ))
     }
+    fn find_matching_update_keys(
+        &self,
+        pub_key_v: &[&MBPubKey],
+        matching_pub_key_index_v: &mut Vec<usize>,
+    ) {
+        for (i, &pub_key) in pub_key_v.iter().enumerate() {
+            if pub_key == &self.pub_key {
+                matching_pub_key_index_v.push(i);
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
@@ -75,12 +91,11 @@ pub struct HashedUpdateKey {
 }
 
 impl HashedUpdateKey {
-    pub fn from_pub_key(pub_key: &MBPubKeyStr) -> Self {
-        use selfhash::HashFunctionT;
-        let mut hasher = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url).new_hasher();
-        use selfhash::HasherT;
-        hasher.update(pub_key.as_bytes());
-        let hashed_pub_key = hasher.finalize();
+    pub fn from_pub_key(
+        mb_hash_function: &selfhash::MBHashFunction,
+        pub_key: &MBPubKeyStr,
+    ) -> Self {
+        let hashed_pub_key = mb_hash_function.hash(pub_key.as_bytes());
         Self { hashed_pub_key }
     }
     pub fn from_hashed_pub_key(hashed_pub_key: MBHash) -> Self {
@@ -89,12 +104,18 @@ impl HashedUpdateKey {
     pub fn hashed_pub_key(&self) -> &MBHashStr {
         self.hashed_pub_key.as_mb_hash_str()
     }
+    pub fn is_hash_of_pub_key(&self, pub_key: &MBPubKeyStr) -> bool {
+        let mb_hash_function = self.hashed_pub_key.hash_function();
+        let hashed_pub_key = mb_hash_function.hash(pub_key.as_bytes());
+        hashed_pub_key == self.hashed_pub_key
+    }
 }
 
 impl VerifyRulesT for HashedUpdateKey {
     fn verify_rules(&self, valid_proof_data_v: &[ValidProofData]) -> Result<()> {
         for valid_proof_key in valid_proof_data_v.iter() {
-            if valid_proof_key.hashed_pub_key() == self.hashed_pub_key.as_mb_hash_str() {
+            // If the hash of the valid proof key matches the hashed pub key, then the rule is verified.
+            if self.is_hash_of_pub_key(valid_proof_key.pub_key()) {
                 return Ok(());
             }
         }
@@ -106,6 +127,23 @@ impl VerifyRulesT for HashedUpdateKey {
             )
             .into(),
         ))
+    }
+    fn find_matching_update_keys(
+        &self,
+        pub_key_v: &[&MBPubKey],
+        matching_pub_key_index_v: &mut Vec<usize>,
+    ) {
+        for (i, &pub_key) in pub_key_v.iter().enumerate() {
+            // Hash the pub key using the same base and hash function as the hashed pub key.
+            // NOTE: If there are a lot of HashedUpdateKey-s in the update rules, this
+            // will be computing the hashes redundantly, so it could be optimized.
+            let mb_hash_function = self.hashed_pub_key.hash_function();
+            let hashed_pub_key = mb_hash_function.hash(pub_key.as_bytes());
+            // Compare the result to the hashed pub key.
+            if hashed_pub_key == self.hashed_pub_key {
+                matching_pub_key_index_v.push(i);
+            }
+        }
     }
 }
 
@@ -129,6 +167,15 @@ impl VerifyRulesT for Any {
             )
             .into(),
         ))
+    }
+    fn find_matching_update_keys(
+        &self,
+        pub_key_v: &[&MBPubKey],
+        matching_pub_key_index_v: &mut Vec<usize>,
+    ) {
+        for update_rules in self.any.iter() {
+            update_rules.find_matching_update_keys(pub_key_v, matching_pub_key_index_v);
+        }
     }
 }
 
@@ -163,6 +210,15 @@ impl VerifyRulesT for All {
         }
         // If all subordinate rules verified, then this rule is defined to be verified.
         Ok(())
+    }
+    fn find_matching_update_keys(
+        &self,
+        pub_key_v: &[&MBPubKey],
+        matching_pub_key_index_v: &mut Vec<usize>,
+    ) {
+        for update_rules in self.all.iter() {
+            update_rules.find_matching_update_keys(pub_key_v, matching_pub_key_index_v);
+        }
     }
 }
 
@@ -241,6 +297,17 @@ impl VerifyRulesT for Threshold {
             ))
         }
     }
+    fn find_matching_update_keys(
+        &self,
+        pub_key_v: &[&MBPubKey],
+        matching_pub_key_index_v: &mut Vec<usize>,
+    ) {
+        for weighted_update_rules in self.of.iter() {
+            weighted_update_rules
+                .update_rules
+                .find_matching_update_keys(pub_key_v, matching_pub_key_index_v);
+        }
+    }
 }
 
 /// Helper function for serde deserialization.
@@ -316,6 +383,29 @@ impl VerifyRulesT for UpdateRules {
             UpdateRules::Threshold(threshold) => threshold.verify_rules(valid_proof_data_v),
         }
     }
+    fn find_matching_update_keys(
+        &self,
+        pub_key_v: &[&MBPubKey],
+        matching_pub_key_index_v: &mut Vec<usize>,
+    ) {
+        match self {
+            UpdateRules::Key(key) => {
+                key.find_matching_update_keys(pub_key_v, matching_pub_key_index_v)
+            }
+            UpdateRules::HashedKey(hashed_key) => {
+                hashed_key.find_matching_update_keys(pub_key_v, matching_pub_key_index_v)
+            }
+            UpdateRules::Any(any) => {
+                any.find_matching_update_keys(pub_key_v, matching_pub_key_index_v)
+            }
+            UpdateRules::All(all) => {
+                all.find_matching_update_keys(pub_key_v, matching_pub_key_index_v)
+            }
+            UpdateRules::Threshold(threshold) => {
+                threshold.find_matching_update_keys(pub_key_v, matching_pub_key_index_v)
+            }
+        }
+    }
 }
 
 /// Defines the update rules for a DID document.  Note that if the value is UpdatesDisallowed,
@@ -350,6 +440,20 @@ impl VerifyRulesT for RootLevelUpdateRules {
             }
             RootLevelUpdateRules::UpdateRules(update_rules) => {
                 update_rules.verify_rules(valid_proof_data_v)
+            }
+        }
+    }
+    fn find_matching_update_keys(
+        &self,
+        pub_key_v: &[&MBPubKey],
+        matching_pub_key_index_v: &mut Vec<usize>,
+    ) {
+        match self {
+            RootLevelUpdateRules::UpdatesDisallowed(updates_disallowed) => {
+                updates_disallowed.find_matching_update_keys(pub_key_v, matching_pub_key_index_v)
+            }
+            RootLevelUpdateRules::UpdateRules(update_rules) => {
+                update_rules.find_matching_update_keys(pub_key_v, matching_pub_key_index_v)
             }
         }
     }

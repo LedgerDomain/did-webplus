@@ -17,7 +17,7 @@ verifier-resolver = ["dep:async-trait", "dep:verifier-resolver"]
 [dependencies]
 anyhow = "1.0.94"
 async-trait = { version = "0.1.80", optional = true }
-mbx = { version = "0.1.0", features = ["signature-dyn"] }
+mbx = { version = "0.1.1", features = ["signature-dyn"] }
 multibase = "0.9.1"
 pneutype = "0.5.1"
 serde = { version = "1.0", optional = true, features = ["derive"] }

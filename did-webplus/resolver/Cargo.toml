@@ -13,7 +13,7 @@ did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional 
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }
 futures = "0.3.31"                                                                       # TEMP HACK
 lazy_static = "1.4.0"
-mbx = { version = "0.1.0", features = ["signature-dyn"] }
+mbx = { version = "0.1.1", features = ["signature-dyn"] }
 reqwest = "0.12.5"
 serde_json = "1.0.107"
 signature-dyn = { version = "0.1.0", features = ["ssi-multicodec"] }
@@ -34,7 +34,7 @@ did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 rand = "0.8"
-selfhash = "0.5.0"
+selfhash = "0.5.1"
 sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
 test-util = { path = "../../test-util" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }

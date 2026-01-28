@@ -144,9 +144,9 @@ impl DIDDocument {
     }
     pub fn finalize(&mut self, prev_did_document_o: Option<&DIDDocument>) -> Result<&mbx::MBHash> {
         use selfhash::HashRefT;
-        let hash_function = self.self_hash.hash_function();
+        let mb_hash_function = self.self_hash.hash_function();
         use selfhash::HashFunctionT;
-        let hasher = hash_function.new_hasher();
+        let hasher = mb_hash_function.new_hasher();
         <Self as selfhash::SelfHashableT<mbx::MBHashStr>>::self_hash(self, hasher)?;
         self.verify_nonrecursive(prev_did_document_o)?;
         Ok(&self.self_hash)
@@ -438,9 +438,9 @@ impl DIDDocument {
         self_clone.proof_v.clear();
         // NOTE: All this could really be replaced with self.write_digest_data once that method accepts std::io::Write.
         use selfhash::HashRefT;
-        let hash_function = self.self_hash.hash_function();
+        let mb_hash_function = self.self_hash.hash_function();
         use selfhash::{HashFunctionT, SelfHashableT};
-        self_clone.set_self_hash_slots_to(&hash_function.placeholder_hash())?;
+        self_clone.set_self_hash_slots_to(&mb_hash_function.placeholder_hash())?;
         Ok(self_clone.serialize_canonically()?.as_bytes().to_vec())
     }
 }

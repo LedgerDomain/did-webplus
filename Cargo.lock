@@ -1676,6 +1676,7 @@ dependencies = [
  "iref",
  "k256",
  "mbx",
+ "selfhash",
  "serde",
  "serde_json",
  "signature-dyn",
@@ -1735,7 +1736,9 @@ dependencies = [
  "did-webplus-wallet-storage-sqlite",
  "did-webplus-wallet-store",
  "dotenvy",
+ "mbx",
  "percent-encoding",
+ "selfhash",
  "sqlx",
  "storage-traits",
  "test-util",
@@ -1757,7 +1760,9 @@ dependencies = [
  "did-webplus-mock",
  "did-webplus-vdg-lib",
  "dotenvy",
+ "mbx",
  "reqwest 0.12.24",
+ "selfhash",
  "serde_json",
  "test-util",
  "tokio",
@@ -1783,7 +1788,9 @@ dependencies = [
  "did-webplus-vdr-lib",
  "dotenvy",
  "lazy_static",
+ "mbx",
  "reqwest 0.12.24",
+ "selfhash",
  "serde_json",
  "sqlx",
  "storage-traits",
@@ -1808,7 +1815,9 @@ dependencies = [
  "did-webplus-mock",
  "did-webplus-vdr-lib",
  "dotenvy",
+ "mbx",
  "reqwest 0.12.24",
+ "selfhash",
  "test-util",
  "tokio",
  "tracing",
@@ -1859,6 +1868,7 @@ dependencies = [
  "did-webplus-doc-store",
  "did-webplus-wallet-store",
  "dotenvy",
+ "selfhash",
  "signature-dyn",
  "test-util",
  "thiserror 1.0.69",
@@ -1942,6 +1952,7 @@ dependencies = [
  "getrandom 0.3.4",
  "js-sys",
  "log",
+ "mbx",
  "selfhash",
  "serde_json",
  "serde_json_canonicalizer 0.3.1",
@@ -3833,8 +3844,8 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mbx"
-version = "0.1.0"
-source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.1.0#20f55012e36f2624d59efa10738c12c5c5acd2a0"
+version = "0.1.1"
+source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.1.1#4db5c6323421f6321320a012a7248335b6147240"
 dependencies = [
  "blake3",
  "ed25519-dalek",
@@ -5171,8 +5182,8 @@ checksum = "16c2f82143577edb4921b71ede051dac62ca3c16084e918bf7b40c96ae10eb33"
 
 [[package]]
 name = "selfhash"
-version = "0.5.0"
-source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.5.0#c5ced154ca547b87bf553c70eb97d6e4fb566dc2"
+version = "0.5.1"
+source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.5.1#e053c13ffeb6ae4623065ce49f8243dfda81a3dc"
 dependencies = [
  "base64 0.21.7",
  "blake3",
@@ -5187,6 +5198,7 @@ dependencies = [
  "serde_json_canonicalizer 0.2.0",
  "serde_with 3.15.1",
  "sha2 0.10.9",
+ "sha3 0.10.8",
  "ssi-multicodec",
 ]
 

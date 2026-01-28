@@ -1,7 +1,7 @@
 [patch.crates-io]
-mbx = { git = "https://github.com/LedgerDomain/mbx", rev = "mbx-v0.1.0" }
+mbx = { git = "https://github.com/LedgerDomain/mbx", rev = "mbx-v0.1.1" }
 pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.5.0" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.5.1" }
 signature-dyn = { git = "https://github.com/LedgerDomain/signature-dyn", rev = "signature-dyn-v0.1.0" }
 ssi-claims = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-dids = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }

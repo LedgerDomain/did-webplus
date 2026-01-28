@@ -9,6 +9,7 @@ async-trait = "0.1.80"
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-wallet-store = { path = "../wallet-store" }
+selfhash = { version = "0.5.1", features = ["mbx"] }
 signature-dyn = "0.1.0"
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }

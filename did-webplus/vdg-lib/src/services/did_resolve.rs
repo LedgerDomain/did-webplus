@@ -168,7 +168,7 @@ async fn get_did_document_jsonl(
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         let duration = time::OffsetDateTime::now_utc() - time_start;
         tracing::debug!(
-            "retrieved entire did-documents.jsonl file ({} bytes) in {:.3} seconds",
+            "retrieved entire did-documents.jsonl file ({} bytes) in {:.3}",
             did_documents_jsonl.len(),
             duration
         );

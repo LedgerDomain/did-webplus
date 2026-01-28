@@ -32,7 +32,9 @@ did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
+mbx = "0.1.1"
 percent-encoding = "2.3.1"
+selfhash = { version = "0.5.1", features = ["mbx"] }
 storage-traits = { path = "../../storage-traits" }
 test-util = { path = "../../test-util" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }

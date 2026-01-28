@@ -216,9 +216,17 @@ async fn test_did_resolver() {
     let (wallet_storage_a, software_wallet) = create_in_memory_software_wallet().await;
 
     // Create a DID.
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
     use did_webplus_wallet::Wallet;
     let mut controlled_did = software_wallet
-        .create_did(services.vdr_url.as_str(), None)
+        .create_did(
+            did_webplus_wallet::CreateDIDParameters {
+                vdr_did_create_endpoint: services.vdr_url.as_str(),
+                mb_hash_function_for_did: &mb_hash_function,
+                mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+            },
+            None,
+        )
         .await
         .expect("pass");
     let did = controlled_did.did().to_owned();
@@ -260,7 +268,17 @@ async fn test_did_resolver() {
         // Start a timer just to see how long it takes to create the DID and update it many times.
         let time_start = time::OffsetDateTime::now_utc();
         for _ in 0..update_count {
-            controlled_did = software_wallet.update_did(&did, None).await.expect("pass");
+            controlled_did = software_wallet
+                .update_did(
+                    did_webplus_wallet::UpdateDIDParameters {
+                        did: &did,
+                        change_mb_hash_function_for_self_hash_o: None,
+                        mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+                    },
+                    None,
+                )
+                .await
+                .expect("pass");
         }
         // Stop the timer.
         let duration = time::OffsetDateTime::now_utc() - time_start;
@@ -282,7 +300,9 @@ async fn test_did_resolver() {
             did_doc_record.did_document_jcs
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
         let mut timing_result_v = Vec::with_capacity(4);
+
         for vdg_host_o in [None, Some(services.vdg_host().to_string())] {
             let did_resolver_full = did_resolver_full_m.get(&vdg_host_o).expect("pass");
             tracing::trace!(
@@ -291,7 +311,8 @@ async fn test_did_resolver() {
             );
 
             // Start the timer
-            let time_start = std::time::SystemTime::now();
+            #[cfg(not(target_arch = "wasm32"))]
+            let time_start = time::OffsetDateTime::now_utc();
 
             // Resolve the DID.
             use did_webplus_resolver::DIDResolver;
@@ -305,14 +326,15 @@ async fn test_did_resolver() {
                     .expect("pass");
 
             // Stop the timer.
-            let duration = std::time::SystemTime::now()
-                .duration_since(time_start)
-                .expect("pass");
-            tracing::debug!("Time taken: {:?}", duration);
-            timing_result_v.push((
-                format!("DIDResolverFull {{ vdg_host_o: {:?} }}", vdg_host_o),
-                duration,
-            ));
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let duration = time::OffsetDateTime::now_utc() - time_start;
+                tracing::debug!("Time taken: {:?}", duration);
+                timing_result_v.push((
+                    format!("DIDResolverFull {{ vdg_host_o: {:?} }}", vdg_host_o),
+                    duration,
+                ));
+            }
 
             // Verify that the DID document body is the expected value.
             assert_eq!(did_document_body, expected_latest_did_document_jcs);
@@ -325,7 +347,8 @@ async fn test_did_resolver() {
                     .expect("pass");
 
             // Start the timer
-            let time_start = std::time::SystemTime::now();
+            #[cfg(not(target_arch = "wasm32"))]
+            let time_start = time::OffsetDateTime::now_utc();
 
             // Resolve the DID.
             use did_webplus_resolver::DIDResolver;
@@ -339,23 +362,23 @@ async fn test_did_resolver() {
                     .expect("pass");
 
             // Stop the timer.
-            let duration = std::time::SystemTime::now()
-                .duration_since(time_start)
-                .expect("pass");
-            tracing::debug!("Time taken: {:.3} seconds", duration.as_secs_f64());
-            timing_result_v.push(("DIDResolverThin".to_string(), duration));
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let duration = time::OffsetDateTime::now_utc() - time_start;
+                tracing::debug!("Time taken: {:.3}", duration);
+                timing_result_v.push(("DIDResolverThin".to_string(), duration));
+            }
 
             // Verify that the DID document body is the expected value.
             assert_eq!(did_document_body, expected_latest_did_document_jcs);
         }
 
         // Print the timing results.
-        for (resolver_name, duration) in timing_result_v {
-            tracing::info!(
-                "{}: Time taken: {:.3} seconds",
-                resolver_name,
-                duration.as_secs_f64()
-            );
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            for (resolver_name, duration) in timing_result_v {
+                tracing::info!("{}: Time taken: {:.3}", resolver_name, duration);
+            }
         }
     }
 
@@ -392,9 +415,17 @@ async fn test_did_resolver_impl(
     let (_wallet_storage_a, software_wallet) = create_in_memory_software_wallet().await;
 
     // Create a DID.
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
     use did_webplus_wallet::Wallet;
     let controlled_did_0 = software_wallet
-        .create_did(services.vdr_url.as_str(), None)
+        .create_did(
+            did_webplus_wallet::CreateDIDParameters {
+                vdr_did_create_endpoint: services.vdr_url.as_str(),
+                mb_hash_function_for_did: &mb_hash_function,
+                mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+            },
+            None,
+        )
         .await
         .expect("pass");
     let did = controlled_did_0.did().to_owned();
@@ -639,7 +670,17 @@ async fn test_did_resolver_impl(
     }
 
     // Update the DID so that resolution produces different results.
-    let controlled_did_1 = software_wallet.update_did(&did, None).await.expect("pass");
+    let controlled_did_1 = software_wallet
+        .update_did(
+            did_webplus_wallet::UpdateDIDParameters {
+                did: &did,
+                change_mb_hash_function_for_self_hash_o: None,
+                mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+            },
+            None,
+        )
+        .await
+        .expect("pass");
     tracing::info!(
         "Updated DID: {} (fully qualified: {})",
         did,
@@ -878,7 +919,13 @@ async fn test_did_resolver_impl(
 
     // Deactivate the DID.  This changes what metadata can be resolved locally.
     let controlled_did_2 = software_wallet
-        .deactivate_did(&did, None)
+        .deactivate_did(
+            did_webplus_wallet::DeactivateDIDParameters {
+                did: &did,
+                change_mb_hash_function_for_self_hash_o: None,
+            },
+            None,
+        )
         .await
         .expect("pass");
     tracing::info!(

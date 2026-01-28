@@ -1,9 +1,10 @@
 use std::{collections::HashMap, ops::Deref};
 
 use did_webplus_core::{
-    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualified, KeyPurpose, PublicKeySet,
-    RootLevelUpdateRules, UpdateKey, DID,
+    DID, DIDDocument, DIDKeyResourceFullyQualified, KeyPurpose, PublicKeySet, RootLevelUpdateRules,
+    UpdateKey, now_utc_milliseconds,
 };
+use selfhash::HashRefT;
 use signature_dyn::SignerDynT;
 
 use crate::{Microledger, MicroledgerMutView, MicroledgerView, VDRClient};
@@ -20,6 +21,7 @@ impl ControlledDID {
         did_hostname: String,
         did_port_o: Option<u16>,
         did_path_o: Option<String>,
+        hash_function: &selfhash::MBHashFunction,
         vdr_client: &dyn VDRClient,
     ) -> did_webplus_core::Result<Self> {
         // Generate the key set for use in the root DID document.
@@ -58,7 +60,7 @@ impl ControlledDID {
             update_rules,
             valid_from,
             public_key_set,
-            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+            hash_function,
         )?;
         // NOTE: There's no need to sign the root DID document, but it is allowed.
         // Finalize the root DID document.  In particular, this will self-hash the DID document.
@@ -94,6 +96,8 @@ impl ControlledDID {
             &next_update_verifying_key,
         );
 
+        let mb_hash_function = self.did().root_self_hash().hash_function();
+
         // Set the update rules for this new DID document.  In this case, just a single key.
         let next_update_rules = RootLevelUpdateRules::from(UpdateKey {
             pub_key: next_update_pub_key.clone(),
@@ -112,7 +116,7 @@ impl ControlledDID {
             next_update_rules,
             valid_from,
             public_key_set,
-            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+            &mb_hash_function,
         )?;
 
         // Sign the new DID document using the existing update_signing_key (the one referenced in the

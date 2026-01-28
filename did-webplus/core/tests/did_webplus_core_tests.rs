@@ -22,6 +22,14 @@ fn test_roundtrip_did_basic() {
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA",
+        "did:webplus:example.com:uEiDGhNThUEd9HQ2h-nyPWbsm0esForTI8sp5IMKM2D63Yg",
+        "did:webplus:example.com:user:uEiDv2BoBvkWlFbe9WSEwvzC1ZBcAjagy9FqN7QshZtMzJQ",
+        "did:webplus:example.com%3A3000:uEiDGVipdCAqJug3y_d27fGJZFFZ0hOjg0e_QhNFtm_0OVg",
+        "did:webplus:example.com%3A3000:user:uEiAcgrFrdfYQ10jDxFJpHmcbX3hJsPuYZgLgf4bCHH1S7Q",
+        "did:webplus:example.com:uE0CHsejgmU9suU1GCJIt8PFVg6TBBGHm1LWnezXzYa2AQV05U8Ex8DjPLdccCh4_aEEP1QwStBq9cxJwFoCfRsIr",
+        "did:webplus:example.com:user:uE0Ayw9KenaXCYfW7CMq9R9agswGBD4id13UFgRODAMO4p9PqJ8m9RbPbzvIwJV29zQnoj0_ulMNk_cvJpBbcqM9l",
+        "did:webplus:example.com%3A3000:uE0AvXPq0ewRQ_Z7WO-cXh2nzGMkBBabEmMDj8HjTLhPRLXAien8GPuIw_OEx_SxgZO70DCCdaj_2cNUTktxvDZl-",
+        "did:webplus:example.com%3A3000:user:uE0A_LLE_EImdpcSCnUlvz45hQkcz2CG1vx0vWTTqPVOzU2DfQwtQEUuY0WM-9iuC3F-2RNx2oyur56VRfE5Z9mOj",
     ];
     for s in str_v {
         let did = did_webplus_core::DID::from_str(s).expect("pass");
@@ -57,6 +65,14 @@ fn test_roundtrip_did_with_query() {
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3",
+        "did:webplus:example.com:uEiDGhNThUEd9HQ2h-nyPWbsm0esForTI8sp5IMKM2D63Yg?selfHash=uEiDGhNThUEd9HQ2h-nyPWbsm0esForTI8sp5IMKM2D63Yg&versionId=0",
+        "did:webplus:example.com:user:uEiDv2BoBvkWlFbe9WSEwvzC1ZBcAjagy9FqN7QshZtMzJQ?selfHash=uEiDv2BoBvkWlFbe9WSEwvzC1ZBcAjagy9FqN7QshZtMzJQ&versionId=0",
+        "did:webplus:example.com%3A3000:uEiDGVipdCAqJug3y_d27fGJZFFZ0hOjg0e_QhNFtm_0OVg?selfHash=uEiDGVipdCAqJug3y_d27fGJZFFZ0hOjg0e_QhNFtm_0OVg&versionId=0",
+        "did:webplus:example.com%3A3000:user:uEiAcgrFrdfYQ10jDxFJpHmcbX3hJsPuYZgLgf4bCHH1S7Q?selfHash=uEiAcgrFrdfYQ10jDxFJpHmcbX3hJsPuYZgLgf4bCHH1S7Q&versionId=0",
+        "did:webplus:example.com:uE0CHsejgmU9suU1GCJIt8PFVg6TBBGHm1LWnezXzYa2AQV05U8Ex8DjPLdccCh4_aEEP1QwStBq9cxJwFoCfRsIr?selfHash=uE0CHsejgmU9suU1GCJIt8PFVg6TBBGHm1LWnezXzYa2AQV05U8Ex8DjPLdccCh4_aEEP1QwStBq9cxJwFoCfRsIr&versionId=0",
+        "did:webplus:example.com:user:uE0Ayw9KenaXCYfW7CMq9R9agswGBD4id13UFgRODAMO4p9PqJ8m9RbPbzvIwJV29zQnoj0_ulMNk_cvJpBbcqM9l?selfHash=uE0Ayw9KenaXCYfW7CMq9R9agswGBD4id13UFgRODAMO4p9PqJ8m9RbPbzvIwJV29zQnoj0_ulMNk_cvJpBbcqM9l&versionId=0",
+        "did:webplus:example.com%3A3000:uE0AvXPq0ewRQ_Z7WO-cXh2nzGMkBBabEmMDj8HjTLhPRLXAien8GPuIw_OEx_SxgZO70DCCdaj_2cNUTktxvDZl-?selfHash=uE0AvXPq0ewRQ_Z7WO-cXh2nzGMkBBabEmMDj8HjTLhPRLXAien8GPuIw_OEx_SxgZO70DCCdaj_2cNUTktxvDZl-&versionId=0",
+        "did:webplus:example.com%3A3000:user:uE0A_LLE_EImdpcSCnUlvz45hQkcz2CG1vx0vWTTqPVOzU2DfQwtQEUuY0WM-9iuC3F-2RNx2oyur56VRfE5Z9mOj?selfHash=uE0A_LLE_EImdpcSCnUlvz45hQkcz2CG1vx0vWTTqPVOzU2DfQwtQEUuY0WM-9iuC3F-2RNx2oyur56VRfE5Z9mOj&versionId=0",
     ];
     for s in str_v {
         let did_with_query = did_webplus_core::DIDWithQueryStr::new_ref(s).expect("pass");
@@ -78,6 +94,14 @@ fn test_roundtrip_did_key_resource_fully_qualified() {
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA?selfHash=uHiChTLrLvHHZDiWWLUJHHyW2Bk10vCp3Mh7sMEVVfHImDw&versionId=3#0",
+        "did:webplus:example.com:uEiDGhNThUEd9HQ2h-nyPWbsm0esForTI8sp5IMKM2D63Yg?selfHash=uEiDGhNThUEd9HQ2h-nyPWbsm0esForTI8sp5IMKM2D63Yg&versionId=0#0",
+        "did:webplus:example.com:user:uEiDv2BoBvkWlFbe9WSEwvzC1ZBcAjagy9FqN7QshZtMzJQ?selfHash=uEiDv2BoBvkWlFbe9WSEwvzC1ZBcAjagy9FqN7QshZtMzJQ&versionId=0#0",
+        "did:webplus:example.com%3A3000:uEiDGVipdCAqJug3y_d27fGJZFFZ0hOjg0e_QhNFtm_0OVg?selfHash=uEiDGVipdCAqJug3y_d27fGJZFFZ0hOjg0e_QhNFtm_0OVg&versionId=0#0",
+        "did:webplus:example.com%3A3000:user:uEiAcgrFrdfYQ10jDxFJpHmcbX3hJsPuYZgLgf4bCHH1S7Q?selfHash=uEiAcgrFrdfYQ10jDxFJpHmcbX3hJsPuYZgLgf4bCHH1S7Q&versionId=0#0",
+        "did:webplus:example.com:uE0CHsejgmU9suU1GCJIt8PFVg6TBBGHm1LWnezXzYa2AQV05U8Ex8DjPLdccCh4_aEEP1QwStBq9cxJwFoCfRsIr?selfHash=uE0CHsejgmU9suU1GCJIt8PFVg6TBBGHm1LWnezXzYa2AQV05U8Ex8DjPLdccCh4_aEEP1QwStBq9cxJwFoCfRsIr&versionId=0#0",
+        "did:webplus:example.com:user:uE0Ayw9KenaXCYfW7CMq9R9agswGBD4id13UFgRODAMO4p9PqJ8m9RbPbzvIwJV29zQnoj0_ulMNk_cvJpBbcqM9l?selfHash=uE0Ayw9KenaXCYfW7CMq9R9agswGBD4id13UFgRODAMO4p9PqJ8m9RbPbzvIwJV29zQnoj0_ulMNk_cvJpBbcqM9l&versionId=0#0",
+        "did:webplus:example.com%3A3000:uE0AvXPq0ewRQ_Z7WO-cXh2nzGMkBBabEmMDj8HjTLhPRLXAien8GPuIw_OEx_SxgZO70DCCdaj_2cNUTktxvDZl-?selfHash=uE0AvXPq0ewRQ_Z7WO-cXh2nzGMkBBabEmMDj8HjTLhPRLXAien8GPuIw_OEx_SxgZO70DCCdaj_2cNUTktxvDZl-&versionId=0#0",
+        "did:webplus:example.com%3A3000:user:uE0A_LLE_EImdpcSCnUlvz45hQkcz2CG1vx0vWTTqPVOzU2DfQwtQEUuY0WM-9iuC3F-2RNx2oyur56VRfE5Z9mOj?selfHash=uE0A_LLE_EImdpcSCnUlvz45hQkcz2CG1vx0vWTTqPVOzU2DfQwtQEUuY0WM-9iuC3F-2RNx2oyur56VRfE5Z9mOj&versionId=0#0",
     ];
     for s in str_v {
         let did = did_webplus_core::DIDKeyResourceFullyQualified::from_str(s).expect("pass");
@@ -99,6 +123,14 @@ fn test_roundtrip_did_key_resource() {
         "did:webplus:example.com%3A9999:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
         "did:webplus:example.com%3A9999:user:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
         "did:webplus:example.com%3A9999:user:thingy:uHiBKHZUE3HHlYcyVIF-vPm0Xg71vqJla2L1OGXHMSK4NEA#0",
+        "did:webplus:example.com:uEiDGhNThUEd9HQ2h-nyPWbsm0esForTI8sp5IMKM2D63Yg#0",
+        "did:webplus:example.com:user:uEiDv2BoBvkWlFbe9WSEwvzC1ZBcAjagy9FqN7QshZtMzJQ#0",
+        "did:webplus:example.com%3A3000:uEiDGVipdCAqJug3y_d27fGJZFFZ0hOjg0e_QhNFtm_0OVg#0",
+        "did:webplus:example.com%3A3000:user:uEiAcgrFrdfYQ10jDxFJpHmcbX3hJsPuYZgLgf4bCHH1S7Q#0",
+        "did:webplus:example.com:uE0CHsejgmU9suU1GCJIt8PFVg6TBBGHm1LWnezXzYa2AQV05U8Ex8DjPLdccCh4_aEEP1QwStBq9cxJwFoCfRsIr#0",
+        "did:webplus:example.com:user:uE0Ayw9KenaXCYfW7CMq9R9agswGBD4id13UFgRODAMO4p9PqJ8m9RbPbzvIwJV29zQnoj0_ulMNk_cvJpBbcqM9l#0",
+        "did:webplus:example.com%3A3000:uE0AvXPq0ewRQ_Z7WO-cXh2nzGMkBBabEmMDj8HjTLhPRLXAien8GPuIw_OEx_SxgZO70DCCdaj_2cNUTktxvDZl-#0",
+        "did:webplus:example.com%3A3000:user:uE0A_LLE_EImdpcSCnUlvz45hQkcz2CG1vx0vWTTqPVOzU2DfQwtQEUuY0WM-9iuC3F-2RNx2oyur56VRfE5Z9mOj#0",
     ];
     for s in str_v {
         let did = did_webplus_core::DIDKeyResource::from_str(s).expect("pass");
@@ -115,67 +147,84 @@ fn test_roundtrip_did_key_resource() {
 #[test]
 #[serial_test::serial]
 fn test_root_did_document_sign_and_verify() {
-    let update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-    let update_verifying_key = update_signing_key.verifying_key();
-    let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
-    let verifying_key = signing_key.verifying_key();
-    let pub_key =
-        mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key);
+    for hash_function in [
+        selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+        selfhash::MBHashFunction::sha224(mbx::Base::Base64Url),
+        selfhash::MBHashFunction::sha256(mbx::Base::Base64Url),
+        selfhash::MBHashFunction::sha384(mbx::Base::Base64Url),
+        selfhash::MBHashFunction::sha512(mbx::Base::Base64Url),
+        selfhash::MBHashFunction::sha3_224(mbx::Base::Base64Url),
+        selfhash::MBHashFunction::sha3_256(mbx::Base::Base64Url),
+        selfhash::MBHashFunction::sha3_384(mbx::Base::Base64Url),
+        selfhash::MBHashFunction::sha3_512(mbx::Base::Base64Url),
+    ] {
+        let update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        let update_verifying_key = update_signing_key.verifying_key();
+        let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        let verifying_key = signing_key.verifying_key();
+        let pub_key =
+            mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key);
 
-    // Determine the update rules; just the one key.
-    let update_pub_key = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
-        mbx::Base::Base64Url,
-        &update_verifying_key,
-    );
-    // Use HashedUpdateKey
-    let update_rules = did_webplus_core::RootLevelUpdateRules::from(
-        did_webplus_core::HashedUpdateKey::from_pub_key(&update_pub_key),
-    );
+        // Determine the update rules; just the one key.
+        let update_pub_key = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
+            mbx::Base::Base64Url,
+            &update_verifying_key,
+        );
+        // Use HashedUpdateKey
+        let update_rules = did_webplus_core::RootLevelUpdateRules::from(
+            did_webplus_core::HashedUpdateKey::from_pub_key(&hash_function, &update_pub_key),
+        );
 
-    let did_hostname = "example.com";
-    for did_port_o in [None, Some(3000)] {
-        for did_path_o in [None, Some("user")] {
-            // Create the root DID document.
+        println!(
+            "hash_function: {:?}",
+            mbx::codec_str(hash_function.codec()).expect("pass")
+        );
 
-            use did_webplus_core::now_utc_milliseconds;
-            let mut root_did_document = DIDDocument::create_unsigned_root(
-                did_hostname,
-                did_port_o,
-                did_path_o,
-                update_rules.clone(),
-                now_utc_milliseconds(),
-                PublicKeySet {
-                    authentication_v: vec![&pub_key],
-                    assertion_method_v: vec![&pub_key],
-                    key_agreement_v: vec![&pub_key],
-                    capability_invocation_v: vec![&pub_key],
-                    capability_delegation_v: vec![&pub_key],
-                },
-                &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
-            )
-            .expect("pass");
+        let did_hostname = "example.com";
+        for did_port_o in [None, Some(3000)] {
+            for did_path_o in [None, Some("user")] {
+                // Create the root DID document.
 
-            // Sign the root DID document.
-            let jws = root_did_document
-                .sign(update_pub_key.to_string(), &update_signing_key)
+                use did_webplus_core::now_utc_milliseconds;
+                let mut root_did_document = DIDDocument::create_unsigned_root(
+                    did_hostname,
+                    did_port_o,
+                    did_path_o,
+                    update_rules.clone(),
+                    now_utc_milliseconds(),
+                    PublicKeySet {
+                        authentication_v: vec![&pub_key],
+                        assertion_method_v: vec![&pub_key],
+                        key_agreement_v: vec![&pub_key],
+                        capability_invocation_v: vec![&pub_key],
+                        capability_delegation_v: vec![&pub_key],
+                    },
+                    &hash_function,
+                )
                 .expect("pass");
 
-            println!("jws: {}", jws);
-            println!("jws.header: {:?}", jws.header());
+                // Sign the root DID document.
+                let jws = root_did_document
+                    .sign(update_pub_key.to_string(), &update_signing_key)
+                    .expect("pass");
 
-            // Add the proof to the DID document.
-            root_did_document.add_proof(jws.into_string());
+                println!("jws: {}", jws);
+                println!("jws.header: {:?}", jws.header());
 
-            // Finalize the root DID document.
-            root_did_document.finalize(None).expect("pass");
+                // Add the proof to the DID document.
+                root_did_document.add_proof(jws.into_string());
 
-            // Now verify the root DID document.
-            root_did_document.verify_root_nonrecursive().expect("pass");
+                // Finalize the root DID document.
+                root_did_document.finalize(None).expect("pass");
 
-            println!(
-                "root did_document:\n{}",
-                serde_json::to_string_pretty(&root_did_document).unwrap()
-            );
+                // Now verify the root DID document.
+                root_did_document.verify_root_nonrecursive().expect("pass");
+
+                println!(
+                    "root did_document:\n{}\n\n",
+                    serde_json::to_string_pretty(&root_did_document).unwrap()
+                );
+            }
         }
     }
 }
@@ -185,6 +234,8 @@ fn test_root_did_document_sign_and_verify() {
 #[serial_test::serial]
 fn test_did_update_sign_and_verify() {
     use did_webplus_core::now_utc_milliseconds;
+
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
 
     println!(
         "# Example: DID Microledger\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_did_update_sign_and_verify\n\n## Example DID Documents\n\nHere is an example of the DID documents in the microledger for a DID.\n\nRoot DID document (`versionId` 0):\n"
@@ -199,7 +250,7 @@ fn test_did_update_sign_and_verify() {
     );
     // Use HashedUpdateKey
     let update_rules = did_webplus_core::RootLevelUpdateRules::from(
-        did_webplus_core::HashedUpdateKey::from_pub_key(&update_pub_key_0),
+        did_webplus_core::HashedUpdateKey::from_pub_key(&mb_hash_function, &update_pub_key_0),
     );
 
     // Create the keypair for the verification method.
@@ -222,7 +273,7 @@ fn test_did_update_sign_and_verify() {
             capability_invocation_v: vec![&pub_key_0],
             capability_delegation_v: vec![&pub_key_0],
         },
-        &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+        &mb_hash_function,
     )
     .expect("pass");
 
@@ -269,7 +320,7 @@ fn test_did_update_sign_and_verify() {
             capability_invocation_v: vec![&pub_key_1],
             capability_delegation_v: vec![&pub_key_0],
         },
-        &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+        &mb_hash_function,
     )
     .expect("pass");
 
@@ -303,11 +354,12 @@ fn test_did_update_sign_and_verify() {
         );
     }
     {
-        use selfhash::HashFunctionT;
-        let mut hasher = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url).new_hasher();
-        use selfhash::HasherT;
-        hasher.update(update_pub_key_0.as_bytes());
-        let hashed_pub_key = hasher.finalize();
+        // use selfhash::HashFunctionT;
+        // let mut hasher = mb_hash_function.new_hasher();
+        // use selfhash::HasherT;
+        // hasher.update(update_pub_key_0.as_bytes());
+        // let hashed_pub_key = hasher.finalize();
+        let hashed_pub_key = mb_hash_function.hash(update_pub_key_0.as_bytes());
         println!(
             "Note that the hash of the `kid` field of the JWS header is `{}` which should match the `hashedKey` field of the previous DID Document's `updateRules`.\n",
             hashed_pub_key
@@ -329,7 +381,7 @@ fn test_did_update_sign_and_verify() {
             capability_invocation_v: vec![],
             capability_delegation_v: vec![],
         },
-        &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+        &mb_hash_function,
     )
     .expect("pass");
 
@@ -380,6 +432,8 @@ fn test_signature_generation_with_witness() {
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_0);
     let mut priv_jwk_0 = priv_jwk_from_ed25519_signing_key(&signing_key_0);
 
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
+
     println!(
         "# Example: Signature Generation With Witness\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_signature_generation_with_witness\n\nBy specifying the `versionId` and `selfHash` query params in the `kid` field of a signature (header), the signer is committing to a specific DID document version having a specific `selfHash` value.  This acts as a witness in a limited way, making forking a DID microledger much more difficult.  Note that use of a Verifiable Data Gateway (described elsewhere) is the recommended way for preventing signature repudiation and forking of DIDs.\n"
     );
@@ -408,7 +462,7 @@ fn test_signature_generation_with_witness() {
                 capability_invocation_v: vec![&pub_key_0],
                 capability_delegation_v: vec![&pub_key_0],
             },
-            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+            &mb_hash_function,
         )
         .expect("pass");
 
@@ -581,7 +635,7 @@ fn produce_complete_did_documents_jsonl() {
         )
     };
 
-    let hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
+    let mb_hash_function = selfhash::MBHashFunction::sha3_256(mbx::Base::Base64Url);
 
     // Initial set of verification method keys
     let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
@@ -616,7 +670,7 @@ fn produce_complete_did_documents_jsonl() {
             update_rules,
             valid_from,
             public_key_set,
-            &hash_function,
+            &mb_hash_function,
         )
         .expect("pass");
         did_document_0.finalize(None).expect("pass");
@@ -645,8 +699,10 @@ fn produce_complete_did_documents_jsonl() {
             mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_1);
 
         // Demonstrate hashed update key
-        let update_rules =
-            RootLevelUpdateRules::from(HashedUpdateKey::from_pub_key(&update_pub_key_1));
+        let update_rules = RootLevelUpdateRules::from(HashedUpdateKey::from_pub_key(
+            &mb_hash_function,
+            &update_pub_key_1,
+        ));
         let valid_from = now_utc_milliseconds();
         let public_key_set = PublicKeySet {
             authentication_v: vec![&pub_key_1],
@@ -660,7 +716,7 @@ fn produce_complete_did_documents_jsonl() {
             update_rules,
             valid_from,
             public_key_set,
-            &hash_function,
+            &mb_hash_function,
         )
         .expect("pass");
         // Have to sign the update.
@@ -710,8 +766,10 @@ fn produce_complete_did_documents_jsonl() {
             };
             (update_rules, public_key_set)
         } else {
-            let update_rules =
-                RootLevelUpdateRules::from(HashedUpdateKey::from_pub_key(&update_pub_key_2));
+            let update_rules = RootLevelUpdateRules::from(HashedUpdateKey::from_pub_key(
+                &mb_hash_function,
+                &update_pub_key_2,
+            ));
 
             let public_key_set = PublicKeySet {
                 authentication_v: vec![&pub_key_2],
@@ -728,7 +786,7 @@ fn produce_complete_did_documents_jsonl() {
             update_rules,
             valid_from,
             public_key_set,
-            &hash_function,
+            &mb_hash_function,
         )
         .expect("pass");
         // Have to sign the update.

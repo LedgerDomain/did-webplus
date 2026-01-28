@@ -1,9 +1,11 @@
 use crate::REQWEST_CLIENT;
 use did_webplus_core::{
-    DIDDocument, DIDFullyQualified, DIDStr, KeyPurpose, KeyPurposeFlags, RootLevelUpdateRules,
-    UpdateKey, UpdatesDisallowed, now_utc_milliseconds,
+    DIDDocument, DIDFullyQualified, DIDStr, HashedUpdateKey, KeyPurpose, KeyPurposeFlags,
+    RootLevelUpdateRules, UpdateKey, UpdatesDisallowed, now_utc_milliseconds,
 };
-use did_webplus_wallet::{Error, Result, Wallet};
+use did_webplus_wallet::{
+    CreateDIDParameters, DeactivateDIDParameters, Error, Result, UpdateDIDParameters, Wallet,
+};
 use did_webplus_wallet_store::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter, PrivKeyUsage,
     PrivKeyUsageRecord, VerificationMethodRecord, WalletStorage, WalletStorageCtx,
@@ -109,18 +111,18 @@ impl SoftwareWallet {
 impl Wallet for SoftwareWallet {
     async fn create_did(
         &self,
-        vdr_did_create_endpoint: &str,
+        create_did_parameters: CreateDIDParameters<'_>,
         http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified> {
-        tracing::debug!(?vdr_did_create_endpoint, ?http_options_o, "creating DID");
+        tracing::debug!(?create_did_parameters, ?http_options_o, "creating DID");
 
         // Parse the vdr_did_create_endpoint as a URL.
         let vdr_did_create_endpoint_url =
-            url::Url::parse(vdr_did_create_endpoint).map_err(|e| {
+            url::Url::parse(create_did_parameters.vdr_did_create_endpoint).map_err(|e| {
                 Error::InvalidVDRDIDCreateURL(
                     format!(
                         "Parse error in VDR DID Create endpoint URL {:?} -- error was: {}",
-                        vdr_did_create_endpoint, e
+                        create_did_parameters.vdr_did_create_endpoint, e
                     )
                     .into(),
                 )
@@ -129,7 +131,7 @@ impl Wallet for SoftwareWallet {
             return Err(Error::InvalidVDRDIDCreateURL(
                 format!(
                     "VDR DID Create endpoint URL {:?} has no hostname",
-                    vdr_did_create_endpoint
+                    create_did_parameters.vdr_did_create_endpoint
                 )
                 .into(),
             ));
@@ -175,9 +177,18 @@ impl Wallet for SoftwareWallet {
         };
 
         // Define the update rules.  For now, just a single key.
-        let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            pub_key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
-        });
+        let update_rules = if let Some(mb_hash_function_for_update_key) =
+            create_did_parameters.mb_hash_function_for_update_key_o
+        {
+            RootLevelUpdateRules::from(HashedUpdateKey::from_pub_key(
+                mb_hash_function_for_update_key,
+                &pub_key_m[KeyPurpose::UpdateDIDDocument],
+            ))
+        } else {
+            RootLevelUpdateRules::from(UpdateKey {
+                pub_key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
+            })
+        };
 
         // Form the unsigned root DID document.
         let mut did_document = DIDDocument::create_unsigned_root(
@@ -193,7 +204,7 @@ impl Wallet for SoftwareWallet {
                 capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
                 capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
             },
-            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+            create_did_parameters.mb_hash_function_for_did,
         )
         .expect("programmer error");
 
@@ -281,10 +292,14 @@ impl Wallet for SoftwareWallet {
         // Store the priv keys
         for key_purpose in KeyPurpose::VARIANTS {
             let pub_key = pub_key_m[key_purpose].clone();
-            let hashed_pub_key = {
-                let mut hasher = blake3::Hasher::new();
-                hasher.update(pub_key.as_bytes());
-                mbx::MBHash::from_blake3(mbx::Base::Base64Url, hasher)
+            let hashed_pub_key_string = if let Some(mb_hash_function_for_update_key) =
+                create_did_parameters.mb_hash_function_for_update_key_o
+            {
+                mb_hash_function_for_update_key
+                    .hash(pub_key.as_bytes())
+                    .to_string()
+            } else {
+                "<not-hashed>".to_string()
             };
             let max_usage_count_o = if key_purpose == KeyPurpose::UpdateDIDDocument {
                 Some(1)
@@ -299,7 +314,7 @@ impl Wallet for SoftwareWallet {
                     &self.ctx,
                     PrivKeyRecord {
                         pub_key,
-                        hashed_pub_key: hashed_pub_key.to_string(),
+                        hashed_pub_key: hashed_pub_key_string,
                         did_restriction_o: Some(did.to_string()),
                         key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
                         created_at: now_utc,
@@ -338,14 +353,16 @@ impl Wallet for SoftwareWallet {
     }
     async fn update_did(
         &self,
-        did: &DIDStr,
+        update_did_parameters: UpdateDIDParameters<'_>,
         http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified> {
-        tracing::debug!(?did, ?http_options_o, "updating DID");
+        tracing::debug!(?update_did_parameters, ?http_options_o, "updating DID");
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let latest_did_document = self.fetch_did_internal(did, http_options_o).await?;
+        let latest_did_document = self
+            .fetch_did_internal(update_did_parameters.did, http_options_o)
+            .await?;
 
         // Rotate the appropriate set of keys.  Record the creation timestamp.
         let now_utc = now_utc_milliseconds();
@@ -383,7 +400,7 @@ impl Wallet for SoftwareWallet {
                 Some(transaction_b.as_mut()),
                 &self.ctx,
                 &LocallyControlledVerificationMethodFilter {
-                    did_o: Some(did.to_owned()),
+                    did_o: Some(update_did_parameters.did.to_owned()),
                     version_id_o: Some(latest_did_document.version_id),
                     key_purpose_o: None,
                     key_id_o: None,
@@ -399,7 +416,7 @@ impl Wallet for SoftwareWallet {
                 &PrivKeyRecordFilter {
                     pub_key_o: None,
                     hashed_pub_key_o: None,
-                    did_o: Some(did.to_string()),
+                    did_o: Some(update_did_parameters.did.to_string()),
                     key_purpose_flags_o: Some(KeyPurposeFlags::from(KeyPurpose::UpdateDIDDocument)),
                     is_not_deleted_o: Some(true),
                 },
@@ -408,29 +425,48 @@ impl Wallet for SoftwareWallet {
         tracing::trace!(
             "found {} update keys for {}: {:?}",
             update_key_v.len(),
-            did,
+            update_did_parameters.did,
             update_key_v
                 .iter()
                 .map(|priv_key_record| &priv_key_record.pub_key)
                 .collect::<Vec<_>>()
         );
 
+        // Check if there are any matching update keys.
+        let matching_update_key_v = {
+            let mut matching_update_key_v: Vec<&PrivKeyRecord> = Vec::new();
+            let update_pub_key_v = update_key_v
+                .iter()
+                .map(|priv_key_record| &priv_key_record.pub_key)
+                .collect::<Vec<_>>();
+            let mut matching_update_key_index_v = Vec::new();
+            use did_webplus_core::VerifyRulesT;
+            latest_did_document.update_rules.find_matching_update_keys(
+                update_pub_key_v.as_slice(),
+                &mut matching_update_key_index_v,
+            );
+            matching_update_key_index_v.sort();
+            matching_update_key_index_v.dedup();
+            for matching_update_key_index in matching_update_key_index_v.iter() {
+                matching_update_key_v.push(&update_key_v[*matching_update_key_index]);
+            }
+            matching_update_key_v
+        };
         // If there are no matching update keys, then this means that this wallet doesn't have
         // the authority to update the DID.  This could happen if another wallet updated the DID
         // and removed this wallet's update key.
-        if update_key_v.is_empty() {
-            return Err(Error::NoSuitablePrivKeyFound(format!("this wallet has no update key for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", did, latest_did_document.self_hash, latest_did_document.version_id).into()));
+        if matching_update_key_v.is_empty() {
+            return Err(Error::NoSuitablePrivKeyFound(format!("this wallet has no update key for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", update_did_parameters.did, latest_did_document.self_hash, latest_did_document.version_id).into()));
         }
-
-        // TEMP HACK: Assume there will only be one update key per wallet.
+        // Temporary assumption: There will only be one update key per wallet.
         assert_eq!(
-            update_key_v.len(),
+            matching_update_key_v.len(),
             1,
             "programmer error: assumption is that there should only be one update key per wallet"
         );
 
         // Select the appropriate key to sign the update.
-        let priv_key_record_for_update = &update_key_v[0];
+        let priv_key_record_for_update = &matching_update_key_v[0];
         let priv_key_for_update = priv_key_record_for_update
             .private_key_bytes_o
             .as_ref()
@@ -438,12 +474,41 @@ impl Wallet for SoftwareWallet {
                 "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
             );
 
-        // Define the update rules.  For now, just a single key.
-        let update_rules = RootLevelUpdateRules::from(UpdateKey {
-            pub_key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
-        });
+        // Define the update rules.  Temporary limitation: Just specify a single key.
+        // TODO: Support multiple update keys.
+        let update_rules = if let Some(mb_hash_function_for_update_key) =
+            update_did_parameters.mb_hash_function_for_update_key_o
+        {
+            RootLevelUpdateRules::from(HashedUpdateKey::from_pub_key(
+                mb_hash_function_for_update_key,
+                &pub_key_m[KeyPurpose::UpdateDIDDocument],
+            ))
+        } else {
+            RootLevelUpdateRules::from(UpdateKey {
+                pub_key: pub_key_m[KeyPurpose::UpdateDIDDocument].clone(),
+            })
+        };
 
         // Form the unsigned non-root DID document.
+        let latest_did_document_mb_hash_function_o = if update_did_parameters
+            .change_mb_hash_function_for_self_hash_o
+            .is_none()
+        {
+            let mb_hash_function = selfhash::MBHashFunction::new(
+                    latest_did_document.self_hash.base(),
+                    latest_did_document.self_hash.decoded::<64>().expect("programmer error: all hash functions expected to be no larger than 64 bytes").code(),
+                ).map_err(|e| Error::Malformed(format!("failed to create MBHashFunction from latest_did_document.self_hash; error was: {}", e).into()))?;
+            Some(mb_hash_function)
+        } else {
+            None
+        };
+        let mb_hash_function_for_self_hash = if let Some(mb_hash_function_for_self_hash) =
+            update_did_parameters.change_mb_hash_function_for_self_hash_o
+        {
+            mb_hash_function_for_self_hash
+        } else {
+            latest_did_document_mb_hash_function_o.as_ref().unwrap()
+        };
         let mut updated_did_document = DIDDocument::create_unsigned_non_root(
             &latest_did_document,
             update_rules,
@@ -455,7 +520,7 @@ impl Wallet for SoftwareWallet {
                 capability_invocation_v: vec![&pub_key_m[KeyPurpose::CapabilityInvocation]],
                 capability_delegation_v: vec![&pub_key_m[KeyPurpose::CapabilityDelegation]],
             },
-            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+            mb_hash_function_for_self_hash,
         )
         .expect("programmer error");
 
@@ -504,8 +569,8 @@ impl Wallet for SoftwareWallet {
             let header_map = {
                 let mut header_map = reqwest::header::HeaderMap::new();
                 if let Some(http_headers_for) = http_options_o.map(|o| &o.http_headers_for) {
-                    if let Some(http_header_v) =
-                        http_headers_for.http_headers_for_hostname(did.hostname())
+                    if let Some(http_header_v) = http_headers_for
+                        .http_headers_for_hostname(updated_did_document.did.hostname())
                     {
                         for http_header in http_header_v {
                             header_map.insert(
@@ -525,9 +590,13 @@ impl Wallet for SoftwareWallet {
             );
             REQWEST_CLIENT
                 .clone()
-                .put(did.resolution_url_for_did_documents_jsonl(
-                    http_options_o.map(|o| &o.http_scheme_override),
-                ))
+                .put(
+                    updated_did_document
+                        .did
+                        .resolution_url_for_did_documents_jsonl(
+                            http_options_o.map(|o| &o.http_scheme_override),
+                        ),
+                )
                 .headers(header_map)
                 .body(updated_did_document_jcs)
                 .send()
@@ -540,10 +609,14 @@ impl Wallet for SoftwareWallet {
         // Store the priv keys
         for key_purpose in KeyPurpose::VARIANTS {
             let pub_key = pub_key_m[key_purpose].clone();
-            let hashed_pub_key = {
-                let mut hasher = blake3::Hasher::new();
-                hasher.update(pub_key.as_bytes());
-                mbx::MBHash::from_blake3(mbx::Base::Base64Url, hasher)
+            let hashed_pub_key_string = if let Some(mb_hash_function_for_update_key) =
+                update_did_parameters.mb_hash_function_for_update_key_o
+            {
+                mb_hash_function_for_update_key
+                    .hash(pub_key.as_bytes())
+                    .to_string()
+            } else {
+                "<not-hashed>".to_string()
             };
             let max_usage_count_o = if key_purpose == KeyPurpose::UpdateDIDDocument {
                 Some(1)
@@ -560,8 +633,8 @@ impl Wallet for SoftwareWallet {
                     &self.ctx,
                     PrivKeyRecord {
                         pub_key,
-                        hashed_pub_key: hashed_pub_key.to_string(),
-                        did_restriction_o: Some(did.to_string()),
+                        hashed_pub_key: hashed_pub_key_string,
+                        did_restriction_o: Some(updated_did_document.did.to_string()),
                         key_purpose_restriction_o: Some(KeyPurposeFlags::from(key_purpose)),
                         created_at: now_utc,
                         last_used_at_o: None,
@@ -577,7 +650,7 @@ impl Wallet for SoftwareWallet {
                 .await?;
         }
 
-        let controlled_did = did.with_queries(
+        let controlled_did = updated_did_document.did.with_queries(
             &updated_did_document.self_hash,
             updated_did_document.version_id,
         );
@@ -630,15 +703,21 @@ impl Wallet for SoftwareWallet {
     }
     async fn deactivate_did(
         &self,
-        did: &DIDStr,
+        deactivate_did_parameters: DeactivateDIDParameters<'_>,
         http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> Result<DIDFullyQualified> {
-        tracing::debug!(?did, ?http_options_o, "deactivating DID");
+        tracing::debug!(
+            ?deactivate_did_parameters,
+            ?http_options_o,
+            "deactivating DID"
+        );
         // TODO: Factor this with update_did and create_did.
 
         // Fetch external updates to the DID before updating it.  This is only relevant if more than one wallet
         // controls the DID.
-        let latest_did_document = self.fetch_did_internal(did, http_options_o).await?;
+        let latest_did_document = self
+            .fetch_did_internal(deactivate_did_parameters.did, http_options_o)
+            .await?;
 
         // Record the DID update timestamp.
         let now_utc = now_utc_milliseconds();
@@ -650,15 +729,14 @@ impl Wallet for SoftwareWallet {
             .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
 
         // Select all the locally-controlled verification methods that are in the latest DID document, so
-        // that the keys can be retired, and new keys generated, put in the DID update, and then stored
-        // in the wallet.
+        // that the keys can be retired.
         let locally_controlled_verification_method_v = self
             .wallet_storage_a
             .get_locally_controlled_verification_methods(
                 Some(transaction_b.as_mut()),
                 &self.ctx,
                 &LocallyControlledVerificationMethodFilter {
-                    did_o: Some(did.to_owned()),
+                    did_o: Some(deactivate_did_parameters.did.to_owned()),
                     version_id_o: Some(latest_did_document.version_id),
                     key_purpose_o: None,
                     key_id_o: None,
@@ -674,7 +752,7 @@ impl Wallet for SoftwareWallet {
                 &PrivKeyRecordFilter {
                     pub_key_o: None,
                     hashed_pub_key_o: None,
-                    did_o: Some(did.to_string()),
+                    did_o: Some(deactivate_did_parameters.did.to_string()),
                     key_purpose_flags_o: Some(KeyPurposeFlags::from(KeyPurpose::UpdateDIDDocument)),
                     is_not_deleted_o: Some(true),
                 },
@@ -683,29 +761,48 @@ impl Wallet for SoftwareWallet {
         tracing::trace!(
             "found {} update keys for {}: {:?}",
             update_key_v.len(),
-            did,
+            deactivate_did_parameters.did,
             update_key_v
                 .iter()
                 .map(|priv_key_record| &priv_key_record.pub_key)
                 .collect::<Vec<_>>()
         );
 
+        // Check if there are any matching update keys.
+        let matching_update_key_v = {
+            let mut matching_update_key_v: Vec<&PrivKeyRecord> = Vec::new();
+            let update_pub_key_v = update_key_v
+                .iter()
+                .map(|priv_key_record| &priv_key_record.pub_key)
+                .collect::<Vec<_>>();
+            let mut matching_update_key_index_v = Vec::new();
+            use did_webplus_core::VerifyRulesT;
+            latest_did_document.update_rules.find_matching_update_keys(
+                update_pub_key_v.as_slice(),
+                &mut matching_update_key_index_v,
+            );
+            matching_update_key_index_v.sort();
+            matching_update_key_index_v.dedup();
+            for matching_update_key_index in matching_update_key_index_v.iter() {
+                matching_update_key_v.push(&update_key_v[*matching_update_key_index]);
+            }
+            matching_update_key_v
+        };
         // If there are no matching update keys, then this means that this wallet doesn't have
         // the authority to update the DID.  This could happen if another wallet updated the DID
         // and removed this wallet's update key.
-        if update_key_v.is_empty() {
-            return Err(Error::NoSuitablePrivKeyFound(format!("this wallet has no update key for {}, so DID cannot be updated by this wallet; latest DID doc has selfHash {} and versionId {}", did, latest_did_document.self_hash, latest_did_document.version_id).into()));
+        if matching_update_key_v.is_empty() {
+            return Err(Error::NoSuitablePrivKeyFound(format!("this wallet has no update key for {}, so DID cannot be deactivated by this wallet; latest DID doc has selfHash {} and versionId {}", deactivate_did_parameters.did, latest_did_document.self_hash, latest_did_document.version_id).into()));
         }
-
-        // TEMP HACK: Assume there will only be one update key per wallet.
+        // Temporary assumption: There will only be one update key per wallet.
         assert_eq!(
-            update_key_v.len(),
+            matching_update_key_v.len(),
             1,
             "programmer error: assumption is that there should only be one update key per wallet"
         );
 
         // Select the appropriate key to sign the update.
-        let priv_key_record_for_update = &update_key_v[0];
+        let priv_key_record_for_update = &matching_update_key_v[0];
         let priv_key_for_update = priv_key_record_for_update
             .private_key_bytes_o
             .as_ref()
@@ -717,6 +814,25 @@ impl Wallet for SoftwareWallet {
         let update_rules = RootLevelUpdateRules::from(UpdatesDisallowed {});
 
         // Form the unsigned non-root DID document.
+        let latest_did_document_mb_hash_function_o = if deactivate_did_parameters
+            .change_mb_hash_function_for_self_hash_o
+            .is_none()
+        {
+            let mb_hash_function = selfhash::MBHashFunction::new(
+                    latest_did_document.self_hash.base(),
+                    latest_did_document.self_hash.decoded::<64>().expect("programmer error: all hash functions expected to be no larger than 64 bytes").code(),
+                ).map_err(|e| Error::Malformed(format!("failed to create MBHashFunction from latest_did_document.self_hash; error was: {}", e).into()))?;
+            Some(mb_hash_function)
+        } else {
+            None
+        };
+        let mb_hash_function_for_self_hash = if let Some(mb_hash_function_for_self_hash) =
+            deactivate_did_parameters.change_mb_hash_function_for_self_hash_o
+        {
+            mb_hash_function_for_self_hash
+        } else {
+            latest_did_document_mb_hash_function_o.as_ref().unwrap()
+        };
         let mut deactivated_did_document = DIDDocument::create_unsigned_non_root(
             &latest_did_document,
             update_rules,
@@ -728,7 +844,7 @@ impl Wallet for SoftwareWallet {
                 capability_invocation_v: vec![],
                 capability_delegation_v: vec![],
             },
-            &selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
+            mb_hash_function_for_self_hash,
         )
         .expect("programmer error");
 
@@ -781,8 +897,8 @@ impl Wallet for SoftwareWallet {
             let header_map = {
                 let mut header_map = reqwest::header::HeaderMap::new();
                 if let Some(http_headers_for) = http_options_o.map(|o| &o.http_headers_for) {
-                    if let Some(http_header_v) =
-                        http_headers_for.http_headers_for_hostname(did.hostname())
+                    if let Some(http_header_v) = http_headers_for
+                        .http_headers_for_hostname(deactivate_did_parameters.did.hostname())
                     {
                         for http_header in http_header_v {
                             header_map.insert(
@@ -802,9 +918,13 @@ impl Wallet for SoftwareWallet {
             );
             REQWEST_CLIENT
                 .clone()
-                .put(did.resolution_url_for_did_documents_jsonl(
-                    http_options_o.map(|o| &o.http_scheme_override),
-                ))
+                .put(
+                    deactivate_did_parameters
+                        .did
+                        .resolution_url_for_did_documents_jsonl(
+                            http_options_o.map(|o| &o.http_scheme_override),
+                        ),
+                )
                 .headers(header_map)
                 .body(deactivated_did_document_jcs)
                 .send()
@@ -814,7 +934,7 @@ impl Wallet for SoftwareWallet {
                 .map_err(|e| Error::HTTPOperationStatus(e.to_string().into()))?;
         }
 
-        let controlled_did = did.with_queries(
+        let controlled_did = deactivate_did_parameters.did.with_queries(
             &deactivated_did_document.self_hash,
             deactivated_did_document.version_id,
         );

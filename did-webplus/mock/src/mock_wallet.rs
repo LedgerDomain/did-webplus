@@ -32,11 +32,13 @@ impl MockWallet {
         did_hostname: String,
         did_port_o: Option<u16>,
         did_path_o: Option<String>,
+        mb_hash_function: &selfhash::MBHashFunction,
     ) -> Result<DID, Error> {
         let controlled_did = ControlledDID::create(
             did_hostname,
             did_port_o,
             did_path_o,
+            mb_hash_function,
             self.vdr_client_a.as_ref(),
         )?;
         let did = controlled_did.did().to_owned();

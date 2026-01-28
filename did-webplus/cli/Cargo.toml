@@ -32,13 +32,11 @@ did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 expanduser = "1.2.2"
-mbx = "0.1.0"
+mbx = "0.1.1"
 # Enable all the hash function features to support them all.
-selfhash = { version = "0.5.0", features = [
-    "blake3",
+selfhash = { version = "0.5.1", features = [
+    "all-hash-functions",
     "self-hashable-json",
-    "sha-256",
-    "sha-512",
 ] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0.107"
