@@ -147,6 +147,10 @@ fn test_roundtrip_did_key_resource() {
 #[test]
 #[serial_test::serial]
 fn test_root_did_document_sign_and_verify() {
+    println!(
+        "# Root DID Document Sign and Verify\n\nThis also demonstrates the use of different hash functions.\n\n"
+    );
+
     for hash_function in [
         selfhash::MBHashFunction::blake3(mbx::Base::Base64Url),
         selfhash::MBHashFunction::sha224(mbx::Base::Base64Url),
@@ -176,8 +180,9 @@ fn test_root_did_document_sign_and_verify() {
         );
 
         println!(
-            "hash_function: {:?}",
-            mbx::codec_str(hash_function.codec()).expect("pass")
+            "## Using {:?} {} for multihash values.",
+            hash_function.base(),
+            mbx::codec_str(hash_function.codec()).expect("pass"),
         );
 
         let did_hostname = "example.com";
@@ -208,11 +213,8 @@ fn test_root_did_document_sign_and_verify() {
                     .sign(update_pub_key.to_string(), &update_signing_key)
                     .expect("pass");
 
-                println!("jws: {}", jws);
-                println!("jws.header: {:?}", jws.header());
-
                 // Add the proof to the DID document.
-                root_did_document.add_proof(jws.into_string());
+                root_did_document.add_proof(jws.to_string());
 
                 // Finalize the root DID document.
                 root_did_document.finalize(None).expect("pass");
@@ -221,8 +223,12 @@ fn test_root_did_document_sign_and_verify() {
                 root_did_document.verify_root_nonrecursive().expect("pass");
 
                 println!(
-                    "root did_document:\n{}\n\n",
+                    "root did_document:\n```json\n{}\n```\n\n",
                     serde_json::to_string_pretty(&root_did_document).unwrap()
+                );
+                println!(
+                    "The proof's JWS header decodes as:\n```json\n{}\n```\n",
+                    serde_json::to_string_pretty(jws.header()).unwrap()
                 );
             }
         }
