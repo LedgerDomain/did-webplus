@@ -1,7 +1,7 @@
 ################################################################
 # Builder Image                                                #
 ################################################################
-FROM rust:1.90.0-slim as builder
+FROM rust:1.90.0-slim AS builder
 MAINTAINER Victor Dods <victor.dods@ledgerdomain.com>
 WORKDIR /workdir
 
@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,sharing=private,target=/workdir/target \
     rustup component add rustfmt && \
     apt-get update && \
-    apt-get -y install lld clang ssh-tools
+    apt-get -y install lld clang libssl-dev openssl pkg-config ssh-tools
 
 # Grab Cargo files for layer caching purposes
 ADD Cargo.lock .
@@ -29,10 +29,10 @@ RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/workdir/target \
     if [ "$RELEASE_TYPE" = "release" ]; then \
-        SQLX_OFFLINE=true cargo build --package did-webplus-urd --bin did-webplus-urd --features postgres --release; \
+        SQLX_OFFLINE=true cargo build --package did-webplus-urd --bin did-webplus-urd --features postgres,sqlite --release; \
         mv /workdir/target/release/did-webplus-urd /usr/local/bin/did-webplus-urd; \
     else \
-        SQLX_OFFLINE=true cargo build --package did-webplus-urd --bin did-webplus-urd --features postgres; \
+        SQLX_OFFLINE=true cargo build --package did-webplus-urd --bin did-webplus-urd --features postgres,sqlite; \
         mv /workdir/target/debug/did-webplus-urd /usr/local/bin/did-webplus-urd; \
     fi
 
@@ -48,7 +48,7 @@ fi
 # Runner Image                                                 #
 ################################################################
 
-FROM debian:bookworm-slim as runtime
+FROM debian:bookworm-slim AS runtime
 MAINTAINER Victor Dods <victor.dods@ledgerdomain.com>
 
 # We listen on standard port 80
@@ -56,9 +56,10 @@ EXPOSE 80
 
 # OpenSSL is needed for root certs.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl \
+    && apt-get install -y --no-install-recommends ca-certificates curl openssl \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
 
 # Then copy in our pre-built app
 COPY --from=builder /usr/local/bin/did-webplus-urd /usr/local/bin/

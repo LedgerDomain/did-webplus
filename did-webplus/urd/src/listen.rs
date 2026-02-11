@@ -1,20 +1,16 @@
 use crate::{LogFormat, Result, init_logging};
 use std::sync::Arc;
 
-/// Runs an HTTP server that resolve DID queries, using the did:webplus "Full" DID Resolver.
-/// Queries can include query parameters for resolving DID documents of specific versions or
-/// self-hash values.  This is the main entry point for the universal resolver driver.
+/// This is the universal resolver driver for `did:webplus`.  It runs an HTTP server that resolves DID queries,
+/// using the did:webplus "Full" DID Resolver. Queries can include query parameters for resolving DID documents
+/// of specific versions or self-hash values.
 #[derive(Debug, clap::Parser)]
 pub struct Listen {
-    /// The URL of the database to use.  Defaults to "sqlite://:memory:" for an in-memory SQLite database.
-    /// Must start with "postgres://" or "sqlite://".  The postgres backend is only available if the
-    /// "postgres" feature was enabled when this binary was built.
-    #[arg(
-        short,
-        long,
-        env = "DID_WEBPLUS_URD_DATABASE_URL",
-        default_value = "sqlite://:memory:"
-    )]
+    /// The URL of the database to use.  Must start with "postgres://" or "sqlite://".  An in-memory
+    /// SQLite database can be specified as "sqlite://:memory:".  The postgres backend is only available
+    /// if the "postgres" feature was enabled when this binary was built.  The sqlite backend is only
+    /// available if the "sqlite" feature was enabled when this binary was built.
+    #[arg(short, long, env = "DID_WEBPLUS_URD_DATABASE_URL")]
     pub database_url: String,
     /// The host (host means hostname and optional port number) of the VDG to use for fetching DID
     /// documents.  This is used so that this resolver can take part in the scope of agreement
@@ -49,7 +45,7 @@ pub struct Listen {
     #[arg(long, env = "DID_WEBPLUS_URD_LISTEN_PORT", default_value = "80")]
     pub listen_port: u16,
     /// Specify the format of the logs.  "compact" produces one line per log message, while "pretty"
-    /// produces verbose multi-line messages.
+    /// produces verbose multi-line messages.  "json" produces JSON-formatted log messages.
     #[arg(
         name = "log-format",
         env = "DID_WEBPLUS_URD_LOG_FORMAT",

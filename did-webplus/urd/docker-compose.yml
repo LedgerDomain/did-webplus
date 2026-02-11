@@ -1,0 +1,110 @@
+# Example deployment of the did:webplus universal resolver driver, using a PostgreSQL database for data persistence.
+
+# Save/persist our PostgreSQL database
+volumes:
+  postgres_data:
+
+services:
+  ####################################
+  # Auto-Restarter based on Docker Health Checks
+  ####################################
+  autoheal:
+    image: willfarrell/autoheal
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    <<: &autoRestartOnFailure
+      deploy:
+        restart_policy:
+          condition: on-failure
+          max_attempts: 10
+
+  ####################################
+  # PostgreSQL Database(s)
+  ####################################
+  urd_database:
+    <<: *autoRestartOnFailure
+    image: postgres
+    ports:
+      - '5443:5432'
+    environment:
+      POSTGRES_DB: 'postgres'
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
+      PGPORT: 5432
+    # We want persistence for our database
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 1s
+      timeout: 1s
+      retries: 15
+
+  ####################################
+  # App-Container(s)
+  ####################################
+  dockerized.urd.local:
+    <<: *autoRestartOnFailure
+    image: did-webplus-urd
+    platform: linux/x86_64 # Helps ensure consistency even when used on an M1 Mac
+    build:
+      context: ../..
+      dockerfile: did-webplus/urd/Dockerfile
+      target: runtime
+      args:
+        RELEASE_TYPE: release
+    environment:
+      # URL of the database to use.  Must start with "postgres://" or "sqlite://".  An in-memory
+      # SQLite database can be specified as "sqlite://:memory:".  The postgres backend is only available
+      # if the "postgres" feature was enabled when this binary was built.  The sqlite backend is only
+      # available if the "sqlite" feature was enabled when this binary was built.
+      DID_WEBPLUS_URD_DATABASE_URL: postgres://postgres:postgres@urd_database:5432/postgres?sslmode=disable
+      
+      # Optional: The host (host means hostname and optional port number) of the VDG to use for fetching DID
+      # documents.  This is used so that this resolver can take part in the scope of agreement defined by the
+      # VDG.  Without using a VDG, a "Full" DID resolver has a scope of agreement that only contains itself.
+      # DID_WEBPLUS_URD_VDG: 
+
+      # Optional: Specify a semicolon-separated list of comma-separated list of `name=value` pairs
+      # defining the HTTP headers to use for each of the specified hosts.
+      # DID_WEBPLUS_URD_HTTP_HEADERS_FOR:
+
+      # Optional: Specify a comma-separated list of `hostname=scheme` pairs defining the scheme to use
+      # for each of the specified hosts.  The default did:webplus resolution rules specify that
+      # localhost uses the "http" scheme, and everything else uses the "https" scheme.  This
+      # argument can be used to override this behavior for specific hostnames.  Besides localhost,
+      # the "http" scheme should only be used for testing and development.
+      # DID_WEBPLUS_URD_HTTP_SCHEME_OVERRIDE:
+
+      # Port to listen on.  Default is 80 if not specified.
+      DID_WEBPLUS_URD_LISTEN_PORT: 8086
+
+      # Options are "compact", "json", and "pretty" (which is very verbose but much better for debugging)
+      DID_WEBPLUS_URD_LOG_FORMAT: compact
+
+      RUST_BACKTRACE: '1'
+      RUST_LOG: 'did_webplus=debug,tower_http::trace=warn,info'
+
+    entrypoint:
+      - /bin/sh
+    command:
+      - '-c'
+      - '/usr/local/bin/did-webplus-urd'
+    ports:
+      - '8086:8086'
+    depends_on:
+      # Ensure our necessary services are up
+      urd_database:
+        condition: service_healthy
+    links:
+      - urd_database
+    # Ensure we autoheal incase we crash hard
+    labels:
+      autoheal: 'true'
+    # Ensure our service is up and running and healthy (needed for autoheal)
+    healthcheck:
+      test: curl --fail -s http://dockerized.urd.local:8086/health || exit 1
+      start_period: 10s # Wait 10 seconds for our app to startup before throwing health probes at it
+      interval: 5s
+      timeout: 4s
+      retries: 4

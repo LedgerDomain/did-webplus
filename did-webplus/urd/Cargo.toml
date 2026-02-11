@@ -5,14 +5,18 @@ edition = "2024"
 
 [features]
 # Enabling this will allow the resolver to use Postgres as the DID document storage backend.
-postgres = ["dep:did-webplus-doc-storage-postgres"]
+postgres = [
+    "dep:did-webplus-doc-storage-postgres",
+    "did-webplus-urd-lib/postgres",
+]
+sqlite = ["dep:did-webplus-doc-storage-sqlite", "did-webplus-urd-lib/sqlite"]
 
 [dependencies]
 anyhow = "1.0.94"
 clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus-core = { path = "../core" }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional = true }
-did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
+did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-urd-lib = { path = "../urd-lib" }

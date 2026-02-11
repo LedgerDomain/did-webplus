@@ -5,7 +5,17 @@ edition = "2024"
 
 [features]
 # Enabling this will allow the resolver to use Postgres as the DID document storage backend.
-postgres = ["dep:did-webplus-doc-storage-postgres"]
+postgres = [
+    "dep:did-webplus-doc-storage-postgres",
+    "did-webplus-resolver/did-webplus-doc-storage-postgres",
+]
+# Enabling this will allow the resolver to use SQLite as the DID document storage backend.
+# It is not recommended to use a SQLite database in production, but is allowed to facilitate
+# development, testing, and the dev universal resolver.
+sqlite = [
+    "dep:did-webplus-doc-storage-sqlite",
+    "did-webplus-resolver/did-webplus-doc-storage-sqlite",
+]
 
 [dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }
@@ -13,12 +23,11 @@ axum = "0.8.4"
 clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus-core = { path = "../core", features = ["ed25519-dalek", "k256"] }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres", optional = true }
-did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
+did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = true }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
-did-webplus-resolver = { path = "../resolver", features = [
-    "did-webplus-doc-storage-sqlite",
-] }
+did-webplus-resolver = { path = "../resolver" }
 dotenvy = "0.15.7"
+serde_json = "1.0.107"
 sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
 tokio = "1.46"
 tower = "0.5.2"

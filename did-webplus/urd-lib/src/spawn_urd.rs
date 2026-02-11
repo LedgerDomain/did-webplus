@@ -38,7 +38,7 @@ struct URDAppState {
 fn create_router() -> Router<URDAppState> {
     Router::new()
         .route("/1.0/identifiers/{query}", get(resolve_did))
-        .route("/health", axum::routing::get(|| async { "OK" }))
+        .route("/health", get(health_check))
         .layer(tower_http::compression::CompressionLayer::new())
         .layer(
             tower_http::trace::TraceLayer::new_for_http()
@@ -52,13 +52,12 @@ fn create_router() -> Router<URDAppState> {
         .layer(tower_http::cors::CorsLayer::permissive())
 }
 
-#[tracing::instrument(level = tracing::Level::INFO, ret(level = tracing::Level::DEBUG, Display), err(Debug), skip(urd_app_state))]
+#[tracing::instrument(level = tracing::Level::DEBUG, ret(level = tracing::Level::DEBUG, Display), err(Debug), skip(urd_app_state))]
 async fn resolve_did(
     State(urd_app_state): State<URDAppState>,
     Path(query): Path<String>,
 ) -> Result<String, (StatusCode, String)> {
-    // TODO: Is this log message necessary?
-    tracing::info!("Resolving DID query: {}", query);
+    tracing::debug!("Resolving DID query: {}", query);
     let (did_document, _did_document_metadata, _did_resolution_metadata) = urd_app_state
         .did_resolver_a
         .resolve_did_document_string(
@@ -66,6 +65,46 @@ async fn resolve_did(
             did_webplus_core::DIDResolutionOptions::no_metadata(false),
         )
         .await
-        .unwrap();
+        .map_err(|e| match e {
+            did_webplus_resolver::Error::DIDDocStoreError(error) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
+            }
+            did_webplus_resolver::Error::DIDResolutionFailure(http_error) => {
+                (http_error.status_code, http_error.description.into_owned())
+            }
+            did_webplus_resolver::Error::DIDResolutionFailure2(did_resolution_metadata) => (
+                StatusCode::NOT_FOUND,
+                serde_json::to_string(&did_resolution_metadata).unwrap(),
+            ),
+            did_webplus_resolver::Error::FailedConstraint(description) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
+            }
+            did_webplus_resolver::Error::GenericError(description) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, description.into_owned())
+            }
+            did_webplus_resolver::Error::InvalidVerifier(description) => {
+                (StatusCode::BAD_REQUEST, description.into_owned())
+            }
+            did_webplus_resolver::Error::MalformedDIDDocument(description) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
+            }
+            did_webplus_resolver::Error::MalformedDIDQuery(description) => {
+                (StatusCode::BAD_REQUEST, description.into_owned())
+            }
+            did_webplus_resolver::Error::MalformedVDGHost(description) => {
+                (StatusCode::BAD_REQUEST, description.into_owned())
+            }
+            did_webplus_resolver::Error::StorageError(error) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
+            }
+        })?;
     Ok(did_document)
+}
+
+#[tracing::instrument(level = tracing::Level::DEBUG, ret(level = tracing::Level::DEBUG, Display), err(Debug), skip(_urd_app_state))]
+async fn health_check(
+    State(_urd_app_state): State<URDAppState>,
+) -> Result<String, (StatusCode, String)> {
+    tracing::debug!("Health check");
+    Ok("OK".to_string())
 }
