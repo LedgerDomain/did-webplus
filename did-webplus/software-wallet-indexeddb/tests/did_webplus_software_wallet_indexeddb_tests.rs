@@ -22,15 +22,26 @@ async fn test_software_wallet_indexeddb_basic() {
 
     tracing::debug!("software_wallet_indexeddb: {:?}", software_wallet_indexeddb);
 
+    let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
+
+    let http_headers_for = did_webplus_core::HTTPHeadersFor::new();
     let http_scheme_override = did_webplus_core::HTTPSchemeOverride::new()
         .with_override("vdr.did-webplus-wasm.test".to_string(), "http")
         .expect("pass");
+    let http_options = did_webplus_core::HTTPOptions {
+        http_headers_for,
+        http_scheme_override,
+    };
 
     use did_webplus_wallet::Wallet;
     let controlled_did = software_wallet_indexeddb
         .create_did(
-            "https://vdr.did-webplus-wasm.test:8085",
-            Some(&http_scheme_override),
+            did_webplus_wallet::CreateDIDParameters {
+                vdr_did_create_endpoint: "https://vdr.did-webplus-wasm.test:8085",
+                mb_hash_function_for_did: &mb_hash_function,
+                mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+            },
+            Some(&http_options),
         )
         .await
         .expect("pass");
@@ -39,7 +50,14 @@ async fn test_software_wallet_indexeddb_basic() {
     tracing::debug!("did: {:?}", did);
 
     let controlled_did = software_wallet_indexeddb
-        .update_did(&did, Some(&http_scheme_override))
+        .update_did(
+            did_webplus_wallet::UpdateDIDParameters {
+                did: &did,
+                change_mb_hash_function_for_self_hash_o: None,
+                mb_hash_function_for_update_key_o: Some(&mb_hash_function),
+            },
+            Some(&http_options),
+        )
         .await
         .expect("pass");
     tracing::debug!("controlled_did: {:?}", controlled_did);
