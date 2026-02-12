@@ -156,4 +156,31 @@ async fn test_software_wallet_indexeddb_basic() {
         pub_keys_after_create.is_disjoint(&pub_keys_after_update),
         "expected new verification methods after update_did to have different pub_keys than the retired set"
     );
+
+    software_wallet_indexeddb
+        .deactivate_did(
+            did_webplus_wallet::DeactivateDIDParameters {
+                did: &did,
+                change_mb_hash_function_for_self_hash_o: None,
+            },
+            Some(&http_options),
+        )
+        .await
+        .expect("pass");
+
+    let locally_controlled_verification_methods_after_deactivate_v = software_wallet_indexeddb
+        .get_locally_controlled_verification_methods(&LocallyControlledVerificationMethodFilter {
+            did_o: Some(did.to_owned()),
+            version_id_o: None,
+            key_purpose_o: None,
+            key_id_o: None,
+            result_limit_o: None,
+        })
+        .await
+        .expect("pass");
+    assert!(
+        locally_controlled_verification_methods_after_deactivate_v.is_empty(),
+        "expected no locally controlled verification methods after deactivate_did, got {}",
+        locally_controlled_verification_methods_after_deactivate_v.len()
+    );
 }

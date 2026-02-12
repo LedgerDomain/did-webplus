@@ -2,7 +2,7 @@ use crate::Result;
 use anyhow::Context;
 use did_webplus_core::{
     now_utc_milliseconds, DIDDocument, DIDFullyQualified, DIDStr, HashedUpdateKey, KeyPurpose,
-    KeyPurposeFlags, RootLevelUpdateRules, UpdateKey,
+    KeyPurposeFlags, RootLevelUpdateRules, UpdateKey, UpdatesDisallowed,
 };
 use did_webplus_doc_store::DIDDocRecord;
 use did_webplus_wallet_store::{
@@ -1232,8 +1232,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // versions of those object stores.
         let ctx_clone = self.ctx.clone();
         let did_clone = did.clone();
-        // let updated_did_document_clone = updated_did_document.clone();
-        // let updated_did_document_jcs_clone = updated_did_document_jcs.clone();
         let (updated_did_document, updated_did_document_jcs, did_document_blob_key, priv_key_blob_key_v, priv_key_usage_blob_key, priv_key_blob_keys_to_retire_v) = self
             .db()
             .await
@@ -1789,11 +1787,507 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     }
     async fn deactivate_did(
         &self,
-        _deactivate_did_parameters: did_webplus_wallet::DeactivateDIDParameters<'_>,
-        _http_options_o: Option<&did_webplus_core::HTTPOptions>,
+        deactivate_did_parameters: did_webplus_wallet::DeactivateDIDParameters<'_>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> did_webplus_wallet::Result<DIDFullyQualified> {
-        // Wait until this is factored with update_did and create_did (in SoftwareWallet and Self)
-        todo!()
+        tracing::debug!(
+            "SoftwareWalletIndexedDB::deactivate_did; did: {}; http_options_o: {:?}",
+            deactivate_did_parameters.did,
+            http_options_o
+        );
+
+        let did = deactivate_did_parameters.did.to_owned();
+        let change_mb_hash_function_for_self_hash_o = deactivate_did_parameters
+            .change_mb_hash_function_for_self_hash_o
+            .map(|o| o.to_owned());
+
+        let latest_did_document = self
+            .fetch_did_internal(&did, http_options_o)
+            .await?;
+        let did_fully_qualified = did.with_queries(
+            &latest_did_document.self_hash,
+            latest_did_document.version_id,
+        );
+
+        let now_utc = time::OffsetDateTime::now_utc();
+
+        let ctx_clone = self.ctx.clone();
+        let did_clone = did.clone();
+        let (
+            deactivated_did_document,
+            deactivated_did_document_jcs,
+            did_document_blob_key,
+            priv_key_usage_blob_key,
+            priv_key_blob_keys_to_retire_v,
+        ) = self
+            .db()
+            .await
+            .map_err(into_wallet_error)?
+            .transaction(&[
+                Self::DID_DOCUMENTS_OBJECT_STORE,
+                Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEYS_OBJECT_STORE,
+                Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
+            ])
+            .rw()
+            .run(async move |transaction| -> std::result::Result<_, indexed_db::Error<Error>> {
+                tracing::trace!("started transaction #1 for deactivate_did");
+
+                let priv_keys_object_store = transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE)?;
+
+                let locally_controlled_verification_method_v = {
+                    let mut v = Vec::new();
+                    for verification_method in latest_did_document
+                        .public_key_material
+                        .verification_method_v
+                        .iter()
+                    {
+                        let wallets_rowid_as_f64_jsvalue =
+                            Self::wallets_rowid_as_f64_jsvalue(ctx_clone.wallets_rowid);
+                        let pub_key = mbx::MBPubKey::try_from(&verification_method.public_key_jwk)
+                            .map_err(|e| {
+                                Error::from(anyhow::anyhow!(
+                                    "error converting public key JWK to MBPubKey; error was: {}",
+                                    e
+                                ))
+                            })?;
+                        let compound_key = JsValue::from(vec![
+                            wallets_rowid_as_f64_jsvalue.clone(),
+                            JsValue::from(pub_key.to_string()),
+                        ]);
+                        let priv_key_blob_jsvalue_o = priv_keys_object_store
+                            .index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
+                            .get(&compound_key)
+                            .await?;
+                        if let Some(priv_key_blob_jsvalue) = priv_key_blob_jsvalue_o {
+                            let primary_keys = priv_keys_object_store
+                                .index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
+                                .get_all_keys_in(compound_key.clone()..=compound_key, Some(1))
+                                .await?;
+                            if let Some(primary_key) = primary_keys.into_iter().next() {
+                                let key_purpose_flags = latest_did_document
+                                    .public_key_material
+                                    .key_purpose_flags_for_key_id_fragment(&pub_key);
+                                let verification_method_record =
+                                    did_webplus_wallet_store::VerificationMethodRecord {
+                                        did_key_resource_fully_qualified: did_fully_qualified
+                                            .with_fragment(&verification_method.id.fragment()),
+                                        key_purpose_flags,
+                                        pub_key,
+                                    };
+                                let priv_key_blob =
+                                    serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue)
+                                        .map_err(|e| {
+                                            Error::from(anyhow::anyhow!(
+                                                "Database corruption; error was: {}",
+                                                e
+                                            ))
+                                        })?;
+                                v.push((
+                                    verification_method_record,
+                                    priv_key_blob,
+                                    primary_key,
+                                ));
+                            }
+                        }
+                    }
+                    v
+                };
+
+                let update_key_v = {
+                    let priv_key_record_filter = did_webplus_wallet_store::PrivKeyRecordFilter {
+                        pub_key_o: None,
+                        hashed_pub_key_o: None,
+                        did_o: Some(did_clone.to_string()),
+                        key_purpose_flags_o: Some(KeyPurposeFlags::from(KeyPurpose::UpdateDIDDocument)),
+                        is_not_deleted_o: Some(true),
+                    };
+                    let mut update_key_v = Vec::new();
+                    let priv_key_blob_jsvalue_v = priv_keys_object_store.get_all(None).await?;
+                    for priv_key_blob_jsvalue in priv_key_blob_jsvalue_v {
+                        let priv_key_blob =
+                            serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue)
+                                .map_err(|e| {
+                                    Error::from(anyhow::anyhow!(
+                                        "Database corruption; error was: {}",
+                                        e
+                                    ))
+                                })?;
+                        if priv_key_blob.wallets_rowid != ctx_clone.wallets_rowid {
+                            continue;
+                        }
+                        if !priv_key_record_filter.matches(&priv_key_blob.priv_key_record) {
+                            continue;
+                        }
+                        update_key_v.push(priv_key_blob.priv_key_record);
+                    }
+                    update_key_v
+                };
+
+                let matching_update_key_v = {
+                    let mut matching_update_key_v: Vec<&PrivKeyRecord> = Vec::new();
+                    let update_pub_key_v = update_key_v
+                        .iter()
+                        .map(|r| &r.pub_key)
+                        .collect::<Vec<_>>();
+                    let mut matching_update_key_index_v = Vec::new();
+                    use did_webplus_core::VerifyRulesT;
+                    latest_did_document.update_rules.find_matching_update_keys(
+                        update_pub_key_v.as_slice(),
+                        &mut matching_update_key_index_v,
+                    );
+                    matching_update_key_index_v.sort();
+                    matching_update_key_index_v.dedup();
+                    for i in matching_update_key_index_v.iter() {
+                        matching_update_key_v.push(&update_key_v[*i]);
+                    }
+                    matching_update_key_v
+                };
+
+                if matching_update_key_v.is_empty() {
+                    return Err(indexed_db::Error::from(Error::from(anyhow::anyhow!(
+                        "this wallet has no update key for {}, so DID cannot be deactivated; latest DID doc has selfHash {} and versionId {}",
+                        did_clone,
+                        latest_did_document.self_hash,
+                        latest_did_document.version_id
+                    ))));
+                }
+                assert_eq!(
+                    matching_update_key_v.len(),
+                    1,
+                    "programmer error: assumption is that there should only be one update key per wallet"
+                );
+
+                let priv_key_record_for_update = &matching_update_key_v[0];
+                let priv_key_for_update = priv_key_record_for_update
+                    .private_key_bytes_o
+                    .as_ref()
+                    .expect(
+                        "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
+                    );
+
+                let update_rules = RootLevelUpdateRules::from(UpdatesDisallowed {});
+
+                let latest_did_document_mb_hash_function_o =
+                    if change_mb_hash_function_for_self_hash_o.is_none() {
+                        let mb_hash_function = selfhash::MBHashFunction::new(
+                            latest_did_document.self_hash.base(),
+                            latest_did_document
+                                .self_hash
+                                .decoded::<64>()
+                                .expect("programmer error: all hash functions expected to be no larger than 64 bytes")
+                                .code(),
+                        )
+                        .map_err(|e| {
+                            indexed_db::Error::from(Error::from(anyhow::anyhow!(
+                                "failed to create MBHashFunction; error was: {}",
+                                e
+                            )))
+                        })?;
+                        Some(mb_hash_function)
+                    } else {
+                        None
+                    };
+                let mb_hash_function_for_self_hash =
+                    change_mb_hash_function_for_self_hash_o
+                        .as_ref()
+                        .unwrap_or_else(|| latest_did_document_mb_hash_function_o.as_ref().unwrap());
+
+                let mut deactivated_did_document = DIDDocument::create_unsigned_non_root(
+                    &latest_did_document,
+                    update_rules,
+                    now_utc,
+                    did_webplus_core::PublicKeySet {
+                        authentication_v: vec![],
+                        assertion_method_v: vec![],
+                        key_agreement_v: vec![],
+                        capability_invocation_v: vec![],
+                        capability_delegation_v: vec![],
+                    },
+                    mb_hash_function_for_self_hash,
+                )
+                .expect("programmer error");
+
+                use signature_dyn::SignerDynT;
+                let signing_kid = mbx::MBPubKey::try_from_verifier_bytes(
+                    mbx::Base::Base64Url,
+                    &priv_key_for_update.verifier_bytes().map_err(|e| {
+                        indexed_db::Error::from(Error::from(anyhow::anyhow!(
+                            "error converting verifier bytes to MBPubKey; error was: {}",
+                            e
+                        )))
+                    })?,
+                )
+                .expect("programmer error")
+                .to_string();
+
+                let jws = deactivated_did_document
+                    .sign(signing_kid, priv_key_for_update)
+                    .expect("programmer error");
+                deactivated_did_document.add_proof(jws.into_string());
+                deactivated_did_document
+                    .finalize(Some(&latest_did_document))
+                    .expect("programmer error");
+                deactivated_did_document
+                    .verify_non_root_nonrecursive(&latest_did_document)
+                    .expect("programmer error");
+
+                let deactivated_did_document_jcs = deactivated_did_document
+                    .serialize_canonically()
+                    .expect("this shouldn't happen");
+
+                let did_as_jsvalue = JsValue::from(did_clone.as_str());
+                let range_begin = JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(0)]);
+                let range_end = JsValue::from(vec![
+                    did_as_jsvalue.clone(),
+                    JsValue::from(i32::MAX),
+                ]);
+                let latest_did_doc_record_cursor = transaction
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
+                    .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
+                    .cursor()
+                    .range(range_begin..=range_end)?
+                    .direction(indexed_db::CursorDirection::Prev)
+                    .open()
+                    .await?;
+                let did_documents_jsonl_octet_length = latest_did_doc_record_cursor
+                    .value()
+                    .map(|jsvalue| {
+                        serde_wasm_bindgen::from_value::<DIDDocumentBlob>(jsvalue)
+                            .map_err(into_doc_store_error)
+                            .map(|blob| blob.did_doc_record.did_documents_jsonl_octet_length)
+                    })
+                    .transpose()
+                    .map_err(|e| {
+                        indexed_db::Error::from(Error::from(anyhow::anyhow!(
+                            "Error while deserializing DIDDocumentBlob; error was: {}",
+                            e
+                        )))
+                    })?
+                    .unwrap_or(0)
+                    + deactivated_did_document_jcs.len() as i64
+                    + 1;
+
+                let did_document_blob = DIDDocumentBlob {
+                    did_doc_record: DIDDocRecord {
+                        self_hash: deactivated_did_document.self_hash.to_string(),
+                        did: deactivated_did_document.did.to_string(),
+                        version_id: deactivated_did_document.version_id.try_into().unwrap(),
+                        valid_from: deactivated_did_document.valid_from,
+                        did_documents_jsonl_octet_length,
+                        did_document_jcs: deactivated_did_document_jcs.clone(),
+                    },
+                };
+                let did_document_blob_key = transaction
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                    .put(&serde_wasm_bindgen::to_value(&did_document_blob).unwrap())
+                    .await?;
+
+                let controlled_did = did_clone
+                    .with_queries(
+                        &deactivated_did_document.self_hash,
+                        deactivated_did_document.version_id,
+                    );
+
+                let priv_key_usage_blob = PrivKeyUsageBlob {
+                    wallets_rowid: ctx_clone.wallets_rowid,
+                    priv_key_usage_record: PrivKeyUsageRecord {
+                        pub_key: priv_key_record_for_update.pub_key.clone(),
+                        hashed_pub_key: priv_key_record_for_update.hashed_pub_key.clone(),
+                        used_at: now_utc,
+                        usage: PrivKeyUsage::DIDUpdate {
+                            updated_did_fully_qualified_o: Some(controlled_did.clone()),
+                        },
+                        verification_method_o: None,
+                        key_purpose_o: Some(KeyPurpose::UpdateDIDDocument),
+                    },
+                };
+                let priv_key_usage_blob_key = transaction
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                    .put(&serde_wasm_bindgen::to_value(&priv_key_usage_blob).unwrap())
+                    .await?;
+
+                let mut priv_key_blob_keys_to_retire_v = Vec::new();
+                let priv_keys_provisional_object_store =
+                    transaction.object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?;
+
+                for (_vm_record, priv_key_blob, primary_key) in locally_controlled_verification_method_v
+                {
+                    let mut soft_deleted_record = priv_key_blob.priv_key_record.clone();
+                    soft_deleted_record.deleted_at_o = Some(now_utc);
+                    soft_deleted_record.private_key_bytes_o = None;
+                    let soft_deleted_blob = PrivKeyBlob {
+                        priv_key_record: soft_deleted_record,
+                        ..priv_key_blob.clone()
+                    };
+                    priv_keys_provisional_object_store
+                        .put_kv(
+                            &primary_key,
+                            &serde_wasm_bindgen::to_value(&soft_deleted_blob).unwrap(),
+                        )
+                        .await?;
+                    priv_key_blob_keys_to_retire_v.push(primary_key);
+                }
+
+                let update_key_compound_key = JsValue::from(vec![
+                    Self::wallets_rowid_as_f64_jsvalue(ctx_clone.wallets_rowid),
+                    JsValue::from(priv_key_record_for_update.pub_key.to_string()),
+                ]);
+                let update_key_primary_keys = priv_keys_object_store
+                    .index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
+                    .get_all_keys_in(
+                        update_key_compound_key.clone()..=update_key_compound_key,
+                        Some(1),
+                    )
+                    .await?;
+                if let Some(update_key_primary_key) = update_key_primary_keys.into_iter().next() {
+                    let mut soft_deleted_record = (*priv_key_record_for_update).clone();
+                    soft_deleted_record.deleted_at_o = Some(now_utc);
+                    soft_deleted_record.private_key_bytes_o = None;
+                    let soft_deleted_blob = PrivKeyBlob {
+                        wallets_rowid: ctx_clone.wallets_rowid,
+                        priv_key_record: soft_deleted_record,
+                    };
+                    priv_keys_provisional_object_store
+                        .put_kv(
+                            &update_key_primary_key,
+                            &serde_wasm_bindgen::to_value(&soft_deleted_blob).unwrap(),
+                        )
+                        .await?;
+                    priv_key_blob_keys_to_retire_v.push(update_key_primary_key);
+                }
+
+                tracing::trace!("transaction #1 for deactivate_did succeeded");
+                Ok((
+                    deactivated_did_document,
+                    deactivated_did_document_jcs,
+                    did_document_blob_key,
+                    priv_key_usage_blob_key,
+                    priv_key_blob_keys_to_retire_v,
+                ))
+            })
+            .await
+            .map_err(into_wallet_error)?;
+
+        match self
+            .post_or_put_did_document(
+                "update",
+                deactivated_did_document_jcs.as_str(),
+                &did,
+                http_options_o,
+            )
+            .await
+        {
+            Ok(()) => (),
+            Err(e) => {
+                tracing::error!("error PUT'ing deactivated DID document to VDR: {:?}", e);
+                self.db()
+                    .await
+                    .map_err(into_wallet_error)?
+                    .transaction(&[
+                        Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                        Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                        Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
+                    ])
+                    .rw()
+                    .run(async move |transaction| {
+                        tracing::trace!(
+                            "undoing transaction #1 because HTTP PUT for deactivate DID {} failed",
+                            did
+                        );
+                        transaction
+                            .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                            .delete(&did_document_blob_key)
+                            .await?;
+                        for priv_key_blob_key_to_retire in priv_key_blob_keys_to_retire_v {
+                            transaction
+                                .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                                .delete(&priv_key_blob_key_to_retire)
+                                .await?;
+                        }
+                        transaction
+                            .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                            .delete(&priv_key_usage_blob_key)
+                            .await?;
+                        tracing::trace!("undo of transaction #1 succeeded");
+                        Ok(())
+                    })
+                    .await
+                    .map_err(into_wallet_error)?;
+                return Err(e);
+            }
+        }
+
+        self.db()
+            .await
+            .map_err(into_wallet_error)?
+            .transaction(&[
+                Self::DID_DOCUMENTS_OBJECT_STORE,
+                Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEYS_OBJECT_STORE,
+                Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_OBJECT_STORE,
+                Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE,
+            ])
+            .rw()
+            .run(async move |transaction| {
+                tracing::trace!("started transaction #2 for deactivate_did");
+                let did_document_blob_jsvalue = transaction
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                    .get(&did_document_blob_key)
+                    .await?
+                    .unwrap();
+                transaction
+                    .object_store(Self::DID_DOCUMENTS_PROVISIONAL_OBJECT_STORE)?
+                    .delete(&did_document_blob_key)
+                    .await?;
+                transaction
+                    .object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?
+                    .put(&did_document_blob_jsvalue)
+                    .await?;
+
+                for priv_key_blob_key_to_retire in priv_key_blob_keys_to_retire_v {
+                    let priv_key_blob_jsvalue = transaction
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                        .get(&priv_key_blob_key_to_retire)
+                        .await?
+                        .unwrap();
+                    transaction
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                        .delete(&priv_key_blob_key_to_retire)
+                        .await?;
+                    transaction
+                        .object_store(Self::PRIV_KEYS_OBJECT_STORE)?
+                        .put_kv(&priv_key_blob_key_to_retire, &priv_key_blob_jsvalue)
+                        .await?;
+                }
+
+                let priv_key_usage_blob_jsvalue = transaction
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                    .get(&priv_key_usage_blob_key)
+                    .await?
+                    .unwrap();
+                transaction
+                    .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
+                    .delete(&priv_key_usage_blob_key)
+                    .await?;
+                transaction
+                    .object_store(Self::PRIV_KEY_USAGES_OBJECT_STORE)?
+                    .put(&priv_key_usage_blob_jsvalue)
+                    .await?;
+
+                tracing::trace!("transaction #2 for deactivate_did succeeded");
+                Ok(())
+            })
+            .await
+            .map_err(into_wallet_error)?;
+
+        let controlled_did = did.with_queries(
+            &deactivated_did_document.self_hash,
+            deactivated_did_document.version_id,
+        );
+        Ok(controlled_did)
     }
     async fn get_locally_controlled_verification_methods(
         &self,
