@@ -1,7 +1,7 @@
 use axum::{
     Router,
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::get,
 };
 use std::sync::Arc;
@@ -52,11 +52,11 @@ fn create_router() -> Router<URDAppState> {
         .layer(tower_http::cors::CorsLayer::permissive())
 }
 
-#[tracing::instrument(level = tracing::Level::DEBUG, ret(level = tracing::Level::DEBUG, Display), err(Debug), skip(urd_app_state))]
+#[tracing::instrument(level = tracing::Level::DEBUG, err(Debug), skip(urd_app_state))]
 async fn resolve_did(
     State(urd_app_state): State<URDAppState>,
     Path(query): Path<String>,
-) -> Result<String, (StatusCode, String)> {
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
     tracing::debug!("Resolving DID query: {}", query);
     let (did_document, _did_document_metadata, _did_resolution_metadata) = urd_app_state
         .did_resolver_a
@@ -98,7 +98,10 @@ async fn resolve_did(
                 (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
             }
         })?;
-    Ok(did_document)
+    tracing::debug!("resolved DID document: {}", did_document);
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", "application/did+json".parse().unwrap());
+    Ok((headers, did_document))
 }
 
 #[tracing::instrument(level = tracing::Level::DEBUG, ret(level = tracing::Level::DEBUG, Display), err(Debug), skip(_urd_app_state))]
