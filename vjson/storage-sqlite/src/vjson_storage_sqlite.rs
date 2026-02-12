@@ -1,5 +1,5 @@
 use sqlx::SqlitePool;
-use vjson_store::{error_invalid_vjson, AlreadyExistsPolicy, Error, Result, VJSONRecord};
+use vjson_store::{AlreadyExistsPolicy, Error, Result, VJSONRecord, error_invalid_vjson};
 
 #[derive(Clone)]
 pub struct VJSONStorageSQLite {

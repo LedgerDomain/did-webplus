@@ -6,7 +6,8 @@ use did_webplus_vdg_lib::{LogFormat, VDGConfig};
 pub struct Root {
     #[command(flatten)]
     pub vdg_config: VDGConfig,
-    /// Specify the format of the logs.
+    /// Specify the format of the logs.  "compact" produces one line per log message, while "pretty"
+    /// produces verbose multi-line messages.  "json" produces JSON-formatted log messages.
     #[arg(
         name = "log-format",
         env = "DID_WEBPLUS_VDG_LOG_FORMAT",

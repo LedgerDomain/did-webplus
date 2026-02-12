@@ -6,7 +6,8 @@ use did_webplus_vdr_lib::{LogFormat, VDRConfig};
 pub struct Root {
     #[command(flatten)]
     pub vdr_config: VDRConfig,
-    /// Specify the format of the logs.
+    /// Specify the format of the logs.  "compact" produces one line per log message, while "pretty"
+    /// produces verbose multi-line messages.  "json" produces JSON-formatted log messages.
     #[arg(
         name = "log-format",
         env = "DID_WEBPLUS_VDR_LOG_FORMAT",

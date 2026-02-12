@@ -1,6 +1,6 @@
 use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageInsert, PrivKeyUsageSelect};
 use did_webplus_core::{
-    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags,
+    DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags, now_utc_milliseconds,
 };
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, DIDDocStorage};
 use did_webplus_wallet_store::{

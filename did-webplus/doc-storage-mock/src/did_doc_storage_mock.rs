@@ -1,4 +1,4 @@
-use did_webplus_core::{DIDDocument, DIDStr, DID};
+use did_webplus_core::{DID, DIDDocument, DIDStr};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, Result};
 use std::{
     collections::HashMap,

@@ -31,7 +31,7 @@ pub use crate::{
 pub type Error = JsValue;
 pub type Result<T> = std::result::Result<T, JsValue>;
 
-use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
+use wasm_bindgen::JsValue;
 
 pub fn into_js_value<T: std::fmt::Display>(t: T) -> JsValue {
     JsValue::from(t.to_string())
@@ -40,7 +40,7 @@ pub fn into_js_value<T: std::fmt::Display>(t: T) -> JsValue {
 /// This is the WebAssembly entry point.  It is used to initialize the logger.
 /// It is only defined if the `define-start-function` feature is enabled.
 #[cfg(feature = "define-start-function")]
-#[wasm_bindgen(start)]
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
 pub fn start() -> Result<()> {
     console_error_panic_hook::set_once();
     wasm_logger::init(wasm_logger::Config::new(log::Level::Debug));

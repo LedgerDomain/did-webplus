@@ -5,7 +5,7 @@ use crate::db::{
     TableWithPrimaryKey,
 };
 use did_webplus_core::{
-    now_utc_milliseconds, DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, DID,
+    DID, DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, now_utc_milliseconds,
 };
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter};
 use did_webplus_wallet_store::{
