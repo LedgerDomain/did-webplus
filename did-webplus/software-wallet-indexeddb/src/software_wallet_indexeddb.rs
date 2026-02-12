@@ -188,6 +188,161 @@ impl SoftwareWalletIndexedDB {
             vdg_host_o,
         })
     }
+    async fn get_locally_controlled_verification_methods_internal(
+        &self,
+        locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
+    ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>> {
+        let filter = locally_controlled_verification_method_filter.clone();
+        let ctx = self.ctx.clone();
+        self.db()
+            .await?
+            .transaction(&[
+                Self::DID_DOCUMENTS_OBJECT_STORE,
+                Self::PRIV_KEYS_OBJECT_STORE,
+            ])
+            .run(async move |transaction| {
+                let did_documents_object_store =
+                    transaction.object_store(Self::DID_DOCUMENTS_OBJECT_STORE)?;
+                let priv_keys_object_store =
+                    transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE)?;
+                let wallets_rowid_as_f64_jsvalue =
+                    Self::wallets_rowid_as_f64_jsvalue(ctx.wallets_rowid);
+
+                let did_document_blob_jsvalue_v = if let Some(did) = filter.did_o.as_ref() {
+                    let did_as_jsvalue = JsValue::from(did.as_str());
+                    let range_begin = if let Some(version_id) = filter.version_id_o {
+                        JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(version_id)])
+                    } else {
+                        JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(0)])
+                    };
+                    let range_end = if let Some(version_id) = filter.version_id_o {
+                        JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(version_id)])
+                    } else {
+                        JsValue::from(vec![did_as_jsvalue.clone(), JsValue::from(i32::MAX)])
+                    };
+                    let range = range_begin.clone()..=range_end;
+                    did_documents_object_store
+                        .index(Self::DID_DOCUMENTS_INDEX_DID_AND_VERSION_ID)?
+                        .get_all_in(range, None)
+                        .await?
+                } else {
+                    did_documents_object_store.get_all(None).await?
+                };
+
+                let mut locally_controlled_verification_method_v = Vec::new();
+                for did_document_blob_jsvalue in did_document_blob_jsvalue_v {
+                    let did_document_blob = serde_wasm_bindgen::from_value::<DIDDocumentBlob>(
+                        did_document_blob_jsvalue,
+                    )
+                    .map_err(|e| {
+                        Error::from(anyhow::anyhow!(
+                            "Database corruption in DID document; error was: {}",
+                            e
+                        ))
+                    })?;
+                    let did_doc_record = &did_document_blob.did_doc_record;
+
+                    if let Some(filter_did) = filter.did_o.as_ref() {
+                        if did_doc_record.did.as_str() != filter_did.as_str() {
+                            continue;
+                        }
+                    }
+                    if let Some(filter_version_id) = filter.version_id_o {
+                        if did_doc_record.version_id != filter_version_id as i64 {
+                            continue;
+                        }
+                    }
+
+                    let did_document: DIDDocument =
+                        serde_json::from_str(&did_doc_record.did_document_jcs).map_err(|e| {
+                            Error::from(anyhow::anyhow!(
+                                "Database corruption in DID document; parse error was: {}",
+                                e
+                            ))
+                        })?;
+
+                    for verification_method in did_document
+                        .public_key_material
+                        .verification_method_v
+                        .iter()
+                    {
+                        if let Some(filter_key_id) = filter.key_id_o.as_deref() {
+                            if verification_method.id.fragment() != filter_key_id {
+                                continue;
+                            }
+                        }
+
+                        let pub_key = mbx::MBPubKey::try_from(&verification_method.public_key_jwk)
+                            .map_err(|e| {
+                                Error::from(anyhow::anyhow!(
+                                    "error converting public key JWK to MBPubKey; error was: {}",
+                                    e
+                                ))
+                            })?;
+
+                        if let Some(filter_key_purpose) = filter.key_purpose_o {
+                            let key_purpose_flags = did_document
+                                .public_key_material
+                                .key_purpose_flags_for_key_id_fragment(&pub_key);
+                            if !key_purpose_flags.contains(filter_key_purpose) {
+                                continue;
+                            }
+                        }
+
+                        let compound_key = JsValue::from(vec![
+                            wallets_rowid_as_f64_jsvalue.clone(),
+                            JsValue::from(pub_key.to_string()),
+                        ]);
+                        let priv_key_blob_jsvalue_o = priv_keys_object_store
+                            .index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
+                            .get(&compound_key)
+                            .await?;
+
+                        if let Some(priv_key_blob_jsvalue) = priv_key_blob_jsvalue_o {
+                            let priv_key_blob = serde_wasm_bindgen::from_value::<PrivKeyBlob>(
+                                priv_key_blob_jsvalue,
+                            )
+                            .map_err(|e| {
+                                Error::from(anyhow::anyhow!(
+                                    "Database corruption in priv key; error was: {}",
+                                    e
+                                ))
+                            })?;
+                            let priv_key_record = &priv_key_blob.priv_key_record;
+                            if priv_key_record.deleted_at_o.is_some() {
+                                continue;
+                            }
+                            priv_key_record.private_key_bytes_o.clone().ok_or_else(|| {
+                                Error::from(anyhow::anyhow!(
+                                    "priv key has no private_key_bytes_o (deleted or corrupted)"
+                                ))
+                            })?;
+
+                            let key_purpose_flags = did_document
+                                .public_key_material
+                                .key_purpose_flags_for_key_id_fragment(&pub_key);
+                            let verification_method_record = VerificationMethodRecord {
+                                did_key_resource_fully_qualified: verification_method.id.clone(),
+                                key_purpose_flags,
+                                pub_key,
+                            };
+                            locally_controlled_verification_method_v
+                                .push((verification_method_record, priv_key_record.clone()));
+
+                            if let Some(limit) = filter.result_limit_o {
+                                if locally_controlled_verification_method_v.len() >= limit as usize
+                                {
+                                    return Ok(locally_controlled_verification_method_v);
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(locally_controlled_verification_method_v)
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))
+    }
     /// Retrieves the database for this wallet.
     ///
     /// Because we can't store a indexed_db::Database in SoftwareWalletIndexedDB (since indexed_db::Database
@@ -472,20 +627,20 @@ impl SoftwareWalletIndexedDB {
 }
 
 /// This is the blob that gets stored in the IndexedDB database for each DID document.
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 struct DIDDocumentBlob {
     pub did_doc_record: DIDDocRecord,
 }
 
 /// This is the blob that gets stored in the IndexedDB database for each private key.
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 struct PrivKeyBlob {
     pub wallets_rowid: i64,
     pub priv_key_record: PrivKeyRecord,
 }
 
 /// This is the blob that gets stored in the IndexedDB database for each private key usage.
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Clone, serde::Deserialize, serde::Serialize)]
 struct PrivKeyUsageBlob {
     pub wallets_rowid: i64,
     pub priv_key_usage_record: PrivKeyUsageRecord,
@@ -865,11 +1020,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 for key_purpose in KeyPurpose::VARIANTS {
                     tracing::trace!("adding priv key for key_purpose: {:?}", key_purpose);
                     let pub_key = pub_key_m[key_purpose].clone();
-                    // let hashed_pub_key = {
-                    //     let mut hasher = blake3::Hasher::new();
-                    //     hasher.update(pub_key.as_bytes());
-                    //     mbx::MBHash::from_blake3(mbx::Base::Base64Url, hasher)
-                    // };
                     let hashed_pub_key_string = if let Some(mb_hash_function_for_update_key) =
                         mb_hash_function_for_update_key_o.as_ref()
                     {
@@ -1084,7 +1234,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         let did_clone = did.clone();
         // let updated_did_document_clone = updated_did_document.clone();
         // let updated_did_document_jcs_clone = updated_did_document_jcs.clone();
-        let (updated_did_document, updated_did_document_jcs, did_document_blob_key, priv_key_blob_key_v, priv_key_usage_blob_key) = self
+        let (updated_did_document, updated_did_document_jcs, did_document_blob_key, priv_key_blob_key_v, priv_key_usage_blob_key, priv_key_blob_keys_to_retire_v) = self
             .db()
             .await
             .map_err(into_wallet_error)?
@@ -1100,39 +1250,58 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 tracing::trace!("started transaction #1; retrieving appropriate signing key, updating DID document, adding provisional records for updated DID document, priv keys, and priv key usages");
 
                 // Get locally controlled verification methods for the latest DID document
-                let _locally_controlled_verification_method_v = {
+                let priv_keys_object_store = transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE)?;
+                let locally_controlled_verification_method_v = {
                     tracing::trace!("getting locally controlled verification methods for latest DID document");
                     let mut locally_controlled_verification_method_v = Vec::new();
                     // Go through latest_did_document and find the verification methods that are locally controlled,
                     // i.e. whose public keys match those in the priv_keys object store.
-                    let priv_keys_object_store = transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE).unwrap();
                     for verification_method in latest_did_document.public_key_material.verification_method_v.iter() {
                         let wallets_rowid_as_f64_jsvalue = Self::wallets_rowid_as_f64_jsvalue(ctx_clone.wallets_rowid);
 
                         let pub_key = mbx::MBPubKey::try_from(&verification_method.public_key_jwk).map_err(|e| Error::from(anyhow::anyhow!("error converting public key JWK to MBPubKey; error was: {}", e)))?;
                         let pub_key_str_jsvalue = JsValue::from(pub_key.to_string());
 
-                        let priv_key_blob_jsvalue_o = priv_keys_object_store.index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
-                            .get(&JsValue::from(vec![wallets_rowid_as_f64_jsvalue, pub_key_str_jsvalue]))
+                        let compound_key = JsValue::from(vec![
+                            wallets_rowid_as_f64_jsvalue.clone(),
+                            pub_key_str_jsvalue.clone(),
+                        ]);
+                        let priv_key_blob_jsvalue_o = priv_keys_object_store
+                            .index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
+                            .get(&compound_key)
                             .await?;
                         if let Some(priv_key_blob_jsvalue) = priv_key_blob_jsvalue_o {
-                            let key_purpose_flags = latest_did_document.public_key_material.key_purpose_flags_for_key_id_fragment(&pub_key);
-                            let verification_method_record = did_webplus_wallet_store::VerificationMethodRecord {
-                                did_key_resource_fully_qualified: did_fully_qualified.with_fragment(&verification_method.id.fragment()),
-                                key_purpose_flags,
-                                pub_key,
-                            };
-                            let priv_key_blob = serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue).map_err(|e| {
-                                Error::from(anyhow::anyhow!(
-                                    "Database corruption in DID document; error was: {}",
-                                    e
-                                ))
-                            })?;
-                            let priv_key_record = priv_key_blob.priv_key_record;
-                            locally_controlled_verification_method_v.push((verification_method_record, priv_key_record));
+                            let primary_keys = priv_keys_object_store
+                                .index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
+                                .get_all_keys_in(compound_key.clone()..=compound_key, Some(1))
+                                .await?;
+                            if let Some(primary_key) = primary_keys.into_iter().next() {
+                                let key_purpose_flags =
+                                    latest_did_document.public_key_material.key_purpose_flags_for_key_id_fragment(&pub_key);
+                                let verification_method_record =
+                                    did_webplus_wallet_store::VerificationMethodRecord {
+                                        did_key_resource_fully_qualified: did_fully_qualified
+                                            .with_fragment(&verification_method.id.fragment()),
+                                        key_purpose_flags,
+                                        pub_key,
+                                    };
+                                let priv_key_blob =
+                                    serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue)
+                                        .map_err(|e| {
+                                            Error::from(anyhow::anyhow!(
+                                                "Database corruption in DID document; error was: {}",
+                                                e
+                                            ))
+                                        })?;
+                                locally_controlled_verification_method_v
+                                    .push((verification_method_record, priv_key_blob, primary_key));
+                            }
                         }
                     }
-                    tracing::trace!("found {} locally controlled verification methods for latest DID document", locally_controlled_verification_method_v.len());
+                    tracing::trace!(
+                        "found {} locally controlled verification methods for latest DID document",
+                        locally_controlled_verification_method_v.len()
+                    );
                     locally_controlled_verification_method_v
                 };
 
@@ -1147,7 +1316,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         is_not_deleted_o: Some(true),
                     };
                     let mut update_key_v = Vec::new();
-                    let priv_keys_object_store = transaction.object_store(Self::PRIV_KEYS_OBJECT_STORE)?;
                     let priv_key_blob_jsvalue_v = priv_keys_object_store.get_all(None).await?;
                     for priv_key_blob_jsvalue in priv_key_blob_jsvalue_v {
                         let priv_key_blob = serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue).map_err(|e| {
@@ -1333,11 +1501,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 for key_purpose in KeyPurpose::VARIANTS {
                     tracing::trace!("adding priv key for key_purpose: {:?}", key_purpose);
                     let pub_key = pub_key_m[key_purpose].clone();
-                    // let hashed_pub_key = {
-                    //     let mut hasher = blake3::Hasher::new();
-                    //     hasher.update(pub_key.as_bytes());
-                    //     mbx::MBHash::from_blake3(mbx::Base::Base64Url, hasher)
-                    // };
                     let hashed_pub_key_string = if let Some(mb_hash_function_for_update_key) =
                         mb_hash_function_for_update_key_o.as_ref()
                     {
@@ -1408,14 +1571,58 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     .await?;
                 tracing::trace!("added priv key usage; priv_key_usage_blob_key: {:?}", priv_key_usage_blob_key);
 
-                // TODO: Collect priv key IDs to retire in the second transaction.
-                // // Retire the priv keys for the old locally-controlled verification methods.
-                // let priv_keys_provisional_object_store = transaction.object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?;
-                // for (_verification_method_record, priv_key_record) in locally_controlled_verification_method_v {
-                //     // TODO: Soft-delete the priv key.
-                // }
-                // // Retire the old update key.
-                // // TODO: Soft-delete the update key.
+                // Retire the priv keys for the old locally-controlled verification methods and the old update key.
+                let mut priv_key_blob_keys_to_retire_v = Vec::new();
+                let priv_keys_provisional_object_store =
+                    transaction.object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?;
+
+                for (_verification_method_record, priv_key_blob, primary_key) in
+                    locally_controlled_verification_method_v
+                {
+                    let mut soft_deleted_record = priv_key_blob.priv_key_record.clone();
+                    soft_deleted_record.deleted_at_o = Some(now_utc);
+                    soft_deleted_record.private_key_bytes_o = None;
+                    let soft_deleted_blob = PrivKeyBlob {
+                        priv_key_record: soft_deleted_record,
+                        ..priv_key_blob.clone()
+                    };
+                    priv_keys_provisional_object_store
+                        .put_kv(
+                            &primary_key,
+                            &serde_wasm_bindgen::to_value(&soft_deleted_blob).unwrap(),
+                        )
+                        .await?;
+                    priv_key_blob_keys_to_retire_v.push(primary_key);
+                }
+
+                // Retire the old update key.
+                let update_key_compound_key = JsValue::from(vec![
+                    Self::wallets_rowid_as_f64_jsvalue(ctx_clone.wallets_rowid),
+                    JsValue::from(priv_key_record_for_update.pub_key.to_string()),
+                ]);
+                let update_key_primary_keys = priv_keys_object_store
+                    .index(Self::PRIV_KEYS_INDEX_WALLETS_ROWID_AND_PUB_KEY)?
+                    .get_all_keys_in(
+                        update_key_compound_key.clone()..=update_key_compound_key,
+                        Some(1),
+                    )
+                    .await?;
+                if let Some(update_key_primary_key) = update_key_primary_keys.into_iter().next() {
+                    let mut soft_deleted_record = (*priv_key_record_for_update).clone();
+                    soft_deleted_record.deleted_at_o = Some(now_utc);
+                    soft_deleted_record.private_key_bytes_o = None;
+                    let soft_deleted_blob = PrivKeyBlob {
+                        wallets_rowid: ctx_clone.wallets_rowid,
+                        priv_key_record: soft_deleted_record,
+                    };
+                    priv_keys_provisional_object_store
+                        .put_kv(
+                            &update_key_primary_key,
+                            &serde_wasm_bindgen::to_value(&soft_deleted_blob).unwrap(),
+                        )
+                        .await?;
+                    priv_key_blob_keys_to_retire_v.push(update_key_primary_key);
+                }
 
                 tracing::trace!("transaction #1 succeeded");
                 Ok((
@@ -1424,6 +1631,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                     did_document_blob_key,
                     priv_key_blob_key_v,
                     priv_key_usage_blob_key,
+                    priv_key_blob_keys_to_retire_v,
                 ))
             })
             .await
@@ -1466,6 +1674,13 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             transaction
                                 .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
                                 .delete(&priv_key_blob_key)
+                                .await?;
+                        }
+
+                        for priv_key_blob_key_to_retire in priv_key_blob_keys_to_retire_v {
+                            transaction
+                                .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                                .delete(&priv_key_blob_key_to_retire)
                                 .await?;
                         }
 
@@ -1530,6 +1745,22 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         .await?;
                 }
 
+                for priv_key_blob_key_to_retire in priv_key_blob_keys_to_retire_v {
+                    let priv_key_blob_jsvalue = transaction
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                        .get(&priv_key_blob_key_to_retire)
+                        .await?
+                        .unwrap();
+                    transaction
+                        .object_store(Self::PRIV_KEYS_PROVISIONAL_OBJECT_STORE)?
+                        .delete(&priv_key_blob_key_to_retire)
+                        .await?;
+                    transaction
+                        .object_store(Self::PRIV_KEYS_OBJECT_STORE)?
+                        .put_kv(&priv_key_blob_key_to_retire, &priv_key_blob_jsvalue)
+                        .await?;
+                }
+
                 let priv_key_usage_blob_jsvalue = transaction
                     .object_store(Self::PRIV_KEY_USAGES_PROVISIONAL_OBJECT_STORE)?
                     .get(&priv_key_usage_blob_key)
@@ -1566,13 +1797,28 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     }
     async fn get_locally_controlled_verification_methods(
         &self,
-        _locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
+        locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
     ) -> did_webplus_wallet::Result<
         Vec<(
             VerificationMethodRecord,
             signature_dyn::SignerBytes<'static>,
         )>,
     > {
-        todo!()
+        let results = self
+            .get_locally_controlled_verification_methods_internal(
+                locally_controlled_verification_method_filter,
+            )
+            .await
+            .map_err(into_wallet_error)?;
+
+        Ok(results
+            .into_iter()
+            .map(|(verification_method_record, priv_key_record)| {
+                let signer_bytes = priv_key_record
+                    .private_key_bytes_o
+                    .expect("programmer error: priv_key_bytes_o was verified Some(_) in the loop");
+                (verification_method_record, signer_bytes)
+            })
+            .collect())
     }
 }

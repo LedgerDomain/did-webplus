@@ -1,7 +1,7 @@
 use did_webplus_core::KeyPurposeFlags;
 
 // TODO: Consider making a "non-deleted" version of PrivKeyRecord that has those constraints.
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct PrivKeyRecord {
     /// The pub key corresponding to this priv key.
     pub pub_key: mbx::MBPubKey,
