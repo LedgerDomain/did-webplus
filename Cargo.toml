@@ -7,6 +7,7 @@ ssi-claims = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplu
 ssi-dids = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-jwk = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-jws = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
+ssi-jwt = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-multicodec = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-vc = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-verification-methods = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }

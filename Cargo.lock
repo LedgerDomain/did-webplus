@@ -1685,6 +1685,7 @@ dependencies = [
  "ssi-dids",
  "ssi-jwk",
  "ssi-jws",
+ "ssi-jwt",
  "ssi-vc",
  "ssi-verification-methods",
  "static-iref",

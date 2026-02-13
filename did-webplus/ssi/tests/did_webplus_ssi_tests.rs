@@ -63,6 +63,7 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
 ) {
     // Have the wallet create a DID.
     let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
+    use did_webplus_wallet::Wallet;
     let controlled_did = software_wallet
         .create_did(
             did_webplus_wallet::CreateDIDParameters {
@@ -74,27 +75,20 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
         )
         .await
         .expect("pass");
+
     // Get an appropriate signing key.
-    use did_webplus_wallet::Wallet;
-    let (verification_method_record, signer_bytes) = {
-        let locally_controlled_verification_method_filter =
-            did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
-                did_o: Some(controlled_did.did().to_owned()),
-                version_id_o: Some(controlled_did.query_version_id()),
-                key_purpose_o: Some(did_webplus_core::KeyPurpose::AssertionMethod),
-                key_id_o: None,
-                result_limit_o: None,
-            };
-        software_wallet
-            .get_locally_controlled_verification_method(
-                locally_controlled_verification_method_filter,
-            )
-            .await
-            .expect("pass")
-    };
+    let (_verification_method_record, priv_jwk) = did_webplus_ssi::get_signing_jwk(
+        software_wallet,
+        controlled_did.did(),
+        did_webplus_core::KeyPurpose::AssertionMethod,
+        None,
+        None,
+    )
+    .await
+    .expect("pass");
 
     // Defines the shape of our custom claims.
-    #[derive(serde::Deserialize, serde::Serialize)]
+    #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
     pub struct Claims {
         name: String,
         email: String,
@@ -106,20 +100,10 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
         email: "g@mc-p.org".to_owned(),
     });
 
-    let priv_jwk = to_ssi_jwk(
-        Some(
-            verification_method_record
-                .did_key_resource_fully_qualified
-                .as_str(),
-        ),
-        &signer_bytes,
-    )
-    .expect("pass");
-
     // Sign the claims.
-    use ssi_claims::JwsPayload;
-    let jwt = claims.sign(&priv_jwk).await.expect("signature failed");
-
+    let jwt = did_webplus_ssi::sign_jwt(&claims, &priv_jwk)
+        .await
+        .expect("signature failed");
     tracing::info!("jwt: {}", jwt);
 
     // Create a verification method resolver, which will be in charge of
@@ -140,16 +124,18 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
         let did_resolver_a = Arc::new(did_resolver_full);
         did_webplus_ssi::DIDWebplus { did_resolver_a }
     };
-    use ssi_dids::DIDResolver;
-    let vm_resolver = did_resolver.into_vm_resolver::<ssi_verification_methods::AnyJwkMethod>();
 
-    // Setup the verification parameters.
-    let params = ssi_claims::VerificationParameters::from_resolver(vm_resolver);
+    let jwt = did_webplus_ssi::verify_jwt(jwt.as_str(), did_resolver.clone())
+        .await
+        .expect("pass");
 
-    // Verify the JWT.
-    let verification_r = jwt.verify(&params).await.expect("pass");
-    tracing::debug!("verification_r: {:?}", verification_r);
-    assert!(verification_r.is_ok());
+    // Decode the jwt into claims.
+    let decoded_jwt = did_webplus_ssi::decode_jwt::<Claims>(&jwt)
+        .await
+        .expect("pass");
+    let decoded_claims = decoded_jwt.payload;
+    tracing::info!("decoded claims: {:?}", decoded_claims);
+    assert_eq!(decoded_claims, claims);
 }
 
 #[tokio::test]
@@ -197,22 +183,16 @@ async fn test_ssi_vc_issue_0_impl(
         .expect("pass");
     // Get an appropriate signing key.
     use did_webplus_wallet::Wallet;
-    let (verification_method_record, signer_bytes) = {
-        let locally_controlled_verification_method_filter =
-            did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
-                did_o: Some(controlled_did.did().to_owned()),
-                version_id_o: Some(controlled_did.query_version_id()),
-                key_purpose_o: Some(did_webplus_core::KeyPurpose::AssertionMethod),
-                key_id_o: None,
-                result_limit_o: None,
-            };
-        software_wallet
-            .get_locally_controlled_verification_method(
-                locally_controlled_verification_method_filter,
-            )
-            .await
-            .expect("pass")
-    };
+    let (verification_method_record, priv_jwk) = did_webplus_ssi::get_signing_jwk(
+        software_wallet,
+        controlled_did.did(),
+        did_webplus_core::KeyPurpose::AssertionMethod,
+        None,
+        None,
+    )
+    .await
+    .expect("pass");
+
     // Create the DID URL which fully qualifies the specific key to be used.
     let did_url = ssi_dids::DIDURLBuf::from_string(
         verification_method_record
@@ -220,18 +200,6 @@ async fn test_ssi_vc_issue_0_impl(
             .to_string(),
     )
     .expect("pass");
-
-    // Get the private JWK from the Signer.
-    let priv_jwk = to_ssi_jwk(
-        Some(
-            verification_method_record
-                .did_key_resource_fully_qualified
-                .as_str(),
-        ),
-        &signer_bytes,
-    )
-    .expect("pass");
-    tracing::debug!("priv_jwk: {:#?}", priv_jwk);
 
     // Create a verification method resolver, which will be in charge of
     // decoding the DID back into a public key.
@@ -674,59 +642,4 @@ async fn setup_vdr_and_wallet(
     );
 
     (vdr_handle, vdr_did_create_endpoint, software_wallet)
-}
-
-// TEMP HACK
-pub fn to_ssi_jwk(
-    kid_o: Option<&str>,
-    signer_bytes: &signature_dyn::SignerBytes<'_>,
-) -> anyhow::Result<ssi_jwk::JWK> {
-    match signer_bytes.key_type() {
-        signature_dyn::KeyType::Ed25519 => {
-            // #[cfg(feature = "ed25519-dalek")]
-            {
-                let secret_key = ed25519_dalek::SecretKey::try_from(signer_bytes.bytes())
-                    .expect("this should not fail because of check in new");
-                let signing_key = ed25519_dalek::SigningKey::from_bytes(&secret_key);
-                let verifying_key = signing_key.verifying_key();
-                let mut jwk = ssi_jwk::JWK::from(ssi_jwk::Params::OKP(ssi_jwk::OctetParams {
-                    curve: "Ed25519".to_string(),
-                    public_key: ssi_jwk::Base64urlUInt(verifying_key.to_bytes().to_vec()),
-                    private_key: Some(ssi_jwk::Base64urlUInt(signing_key.to_bytes().to_vec())),
-                }));
-                if let Some(kid_o) = kid_o {
-                    jwk.key_id = Some(kid_o.to_string());
-                }
-                jwk.algorithm = Some(ssi_jwk::algorithm::Algorithm::EdDSA);
-                Ok(jwk)
-            }
-            // #[cfg(not(feature = "ed25519-dalek"))]
-            // {
-            //     panic!("ed25519-dalek feature not enabled");
-            // }
-        }
-        signature_dyn::KeyType::Secp256k1 => {
-            // #[cfg(feature = "k256")]
-            {
-                let signing_key = k256::ecdsa::SigningKey::from_slice(signer_bytes.bytes())
-                    .expect("this should not fail because of check in new");
-                let secret_key = k256::SecretKey::from(signing_key);
-                let public_key = secret_key.public_key();
-                let mut ec_params = ssi_jwk::ECParams::from(&public_key);
-                ec_params.ecc_private_key =
-                    Some(ssi_jwk::Base64urlUInt(signer_bytes.bytes().to_vec()));
-                let mut jwk = ssi_jwk::JWK::from(ssi_jwk::Params::EC(ec_params));
-                if let Some(kid_o) = kid_o {
-                    jwk.key_id = Some(kid_o.to_string());
-                }
-                // jwk.algorithm = Some(ssi_jwk::algorithm::Algorithm::ES256);
-                Ok(jwk)
-            }
-            // #[cfg(not(feature = "k256"))]
-            // {
-            //     panic!("k256 feature not enabled");
-            // }
-        }
-        _ => anyhow::bail!("unsupported key type: {:?}", signer_bytes.key_type()),
-    }
 }

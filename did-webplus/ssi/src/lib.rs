@@ -1,3 +1,12 @@
+mod jwk;
+mod jwt;
+
+pub use crate::{
+    jwk::get_signing_jwk,
+    jwt::{decode_jwt, sign_jwt, verify_jwt},
+};
+pub use anyhow::{Error, Result};
+
 use std::{str::FromStr, sync::Arc};
 
 #[derive(Clone)]
@@ -14,7 +23,8 @@ impl ssi_dids::DIDMethodResolver for DIDWebplus {
         &'a self,
         method_specific_id: &'a str,
         options: ssi_dids::resolution::Options,
-    ) -> Result<ssi_dids::resolution::Output<Vec<u8>>, ssi_dids::resolution::Error> {
+    ) -> std::result::Result<ssi_dids::resolution::Output<Vec<u8>>, ssi_dids::resolution::Error>
+    {
         tracing::debug!(
             "DIDWebplus::resolve_method_representation; method_specific_id: {:?}, options: {:?}",
             method_specific_id,
