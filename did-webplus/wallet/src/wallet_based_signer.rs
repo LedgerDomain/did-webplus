@@ -1,4 +1,7 @@
 use crate::{Result, Wallet};
+use ssi_claims::data_integrity::AnySignatureAlgorithm;
+use ssi_verification_methods::{SignatureProtocol, VerificationMethod, protocol::WithProtocol};
+use std::borrow::Cow;
 
 /// A signer corresponding to a particular Wallet, DID, key purpose, and, optionally, key ID.
 #[derive(Clone)]
@@ -55,6 +58,7 @@ impl<W: Wallet> WalletBasedSigner<W> {
     }
 }
 
+// For signing JWS and JWT (plain JWT, but also VC-JWT and VP-JWT)
 impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
     async fn fetch_info(
         &self,
@@ -103,5 +107,68 @@ impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
             .to_signature_bytes()
             .bytes()
             .to_vec())
+    }
+}
+
+//
+// Code below here is for LDP signing (LDP-formatted VCs and VPs)
+//
+
+impl<W: Wallet + Clone> ssi_verification_methods::Signer<ssi_verification_methods::AnyMethod>
+    for WalletBasedSigner<W>
+{
+    type MessageSigner = Self;
+
+    async fn for_method(
+        &self,
+        method: Cow<'_, ssi_verification_methods::AnyMethod>,
+    ) -> std::result::Result<Option<Self::MessageSigner>, ssi_claims::SignatureError> {
+        let method_id = method.id().as_str();
+        let our_key_id = self.key_id.to_string();
+        if method_id == our_key_id {
+            Ok(Some(self.clone()))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl<W: Wallet> ssi_verification_methods::MessageSigner<AnySignatureAlgorithm>
+    for WalletBasedSigner<W>
+{
+    async fn sign(
+        self,
+        WithProtocol(algorithm_instance, protocol): <AnySignatureAlgorithm as ssi_crypto::algorithm::SignatureAlgorithmType>::Instance,
+        message: &[u8],
+    ) -> std::result::Result<Vec<u8>, ssi_claims::MessageSignatureError> {
+        use ssi_jws::JwsSigner;
+
+        // Validate that the algorithm matches our key's algorithm
+        let expected_jose = match algorithm_instance {
+            ssi_crypto::AlgorithmInstance::EdDSA => signature_dyn::ED25519_JOSE_ALGORITHM,
+            ssi_crypto::AlgorithmInstance::ES256 => signature_dyn::P256_JOSE_ALGORITHM,
+            ssi_crypto::AlgorithmInstance::ES384 => signature_dyn::P384_JOSE_ALGORITHM,
+            ssi_crypto::AlgorithmInstance::ES256K => signature_dyn::SECP256K1_JOSE_ALGORITHM,
+            _ => {
+                return Err(ssi_claims::MessageSignatureError::UnsupportedAlgorithm(
+                    algorithm_instance.algorithm().as_str().to_string(),
+                ));
+            }
+        };
+        if self.jose_algorithm != expected_jose {
+            return Err(ssi_claims::MessageSignatureError::UnsupportedAlgorithm(
+                format!(
+                    "algorithm mismatch: key uses {}, suite requires {}",
+                    self.jose_algorithm, expected_jose
+                ),
+            ));
+        }
+
+        let message = protocol.prepare_message(message);
+        let signature = self
+            .sign_bytes(&message)
+            .await
+            .map_err(|e| ssi_claims::MessageSignatureError::SignatureFailed(e.to_string()))?;
+        protocol.encode_signature(algorithm_instance.algorithm(), signature)
     }
 }

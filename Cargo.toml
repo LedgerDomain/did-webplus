@@ -4,6 +4,7 @@ pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" 
 selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.5.1" }
 signature-dyn = { git = "https://github.com/LedgerDomain/signature-dyn", rev = "signature-dyn-v0.1.0" }
 ssi-claims = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
+ssi-crypto = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-dids = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-jwk = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-jws = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }

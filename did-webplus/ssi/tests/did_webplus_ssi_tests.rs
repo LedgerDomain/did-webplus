@@ -164,7 +164,6 @@ async fn test_ssi_vc_issue_0_impl(
         VerificationParameters,
     };
     use ssi_dids::DIDResolver;
-    use ssi_verification_methods::SingleSecretSigner;
     use xsd_types::DateTime;
 
     // Have the wallet create a DID.
@@ -180,19 +179,8 @@ async fn test_ssi_vc_issue_0_impl(
         )
         .await
         .expect("pass");
-    // Get an appropriate signing key.
-    use did_webplus_wallet::Wallet;
-    let (verification_method_record, priv_jwk) = did_webplus_ssi::get_signing_jwk(
-        software_wallet,
-        controlled_did.did(),
-        did_webplus_core::KeyPurpose::AssertionMethod,
-        None,
-        None,
-    )
-    .await
-    .expect("pass");
-
     // Get the appropriate signing key.
+    use did_webplus_wallet::Wallet;
     let wallet_based_signer = did_webplus_wallet::WalletBasedSigner::new(
         software_wallet.clone(),
         controlled_did.did(),
@@ -204,12 +192,8 @@ async fn test_ssi_vc_issue_0_impl(
     .expect("pass");
 
     // Create the DID URL which fully qualifies the specific key to be used.
-    let did_url = ssi_dids::DIDURLBuf::from_string(
-        verification_method_record
-            .did_key_resource_fully_qualified
-            .to_string(),
-    )
-    .expect("pass");
+    let did_url = ssi_dids::DIDURLBuf::from_string(wallet_based_signer.key_id().to_string())
+        .expect("pass");
 
     // Create a verification method resolver, which will be in charge of
     // decoding the DID back into a public key.
@@ -229,19 +213,21 @@ async fn test_ssi_vc_issue_0_impl(
         let did_resolver_a = Arc::new(did_resolver_full);
         did_webplus_ssi::DIDWebplus { did_resolver_a }
     };
-    let vm_resolver = did_resolver.into_vm_resolver();
+    let vm_resolver = did_resolver.into_vm_resolver::<ssi_verification_methods::AnyMethod>();
 
-    // Create a signer from the secret key.
-    // Here we use the simple `SingleSecretSigner` signer type which always uses
-    // the same provided secret key to sign messages.
-    let signer = SingleSecretSigner::new(priv_jwk.clone()).into_local();
+    // Verification method as IRI reference (resolver will resolve when needed).
+    let verification_method = ssi_verification_methods::ReferenceOrOwned::<
+        ssi_verification_methods::AnyMethod,
+    >::from(did_url.clone().into_iri().to_owned());
 
-    // Turn the DID URL into a verification method reference.
-    let verification_method = did_url.clone().into_iri().into();
+    // Pick a suitable Data-Integrity signature suite for did:webplus (no JWK needed).
+    let cryptosuite = did_webplus_ssi::pick_suite_for_did_webplus_by_id(
+        wallet_based_signer.key_id().to_string().as_str(),
+    )
+    .expect("could not find appropriate cryptosuite");
 
-    // Automatically pick a suitable Data-Integrity signature suite for our key.
-    let cryptosuite = AnySuite::pick(&priv_jwk, Some(&verification_method))
-        .expect("could not find appropriate cryptosuite");
+    // Use WalletBasedSigner for LDP signing (supports hardware keys, no JWK extraction).
+    let signer = &wallet_based_signer;
 
     // Defines the shape of our custom claims.
     #[derive(Clone, Debug, Serialize, Deserialize)]

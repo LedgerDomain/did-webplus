@@ -1,9 +1,9 @@
-mod jwk;
 mod jwt;
+mod ldp;
 
 pub use crate::{
-    jwk::get_signing_jwk,
     jwt::{decode_jwt, sign_jwt, verify_jwt},
+    ldp::{pick_suite_for_did_webplus, pick_suite_for_did_webplus_by_id},
 };
 pub use anyhow::{Error, Result};
 
