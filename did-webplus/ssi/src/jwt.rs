@@ -1,14 +1,12 @@
 use crate::Result;
 use ssi_claims::jwt::ToDecodedJwt;
 
-pub async fn sign_jwt<Claims: serde::Serialize>(
+pub async fn sign_jwt<Claims: serde::Serialize, Signer: ssi_jws::JwsSigner>(
     claims: &ssi_claims::JWTClaims<Claims>,
-    priv_jwk: &ssi_jwk::JWK,
+    signer: &Signer,
 ) -> Result<ssi_claims::JwsBuf> {
-    // Sign the claims.
     use ssi_claims::JwsPayload;
-    let jwt = claims.sign(priv_jwk).await?;
-    Ok(jwt)
+    Ok(claims.sign(signer).await?)
 }
 
 pub async fn verify_jwt<R: ssi_dids::DIDResolver>(

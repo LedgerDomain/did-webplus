@@ -76,17 +76,6 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
         .await
         .expect("pass");
 
-    // Get an appropriate signing key.
-    let (_verification_method_record, priv_jwk) = did_webplus_ssi::get_signing_jwk(
-        software_wallet,
-        controlled_did.did(),
-        did_webplus_core::KeyPurpose::AssertionMethod,
-        None,
-        None,
-    )
-    .await
-    .expect("pass");
-
     // Defines the shape of our custom claims.
     #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
     pub struct Claims {
@@ -100,8 +89,18 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
         email: "g@mc-p.org".to_owned(),
     });
 
+    let wallet_based_signer = did_webplus_wallet::WalletBasedSigner::new(
+        software_wallet.clone(),
+        controlled_did.did(),
+        did_webplus_core::KeyPurpose::AssertionMethod,
+        None,
+        None,
+    )
+    .await
+    .expect("pass");
+
     // Sign the claims.
-    let jwt = did_webplus_ssi::sign_jwt(&claims, &priv_jwk)
+    let jwt = did_webplus_ssi::sign_jwt(&claims, &wallet_based_signer)
         .await
         .expect("signature failed");
     tracing::info!("jwt: {}", jwt);
@@ -185,6 +184,17 @@ async fn test_ssi_vc_issue_0_impl(
     use did_webplus_wallet::Wallet;
     let (verification_method_record, priv_jwk) = did_webplus_ssi::get_signing_jwk(
         software_wallet,
+        controlled_did.did(),
+        did_webplus_core::KeyPurpose::AssertionMethod,
+        None,
+        None,
+    )
+    .await
+    .expect("pass");
+
+    // Get the appropriate signing key.
+    let wallet_based_signer = did_webplus_wallet::WalletBasedSigner::new(
+        software_wallet.clone(),
         controlled_did.did(),
         did_webplus_core::KeyPurpose::AssertionMethod,
         None,
@@ -288,7 +298,7 @@ async fn test_ssi_vc_issue_0_impl(
     let vc_jwt = unsigned_credential
         .to_jwt_claims()
         .unwrap()
-        .sign(&priv_jwk)
+        .sign(&wallet_based_signer)
         .await
         .expect("pass");
     tracing::info!("vc_jwt: {}", vc_jwt);
@@ -423,7 +433,7 @@ async fn test_ssi_vc_issue_0_impl(
         let vp_jwt_of_vc_ldp = unsigned_presentation
             .to_jwt_claims()
             .unwrap()
-            .sign(&priv_jwk)
+            .sign(&wallet_based_signer)
             .await
             .expect("signature failed");
         tracing::info!("vp_jwt_of_vc_ldp: {}", vp_jwt_of_vc_ldp);
@@ -502,7 +512,7 @@ async fn test_ssi_vc_issue_0_impl(
         let vp_jwt_of_vc_jwt = unsigned_presentation
             .to_jwt_claims()
             .unwrap()
-            .sign(&priv_jwk)
+            .sign(&wallet_based_signer)
             .await
             .expect("signature failed");
         tracing::info!("vp_jwt_of_vc_jwt: {}", vp_jwt_of_vc_jwt);

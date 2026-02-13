@@ -35,6 +35,7 @@ did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
+did-webplus-wallet = { path = "../wallet", features = ["ssi"] }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 dotenvy = "0.15.7"
 iref = "3.2.2"
