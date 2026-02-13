@@ -6,6 +6,7 @@ mod http_options;
 mod http_scheme_override;
 mod jws;
 mod key_type;
+mod mb_hash_function;
 mod signer;
 mod verifier_resolver;
 mod vjson;
@@ -14,19 +15,20 @@ mod vjson_store;
 mod wallet;
 
 pub use crate::{
-    did::did_resolve,
+    did::DID,
     did_doc_store::DIDDocStore,
-    did_resolver::DIDResolver,
+    did_resolver::{DIDResolver, did_resolve},
     http_headers_for::HTTPHeadersFor,
     http_options::HTTPOptions,
     http_scheme_override::HTTPSchemeOverride,
     key_type::KeyType,
+    mb_hash_function::{Base, HashFunction, MBHashFunction},
     signer::Signer,
     verifier_resolver::VerifierResolver,
     vjson::{vjson_default_schema, vjson_self_hash, vjson_sign_and_self_hash, vjson_verify},
     vjson_resolver::VJSONResolver,
     vjson_store::VJSONStore,
-    wallet::Wallet,
+    wallet::{CreateDIDParameters, DeactivateDIDParameters, UpdateDIDParameters, Wallet},
 };
 pub type Error = JsValue;
 pub type Result<T> = std::result::Result<T, JsValue>;

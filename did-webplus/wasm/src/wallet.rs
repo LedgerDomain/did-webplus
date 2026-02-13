@@ -1,6 +1,125 @@
-use crate::{HTTPOptions, into_js_value};
+use crate::{DID, HTTPOptions, MBHashFunction, Result, into_js_value};
 use std::{ops::Deref, sync::Arc};
-use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
+use wasm_bindgen::prelude::wasm_bindgen;
+
+/// Parameters for creating a new DID in a given wallet.
+/// -   `vdr_did_create_endpoint`: The endpoint to create the DID at.
+/// -   `mb_hash_function_for_did`: The MBHashFunction to use for the self-hash of the root DID document,
+///     which is the self-hash that forms part of the DID itself.  Base64Url is recommended for the base
+///     for compactness and encode/decode speed.
+/// -   `mb_hash_function_for_update_key_o`: The MBHashFunction to use for the update key.  If None, then
+///     the update key will be UpdateKey ("key" in the JSON form of the update rules).  It is recommended
+///     to always use a HashedUpdateKey for pre-rotation keys.
+#[wasm_bindgen]
+#[derive(Clone, Debug)]
+pub struct CreateDIDParameters {
+    vdr_did_create_endpoint: String,
+    mb_hash_function_for_did: MBHashFunction,
+    mb_hash_function_for_update_key_o: Option<MBHashFunction>,
+}
+
+impl CreateDIDParameters {
+    pub fn as_create_did_parameters(&self) -> did_webplus_wallet::CreateDIDParameters<'_> {
+        did_webplus_wallet::CreateDIDParameters {
+            vdr_did_create_endpoint: self.vdr_did_create_endpoint.as_str(),
+            mb_hash_function_for_did: self.mb_hash_function_for_did.deref(),
+            mb_hash_function_for_update_key_o: self.mb_hash_function_for_update_key_o.as_deref(),
+        }
+    }
+}
+
+#[wasm_bindgen]
+impl CreateDIDParameters {
+    pub fn new(
+        vdr_did_create_endpoint: String,
+        mb_hash_function_for_did: MBHashFunction,
+        mb_hash_function_for_update_key_o: Option<MBHashFunction>,
+    ) -> Self {
+        Self {
+            vdr_did_create_endpoint,
+            mb_hash_function_for_did,
+            mb_hash_function_for_update_key_o,
+        }
+    }
+}
+
+/// Parameters for updating a DID in a given wallet.
+/// -   `did`: The DID to update.
+/// -   `change_mb_hash_function_for_self_hash_o`: The MBHashFunction to use for the self-hash of the updated DID document.
+///     If None, then the same base and hash function as the one for the existing DID document will be used.
+///     Typically, one would only change the hash function if the hash function for the existing DID document was
+///     considered to be too weak.
+/// -   `mb_hash_function_for_update_key_o`: The MBHashFunction to use for the update key.  If None, then
+///     the update key will be UpdateKey ("key" in the JSON form of the update rules).  It is recommended
+///     to always use a HashedUpdateKey for pre-rotation keys.
+#[wasm_bindgen]
+#[derive(Clone, Debug)]
+pub struct UpdateDIDParameters {
+    did: DID,
+    change_mb_hash_function_for_self_hash_o: Option<MBHashFunction>,
+    mb_hash_function_for_update_key_o: Option<MBHashFunction>,
+}
+
+impl UpdateDIDParameters {
+    pub fn as_update_did_parameters(&self) -> did_webplus_wallet::UpdateDIDParameters<'_> {
+        did_webplus_wallet::UpdateDIDParameters {
+            did: self.did.deref(),
+            change_mb_hash_function_for_self_hash_o: self
+                .change_mb_hash_function_for_self_hash_o
+                .as_deref(),
+            mb_hash_function_for_update_key_o: self.mb_hash_function_for_update_key_o.as_deref(),
+        }
+    }
+}
+
+#[wasm_bindgen]
+impl UpdateDIDParameters {
+    pub fn new(
+        did: DID,
+        change_mb_hash_function_for_self_hash_o: Option<MBHashFunction>,
+        mb_hash_function_for_update_key_o: Option<MBHashFunction>,
+    ) -> Self {
+        Self {
+            did,
+            change_mb_hash_function_for_self_hash_o,
+            mb_hash_function_for_update_key_o,
+        }
+    }
+}
+
+/// Parameters for deactivating a DID in a given wallet.
+/// -   `did`: The DID to deactivate.
+/// -   `change_mb_hash_function_for_self_hash_o`: The MBHashFunction to use for the self-hash of the deactivated DID document.
+///     If None, then the same base and hash function as the one for the existing DID document will be used.
+///     Typically, one would only change the hash function if the hash function for the existing DID document was considered
+///     to be too weak.
+#[wasm_bindgen]
+#[derive(Clone, Debug)]
+pub struct DeactivateDIDParameters {
+    did: DID,
+    change_mb_hash_function_for_self_hash_o: Option<MBHashFunction>,
+}
+
+impl DeactivateDIDParameters {
+    pub fn as_deactivate_did_parameters(&self) -> did_webplus_wallet::DeactivateDIDParameters<'_> {
+        did_webplus_wallet::DeactivateDIDParameters {
+            did: self.did.deref(),
+            change_mb_hash_function_for_self_hash_o: self
+                .change_mb_hash_function_for_self_hash_o
+                .as_deref(),
+        }
+    }
+}
+
+#[wasm_bindgen]
+impl DeactivateDIDParameters {
+    pub fn new(did: DID, change_mb_hash_function_for_self_hash_o: Option<MBHashFunction>) -> Self {
+        Self {
+            did,
+            change_mb_hash_function_for_self_hash_o,
+        }
+    }
+}
 
 #[wasm_bindgen]
 #[derive(Clone)]
@@ -38,7 +157,7 @@ impl Wallet {
         db_name: String,
         wallet_name_o: Option<String>,
         vdg_host_o: Option<String>,
-    ) -> Result<Self, JsValue> {
+    ) -> Result<Self> {
         let software_wallet_indexeddb =
             did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::create(
                 db_name,
@@ -56,7 +175,7 @@ impl Wallet {
         db_name: String,
         wallet_uuid: String,
         vdg_host_o: Option<String>,
-    ) -> Result<Self, JsValue> {
+    ) -> Result<Self> {
         let wallet_uuid = uuid::Uuid::parse_str(&wallet_uuid).map_err(into_js_value)?;
         let software_wallet_indexeddb =
             did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::open(
@@ -75,21 +194,14 @@ impl Wallet {
     /// params; in this case, the query selfHash matches the DID doc selfHash, and the query versionId is 0).
     pub async fn create_did(
         &self,
-        vdr_did_create_endpoint: String,
+        create_did_parameters: CreateDIDParameters,
         http_options_o: Option<HTTPOptions>,
-    ) -> Result<String, JsValue> {
-        // TEMP: Always use base64url and blake3.
-        // TODO: Make this configurable.
-        let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
+    ) -> Result<String> {
         let http_options_o = http_options_o.map(|o| o.into());
         let controlled_did = self
             .deref()
             .create_did(
-                did_webplus_wallet::CreateDIDParameters {
-                    vdr_did_create_endpoint: vdr_did_create_endpoint.as_str(),
-                    mb_hash_function_for_did: &mb_hash_function,
-                    mb_hash_function_for_update_key_o: Some(&mb_hash_function),
-                },
+                create_did_parameters.as_create_did_parameters(),
                 http_options_o.as_ref(),
             )
             .await
@@ -100,11 +212,7 @@ impl Wallet {
     }
     /// Retrieve all DID document updates for the given DID from the VDR, verify them, and store the latest DID document.
     // TODO: Figure out how to update any other local doc stores.
-    pub async fn fetch_did(
-        &self,
-        did: String,
-        http_options_o: Option<HTTPOptions>,
-    ) -> Result<(), JsValue> {
+    pub async fn fetch_did(&self, did: String, http_options_o: Option<HTTPOptions>) -> Result<()> {
         let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
         let http_options_o = http_options_o.map(|o| o.into());
         self.deref()
@@ -120,22 +228,14 @@ impl Wallet {
     /// DID doc (i.e. the DID with selfHash and versionId query params).
     pub async fn update_did(
         &self,
-        did: String,
+        update_did_parameters: UpdateDIDParameters,
         http_options_o: Option<HTTPOptions>,
-    ) -> Result<String, JsValue> {
-        // TEMP: Always use base64url and blake3.
-        // TODO: Make this configurable.
-        let mb_hash_function = selfhash::MBHashFunction::blake3(mbx::Base::Base64Url);
-        let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
+    ) -> Result<String> {
         let http_options_o = http_options_o.map(|o| o.into());
         let controlled_did = self
             .deref()
             .update_did(
-                did_webplus_wallet::UpdateDIDParameters {
-                    did: &did,
-                    change_mb_hash_function_for_self_hash_o: None,
-                    mb_hash_function_for_update_key_o: Some(&mb_hash_function),
-                },
+                update_did_parameters.as_update_did_parameters(),
                 http_options_o.as_ref(),
             )
             .await
@@ -147,32 +247,25 @@ impl Wallet {
     /// and setting its update rules to UpdatesDisallowed.  Returns the fully qualified DID corresponding
     /// to the updated DID document.  Note that this is an extremely irreversible action; the DID can't
     /// ever be updated again.
-    pub fn deactivate_did(
+    pub async fn deactivate_did(
         &self,
-        did: String,
+        deactivate_did_parameters: DeactivateDIDParameters,
         http_options_o: Option<HTTPOptions>,
-    ) -> js_sys::Promise {
-        let wallet = self.clone();
+    ) -> Result<String> {
         let http_options_o = http_options_o.map(|o| o.into());
-        wasm_bindgen_futures::future_to_promise(async move {
-            let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
-            let controlled_did = wallet
-                .deref()
-                .deactivate_did(
-                    did_webplus_wallet::DeactivateDIDParameters {
-                        did: &did,
-                        change_mb_hash_function_for_self_hash_o: None,
-                    },
-                    http_options_o.as_ref(),
-                )
-                .await
-                .map_err(into_js_value)?;
-            tracing::debug!("deactivated DID: {}", controlled_did);
-            Ok(controlled_did.to_string().into())
-        })
+        let controlled_did = self
+            .deref()
+            .deactivate_did(
+                deactivate_did_parameters.as_deactivate_did_parameters(),
+                http_options_o.as_ref(),
+            )
+            .await
+            .map_err(into_js_value)?;
+        tracing::debug!("deactivated DID: {}", controlled_did);
+        Ok(controlled_did.to_string())
     }
     /// Returns the list of DIDs that this wallet controls, subject to the given filter.
-    pub async fn get_controlled_dids(&self, did_o: Option<String>) -> Result<Vec<String>, JsValue> {
+    pub async fn get_controlled_dids(&self, did_o: Option<String>) -> Result<Vec<String>> {
         let did_o = did_o
             .as_deref()
             .map(did_webplus_core::DIDStr::new_ref)
@@ -192,7 +285,7 @@ impl Wallet {
     /// controlled by this wallet.  Otherwise, if this wallet controls exactly one DID, i.e. it is
     /// uniquely determinable, then this returns the fully qualified form of that DID.  Otherwise,
     /// an error is returned.
-    pub async fn get_controlled_did(&self, did_o: Option<String>) -> Result<String, JsValue> {
+    pub async fn get_controlled_did(&self, did_o: Option<String>) -> Result<String> {
         let did_o = did_o
             .as_deref()
             .map(did_webplus_core::DIDStr::new_ref)

@@ -1,6 +1,6 @@
-use crate::{into_js_value, Signer, VJSONResolver, VerifierResolver};
+use crate::{Result, Signer, VJSONResolver, VerifierResolver, into_js_value};
 use std::ops::Deref;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
 pub fn vjson_default_schema() -> String {
@@ -11,7 +11,7 @@ pub fn vjson_default_schema() -> String {
 pub async fn vjson_self_hash(
     json_string: String,
     vjson_resolver: &VJSONResolver,
-) -> Result<String, JsValue> {
+) -> Result<String> {
     let json_value: serde_json::Value =
         serde_json::from_str(&json_string).map_err(into_js_value)?;
     let vjson_value = did_webplus_cli_lib::vjson_self_hash(json_value, vjson_resolver.deref())
@@ -25,7 +25,7 @@ pub async fn vjson_sign_and_self_hash(
     json_string: String,
     signer: &Signer,
     vjson_resolver: &VJSONResolver,
-) -> Result<String, JsValue> {
+) -> Result<String> {
     let mut vjson_value: serde_json::Value =
         serde_json::from_str(&json_string).map_err(into_js_value)?;
     // This is a bit of a hack for now.
@@ -50,7 +50,7 @@ pub async fn vjson_verify(
     json_string: String,
     vjson_resolver: &VJSONResolver,
     verifier_resolver: &VerifierResolver,
-) -> Result<String, JsValue> {
+) -> Result<String> {
     // TODO: Use serde_wasm_bindgen for more efficiency
     let json_value: serde_json::Value =
         serde_json::from_str(&json_string).map_err(into_js_value)?;

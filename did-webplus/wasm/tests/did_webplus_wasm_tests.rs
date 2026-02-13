@@ -83,6 +83,11 @@ async fn test_software_wallet_indexeddb() {
         .expect("pass");
     tracing::debug!("wallet successfully created");
 
+    let mb_hash_function = did_webplus_wasm::MBHashFunction::new(
+        did_webplus_wasm::Base::Base64Url,
+        did_webplus_wasm::HashFunction::Blake3,
+    );
+
     let mut http_scheme_override = did_webplus_wasm::HTTPSchemeOverride::new();
     http_scheme_override
         .add_override("vdr.did-webplus-wasm.test".to_string(), "http".to_string())
@@ -92,7 +97,11 @@ async fn test_software_wallet_indexeddb() {
 
     let controlled_did = wallet
         .create_did(
-            "https://vdr.did-webplus-wasm.test:8085".to_string(),
+            did_webplus_wasm::CreateDIDParameters::new(
+                "https://vdr.did-webplus-wasm.test:8085".to_string(),
+                mb_hash_function.clone(),
+                Some(mb_hash_function.clone()),
+            ),
             Some(http_options.clone()),
         )
         .await
@@ -106,7 +115,25 @@ async fn test_software_wallet_indexeddb() {
     tracing::debug!("did: {:?}", did);
 
     let controlled_did = wallet
-        .update_did(did.to_string(), Some(http_options))
+        .update_did(
+            did_webplus_wasm::UpdateDIDParameters::new(
+                did_webplus_wasm::DID::from(did.clone()),
+                None,
+                Some(mb_hash_function.clone()),
+            ),
+            Some(http_options.clone()),
+        )
+        .await
+        .expect("pass");
+
+    let controlled_did = wallet
+        .deactivate_did(
+            did_webplus_wasm::DeactivateDIDParameters::new(
+                did_webplus_wasm::DID::from(did.clone()),
+                Some(mb_hash_function.clone()),
+            ),
+            Some(http_options.clone()),
+        )
         .await
         .expect("pass");
 }
