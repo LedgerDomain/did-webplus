@@ -26,7 +26,6 @@ export HELM_CHART=$SERVICE_NAME
 export CURRENT_HELM_CHART=$SERVICE_NAME
 export HELM_IMG_TAG="vdr-initial-release-v2"
 
-
 # Go into our deployment folder
 cd deployment
 # Update our helm subchart...

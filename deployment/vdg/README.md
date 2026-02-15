@@ -26,7 +26,6 @@ export HELM_CHART=$SERVICE_NAME
 export CURRENT_HELM_CHART=$SERVICE_NAME
 export HELM_IMG_TAG="dev-2f3887c8e5c76f295ffebc2e9973156f499c2f36"
 
-
 # Go into our deployment folder
 cd deployment
 # Update our helm subchart...
