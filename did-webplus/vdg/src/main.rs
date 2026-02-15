@@ -50,6 +50,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("=================================================");
     tracing::info!("  did:webplus Verifiable Data Gateway (VDG)");
     tracing::info!("=================================================");
+    tracing::info!("test1");
 
     // Log configuration details
     tracing::info!("Starting VDG service with configuration:");
