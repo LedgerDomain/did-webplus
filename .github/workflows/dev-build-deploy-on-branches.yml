@@ -1,0 +1,164 @@
+name: Dev - Build and Deploy on branches
+
+# Only on MRs and MR actions trigger this build flow
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+
+# This helps prevent multiple jobs from being built at the same time for no reason on the same branch
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+# This is the default shell environment for all jobs
+defaults:
+  run:
+    shell: bash
+
+# This is our map/list of jobs to run
+jobs:
+
+  # Looks for labels like "deploy-to-<env>" attached to a PR so we can deploy to those envs
+  get-deploy-labels:
+    runs-on: [shared]
+    outputs:
+      deploy-envs: ${{ steps.make-label-list.outputs.deploy-envs }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.github/actions/setup-env
+      # Takes PR labels and turns them into env vars: https://github.com/marketplace/actions/pr-labels
+      - name: Get PR labels
+        id: pr-labels
+        uses: joerick/pr-labels-action@v1.0.9
+      # Turn env vars from above into a json list of deployment envs
+      - id: make-label-list
+        run: |
+          DEPLOY_LABELS=${!GITHUB_PR_LABEL_DEPLOY_TO_*}           # echo all of the PR label envs on one line
+          DEPLOY_ENVS=[\"${DEPLOY_LABELS// /\",\"}\"]             # Turn into a json list like ["ENV_1","ENV_2"]
+          DEPLOY_ENVS=${DEPLOY_ENVS//GITHUB_PR_LABEL_DEPLOY_TO_/} # Delete GITHUB_PR_LABEL_DEPLOY_TO_ so we're just left with the deploy env name
+          DEPLOY_ENVS=${DEPLOY_ENVS//_/-}                         # Replace underscores with dashes
+          DEPLOY_ENVS=${DEPLOY_ENVS//\"\"/}                       # Remove empty strings
+          echo "deploy-envs=${DEPLOY_ENVS,,}" >> "$GITHUB_OUTPUT" # Lowercase the whole list and output it
+          echo "deploy-envs=${DEPLOY_ENVS,,}"
+
+  # # Run automated tests
+  # automated-tests:
+  #   runs-on: [shared]
+  #   needs: [get-deploy-labels]
+  #   steps:
+  #     - todo
+
+
+  build:
+    env:
+      GH_ACTIONS_SSH_KEY: ${{ secrets.GH_ACTIONS_SSH_KEY }}
+    runs-on: [shared]
+    # if: needs.get-deploy-labels.outputs.deploy-envs != '[]'
+    needs: [get-deploy-labels]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-env
+      - uses: ./.github/actions/build-push-ecr
+        with:
+          module-name: ${{ env.CI_REPOSITORY_NAME_SLUG }}
+          build-for-environment: dev
+          extra-build-args: --progress=plain --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
+
+
+  # TODO: Add automated tests here
+  # post-build-test:
+  #   runs-on: [shared]
+  #   needs: [build]
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+  #     - uses: ./.github/actions/setup-env
+  #     - name: Test
+  #       run: |
+  #         echo "run post-build tests here (eg: docker-compose like tests trying out the image)"
+
+  deploy-dev:
+    runs-on: [shared]
+    needs: [get-deploy-labels, build]
+    # this is disabled...
+    # if: contains(needs.get-deploy-labels.outputs.deploy-envs, 'dev')
+    #################
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    environment:
+      name: dev
+      # url: https://api-dev.xatp.io/v3
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-env
+      - uses: DevOps-Nirvana/aws-helm-multi-deploy-nodocker@v3
+        with:
+          environment-slug: dev
+          k8s-namespace: dev
+          image-tag: dev-${{ env.SLUG }}
+          timeout: 600s
+
+  # deploy-qa:
+  #   runs-on: [shared]
+  #   needs: [get-deploy-labels, build, automated-tests]
+  #   # needs: [get-deploy-labels, build, post-build-test]  # Use this if/once you enable the post-build-test above
+  #   if: contains(needs.get-deploy-labels.outputs.deploy-envs, 'qa')
+  #   concurrency:
+  #     group: deploy-qa
+  #     cancel-in-progress: false
+  #   environment:
+  #     name: qa
+  #     url: https://api-qa.xatp.io
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: ./.github/actions/setup-env
+  #     - uses: DevOps-Nirvana/aws-helm-multi-deploy-nodocker@v3
+  #       with:
+  #         environment-slug: qa
+  #         k8s-namespace: qa
+  #         image-tag: dev-${{ env.SLUG }}
+  #         timeout: 600s
+
+
+  # # TODO: Add automated tests here
+  # post-build-automated-test:
+  #   runs-on: [shared]
+  #   needs: [deploy-dev, automated-tests]
+  #   steps:
+  #     # Uncomment if needed when using our own tests instead of just silly "curl" below
+  #     # - name: Checkout code
+  #     #   uses: actions/checkout@v3
+  #     # - uses: ./.github/actions/setup-env
+  #     - name: Run automated test framework here
+  #       run: |
+  #         echo "run automated test here, for now a simple curl"
+  #         curl --verbose https://api-dev.xatp.io/v3/docs#/
+
+  # This will trigger upon this job not deploying to dev, causing this pipeline to fail blocking merging
+  block-merge-until-deployed:
+    runs-on: [shared]
+    needs: [deploy-dev]
+    if: always() && (needs.deploy-dev.result == 'skipped')
+    steps:
+      - name: Fail intentionally if our deploy was skipped
+        run: |
+          exit 1
+
+  # slackNotification:
+  #   name: Notify Slack
+  #   needs: [deploy-dev]
+  #   runs-on: [shared]
+  #   steps:
+  #     - name: Slack Notification
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_ICON_EMOJI: ':octocat:'
+  #         SLACK_COLOR: ${{ job.status }}
+  #         SLACK_TITLE: xatp DEV deploy ${{ job.status == 'success' && 'succeeded' || 'failed' }}
+  #         SLACK_MESSAGE: |
+  #           Branch: ${{ github.head_ref || github.ref_name }}
+  #           ${{ github.event.head_commit.message != '' && format('Commit: {0}', github.event.head_commit.message) || '' }}
+  #           <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|View Changes>
+  #         SLACK_WEBHOOK: ${{ secrets.GH_ACTIONS_SLACK_WEBHOOK }}

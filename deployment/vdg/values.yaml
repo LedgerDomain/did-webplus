@@ -30,8 +30,8 @@ deployment:
       value: 'json'
     - name: DID_WEBPLUS_VDR_DID_HOSTNAME
       value: 'webplus-vdr.xatp.id'
-    # - name: DID_WEBPLUS_VDG_HTTP_SCHEME_OVERRIDE
-    #   value: 'webplus-vdr.xatp.id=https'
+    - name: DID_WEBPLUS_VDG_HTTP_SCHEME_OVERRIDE
+      value: 'webplus-vdr.xatp.id=https'
     # - name: DID_WEBPLUS_VDG_LISTEN_PORT
     #   value: '8086'
     - name: DID_WEBPLUS_VDG_DATABASE_URL
