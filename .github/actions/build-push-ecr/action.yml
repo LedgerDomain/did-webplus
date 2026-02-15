@@ -60,12 +60,14 @@ runs:
         # Generic args
         BUILD_ARGS="--build-arg BUILD_FOR_ENVIRONMENT=$ENVIRONMENT --build-arg IMAGE_TAG=$IMAGE_TAG"
 
-        # Build with buildx using registry cache
+        # Build with buildx using both local and registry cache
         echo "Building with cache from: $CACHE_IMAGE"
         docker buildx build \
           ${{ inputs.extra-build-args }} \
           $BUILD_ARGS \
+          --cache-from type=local,src=/buildkit-cache \
           --cache-from type=registry,ref=$CACHE_IMAGE \
+          --cache-to type=local,dest=/buildkit-cache,mode=max \
           --cache-to type=registry,ref=$CACHE_IMAGE,mode=max \
           --tag $REPO_IMAGE:$IMAGE_TAG \
           --tag $REPO_IMAGE:latest \
