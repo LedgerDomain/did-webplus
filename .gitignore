@@ -11,3 +11,6 @@ perf.data.*
 # Kubernetes
 requirements.lock
 deployment/*/charts
+
+# Mac OS
+.DS_Store

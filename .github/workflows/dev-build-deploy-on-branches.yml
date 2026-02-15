@@ -98,7 +98,7 @@ jobs:
           environment-slug: dev
           k8s-namespace: dev
           image-tag: dev-${{ env.SLUG }}
-          timeout: 600s
+          timeout: 300s
 
   # deploy-qa:
   #   runs-on: [shared]

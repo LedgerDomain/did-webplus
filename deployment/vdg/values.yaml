@@ -11,6 +11,10 @@ deployment:
     # tag: 98e0492a0fcff2d226b807d91c328db2fd2fd24396c4cb80f1f3dc966404913c
     # New ECR Kubernetes repo...
     repository: 987071820073.dkr.ecr.us-west-2.amazonaws.com/did-webplus
+    # Command-line arguments for the vdg binary
+    args:
+      - "--database-url"
+      - "$(DID_WEBPLUS_VDG_DATABASE_URL)"
     # Uncomment these two temporarily (and disable probes below) to debug manually in Kubernetes
     # command: ["/bin/sh"]
     # args: ["-c", "while true; do echo hello; sleep 10;done"]
