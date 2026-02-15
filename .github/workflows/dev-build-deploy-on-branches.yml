@@ -49,7 +49,7 @@ jobs:
   #     - todo
 
 
-  build:
+  build-vdg:
     env:
       GH_ACTIONS_SSH_KEY: ${{ secrets.GH_ACTIONS_SSH_KEY }}
     runs-on: [shared]
@@ -63,6 +63,7 @@ jobs:
         with:
           module-name: ${{ env.CI_REPOSITORY_NAME_SLUG }}
           build-for-environment: dev
+          src-path: did-webplus/vdg
           extra-build-args: --progress=plain --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
 
 
