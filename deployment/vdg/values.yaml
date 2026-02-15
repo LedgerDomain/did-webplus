@@ -10,7 +10,7 @@ deployment:
     # repository: 663648300573.dkr.ecr.us-west-2.amazonaws.com/xatp-vdr/vdr@sha256
     # tag: 98e0492a0fcff2d226b807d91c328db2fd2fd24396c4cb80f1f3dc966404913c
     # New ECR Kubernetes repo...
-    repository: 987071820073.dkr.ecr.us-west-2.amazonaws.com/did-webplus
+    repository: 987071820073.dkr.ecr.us-west-2.amazonaws.com/vdg
     # Command-line arguments for the vdg binary
     args:
       - "--database-url"
