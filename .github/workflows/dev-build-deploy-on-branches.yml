@@ -25,7 +25,7 @@ jobs:
   #     deploy-envs: ${{ steps.make-label-list.outputs.deploy-envs }}
   #   steps:
   #     - uses: actions/checkout@v2
-  #     - uses: ./.github/actions/setup-env
+  #     - uses: LedgerDomain/github-actions/setup-env@main
   #     # Takes PR labels and turns them into env vars: https://github.com/marketplace/actions/pr-labels
   #     - name: Get PR labels
   #       id: pr-labels
@@ -57,8 +57,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - uses: ./.github/actions/setup-env
-      - uses: ./.github/actions/build-push-ecr
+      - uses: LedgerDomain/github-actions/setup-env@main
+      - uses: LedgerDomain/github-actions/build-push-ecr@main
         with:
           module-name: vdg
           build-for-environment: dev
@@ -72,8 +72,8 @@ jobs:
   #   steps:
   #     - name: Checkout code
   #       uses: actions/checkout@v3
-  #     - uses: ./.github/actions/setup-env
-  #     - uses: ./.github/actions/build-push-ecr
+  #     - uses: LedgerDomain/github-actions/setup-env@main
+  #     - uses: LedgerDomain/github-actions/build-push-ecr@main
   #       with:
   #         module-name: vdr
   #         build-for-environment: dev
@@ -90,8 +90,8 @@ jobs:
       name: dev
     steps:
       - uses: actions/checkout@v3
-      - uses: ./.github/actions/setup-env
-      - uses: ./.github/actions/helm-deploy
+      - uses: LedgerDomain/github-actions/setup-env@main
+      - uses: LedgerDomain/github-actions/helm-deploy@main
         with:
           environment-slug: dev
           k8s-namespace: dev
@@ -112,8 +112,8 @@ jobs:
   #     name: dev
   #   steps:
   #     - uses: actions/checkout@v3
-  #     - uses: ./.github/actions/setup-env
-  #     - uses: ./.github/actions/helm-deploy
+  #     - uses: LedgerDomain/github-actions/setup-env@main
+  #     - uses: LedgerDomain/github-actions/helm-deploy@main
   #       with:
   #         environment-slug: dev
   #         k8s-namespace: dev
@@ -134,7 +134,7 @@ jobs:
   #     url: https://api-qa.xatp.io
   #   steps:
   #     - uses: actions/checkout@v3
-  #     - uses: ./.github/actions/setup-env
+  #     - uses: LedgerDomain/github-actions/setup-env@main
   #     - uses: DevOps-Nirvana/aws-helm-multi-deploy-nodocker@v3
   #       with:
   #         environment-slug: qa
@@ -151,7 +151,7 @@ jobs:
   #     # Uncomment if needed when using our own tests instead of just silly "curl" below
   #     # - name: Checkout code
   #     #   uses: actions/checkout@v3
-  #     # - uses: ./.github/actions/setup-env
+  #     # - uses: LedgerDomain/github-actions/setup-env@main
   #     - name: Run automated test framework here
   #       run: |
   #         echo "run automated test here, for now a simple curl"
