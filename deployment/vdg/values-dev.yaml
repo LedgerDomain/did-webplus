@@ -5,10 +5,10 @@ deployment:
   ingress:
     enabled: true
     hosts:
-      - host: 'webplus-vdg.xatp.id'
+      - host: 'dev.verifyth.is'
         paths:
           - /
 
   extraEnvs:
     - name: TODO
-      value: 'here'
+      value: 'here-if-needed'

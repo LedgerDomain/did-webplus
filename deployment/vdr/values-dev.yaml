@@ -5,10 +5,10 @@ deployment:
   ingress:
     enabled: true
     hosts:
-      - host: 'webplus-vdr.xatp.id'
+      - host: 'dev.katyd.id'
         paths:
           - /
 
   extraEnvs:
     - name: TODO
-      value: 'here'
+      value: 'here-if-needed'
