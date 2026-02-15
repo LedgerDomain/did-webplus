@@ -18,28 +18,28 @@ defaults:
 # This is our map/list of jobs to run
 jobs:
 
-  # # Looks for labels like "deploy-to-<env>" attached to a PR so we can deploy to those envs
-  # get-deploy-labels:
-  #   runs-on: [shared]
-  #   outputs:
-  #     deploy-envs: ${{ steps.make-label-list.outputs.deploy-envs }}
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: LedgerDomain/github-actions/setup-env@main
-  #     # Takes PR labels and turns them into env vars: https://github.com/marketplace/actions/pr-labels
-  #     - name: Get PR labels
-  #       id: pr-labels
-  #       uses: joerick/pr-labels-action@v1.0.9
-  #     # Turn env vars from above into a json list of deployment envs
-  #     - id: make-label-list
-  #       run: |
-  #         DEPLOY_LABELS=${!GITHUB_PR_LABEL_DEPLOY_TO_*}           # echo all of the PR label envs on one line
-  #         DEPLOY_ENVS=[\"${DEPLOY_LABELS// /\",\"}\"]             # Turn into a json list like ["ENV_1","ENV_2"]
-  #         DEPLOY_ENVS=${DEPLOY_ENVS//GITHUB_PR_LABEL_DEPLOY_TO_/} # Delete GITHUB_PR_LABEL_DEPLOY_TO_ so we're just left with the deploy env name
-  #         DEPLOY_ENVS=${DEPLOY_ENVS//_/-}                         # Replace underscores with dashes
-  #         DEPLOY_ENVS=${DEPLOY_ENVS//\"\"/}                       # Remove empty strings
-  #         echo "deploy-envs=${DEPLOY_ENVS,,}" >> "$GITHUB_OUTPUT" # Lowercase the whole list and output it
-  #         echo "deploy-envs=${DEPLOY_ENVS,,}"
+  # Looks for labels like "deploy-to-<env>" attached to a PR so we can deploy to those envs
+  get-deploy-labels:
+    runs-on: [shared]
+    outputs:
+      deploy-envs: ${{ steps.make-label-list.outputs.deploy-envs }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: LedgerDomain/github-actions/setup-env@main
+      # Takes PR labels and turns them into env vars: https://github.com/marketplace/actions/pr-labels
+      - name: Get PR labels
+        id: pr-labels
+        uses: joerick/pr-labels-action@v1.0.9
+      # Turn env vars from above into a json list of deployment envs
+      - id: make-label-list
+        run: |
+          DEPLOY_LABELS=${!GITHUB_PR_LABEL_DEPLOY_TO_*}           # echo all of the PR label envs on one line
+          DEPLOY_ENVS=[\"${DEPLOY_LABELS// /\",\"}\"]             # Turn into a json list like ["ENV_1","ENV_2"]
+          DEPLOY_ENVS=${DEPLOY_ENVS//GITHUB_PR_LABEL_DEPLOY_TO_/} # Delete GITHUB_PR_LABEL_DEPLOY_TO_ so we're just left with the deploy env name
+          DEPLOY_ENVS=${DEPLOY_ENVS//_/-}                         # Replace underscores with dashes
+          DEPLOY_ENVS=${DEPLOY_ENVS//\"\"/}                       # Remove empty strings
+          echo "deploy-envs=${DEPLOY_ENVS,,}" >> "$GITHUB_OUTPUT" # Lowercase the whole list and output it
+          echo "deploy-envs=${DEPLOY_ENVS,,}"
 
   # # Run automated tests
   # automated-tests:
@@ -53,7 +53,7 @@ jobs:
     env:
       GH_ACTIONS_SSH_KEY: ${{ secrets.GH_ACTIONS_SSH_KEY }}
     runs-on: [shared]
-    # needs: [get-deploy-labels]
+    needs: [get-deploy-labels]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -68,7 +68,7 @@ jobs:
     env:
       GH_ACTIONS_SSH_KEY: ${{ secrets.GH_ACTIONS_SSH_KEY }}
     runs-on: [shared]
-    # needs: [get-deploy-labels]
+    needs: [get-deploy-labels]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -83,6 +83,7 @@ jobs:
   deploy-vdg-dev:
     runs-on: [shared]
     needs: [build-vdg]
+    if: contains(needs.get-deploy-labels.outputs.deploy-envs, 'dev')
     concurrency:
       group: deploy-vdg-dev
       cancel-in-progress: false
@@ -99,12 +100,11 @@ jobs:
           timeout: 120s
           helm-deploy-folders: vdg
 
+
   deploy-vdr-dev:
     runs-on: [shared]
     needs: [build-vdr]
-    # this is disabled...
-    # if: contains(needs.get-deploy-labels.outputs.deploy-envs, 'dev')
-    #################
+    if: contains(needs.get-deploy-labels.outputs.deploy-envs, 'dev')
     concurrency:
       group: deploy-vdr-dev
       cancel-in-progress: false
@@ -136,10 +136,11 @@ jobs:
   #         echo "run automated test here, for now a simple curl"
   #         curl --verbose https://api-dev.xatp.io/v3/docs#/
 
+
   # This will trigger upon this job not deploying to dev, causing this pipeline to fail blocking merging
   block-merge-until-deployed:
     runs-on: [shared]
-    needs: [deploy-vdg-dev, deploy-vdr-dev]  #    ADD ME TODO
+    needs: [deploy-vdg-dev, deploy-vdr-dev]
     if: always() && (needs.deploy-vdg-dev.result == 'skipped' || needs.deploy-vdr-dev.result == 'skipped')
     steps:
       - name: Fail intentionally if our deploy was skipped
