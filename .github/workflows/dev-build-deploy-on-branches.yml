@@ -48,7 +48,6 @@ jobs:
   #   steps:
   #     - todo
 
-
   build-vdg:
     env:
       GH_ACTIONS_SSH_KEY: ${{ secrets.GH_ACTIONS_SSH_KEY }}
@@ -79,7 +78,6 @@ jobs:
           build-for-environment: dev
           extra-build-args: --progress=plain -f did-webplus/vdr/Dockerfile --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
 
-
   deploy-vdg-dev:
     runs-on: [shared]
     needs: [build-vdg]
@@ -99,7 +97,6 @@ jobs:
           image-tag: dev-${{ env.SLUG }}
           timeout: 120s
           helm-deploy-folders: vdg
-
 
   deploy-vdr-dev:
     runs-on: [shared]
@@ -121,7 +118,6 @@ jobs:
           timeout: 120s
           helm-deploy-folders: vdr
 
-
   # # TODO: Add automated tests here
   # post-build-automated-test:
   #   runs-on: [shared]
@@ -135,7 +131,6 @@ jobs:
   #       run: |
   #         echo "run automated test here, for now a simple curl"
   #         curl --verbose https://api-dev.xatp.io/v3/docs#/
-
 
   # This will trigger upon this job not deploying to dev, causing this pipeline to fail blocking merging
   block-merge-until-deployed:
