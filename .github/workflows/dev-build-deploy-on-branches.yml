@@ -63,8 +63,7 @@ jobs:
         with:
           module-name: ${{ env.CI_REPOSITORY_NAME_SLUG }}
           build-for-environment: dev
-          src-path: did-webplus/vdg
-          extra-build-args: --progress=plain --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
+          extra-build-args: --progress=plain -f did-webplus/vdg/Dockerfile --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
 
 
   # TODO: Add automated tests here
