@@ -81,7 +81,7 @@ jobs:
 
   deploy-dev:
     runs-on: [shared]
-    needs: [get-deploy-labels, build]
+    needs: [get-deploy-labels, build-vdg]
     # this is disabled...
     # if: contains(needs.get-deploy-labels.outputs.deploy-envs, 'dev')
     #################
