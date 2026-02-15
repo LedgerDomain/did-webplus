@@ -21,35 +21,12 @@ runs:
   steps:
     - uses: ./.github/actions/setup-env
 
-    # Set up Docker Buildx for advanced caching
-    # Uses remote BuildKit daemon if available for persistent cache mounts
-    - name: Check for remote BuildKit
-      id: check-buildkit
-      shell: bash
-      run: |
-        if [ -n "$BUILDKIT_HOST" ]; then
-          echo "use-remote=true" >> $GITHUB_OUTPUT
-          echo "Using remote BuildKit at: $BUILDKIT_HOST"
-        else
-          echo "use-remote=false" >> $GITHUB_OUTPUT
-          echo "Using local BuildKit (cache mounts will be ephemeral)"
-        fi
-
-    - name: Set up Docker Buildx (Remote)
-      if: steps.check-buildkit.outputs.use-remote == 'true'
+    # Set up Docker Buildx - use remote BuildKit daemon for persistent cache
+    - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       with:
         driver: remote
-        endpoint: ${{ env.BUILDKIT_HOST }}
-
-    - name: Set up Docker Buildx (Local)
-      if: steps.check-buildkit.outputs.use-remote == 'false'
-      uses: docker/setup-buildx-action@v3
-      with:
-        driver-opts: |
-          image=moby/buildkit:latest
-          network=host
-        buildkitd-flags: --oci-worker-gc=false
+        endpoint: tcp://buildkitd.infrastructure.svc.cluster.local:1234
 
     - name: Login to Amazon ECR
       id: login-ecr
@@ -82,14 +59,12 @@ runs:
         # Generic args
         BUILD_ARGS="--build-arg BUILD_FOR_ENVIRONMENT=$ENVIRONMENT --build-arg IMAGE_TAG=$IMAGE_TAG"
 
-        # Build with buildx using both local and registry cache
+        # Build with buildx using registry cache only
         echo "Building with cache from: $CACHE_IMAGE"
         docker buildx build \
           ${{ inputs.extra-build-args }} \
           $BUILD_ARGS \
-          --cache-from type=local,src=/buildkit-cache \
           --cache-from type=registry,ref=$CACHE_IMAGE \
-          --cache-to type=local,dest=/buildkit-cache,mode=max \
           --cache-to type=registry,ref=$CACHE_IMAGE,mode=max \
           --tag $REPO_IMAGE:$IMAGE_TAG \
           --tag $REPO_IMAGE:latest \
