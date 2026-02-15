@@ -1,0 +1,75 @@
+---
+# Default values for vdg, this is necessary because we're using a unified helm subchart
+deployment:
+  # This is the name of the deployment, this is used in a _lot_ of places in the helm charts so lets just specify it
+  name: vdg
+
+  # Where the image comes from.  This should be the ECR Repo / Gitlab Group / Repo Name
+  image:
+    # Old ECR REPO...
+    # repository: 663648300573.dkr.ecr.us-west-2.amazonaws.com/xatp-vdr/vdr@sha256
+    # tag: 98e0492a0fcff2d226b807d91c328db2fd2fd24396c4cb80f1f3dc966404913c
+    # New ECR Kubernetes repo...
+    repository: 987071820073.dkr.ecr.us-west-2.amazonaws.com/did-webplus
+    # Uncomment these two temporarily (and disable probes below) to debug manually in Kubernetes
+    # command: ["/bin/sh"]
+    # args: ["-c", "while true; do echo hello; sleep 10;done"]
+
+  # Service definitions
+  # service:
+  #   targetPort: 8086
+
+  # Environment variables
+  globalEnvs:
+
+    - name: RUST_LOG
+      value: 'info,did_webplus_vdg=trace,debug'
+    - name: RUST_BACKTRACE
+      value: '1'
+    - name: DID_WEBPLUS_VDG_LOG_FORMAT
+      value: 'json'
+    - name: DID_WEBPLUS_VDR_DID_HOSTNAME
+      value: 'webplus-vdr.xatp.id'
+    # - name: DID_WEBPLUS_VDG_HTTP_SCHEME_OVERRIDE
+    #   value: 'webplus-vdr.xatp.id=https'
+    # - name: DID_WEBPLUS_VDG_LISTEN_PORT
+    #   value: '8086'
+    - name: DID_WEBPLUS_VDG_DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: vdg-db
+          key: database_uri
+
+  # livenessProbes are used to determine when to restart a container
+  # Only specify the values you need to override from the defaults
+  # NOTE: You SHOULD/MUST do this for high reliability
+  livenessProbe:
+    enabled: true
+    path: /health
+
+  # readinessProbes are used to determine when a container is ready to start accepting traffic
+  # Only specify the values you need to override from the defaults
+  # NOTE: You SHOULD/MUST do this for high reliability
+  readinessProbe:
+    enabled: true
+    path: /health
+
+  # deployment container resource requests/limits
+  # this is set VERY low by default, to be aggressive above resource limiting, please override this if necessary
+  # Note: Limits are HARD Limits
+  #       Requests are "soft" limits and are what affects HPA (autoscaling) aggressiveness if HPA is enabled
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+  # This is because for now we don't run as non-root.  :(  Fail
+  # security:
+  #   runAsNonRoot: false
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
