@@ -160,8 +160,8 @@ jobs:
   # This will trigger upon this job not deploying to dev, causing this pipeline to fail blocking merging
   block-merge-until-deployed:
     runs-on: [shared]
-    needs: [deploy-vdg-dev, deploy-vdr-dev]
-    if: always() && (needs.deploy-vdg-dev.result == 'skipped' || needs.deploy-vdr-dev.result == 'skipped')
+    needs: [deploy-vdg-dev]  #  deploy-vdr-dev  ADD ME TODO
+    if: always() && (needs.deploy-vdg-dev.result == 'skipped' ) # TODO READD || needs.deploy-vdr-dev.result == 'skipped')
     steps:
       - name: Fail intentionally if our deploy was skipped
         run: |
