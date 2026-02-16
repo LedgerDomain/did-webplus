@@ -57,7 +57,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - uses: LedgerDomain/github-actions/setup-env@main
-      - uses: LedgerDomain/github-actions/build-push-ecr@main
+      - uses: LedgerDomain/github-actions/docker-build-and-push-to-ecr@main
         with:
           module-name: vdg
           build-for-environment: dev
@@ -72,7 +72,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - uses: LedgerDomain/github-actions/setup-env@main
-      - uses: LedgerDomain/github-actions/build-push-ecr@main
+      - uses: LedgerDomain/github-actions/docker-build-and-push-to-ecr@main
         with:
           module-name: vdr
           build-for-environment: dev
