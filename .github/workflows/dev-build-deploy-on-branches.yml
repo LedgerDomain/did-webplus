@@ -59,7 +59,7 @@ jobs:
       - uses: LedgerDomain/github-actions/setup-env@main
       - uses: LedgerDomain/github-actions/docker-build-and-push-to-ecr@main
         with:
-          module-name: vdg
+          module-name: ${{ env.CI_REPOSITORY_NAME_SLUG }}-vdg
           build-for-environment: dev
           extra-build-args: --progress=plain -f did-webplus/vdg/Dockerfile --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
 
@@ -74,7 +74,7 @@ jobs:
       - uses: LedgerDomain/github-actions/setup-env@main
       - uses: LedgerDomain/github-actions/docker-build-and-push-to-ecr@main
         with:
-          module-name: vdr
+          module-name: ${{ env.CI_REPOSITORY_NAME_SLUG }}-vdr
           build-for-environment: dev
           extra-build-args: --progress=plain -f did-webplus/vdr/Dockerfile --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
 
