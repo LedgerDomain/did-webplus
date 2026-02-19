@@ -33,9 +33,9 @@ deployment:
     - name: RUST_BACKTRACE
       value: '1'
     - name: DID_WEBPLUS_VDR_VDG_HOSTS
-      value: 'webplus-vdg.xatp.id'
+      value: 'dev.verifyth.is'
     - name: DID_WEBPLUS_VDR_DID_HOSTNAME
-      value: "webplus-vdr.xatp.id"
+      value: "dev.katyd.id"
     # - name: DID_WEBPLUS_VDR_LISTEN_PORT
     #   value: '8085'
     - name: DID_WEBPLUS_VDR_DATABASE_URL
