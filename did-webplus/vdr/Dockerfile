@@ -48,6 +48,7 @@ fi
 ################################################################
 # Latest as of Aug 19, 2023
 FROM debian:bookworm-slim AS runtime
+LABEL org.opencontainers.image.authors="LedgerDomain <didwebplus@ledgerdomain.com>"
 
 # We listen on standard port 80
 EXPOSE 80

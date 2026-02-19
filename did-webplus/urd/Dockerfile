@@ -2,7 +2,6 @@
 # Builder Image                                                #
 ################################################################
 FROM rust:1.90.0-slim AS builder
-MAINTAINER Victor Dods <victor.dods@ledgerdomain.com>
 WORKDIR /workdir
 
 # Install deps/reqs
@@ -49,7 +48,7 @@ fi
 ################################################################
 
 FROM debian:bookworm-slim AS runtime
-MAINTAINER Victor Dods <victor.dods@ledgerdomain.com>
+LABEL org.opencontainers.image.authors="LedgerDomain <didwebplus@ledgerdomain.com>"
 
 # We listen on standard port 80
 EXPOSE 80
