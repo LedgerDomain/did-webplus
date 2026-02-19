@@ -1,0 +1,124 @@
+name: Release service Docker image (GHCR)
+
+on:
+  push:
+    tags:
+      - "did-webplus-urd-v*"
+      - "did-webplus-vdg-v*"
+      - "did-webplus-vdr-v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history; we need to test ancestry vs main)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag format and derive service/version
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"   # e.g. did-webplus-vdr-v1.2.3 or did-webplus-vdr-v1.2.4-rc.3
+
+          # Disallow SemVer build metadata because Docker tags disallow '+'
+          if [[ "$TAG" == *"+"* ]]; then
+            echo "ERROR: tag contains '+', which is not allowed for Docker tags: $TAG"
+            exit 1
+          fi
+
+          # Accept:
+          #   did-webplus-(urd|vdg|vdr)-vMAJOR.MINOR.PATCH
+          #   did-webplus-(urd|vdg|vdr)-vMAJOR.MINOR.PATCH-<pre-release>
+          #
+          # Examples allowed:
+          #   did-webplus-vdr-v1.2.3
+          #   did-webplus-vdr-v1.2.4-rc.3
+          #
+          # Examples rejected:
+          #   did-webplus-vdr-v1.2
+          #   did-webplus-vdr-v1.2.3+build.2
+          #   did-webplus-vdr-v1.2.3+whatever
+          #
+          # Pre-release part is conservative: [0-9A-Za-z.-]+ (no '+')
+          if [[ "$TAG" =~ ^(did-webplus-(urd|vdg|vdr))-v([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+            SERVICE="${BASH_REMATCH[1]}"          # did-webplus-vdr (full service image name)
+            SHORT="${BASH_REMATCH[2]}"            # vdr / vdg / urd
+            VERSION="v${BASH_REMATCH[4]}"         # v1.2.3 or v1.2.4-rc.3
+          else
+            echo "ERROR: tag does not match required pattern: $TAG"
+            echo "Expected: did-webplus-(urd|vdg|vdr)-vMAJOR.MINOR.PATCH[-prerelease]"
+            exit 1
+          fi
+
+          # Map service -> Dockerfile path (relative to repo root)
+          DOCKERFILE="did-webplus/${SHORT}/Dockerfile"
+
+          echo "service=$SERVICE"     >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT"         >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"     >> "$GITHUB_OUTPUT"
+          echo "dockerfile=$DOCKERFILE" >> "$GITHUB_OUTPUT"
+
+          echo "Derived:"
+          echo "  SERVICE=$SERVICE"
+          echo "  VERSION=$VERSION"
+          echo "  DOCKERFILE=$DOCKERFILE"
+
+      - name: Ensure tag commit is on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main
+
+          TAG_SHA="${GITHUB_SHA}"
+          if git merge-base --is-ancestor "$TAG_SHA" "refs/remotes/origin/main"; then
+            echo "OK: tag commit ${TAG_SHA} is contained in origin/main"
+          else
+            echo "ERROR: tag commit ${TAG_SHA} is NOT on origin/main; refusing to publish."
+            echo "       Make sure the tag points to a commit reachable from main."
+            exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # If you want multi-arch later, add docker/setup-qemu-action and platforms below.
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./${{ steps.tag.outputs.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ steps.tag.outputs.service }}:${{ steps.tag.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ steps.tag.outputs.service }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.tag.outputs.version }}
+
+      # Optional: also push :latest for stable releases only (no prerelease hyphen)
+      - name: Push :latest (stable releases only)
+        if: ${{ !contains(steps.tag.outputs.version, '-') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ steps.tag.outputs.service }}"
+          docker buildx imagetools create \
+            -t "${IMAGE}:latest" \
+            "${IMAGE}:${{ steps.tag.outputs.version }}"
