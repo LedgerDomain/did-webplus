@@ -127,3 +127,20 @@ jobs:
           docker buildx imagetools create \
             -t "${IMAGE}:latest" \
             "${IMAGE}:${{ steps.tag.outputs.version }}"
+
+  slackNotification:
+    name: Notify Slack
+    needs: [release]
+    runs-on: [shared]
+    steps:
+      - name: Slack Notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_ICON_EMOJI: ':octocat:'
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_TITLE: ghcr.io/${{ steps.tag.outputs.repository_owner_lc }}/${{ steps.tag.outputs.service }}:${{ steps.tag.outputs.version }} ${{ job.status == 'success' && 'succeeded' || 'failed' }}
+          SLACK_MESSAGE: |
+            Branch: ${{ github.head_ref || github.ref_name }}
+            ${{ github.event.head_commit.message != '' && format('Commit: {0}', github.event.head_commit.message) || '' }}
+            <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|View Changes>
+          SLACK_WEBHOOK: ${{ secrets.GH_ACTIONS_SLACK_WEBHOOK }}
