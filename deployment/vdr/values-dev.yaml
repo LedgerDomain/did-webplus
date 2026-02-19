@@ -1,0 +1,14 @@
+---
+# Default values for dev
+deployment:
+  # This is setup to route from the nginx-ingress controller which is the actual public interface
+  ingress:
+    enabled: true
+    hosts:
+      - host: 'dev.katyd.id'
+        paths:
+          - /
+
+  extraEnvs:
+    - name: TODO
+      value: 'here-if-needed'

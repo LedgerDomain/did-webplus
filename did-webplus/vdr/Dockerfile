@@ -4,26 +4,45 @@
 FROM rust:1.90 AS builder
 WORKDIR /workdir
 
-# Install deps/reqs
+# Install deps/reqs (cached layer)
+RUN rustup component add rustfmt && \
+    apt-get update && \
+    apt-get -y install lld clang ssh-tools && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy only dependency files first for better caching
+COPY Cargo.lock Cargo.toml ./
+COPY did-webplus/vdg/Cargo.toml ./did-webplus/vdg/
+COPY did-webplus/vdr/Cargo.toml ./did-webplus/vdr/
+COPY did-webplus/core/Cargo.toml ./did-webplus/core/
+COPY did-webplus/cli/Cargo.toml ./did-webplus/cli/
+COPY did-webplus/cli-lib/Cargo.toml ./did-webplus/cli-lib/
+COPY did-key/Cargo.toml ./did-key/
+
+# Create dummy source files to build dependencies only
+RUN mkdir -p did-webplus/vdg/src && echo "fn main() {}" > did-webplus/vdg/src/main.rs && \
+    mkdir -p did-webplus/vdr/src && echo "fn main() {}" > did-webplus/vdr/src/main.rs && \
+    mkdir -p did-webplus/core/src && echo "" > did-webplus/core/src/lib.rs && \
+    mkdir -p did-webplus/cli/src && echo "fn main() {}" > did-webplus/cli/src/main.rs && \
+    mkdir -p did-webplus/cli-lib/src && echo "" > did-webplus/cli-lib/src/lib.rs && \
+    mkdir -p did-key/src && echo "" > did-key/src/lib.rs
+
+# Build dependencies only (this layer will be cached)
+ARG RELEASE_TYPE="release"
 RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/workdir/target \
-    rustup component add rustfmt && \
-    apt-get update && \
-    apt-get -y install lld clang ssh-tools
+    if [ "$RELEASE_TYPE" = "release" ]; then \
+        cargo build --package did-webplus-vdr --bin did-webplus-vdr --features postgres --release || true; \
+    else \
+        cargo build --package did-webplus-vdr --bin did-webplus-vdr --features postgres || true; \
+    fi
 
-# Grab Cargo files for layer caching purposes
-ADD Cargo.lock .
-ADD Cargo.toml .
+# Now copy the actual source code
+COPY . .
 
-# Install all files now
-ADD . .
-
-# This is either "release" or "debug"
-ARG RELEASE_TYPE="release"
+# Build the actual application
 ARG CARGO_BUILD_ARGS=""
-
-# Build for release or debug, and make sure it builds...
 RUN --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,sharing=private,target=/workdir/target \

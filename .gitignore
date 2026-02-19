@@ -7,3 +7,10 @@ did_webplus_doc_storage_sqlite_migrations.db
 flamegraph.svg
 perf.data
 perf.data.*
+
+# Kubernetes
+requirements.lock
+deployment/*/charts
+
+# Mac OS
+.DS_Store
