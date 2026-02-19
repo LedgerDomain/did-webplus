@@ -98,16 +98,15 @@ async fn resolve_did(
                 (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
             }
         })?;
-    tracing::debug!("resolved DID document: {}", did_document);
+    tracing::trace!("resolved DID document: {}", did_document);
     let mut headers = HeaderMap::new();
     headers.insert("Content-Type", "application/did+json".parse().unwrap());
     Ok((headers, did_document))
 }
 
-#[tracing::instrument(level = tracing::Level::DEBUG, ret(level = tracing::Level::DEBUG, Display), err(Debug), skip(_urd_app_state))]
+#[tracing::instrument(level = tracing::Level::TRACE, ret(level = tracing::Level::TRACE, Display), err(Debug), skip(_urd_app_state))]
 async fn health_check(
     State(_urd_app_state): State<URDAppState>,
 ) -> Result<String, (StatusCode, String)> {
-    tracing::debug!("Health check");
     Ok("OK".to_string())
 }

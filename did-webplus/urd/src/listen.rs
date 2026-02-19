@@ -62,6 +62,10 @@ impl Listen {
         init_logging(self.log_format);
 
         // Create the DID resolver using the specified options.
+        tracing::info!(
+            "Creating DIDResolverFull with vdg_host_o: {:?}",
+            self.vdg_host_o
+        );
         let did_resolver_full = did_webplus_urd_lib::create_did_resolver_full(
             &self.database_url,
             self.vdg_host_o.as_deref(),

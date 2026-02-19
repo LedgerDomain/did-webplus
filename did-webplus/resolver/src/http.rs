@@ -60,6 +60,11 @@ async fn http_get_range_bytes(
         }
         header_map
     };
+    tracing::debug!(
+        "Making range-based HTTP GET request to URL {} with headers {:?}",
+        url,
+        header_map
+    );
     // This is ridiculous.
     let response = REQWEST_CLIENT
         .clone()
@@ -156,6 +161,10 @@ pub async fn fetch_did_documents_jsonl_update(
     let time_start = time::OffsetDateTime::now_utc();
 
     let did_documents_jsonl_url = if let Some(vdg_base_url) = vdg_base_url_o {
+        tracing::debug!(
+            "Using VDG base URL {} to fetch did-documents.jsonl",
+            vdg_base_url
+        );
         // Apply the http_scheme_override_o to the vdg_base_url.
         let http_scheme = HTTPSchemeOverride::determine_http_scheme_for_host_from(
             http_options_o.as_ref().map(|o| &o.http_scheme_override),
@@ -188,10 +197,14 @@ pub async fn fetch_did_documents_jsonl_update(
             .push("did-documents.jsonl");
         did_documents_jsonl_url
     } else {
-        url::Url::parse(&did.resolution_url_for_did_documents_jsonl(
+        let did_documents_json_url = did.resolution_url_for_did_documents_jsonl(
             http_options_o.map(|o| &o.http_scheme_override),
-        ))
-        .map_err(|e| HTTPError {
+        );
+        tracing::debug!(
+            "Fetching did-documents.jsonl directly from VDR URL {}",
+            did_documents_json_url
+        );
+        url::Url::parse(&did_documents_json_url).map_err(|e| HTTPError {
             status_code: reqwest::StatusCode::INTERNAL_SERVER_ERROR,
             description: format!(
                 "Failed to parse DID resolution URL for did-documents.jsonl; error was: {}",
