@@ -23,11 +23,15 @@ jobs:
 
       - name: Validate tag format and derive service/version
         id: tag
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
         shell: bash
         run: |
           set -euo pipefail
 
           TAG="${GITHUB_REF_NAME}"   # e.g. did-webplus-vdr-v1.2.3 or did-webplus-vdr-v1.2.4-rc.3
+          # GHCR requires lowercase repository names
+          REPO_OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
 
           # Disallow SemVer build metadata because Docker tags disallow '+'
           if [[ "$TAG" == *"+"* ]]; then
@@ -52,7 +56,7 @@ jobs:
           if [[ "$TAG" =~ ^(did-webplus-(urd|vdg|vdr))-v([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
             SERVICE="${BASH_REMATCH[1]}"          # did-webplus-vdr (full service image name)
             SHORT="${BASH_REMATCH[2]}"            # vdr / vdg / urd
-            VERSION="v${BASH_REMATCH[4]}"         # v1.2.3 or v1.2.4-rc.3
+            VERSION="v${BASH_REMATCH[3]}"         # v1.2.3 or v1.2.4-rc.3 (full version after 'v')
           else
             echo "ERROR: tag does not match required pattern: $TAG"
             echo "Expected: did-webplus-(urd|vdg|vdr)-vMAJOR.MINOR.PATCH[-prerelease]"
@@ -62,10 +66,11 @@ jobs:
           # Map service -> Dockerfile path (relative to repo root)
           DOCKERFILE="did-webplus/${SHORT}/Dockerfile"
 
-          echo "service=$SERVICE"     >> "$GITHUB_OUTPUT"
-          echo "short=$SHORT"         >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION"     >> "$GITHUB_OUTPUT"
-          echo "dockerfile=$DOCKERFILE" >> "$GITHUB_OUTPUT"
+          echo "service=$SERVICE"                   >> "$GITHUB_OUTPUT"
+          echo "short=$SHORT"                       >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"                   >> "$GITHUB_OUTPUT"
+          echo "dockerfile=$DOCKERFILE"             >> "$GITHUB_OUTPUT"
+          echo "repository_owner_lc=$REPO_OWNER_LC" >> "$GITHUB_OUTPUT"
 
           echo "Derived:"
           echo "  SERVICE=$SERVICE"
@@ -105,8 +110,8 @@ jobs:
           file: ./${{ steps.tag.outputs.dockerfile }}
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ steps.tag.outputs.service }}:${{ steps.tag.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/${{ steps.tag.outputs.service }}:sha-${{ github.sha }}
+            ghcr.io/${{ steps.tag.outputs.repository_owner_lc }}/${{ steps.tag.outputs.service }}:${{ steps.tag.outputs.version }}
+            ghcr.io/${{ steps.tag.outputs.repository_owner_lc }}/${{ steps.tag.outputs.service }}:sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -118,7 +123,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ steps.tag.outputs.service }}"
+          IMAGE="ghcr.io/${{ steps.tag.outputs.repository_owner_lc }}/${{ steps.tag.outputs.service }}"
           docker buildx imagetools create \
             -t "${IMAGE}:latest" \
             "${IMAGE}:${{ steps.tag.outputs.version }}"
