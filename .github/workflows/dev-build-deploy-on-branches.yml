@@ -1,0 +1,160 @@
+name: Dev - Build and Deploy on branches
+
+# Only on MRs and MR actions trigger this build flow
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+
+# This helps prevent multiple jobs from being built at the same time for no reason on the same branch
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+# This is the default shell environment for all jobs
+defaults:
+  run:
+    shell: bash
+
+# This is our map/list of jobs to run
+jobs:
+
+  # Looks for labels like "deploy-to-<env>" attached to a PR so we can deploy to those envs
+  get-deploy-labels:
+    runs-on: [shared]
+    outputs:
+      deploy-envs: ${{ steps.make-label-list.outputs.deploy-envs }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: LedgerDomain/github-actions/setup-env@main
+      # Takes PR labels and turns them into env vars: https://github.com/marketplace/actions/pr-labels
+      - name: Get PR labels
+        id: pr-labels
+        uses: joerick/pr-labels-action@v1.0.9
+      # Turn env vars from above into a json list of deployment envs
+      - id: make-label-list
+        run: |
+          DEPLOY_LABELS=${!GITHUB_PR_LABEL_DEPLOY_TO_*}           # echo all of the PR label envs on one line
+          DEPLOY_ENVS=[\"${DEPLOY_LABELS// /\",\"}\"]             # Turn into a json list like ["ENV_1","ENV_2"]
+          DEPLOY_ENVS=${DEPLOY_ENVS//GITHUB_PR_LABEL_DEPLOY_TO_/} # Delete GITHUB_PR_LABEL_DEPLOY_TO_ so we're just left with the deploy env name
+          DEPLOY_ENVS=${DEPLOY_ENVS//_/-}                         # Replace underscores with dashes
+          DEPLOY_ENVS=${DEPLOY_ENVS//\"\"/}                       # Remove empty strings
+          echo "deploy-envs=${DEPLOY_ENVS,,}" >> "$GITHUB_OUTPUT" # Lowercase the whole list and output it
+          echo "deploy-envs=${DEPLOY_ENVS,,}"
+
+  # # Run automated tests
+  # automated-tests:
+  #   runs-on: [shared]
+  #   needs: [get-deploy-labels]
+  #   steps:
+  #     - todo
+
+  build-vdg:
+    env:
+      GH_ACTIONS_SSH_KEY: ${{ secrets.GH_ACTIONS_SSH_KEY }}
+    runs-on: [shared]
+    needs: [get-deploy-labels]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - uses: LedgerDomain/github-actions/setup-env@main
+      - uses: LedgerDomain/github-actions/docker-build-and-push-to-ecr@main
+        with:
+          module-name: ${{ env.CI_REPOSITORY_NAME_SLUG }}-vdg
+          build-for-environment: dev
+          extra-build-args: --progress=plain -f did-webplus/vdg/Dockerfile --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
+
+  build-vdr:
+    env:
+      GH_ACTIONS_SSH_KEY: ${{ secrets.GH_ACTIONS_SSH_KEY }}
+    runs-on: [shared]
+    needs: [get-deploy-labels]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - uses: LedgerDomain/github-actions/setup-env@main
+      - uses: LedgerDomain/github-actions/docker-build-and-push-to-ecr@main
+        with:
+          module-name: ${{ env.CI_REPOSITORY_NAME_SLUG }}-vdr
+          build-for-environment: dev
+          extra-build-args: --progress=plain -f did-webplus/vdr/Dockerfile --build-arg "LEDGERDOMAIN_GITHUB_PRIVATE_SSH_KEY=$GH_ACTIONS_SSH_KEY"
+
+  deploy-vdg-dev:
+    runs-on: [shared]
+    needs: [build-vdg]
+    if: contains(needs.get-deploy-labels.outputs.deploy-envs, 'dev')
+    concurrency:
+      group: deploy-vdg-dev
+      cancel-in-progress: false
+    environment:
+      name: dev
+    steps:
+      - uses: actions/checkout@v3
+      - uses: LedgerDomain/github-actions/setup-env@main
+      - uses: LedgerDomain/github-actions/helm-deploy@main
+        with:
+          environment-slug: dev
+          k8s-namespace: dev
+          image-tag: dev-${{ env.SLUG }}
+          timeout: 120s
+          helm-deploy-folders: vdg
+
+  deploy-vdr-dev:
+    runs-on: [shared]
+    needs: [build-vdr]
+    if: contains(needs.get-deploy-labels.outputs.deploy-envs, 'dev')
+    concurrency:
+      group: deploy-vdr-dev
+      cancel-in-progress: false
+    environment:
+      name: dev
+    steps:
+      - uses: actions/checkout@v3
+      - uses: LedgerDomain/github-actions/setup-env@main
+      - uses: LedgerDomain/github-actions/helm-deploy@main
+        with:
+          environment-slug: dev
+          k8s-namespace: dev
+          image-tag: dev-${{ env.SLUG }}
+          timeout: 120s
+          helm-deploy-folders: vdr
+
+  # # TODO: Add automated tests here
+  # post-build-automated-test:
+  #   runs-on: [shared]
+  #   needs: [deploy-dev, automated-tests]
+  #   steps:
+  #     # Uncomment if needed when using our own tests instead of just silly "curl" below
+  #     # - name: Checkout code
+  #     #   uses: actions/checkout@v3
+  #     # - uses: LedgerDomain/github-actions/setup-env@main
+  #     - name: Run automated test framework here
+  #       run: |
+  #         echo "run automated test here, for now a simple curl"
+  #         curl --verbose https://api-dev.xatp.io/v3/docs#/
+
+  # This will trigger upon this job not deploying to dev, causing this pipeline to fail blocking merging
+  block-merge-until-deployed:
+    runs-on: [shared]
+    needs: [deploy-vdg-dev, deploy-vdr-dev]
+    if: always() && (needs.deploy-vdg-dev.result == 'skipped' || needs.deploy-vdr-dev.result == 'skipped')
+    steps:
+      - name: Fail intentionally if our deploy was skipped
+        run: |
+          exit 1
+
+  # slackNotification:
+  #   name: Notify Slack
+  #   needs: [deploy-dev]
+  #   runs-on: [shared]
+  #   steps:
+  #     - name: Slack Notification
+  #       uses: rtCamp/action-slack-notify@v2
+  #       env:
+  #         SLACK_ICON_EMOJI: ':octocat:'
+  #         SLACK_COLOR: ${{ job.status }}
+  #         SLACK_TITLE: xatp DEV deploy ${{ job.status == 'success' && 'succeeded' || 'failed' }}
+  #         SLACK_MESSAGE: |
+  #           Branch: ${{ github.head_ref || github.ref_name }}
+  #           ${{ github.event.head_commit.message != '' && format('Commit: {0}', github.event.head_commit.message) || '' }}
+  #           <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|View Changes>
+  #         SLACK_WEBHOOK: ${{ secrets.GH_ACTIONS_SLACK_WEBHOOK }}
