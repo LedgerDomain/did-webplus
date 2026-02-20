@@ -2,6 +2,14 @@
 
 The `did:web` method makes straightforward use of familiar tools across a wide range of use cases. However, heavily regulated ecosystems such as the pharmaceutical supply chain demand additional guarantees of immutability and auditability, including seamless key rotation and a key usage history. `did:webplus` is a proposed fit-for-purpose DID method for use within the pharma supply chain credentialing community, with an eye towards releasing it into the wild for those communities that are similarly situated.
 
+[`did:webplus` specification](https://ledgerdomain.github.io/did-webplus-spec)
+
+## Dockerized Services
+
+-   (did-webplus-urd)[did-webplus/urd] -- Universal Resolver Driver (URD) for `did:webplus`
+-   (did-webplus-vdg)[did-webplus/vdg] -- Verifiable Data Gateway (VDG) for `did:webplus`
+-   (did-webplus-vdr)[did-webplus/vdr] -- Verifiable Data Registry (VDR) for `did:webplus`
+
 ## Quick Overview
 
 Here is a [talk](https://www.youtube.com/watch?v=Ws55MlDuUGI) Victor Dods gave at LedgerPalooza 2024 (this is a yearly event hosted by LedgerPalooza for our colleagues and business friendlies) presenting `did:webplus`.  Here is the [slide deck](https://docs.google.com/presentation/d/1oZc4WABaG3zhw7gHclSIaQCgnchdWRJvqUDQLq4L-Ig/edit?usp=sharing) from that talk.
