@@ -1,7 +1,7 @@
 use axum::{
     Router,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     routing::get,
 };
 use std::sync::Arc;
@@ -55,15 +55,34 @@ fn create_router() -> Router<URDAppState> {
 #[tracing::instrument(level = tracing::Level::DEBUG, err(Debug), skip(urd_app_state))]
 async fn resolve_did(
     State(urd_app_state): State<URDAppState>,
+    request_header_map: HeaderMap,
     Path(query): Path<String>,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
-    tracing::debug!("Resolving DID query: {}", query);
-    let (did_document, _did_document_metadata, _did_resolution_metadata) = urd_app_state
+    // Determine the response content based on the "Accept" header
+    let accept_header_str = match request_header_map.get(header::ACCEPT) {
+        Some(accept_header) => accept_header.to_str().unwrap(),
+        None => "application/did",
+    };
+
+    tracing::debug!(
+        "Resolving DID query: {} with \"Accept: {}\"",
+        query,
+        accept_header_str
+    );
+    let did_resolution_options = match accept_header_str {
+        "application/did" | "*/*" => did_webplus_core::DIDResolutionOptions::no_metadata(false),
+        "application/did-resolution" => did_webplus_core::DIDResolutionOptions::all_metadata(false),
+        _ => {
+            return Err((
+                StatusCode::NOT_ACCEPTABLE,
+                format!("Accept header not supported: {}", accept_header_str),
+            ));
+        }
+    };
+
+    let (did_document, did_document_metadata, did_resolution_metadata) = urd_app_state
         .did_resolver_a
-        .resolve_did_document_string(
-            &query,
-            did_webplus_core::DIDResolutionOptions::no_metadata(false),
-        )
+        .resolve_did_document_string(&query, did_resolution_options)
         .await
         .map_err(|e| match e {
             did_webplus_resolver::Error::DIDDocStoreError(error) => {
@@ -98,10 +117,41 @@ async fn resolve_did(
                 (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
             }
         })?;
-    tracing::trace!("resolved DID document: {}", did_document);
-    let mut headers = HeaderMap::new();
-    headers.insert("Content-Type", "application/did+json".parse().unwrap());
-    Ok((headers, did_document))
+
+    let mut response_header_map = HeaderMap::new();
+    match accept_header_str {
+        "application/did" | "*/*" => {
+            response_header_map.insert("Content-Type", "application/did".parse().unwrap());
+            Ok((response_header_map, did_document))
+        }
+        "application/did-resolution" => {
+            response_header_map.insert(
+                "Content-Type",
+                "application/did-resolution".parse().unwrap(),
+            );
+            #[derive(serde::Serialize)]
+            #[serde(rename_all = "camelCase")]
+            struct DIDResolveOutput {
+                did_document: did_webplus_core::DIDDocument,
+                did_document_metadata: did_webplus_core::DIDDocumentMetadata,
+                did_resolution_metadata: did_webplus_core::DIDResolutionMetadata,
+            }
+            let output = DIDResolveOutput {
+                did_document: serde_json::from_str(&did_document)
+                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+                did_document_metadata,
+                did_resolution_metadata,
+            };
+            Ok((response_header_map, serde_json::to_string(&output).unwrap()))
+        }
+        accept_header_str => {
+            // TODO: Implement support for "application/did-url-dereferencing"
+            Err((
+                StatusCode::NOT_ACCEPTABLE,
+                format!("Accept header not supported: {}", accept_header_str),
+            ))
+        }
+    }
 }
 
 #[tracing::instrument(level = tracing::Level::TRACE, ret(level = tracing::Level::TRACE, Display), err(Debug), skip(_urd_app_state))]

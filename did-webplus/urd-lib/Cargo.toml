@@ -27,6 +27,7 @@ did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite", optional = tr
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
 did-webplus-resolver = { path = "../resolver" }
 dotenvy = "0.15.7"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.107"
 sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
 tokio = "1.46"

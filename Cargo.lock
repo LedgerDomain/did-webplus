@@ -1739,6 +1739,7 @@ dependencies = [
  "mbx",
  "percent-encoding",
  "selfhash",
+ "serde",
  "serde_json",
  "sqlx",
  "storage-traits",
