@@ -83,7 +83,7 @@ services:
       DID_WEBPLUS_URD_LOG_FORMAT: compact
 
       RUST_BACKTRACE: '1'
-      RUST_LOG: 'tower_http::trace=warn,info'
+      RUST_LOG: 'did_webplus=info'
 
     entrypoint:
       - /bin/sh

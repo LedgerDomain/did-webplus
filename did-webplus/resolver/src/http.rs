@@ -224,7 +224,7 @@ pub async fn fetch_did_documents_jsonl_update(
     #[cfg(not(target_arch = "wasm32"))]
     if let Ok(did_documents_jsonl_update) = &did_documents_jsonl_update_r {
         let duration = time::OffsetDateTime::now_utc() - time_start;
-        tracing::info!(
+        tracing::debug!(
             "Time taken to do a range-based GET of {} bytes of did-documents.jsonl starting at byte {}: {:.3}",
             did_documents_jsonl_update.len(),
             known_did_documents_jsonl_octet_length,

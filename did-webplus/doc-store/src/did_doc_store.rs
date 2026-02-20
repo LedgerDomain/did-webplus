@@ -101,7 +101,7 @@ impl DIDDocStore {
                 let time_start = time::OffsetDateTime::now_utc();
                 did_document.verify_nonrecursive(prev_did_document_o)?;
                 let duration = time::OffsetDateTime::now_utc() - time_start;
-                tracing::info!(
+                tracing::debug!(
                     "Time taken to validate predecessor DID document with versionId {}: {:?}",
                     did_document.version_id,
                     duration
@@ -110,7 +110,7 @@ impl DIDDocStore {
         }
 
         let duration = time::OffsetDateTime::now_utc() - time_start;
-        tracing::info!(
+        tracing::debug!(
             "Time taken to validate predecessor DID documents: {:.3}",
             duration
         );
@@ -120,7 +120,7 @@ impl DIDDocStore {
             .add_did_documents(transaction_o, did_document_jcs_v, did_document_v)
             .await?;
         let duration = time::OffsetDateTime::now_utc() - time_start;
-        tracing::info!("Time taken to store DID documents: {:.3}", duration);
+        tracing::debug!("Time taken to store DID documents: {:.3}", duration);
         Ok(())
     }
     pub async fn get_did_doc_record_with_self_hash(
