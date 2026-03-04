@@ -3,6 +3,7 @@ name: Release service Docker image (GHCR)
 on:
   push:
     tags:
+      - "did-webplus-cli-v*"
       - "did-webplus-urd-v*"
       - "did-webplus-vdg-v*"
       - "did-webplus-vdr-v*"
