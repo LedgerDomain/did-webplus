@@ -147,6 +147,90 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
         assert_eq!(response_body, did_doc_record.did_document_jcs);
     }
 
+    // Verify that the DID can be resolved via the fully qualified DID.
+    // Verify a bunch of different Accept headers that should result in the same response.
+    for accept_header in [
+        "*/*",
+        "application/did",
+        "application/did,application/did-resolution",
+    ] {
+        // Get the latest DID document -- this is the expected value.
+        use did_webplus_wallet_store::WalletStorage;
+        let did_doc_record = wallet_storage_a
+            .as_did_doc_storage()
+            .get_latest_known_did_doc_record(None, controlled_did.did())
+            .await
+            .expect("pass")
+            .expect("pass");
+
+        // Resolve the DID via the URD.
+        let controlled_did_percent_encoded = percent_encode_did_query(&controlled_did);
+        let response = test_util::REQWEST_CLIENT
+            .get(
+                format!(
+                    "{}/1.0/identifiers/{}",
+                    urd_url, controlled_did_percent_encoded
+                )
+                .as_str(),
+            )
+            .header("Accept", accept_header)
+            .send()
+            .await
+            .expect("pass");
+        assert_eq!(response.status(), 200);
+        let response_body = response.text().await.expect("pass");
+        // Verify that the response body is the expected DID document.
+        assert_eq!(response_body, did_doc_record.did_document_jcs);
+    }
+
+    // Verify that the DID can be resolved via the fully qualified DID.
+    // Verify a bunch of different Accept headers that should result in the same response.
+    for accept_header in [
+        "application/did-resolution",
+        "application/did-resolution,application/did",
+    ] {
+        // Get the latest DID document -- this is the expected value.
+        use did_webplus_wallet_store::WalletStorage;
+        let did_doc_record = wallet_storage_a
+            .as_did_doc_storage()
+            .get_latest_known_did_doc_record(None, controlled_did.did())
+            .await
+            .expect("pass")
+            .expect("pass");
+
+        // Resolve the DID via the URD.
+        let controlled_did_percent_encoded = percent_encode_did_query(&controlled_did);
+        let response = test_util::REQWEST_CLIENT
+            .get(
+                format!(
+                    "{}/1.0/identifiers/{}",
+                    urd_url, controlled_did_percent_encoded
+                )
+                .as_str(),
+            )
+            .header("Accept", accept_header)
+            .send()
+            .await
+            .expect("pass");
+        assert_eq!(response.status(), 200);
+        let response_body = response.text().await.expect("pass");
+        #[derive(serde::Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct DIDResolveOutput {
+            did_document: did_webplus_core::DIDDocument,
+            did_document_metadata: did_webplus_core::DIDDocumentMetadata,
+            did_resolution_metadata: did_webplus_core::DIDResolutionMetadata,
+        }
+        let did_resolve_output =
+            serde_json::from_str::<DIDResolveOutput>(&response_body).expect("pass");
+        // Verify that the response body is the expected DID document.
+        let response_did_document_jcs = did_resolve_output
+            .did_document
+            .serialize_canonically()
+            .unwrap();
+        assert_eq!(response_did_document_jcs, did_doc_record.did_document_jcs);
+    }
+
     // Do a cycle of update_did and resolve via URD.
     for _ in 0..5 {
         let controlled_did = software_wallet

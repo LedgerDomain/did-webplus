@@ -58,24 +58,38 @@ async fn resolve_did(
     request_header_map: HeaderMap,
     Path(query): Path<String>,
 ) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    tracing::debug!(
+        "Resolving DID query: {} with Accept: {:?}",
+        query,
+        request_header_map.get(header::ACCEPT)
+    );
+
     // Determine the response content based on the "Accept" header
     let accept_header_str = match request_header_map.get(header::ACCEPT) {
-        Some(accept_header) => accept_header.to_str().unwrap(),
-        None => "application/did",
+        Some(accept_header) => {
+            let accept_header_trimmed = accept_header.to_str().unwrap().trim();
+            if accept_header_trimmed.is_empty() {
+                "*/*"
+            } else {
+                accept_header_trimmed
+            }
+        }
+        None => "*/*",
     };
+    let accept_header_str_v = accept_header_str
+        .split(',')
+        .map(|s| s.trim())
+        .collect::<Vec<&str>>();
+    assert!(!accept_header_str_v.is_empty(), "programmer error");
 
-    tracing::debug!(
-        "Resolving DID query: {} with \"Accept: {}\"",
-        query,
-        accept_header_str
-    );
-    let did_resolution_options = match accept_header_str {
+    let accept_header_str_first = accept_header_str_v[0];
+    let did_resolution_options = match accept_header_str_first {
         "application/did" | "*/*" => did_webplus_core::DIDResolutionOptions::no_metadata(false),
         "application/did-resolution" => did_webplus_core::DIDResolutionOptions::all_metadata(false),
         _ => {
             return Err((
                 StatusCode::NOT_ACCEPTABLE,
-                format!("Accept header not supported: {}", accept_header_str),
+                format!("Accept header not supported: {}", accept_header_str_first),
             ));
         }
     };
@@ -119,7 +133,7 @@ async fn resolve_did(
         })?;
 
     let mut response_header_map = HeaderMap::new();
-    match accept_header_str {
+    match accept_header_str_first {
         "application/did" | "*/*" => {
             response_header_map.insert("Content-Type", "application/did".parse().unwrap());
             Ok((response_header_map, did_document))
