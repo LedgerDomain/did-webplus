@@ -41,8 +41,8 @@ jobs:
           fi
 
           # Accept:
-          #   did-webplus-(urd|vdg|vdr)-vMAJOR.MINOR.PATCH
-          #   did-webplus-(urd|vdg|vdr)-vMAJOR.MINOR.PATCH-<pre-release>
+          #   did-webplus-(cli|urd|vdg|vdr)-vMAJOR.MINOR.PATCH
+          #   did-webplus-(cli|urd|vdg|vdr)-vMAJOR.MINOR.PATCH-<pre-release>
           #
           # Examples allowed:
           #   did-webplus-vdr-v1.2.3
@@ -54,13 +54,13 @@ jobs:
           #   did-webplus-vdr-v1.2.3+whatever
           #
           # Pre-release part is conservative: [0-9A-Za-z.-]+ (no '+')
-          if [[ "$TAG" =~ ^(did-webplus-(urd|vdg|vdr))-v([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+          if [[ "$TAG" =~ ^(did-webplus-(cli|urd|vdg|vdr))-v([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
             SERVICE="${BASH_REMATCH[1]}"          # did-webplus-vdr (full service image name)
             SHORT="${BASH_REMATCH[2]}"            # vdr / vdg / urd
             VERSION="v${BASH_REMATCH[3]}"         # v1.2.3 or v1.2.4-rc.3 (full version after 'v')
           else
             echo "ERROR: tag does not match required pattern: $TAG"
-            echo "Expected: did-webplus-(urd|vdg|vdr)-vMAJOR.MINOR.PATCH[-prerelease]"
+            echo "Expected: did-webplus-(cli|urd|vdg|vdr)-vMAJOR.MINOR.PATCH[-prerelease]"
             exit 1
           fi
 
