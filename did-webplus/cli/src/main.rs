@@ -27,6 +27,7 @@ mod vjson_store_get;
 mod vjson_verify;
 mod wallet_args;
 mod wallet_did_create;
+mod wallet_did_deactivate;
 mod wallet_did_list;
 mod wallet_did_sign_jws;
 mod wallet_did_sign_vjson;
@@ -62,6 +63,7 @@ pub use crate::{
     vjson_verify::VJSONVerify,
     wallet_args::WalletArgs,
     wallet_did_create::WalletDIDCreate,
+    wallet_did_deactivate::WalletDIDDeactivate,
     wallet_did_list::WalletDIDList,
     wallet_did_sign_jws::WalletDIDSignJWS,
     wallet_did_sign_vjson::WalletDIDSignVJSON,

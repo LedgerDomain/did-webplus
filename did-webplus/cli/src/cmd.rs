@@ -1,8 +1,8 @@
 use crate::{
     DIDKeyFromPrivate, DIDKeyGenerate, DIDKeySignJWS, DIDKeySignVJSON, DIDList, DIDResolve,
     JWSVerify, Result, VJSONDefaultSchema, VJSONSelfHash, VJSONStoreGet, VJSONVerify,
-    WalletDIDCreate, WalletDIDList, WalletDIDSignJWS, WalletDIDSignVJSON, WalletDIDUpdate,
-    WalletList,
+    WalletDIDCreate, WalletDIDDeactivate, WalletDIDList, WalletDIDSignJWS, WalletDIDSignVJSON,
+    WalletDIDUpdate, WalletList,
 };
 
 /// did:webplus CLI tool for all client-side operations and related utility operations.  Note that some subcommands
@@ -161,6 +161,7 @@ impl Wallet {
 #[derive(clap::Subcommand)]
 pub enum WalletDID {
     Create(WalletDIDCreate),
+    Deactivate(WalletDIDDeactivate),
     List(WalletDIDList),
     #[command(subcommand)]
     Sign(WalletDIDSign),
@@ -171,6 +172,7 @@ impl WalletDID {
     pub async fn handle(self) -> Result<()> {
         match self {
             Self::Create(x) => x.handle().await,
+            Self::Deactivate(x) => x.handle().await,
             Self::List(x) => x.handle().await,
             Self::Sign(x) => x.handle().await,
             Self::Update(x) => x.handle().await,

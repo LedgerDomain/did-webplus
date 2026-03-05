@@ -216,6 +216,7 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
         let response_body = response.text().await.expect("pass");
         #[derive(serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
+        #[allow(dead_code)]
         struct DIDResolveOutput {
             did_document: did_webplus_core::DIDDocument,
             did_document_metadata: did_webplus_core::DIDDocumentMetadata,

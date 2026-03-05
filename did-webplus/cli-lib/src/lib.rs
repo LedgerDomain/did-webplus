@@ -324,6 +324,23 @@ pub async fn wallet_did_update(
         .await?)
 }
 
+pub async fn wallet_did_deactivate(
+    wallet: &dyn did_webplus_wallet::Wallet,
+    did: &did_webplus_core::DIDStr,
+    http_options_o: Option<&did_webplus_core::HTTPOptions>,
+) -> Result<did_webplus_core::DIDFullyQualified> {
+    Ok(wallet
+        .deactivate_did(
+            did_webplus_wallet::DeactivateDIDParameters {
+                did,
+                // None means use the same as the existing DID document.
+                change_mb_hash_function_for_self_hash_o: None,
+            },
+            http_options_o,
+        )
+        .await?)
+}
+
 /// List DIDs controlled by the given wallet.  Optionally filter on the given DID.
 pub async fn wallet_did_list(
     wallet: &dyn did_webplus_wallet::Wallet,
