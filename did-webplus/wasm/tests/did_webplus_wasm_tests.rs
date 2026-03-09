@@ -1,5 +1,7 @@
 #![cfg(target_arch = "wasm32")]
 
+use std::ops::Deref;
+
 use wasm_bindgen_test::wasm_bindgen_test;
 
 // TEMP -- disable vjson tests for now.
@@ -113,6 +115,39 @@ async fn test_software_wallet_indexeddb() {
         .did()
         .to_owned();
     tracing::debug!("did: {:?}", did);
+
+    // Sign a VC using the wallet.
+    let wallet_based_signer = wallet
+        .new_wallet_based_signer(
+            did.to_string(),
+            "assertionMethod".to_string(),
+            None,
+            Some(http_options.clone()),
+        )
+        .await
+        .expect("pass");
+
+    // TEMP HACK
+    {
+        // Defines the shape of our custom claims.
+        #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
+        pub struct Claims {
+            name: String,
+            email: String,
+        }
+
+        // Create JWT claims from our custom ("private") claims.
+        let claims = ssi_claims::JWTClaims::from_private_claims(Claims {
+            name: "Grunty McParty".to_owned(),
+            email: "g@mc-p.org".to_owned(),
+        });
+
+        // Sign the claims.
+        let jwt = did_webplus_ssi::sign_jwt(&claims, wallet_based_signer.deref())
+            .await
+            .expect("signature failed");
+        tracing::info!("jwt: {}", jwt);
+    }
 
     let controlled_did = wallet
         .update_did(

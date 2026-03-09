@@ -13,6 +13,7 @@ mod vjson;
 mod vjson_resolver;
 mod vjson_store;
 mod wallet;
+mod wallet_based_signer;
 
 pub use crate::{
     did::DID,
@@ -29,6 +30,7 @@ pub use crate::{
     vjson_resolver::VJSONResolver,
     vjson_store::VJSONStore,
     wallet::{CreateDIDParameters, DeactivateDIDParameters, UpdateDIDParameters, Wallet},
+    wallet_based_signer::WalletBasedSigner,
 };
 pub type Error = JsValue;
 pub type Result<T> = std::result::Result<T, JsValue>;
@@ -48,14 +50,3 @@ pub fn start() -> Result<()> {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Debug));
     Ok(())
 }
-
-/*
-TODO
--   Wallet
--   WalletStorage
--   VJSONStorage
--   DIDKeySigner
--   DIDWebplusWalletSigner kind of a signer (probably has a wallet, DID, and key id)
-
-
- */

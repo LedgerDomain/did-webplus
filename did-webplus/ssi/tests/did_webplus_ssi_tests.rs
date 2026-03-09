@@ -111,8 +111,7 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
         let db_url = "sqlite://:memory:";
         let did_doc_storage =
             did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
-                db_url,
-                None,
+                db_url, None,
             )
             .await
             .expect("pass");
@@ -192,7 +191,8 @@ async fn test_ssi_vc_issue_0_impl(
 
     // Create the DID URL which fully qualifies the specific key to be used.
     let did_url =
-        ssi_dids::DIDURLBuf::from_string(wallet_based_signer.key_id().to_string()).expect("pass");
+        ssi_dids::DIDURLBuf::from_string(wallet_based_signer.key_fully_qualified().to_string())
+            .expect("pass");
 
     // Create a verification method resolver, which will be in charge of
     // decoding the DID back into a public key.
@@ -200,8 +200,7 @@ async fn test_ssi_vc_issue_0_impl(
         let db_url = "sqlite://:memory:";
         let did_doc_storage =
             did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
-                db_url,
-                None,
+                db_url, None,
             )
             .await
             .expect("pass");
@@ -220,7 +219,7 @@ async fn test_ssi_vc_issue_0_impl(
 
     // Pick a suitable Data-Integrity signature suite for did:webplus (no JWK needed).
     let cryptosuite = did_webplus_ssi::pick_suite_for_did_webplus_by_id(
-        wallet_based_signer.key_id().to_string().as_str(),
+        wallet_based_signer.key_fully_qualified().as_str(),
     )
     .expect("could not find appropriate cryptosuite");
 

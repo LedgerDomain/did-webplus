@@ -1,5 +1,5 @@
-use crate::{DID, HTTPOptions, MBHashFunction, Result, into_js_value};
-use std::{ops::Deref, sync::Arc};
+use crate::{DID, HTTPOptions, MBHashFunction, Result, WalletBasedSigner, into_js_value};
+use std::{ops::Deref, str::FromStr, sync::Arc};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Parameters for creating a new DID in a given wallet.
@@ -298,11 +298,89 @@ impl Wallet {
             .map_err(into_js_value)?;
         Ok(controlled_did.to_string())
     }
+    /// Create a WalletBasedSigner for the given DID and key purpose.
+    pub async fn new_wallet_based_signer(
+        &self,
+        did: String,
+        key_purpose: String,
+        key_id_o: Option<String>,
+        http_options_o: Option<HTTPOptions>,
+    ) -> Result<WalletBasedSigner> {
+        let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
+        let key_purpose =
+            did_webplus_core::KeyPurpose::from_str(&key_purpose).map_err(into_js_value)?;
+        let key_id_o = key_id_o.as_deref().map(|s| s.to_string());
+        let http_options_o = http_options_o.map(|o| o.into());
+        let wallet_based_signer = did_webplus_wallet::WalletBasedSigner::new(
+            self.clone(),
+            did,
+            key_purpose,
+            key_id_o.as_deref(),
+            http_options_o.as_ref(),
+        )
+        .await
+        .map_err(into_js_value)?;
+        Ok(wallet_based_signer.into())
+    }
 }
 
 impl std::ops::Deref for Wallet {
     type Target = dyn did_webplus_wallet::Wallet;
     fn deref(&self) -> &Self::Target {
         self.0.as_ref()
+    }
+}
+
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl did_webplus_wallet::Wallet for Wallet {
+    async fn create_did(
+        &self,
+        create_did_parameters: did_webplus_wallet::CreateDIDParameters<'_>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
+    ) -> did_webplus_wallet::Result<did_webplus_core::DIDFullyQualified> {
+        self.0
+            .create_did(create_did_parameters, http_options_o)
+            .await
+    }
+    async fn fetch_did(
+        &self,
+        did: &did_webplus_core::DIDStr,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
+    ) -> did_webplus_wallet::Result<()> {
+        self.0.fetch_did(did, http_options_o).await
+    }
+    async fn update_did(
+        &self,
+        update_did_parameters: did_webplus_wallet::UpdateDIDParameters<'_>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
+    ) -> did_webplus_wallet::Result<did_webplus_core::DIDFullyQualified> {
+        self.0
+            .update_did(update_did_parameters, http_options_o)
+            .await
+    }
+    async fn deactivate_did(
+        &self,
+        deactivate_did_parameters: did_webplus_wallet::DeactivateDIDParameters<'_>,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
+    ) -> did_webplus_wallet::Result<did_webplus_core::DIDFullyQualified> {
+        self.0
+            .deactivate_did(deactivate_did_parameters, http_options_o)
+            .await
+    }
+    async fn get_locally_controlled_verification_methods(
+        &self,
+        locally_controlled_verification_method_filter: &did_webplus_wallet_store::LocallyControlledVerificationMethodFilter,
+    ) -> did_webplus_wallet::Result<
+        Vec<(
+            did_webplus_wallet_store::VerificationMethodRecord,
+            signature_dyn::SignerBytes<'static>,
+        )>,
+    > {
+        self.0
+            .get_locally_controlled_verification_methods(
+                locally_controlled_verification_method_filter,
+            )
+            .await
     }
 }

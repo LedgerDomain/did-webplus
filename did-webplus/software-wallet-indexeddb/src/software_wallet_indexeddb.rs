@@ -281,9 +281,10 @@ impl SoftwareWalletIndexedDB {
                             })?;
 
                         if let Some(filter_key_purpose) = filter.key_purpose_o {
+                            let key_id_fragment = verification_method.id.fragment();
                             let key_purpose_flags = did_document
                                 .public_key_material
-                                .key_purpose_flags_for_key_id_fragment(&pub_key);
+                                .key_purpose_flags_for_key_id_fragment(key_id_fragment);
                             if !key_purpose_flags.contains(filter_key_purpose) {
                                 continue;
                             }
@@ -320,7 +321,9 @@ impl SoftwareWalletIndexedDB {
 
                             let key_purpose_flags = did_document
                                 .public_key_material
-                                .key_purpose_flags_for_key_id_fragment(&pub_key);
+                                .key_purpose_flags_for_key_id_fragment(
+                                    verification_method.id.fragment(),
+                                );
                             let verification_method_record = VerificationMethodRecord {
                                 did_key_resource_fully_qualified: verification_method.id.clone(),
                                 key_purpose_flags,
@@ -1172,10 +1175,16 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     }
     async fn fetch_did(
         &self,
-        _did: &DIDStr,
-        _http_options_o: Option<&did_webplus_core::HTTPOptions>,
+        did: &DIDStr,
+        http_options_o: Option<&did_webplus_core::HTTPOptions>,
     ) -> did_webplus_wallet::Result<()> {
-        todo!()
+        tracing::debug!(
+            "SoftwareWalletIndexedDB::fetch_did; did: {}; http_options_o: {:?}",
+            did,
+            http_options_o
+        );
+        self.fetch_did_internal(did, http_options_o).await?;
+        Ok(())
     }
     async fn update_did(
         &self,
@@ -1274,12 +1283,15 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                                 .get_all_keys_in(compound_key.clone()..=compound_key, Some(1))
                                 .await?;
                             if let Some(primary_key) = primary_keys.into_iter().next() {
-                                let key_purpose_flags =
-                                    latest_did_document.public_key_material.key_purpose_flags_for_key_id_fragment(&pub_key);
+                                let key_purpose_flags = latest_did_document
+                                    .public_key_material
+                                    .key_purpose_flags_for_key_id_fragment(
+                                        verification_method.id.fragment(),
+                                    );
                                 let verification_method_record =
                                     did_webplus_wallet_store::VerificationMethodRecord {
                                         did_key_resource_fully_qualified: did_fully_qualified
-                                            .with_fragment(&verification_method.id.fragment()),
+                                            .with_fragment(verification_method.id.fragment()),
                                         key_purpose_flags,
                                         pub_key,
                                     };
@@ -1801,9 +1813,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             .change_mb_hash_function_for_self_hash_o
             .map(|o| o.to_owned());
 
-        let latest_did_document = self
-            .fetch_did_internal(&did, http_options_o)
-            .await?;
+        let latest_did_document = self.fetch_did_internal(&did, http_options_o).await?;
         let did_fully_qualified = did.with_queries(
             &latest_did_document.self_hash,
             latest_did_document.version_id,
@@ -1868,11 +1878,13 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             if let Some(primary_key) = primary_keys.into_iter().next() {
                                 let key_purpose_flags = latest_did_document
                                     .public_key_material
-                                    .key_purpose_flags_for_key_id_fragment(&pub_key);
+                                    .key_purpose_flags_for_key_id_fragment(
+                                        verification_method.id.fragment(),
+                                    );
                                 let verification_method_record =
                                     did_webplus_wallet_store::VerificationMethodRecord {
                                         did_key_resource_fully_qualified: did_fully_qualified
-                                            .with_fragment(&verification_method.id.fragment()),
+                                            .with_fragment(verification_method.id.fragment()),
                                         key_purpose_flags,
                                         pub_key,
                                     };

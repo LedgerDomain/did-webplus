@@ -10,8 +10,8 @@ pub struct WalletBasedSigner<W: Wallet> {
     wallet: W,
     /// Specifies the KeyPurpose for the signing key.
     key_purpose: did_webplus_core::KeyPurpose,
-    /// Specifies the key ID that will be used to select the signing key.
-    key_id: did_webplus_core::DIDKeyResourceFullyQualified,
+    /// Specifies the specific key that will be used to sign.
+    key_fully_qualified: did_webplus_core::DIDKeyResourceFullyQualified,
     /// Specifies the JOSE algorithm for this key.
     jose_algorithm: &'static str,
 }
@@ -40,21 +40,20 @@ impl<W: Wallet> WalletBasedSigner<W> {
                 locally_controlled_verification_method_filter,
             )
             .await?;
-        let key_id = verification_method_record.did_key_resource_fully_qualified;
         use signature_dyn::SignerDynT;
         let jose_algorithm = signer_bytes.jose_algorithm();
         Ok(Self {
             wallet,
             key_purpose,
-            key_id,
+            key_fully_qualified: verification_method_record.did_key_resource_fully_qualified,
             jose_algorithm,
         })
     }
     pub fn key_purpose(&self) -> did_webplus_core::KeyPurpose {
         self.key_purpose
     }
-    pub fn key_id(&self) -> &did_webplus_core::DIDKeyResourceFullyQualifiedStr {
-        &self.key_id
+    pub fn key_fully_qualified(&self) -> &did_webplus_core::DIDKeyResourceFullyQualifiedStr {
+        &self.key_fully_qualified
     }
 }
 
@@ -79,7 +78,7 @@ impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
             }
         };
         Ok(ssi_jws::JwsSignerInfo {
-            key_id: Some(self.key_id.to_string()),
+            key_id: Some(self.key_fully_qualified.to_string()),
             algorithm,
         })
     }
@@ -91,10 +90,10 @@ impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
             .wallet
             .get_locally_controlled_verification_method(
                 did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
-                    did_o: Some(self.key_id.did().to_owned()),
+                    did_o: Some(self.key_fully_qualified.did().to_owned()),
                     key_purpose_o: Some(self.key_purpose),
-                    version_id_o: None,
-                    key_id_o: Some(self.key_id.to_string()),
+                    version_id_o: Some(self.key_fully_qualified.query_version_id()),
+                    key_id_o: Some(self.key_fully_qualified.fragment().to_string()),
                     result_limit_o: None,
                 },
             )
@@ -123,9 +122,7 @@ impl<W: Wallet + Clone> ssi_verification_methods::Signer<ssi_verification_method
         &self,
         method: Cow<'_, ssi_verification_methods::AnyMethod>,
     ) -> std::result::Result<Option<Self::MessageSigner>, ssi_claims::SignatureError> {
-        let method_id = method.id().as_str();
-        let our_key_id = self.key_id.to_string();
-        if method_id == our_key_id {
+        if method.id().as_str() == self.key_fully_qualified.as_str() {
             Ok(Some(self.clone()))
         } else {
             Ok(None)
