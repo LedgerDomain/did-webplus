@@ -1,4 +1,6 @@
-use crate::Result;
+use std::sync::Arc;
+
+use crate::{DIDWebplus, Result};
 use ssi_claims::jwt::ToDecodedJwt;
 
 pub async fn sign_jwt<Claims: serde::Serialize, Signer: ssi_jws::JwsSigner>(
@@ -9,11 +11,14 @@ pub async fn sign_jwt<Claims: serde::Serialize, Signer: ssi_jws::JwsSigner>(
     Ok(claims.sign(signer).await?)
 }
 
-pub async fn verify_jwt<R: ssi_dids::DIDResolver>(
+pub async fn verify_jwt(
     jwt: &str,
-    did_resolver: R,
+    did_resolver_a: Arc<dyn did_webplus_resolver::DIDResolver>,
 ) -> Result<ssi_jws::JwsBuf> {
-    // Setup the verification parameters.
+    let did_resolver = DIDWebplus { did_resolver_a };
+    // Also add the did:key resolver.
+    let did_resolver = (did_resolver, ssi_dids::DIDKey);
+    use ssi_dids::DIDResolver;
     let vm_resolver = did_resolver.into_vm_resolver::<ssi_verification_methods::AnyJwkMethod>();
     let params = ssi_claims::VerificationParameters::from_resolver(vm_resolver);
     // Not sure why using the borrowed version requires static lifetime for jwt,

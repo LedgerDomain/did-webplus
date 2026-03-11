@@ -10,6 +10,9 @@ impl DIDResolver {
     pub fn new(did_resolver_a: Arc<dyn did_webplus_resolver::DIDResolver>) -> Self {
         Self(did_resolver_a)
     }
+    pub fn as_arc(&self) -> &Arc<dyn did_webplus_resolver::DIDResolver> {
+        &self.0
+    }
 }
 
 #[wasm_bindgen]

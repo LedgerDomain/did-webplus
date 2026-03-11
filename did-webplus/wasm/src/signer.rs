@@ -1,4 +1,4 @@
-use crate::{into_js_value, KeyType, Result};
+use crate::{KeyType, Result, into_js_value};
 use std::sync::Arc;
 use wasm_bindgen::prelude::wasm_bindgen;
 

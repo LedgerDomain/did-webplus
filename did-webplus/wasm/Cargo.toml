@@ -49,8 +49,10 @@ selfhash = { version = "0.5.1", features = ["mbx"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
+serde-wasm-bindgen = "0.6.5"
 signature-dyn = "0.1.0"
 ssi-claims = { version = "0.4.0", features = ["webplus"] }
+ssi-jws = "0.3.1"
 storage-traits = { path = "../../storage-traits" }
 time = { version = "0.3", features = ["wasm-bindgen"] }
 tracing = { version = "0.1.37", features = ["log"] }
