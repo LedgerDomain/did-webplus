@@ -171,16 +171,12 @@ async fn create_in_memory_software_wallet() -> (
     Arc<did_webplus_wallet_storage_sqlite::WalletStorageSQLite>,
     did_webplus_software_wallet::SoftwareWallet,
 ) {
-    let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
-        .await
-        .expect("pass");
-    let wallet_storage_a = Arc::new(
-        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
-            sqlite_pool,
-        )
-        .await
-        .expect("pass"),
-    );
+    let db_url = "sqlite://:memory:";
+    let wallet_storage =
+        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_url_and_run_migrations(db_url)
+            .await
+            .expect("pass");
+    let wallet_storage_a = Arc::new(wallet_storage);
     use storage_traits::StorageDynT;
     let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
     let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(
@@ -236,12 +232,10 @@ async fn test_did_resolver() {
     let did_resolver_full_m = {
         let mut did_resolver_full_m = HashMap::with_capacity(2);
         for vdg_host_o in [None, Some(services.vdg_host().to_string())] {
-            let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
-                .await
-                .expect("pass");
             let did_doc_storage =
-                did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                    sqlite_pool,
+                did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
+                    "sqlite://:memory:",
+                    None,
                 )
                 .await
                 .expect("pass");
@@ -392,13 +386,13 @@ async fn test_did_resolver() {
 async fn create_did_resolver_full(
     vdg_host_o: Option<&str>,
 ) -> did_webplus_resolver::DIDResolverFull {
-    let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
+    let did_doc_storage =
+        did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
+            "sqlite://:memory:",
+            None,
+        )
         .await
         .expect("pass");
-    let did_doc_storage =
-        did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(sqlite_pool)
-            .await
-            .expect("pass");
     let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
     did_webplus_resolver::DIDResolverFull::new(did_doc_store, vdg_host_o, None).expect("pass")
 }

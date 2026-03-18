@@ -45,16 +45,14 @@ async fn test_urd_with_full_did_resolver_without_vdg() {
 
     // Create an in-memory SoftwareWallet.
     let (wallet_storage_a, software_wallet) = {
-        let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
-            .await
-            .expect("pass");
-        let wallet_storage_a = Arc::new(
-            did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+        let db_url = "sqlite://:memory:";
+        let wallet_storage =
+            did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_url_and_run_migrations(
+                db_url,
             )
             .await
-            .expect("pass"),
-        );
+            .expect("pass");
+        let wallet_storage_a = Arc::new(wallet_storage);
         use storage_traits::StorageDynT;
         let mut transaction_b = wallet_storage_a.begin_transaction().await.expect("pass");
         let software_wallet = did_webplus_software_wallet::SoftwareWallet::create(

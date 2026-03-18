@@ -24,10 +24,11 @@ pub async fn create_did_resolver_full(
             );
         }
     } else if database_url.starts_with("sqlite://") {
-        let sqlite_pool = sqlx::SqlitePool::connect(database_url).await?;
         let did_doc_storage =
-            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
+                database_url,
+                // This is a tradeoff between durability and performance, reasonable for non-critical DID doc stores.
+                Some("NORMAL"),
             )
             .await?;
         did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage))

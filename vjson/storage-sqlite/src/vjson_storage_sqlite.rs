@@ -7,7 +7,7 @@ pub struct VJSONStorageSQLite {
 }
 
 impl VJSONStorageSQLite {
-    pub async fn open_and_run_migrations(sqlite_pool: SqlitePool) -> Result<Self> {
+    async fn open_and_run_migrations(sqlite_pool: SqlitePool) -> Result<Self> {
         sqlx::migrate!().run(&sqlite_pool).await.map_err(|err| {
             Error::StorageError(
                 format!(
@@ -18,6 +18,33 @@ impl VJSONStorageSQLite {
             )
         })?;
         Ok(Self { sqlite_pool })
+    }
+    pub async fn open_url_and_run_migrations(db_url: &str) -> Result<Self> {
+        tracing::debug!("Connecting to VJSON store DB at {}", db_url);
+        let sqlite_pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .after_connect(|conn, _meta| {
+                Box::pin(async move {
+                    // Prevent immediate failure when the DB is locked, instead wait up to 5 seconds for it to become available.
+                    sqlx::query("PRAGMA busy_timeout = 5000;")
+                        .execute(&mut *conn)
+                        .await?;
+                    // FULL is most durable mode.  NORMAL could be a reasonable choice, but let's go
+                    // with the more conservative choice for now.
+                    sqlx::query("PRAGMA synchronous = FULL;")
+                        .execute(conn)
+                        .await?;
+                    Ok(())
+                })
+            })
+            .connect(db_url)
+            .await?;
+
+        // Use WAL journal mode for better concurrency.
+        sqlx::query("PRAGMA journal_mode = WAL;")
+            .execute(&sqlite_pool)
+            .await?;
+
+        Self::open_and_run_migrations(sqlite_pool).await
     }
 }
 

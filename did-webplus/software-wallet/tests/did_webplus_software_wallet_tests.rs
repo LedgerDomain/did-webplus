@@ -127,14 +127,10 @@ async fn test_software_wallet_with_storage_sqlite() {
         std::fs::remove_file(wallet_store_database_path).expect("pass");
     }
 
-    let sqlite_pool = sqlx::SqlitePool::connect(
-        format!("sqlite://{}?mode=rwc", wallet_store_database_path).as_str(),
-    )
-    .await
-    .expect("pass");
+    let db_url = format!("sqlite://{}?mode=rwc", wallet_store_database_path);
     let wallet_storage =
-        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
-            sqlite_pool,
+        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_url_and_run_migrations(
+            db_url.as_str(),
         )
         .await
         .expect("pass");

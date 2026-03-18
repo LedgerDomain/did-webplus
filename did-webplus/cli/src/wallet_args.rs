@@ -44,15 +44,15 @@ impl WalletArgs {
             "WalletArgs::get_wallet_storage; wallet_db_url: {}",
             self.wallet_db_url
         );
-        let sqlite_pool = if let Some(wallet_db_path_str) =
+        let wallet_db_path_string = if let Some(wallet_db_path_str) =
             self.wallet_db_url.as_str().strip_prefix("sqlite://")
         {
             // Apply tilde expansion to the path.
             let wallet_db_path = expanduser::expanduser(wallet_db_path_str)?;
             // See https://stackoverflow.com/questions/37388107/how-to-convert-the-pathbuf-to-string
             // TODO: Use std::path::Diplay via Path::display method.
-            let wallet_db_path_str = wallet_db_path.as_os_str().to_str().unwrap();
-            tracing::debug!("Tilde-expanded wallet DB path: {}", wallet_db_path_str);
+            let wallet_db_path_string = wallet_db_path.as_os_str().to_str().unwrap().to_string();
+            tracing::debug!("Tilde-expanded wallet DB path: {}", wallet_db_path_string);
             if !wallet_db_path.exists() {
                 if let Some(wallet_db_url_parent) = wallet_db_path.parent() {
                     tracing::debug!(
@@ -63,14 +63,13 @@ impl WalletArgs {
                     std::fs::create_dir_all(wallet_db_url_parent)?;
                 }
             }
-            tracing::debug!("Connecting to wallet DB at {}", wallet_db_path_str);
-            sqlx::SqlitePool::connect(wallet_db_path_str).await?
+            wallet_db_path_string
         } else {
             unimplemented!("non-SQLite wallet DBs are not yet supported.");
         };
         let wallet_storage =
-            did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+            did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_url_and_run_migrations(
+                wallet_db_path_string.as_str(),
             )
             .await?;
         Ok(Arc::new(wallet_storage))

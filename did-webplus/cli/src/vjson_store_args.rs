@@ -24,17 +24,21 @@ impl VJSONStoreArgs {
             "get_vjson_storage; self.vjson_store_db_url: {}",
             self.vjson_store_db_url
         );
-        let sqlite_pool = if let Some(vjson_store_db_path_str) =
+        let vjson_store_db_path_string = if let Some(vjson_store_db_path_str) =
             self.vjson_store_db_url.strip_prefix("sqlite://")
         {
             // Apply tilde expansion to the path.
             let vjson_store_db_path = expanduser::expanduser(vjson_store_db_path_str)?;
             // See https://stackoverflow.com/questions/37388107/how-to-convert-the-pathbuf-to-string
             // TODO: Use std::path::Diplay via Path::display method.
-            let vjson_store_db_path_str = vjson_store_db_path.as_os_str().to_str().unwrap();
+            let vjson_store_db_path_string = vjson_store_db_path
+                .as_os_str()
+                .to_str()
+                .unwrap()
+                .to_string();
             tracing::debug!(
                 "Tilde-expanded vjson_store DB path: {}",
-                vjson_store_db_path_str
+                vjson_store_db_path_string
             );
             if !vjson_store_db_path.exists() {
                 if let Some(vjson_store_db_url_parent) = vjson_store_db_path.parent() {
@@ -46,16 +50,14 @@ impl VJSONStoreArgs {
                     std::fs::create_dir_all(vjson_store_db_url_parent)?;
                 }
             }
-            tracing::debug!(
-                "Connecting to vjson_store DB at {}",
-                vjson_store_db_path_str
-            );
-            sqlx::SqlitePool::connect(vjson_store_db_path_str).await?
+            vjson_store_db_path_string
         } else {
             unimplemented!("non-SQLite vjson_store DBs are not yet supported.");
         };
-        let vjson_storage =
-            vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool).await?;
+        let vjson_storage = vjson_storage_sqlite::VJSONStorageSQLite::open_url_and_run_migrations(
+            vjson_store_db_path_string.as_str(),
+        )
+        .await?;
         Ok(Arc::new(vjson_storage))
     }
     pub async fn get_vjson_store(&self) -> Result<vjson_store::VJSONStore> {

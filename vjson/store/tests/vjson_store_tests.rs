@@ -17,13 +17,11 @@ async fn test_vjson_store_0() {
         std::fs::remove_file(vjson_store_path).expect("pass");
     }
 
-    let sqlite_pool =
-        sqlx::SqlitePool::connect(format!("sqlite://{}?mode=rwc", vjson_store_path).as_str())
+    let db_url = format!("sqlite://{}?mode=rwc", vjson_store_path);
+    let storage =
+        vjson_storage_sqlite::VJSONStorageSQLite::open_url_and_run_migrations(db_url.as_str())
             .await
-            .unwrap();
-    let storage = vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool)
-        .await
-        .expect("pass");
+            .expect("pass");
 
     // Note that this adds the Default schema to the VJSONStorage, so it's not necessary to do so explicitly.
     let vjson_store = vjson_store::VJSONStore::new(Arc::new(storage))

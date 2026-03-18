@@ -25,17 +25,21 @@ impl DIDDocStoreArgs {
             "get_did_doc_storage; self.did_doc_store_db_url: {}",
             self.did_doc_store_db_url
         );
-        let sqlite_pool = if let Some(did_doc_db_path_str) =
+        let did_doc_store_db_path_string = if let Some(did_doc_db_path_str) =
             self.did_doc_store_db_url.strip_prefix("sqlite://")
         {
             // Apply tilde expansion to the path.
             let did_doc_store_db_path = expanduser::expanduser(did_doc_db_path_str)?;
             // See https://stackoverflow.com/questions/37388107/how-to-convert-the-pathbuf-to-string
             // TODO: Use std::path::Diplay via Path::display method.
-            let did_doc_store_db_path_str = did_doc_store_db_path.as_os_str().to_str().unwrap();
+            let did_doc_store_db_path_string = did_doc_store_db_path
+                .as_os_str()
+                .to_str()
+                .unwrap()
+                .to_string();
             tracing::debug!(
                 "Tilde-expanded did_doc_store DB path: {}",
-                did_doc_store_db_path_str
+                did_doc_store_db_path_string
             );
             if !did_doc_store_db_path.exists() {
                 if let Some(did_doc_db_url_parent) = did_doc_store_db_path.parent() {
@@ -47,17 +51,14 @@ impl DIDDocStoreArgs {
                     std::fs::create_dir_all(did_doc_db_url_parent)?;
                 }
             }
-            tracing::debug!(
-                "Connecting to did_doc_store DB at {}",
-                did_doc_store_db_path_str
-            );
-            sqlx::SqlitePool::connect(did_doc_store_db_path_str).await?
+            did_doc_store_db_path_string
         } else {
             unimplemented!("non-SQLite did_doc_store DBs are not yet supported.");
         };
         let did_doc_storage =
-            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
+                did_doc_store_db_path_string.as_str(),
+                None,
             )
             .await?;
         Ok(Arc::new(did_doc_storage))

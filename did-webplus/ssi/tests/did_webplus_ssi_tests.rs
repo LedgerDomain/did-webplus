@@ -108,12 +108,11 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
     // Create a verification method resolver, which will be in charge of
     // decoding the DID back into a public key.
     let did_resolver = {
-        let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
-            .await
-            .expect("pass");
+        let db_url = "sqlite://:memory:";
         let did_doc_storage =
-            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
+                db_url,
+                None,
             )
             .await
             .expect("pass");
@@ -192,18 +191,17 @@ async fn test_ssi_vc_issue_0_impl(
     .expect("pass");
 
     // Create the DID URL which fully qualifies the specific key to be used.
-    let did_url = ssi_dids::DIDURLBuf::from_string(wallet_based_signer.key_id().to_string())
-        .expect("pass");
+    let did_url =
+        ssi_dids::DIDURLBuf::from_string(wallet_based_signer.key_id().to_string()).expect("pass");
 
     // Create a verification method resolver, which will be in charge of
     // decoding the DID back into a public key.
     let did_resolver = {
-        let sqlite_pool = sqlx::SqlitePool::connect("sqlite://:memory:")
-            .await
-            .expect("pass");
+        let db_url = "sqlite://:memory:";
         let did_doc_storage =
-            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
+                db_url,
+                None,
             )
             .await
             .expect("pass");
@@ -594,16 +592,10 @@ async fn setup_vdr_and_wallet(
 
     // While that's spinning up, let's create the wallet.
     let wallet_storage_a = {
-        // TODO: Make this into a function, since it's a lot of duplication everywhere, and requires
-        // importing a bunch of crates.
-        let sqlite_pool = sqlx::SqlitePool::connect(
-            format!("sqlite://{}?mode=rwc", wallet_store_database_path).as_str(),
-        )
-        .await
-        .expect("pass");
+        let db_url = format!("sqlite://{}?mode=rwc", wallet_store_database_path);
         let wallet_storage =
-            did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+            did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_url_and_run_migrations(
+                db_url.as_str(),
             )
             .await
             .expect("pass");

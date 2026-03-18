@@ -1473,6 +1473,7 @@ dependencies = [
  "sqlx",
  "storage-traits",
  "time",
+ "tracing",
 ]
 
 [[package]]

@@ -93,17 +93,12 @@ async fn test_did_key_sign_vjson_verify_impl(key_type: signature_dyn::KeyType) {
     let signer_b = did_webplus_cli_lib::private_key_generate(key_type);
 
     let vjson_store = {
-        let sqlite_pool = sqlx::SqlitePool::connect(
-            format!(
-                "sqlite://{}?mode=rwc",
-                vjson_store_database_path.to_str().unwrap()
-            )
-            .as_str(),
-        )
-        .await
-        .expect("pass");
+        let db_url = format!(
+            "sqlite://{}?mode=rwc",
+            vjson_store_database_path.to_str().unwrap()
+        );
         let vjson_storage =
-            vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool)
+            vjson_storage_sqlite::VJSONStorageSQLite::open_url_and_run_migrations(db_url.as_str())
                 .await
                 .expect("pass");
         vjson_store::VJSONStore::new(Arc::new(vjson_storage))
@@ -295,26 +290,21 @@ async fn test_wallet_did_create_update_sign_jws_verify() {
     );
 
     let wallet_storage = {
-        let sqlite_pool = sqlx::SqlitePool::connect(
-            format!("sqlite://{}?mode=rwc", wallet_store_database_path).as_str(),
+        let db_url = format!("sqlite://{}?mode=rwc", wallet_store_database_path);
+        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_url_and_run_migrations(
+            db_url.as_str(),
         )
         .await
-        .expect("pass");
-        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(sqlite_pool)
-            .await
-            .expect("pass")
+        .expect("pass")
     };
     let wallet_storage_a = Arc::new(wallet_storage);
 
     let did_resolver_full = {
-        let sqlite_pool = sqlx::SqlitePool::connect(
-            format!("sqlite://{}?mode=rwc", did_doc_store_database_path).as_str(),
-        )
-        .await
-        .expect("pass");
+        let db_url = format!("sqlite://{}?mode=rwc", did_doc_store_database_path);
         let did_doc_storage =
-            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
+                db_url.as_str(),
+                None,
             )
             .await
             .expect("pass");
@@ -444,26 +434,21 @@ async fn test_wallet_did_sign_vjson_verify() {
     );
 
     let wallet_storage = {
-        let sqlite_pool = sqlx::SqlitePool::connect(
-            format!("sqlite://{}?mode=rwc", wallet_store_database_path).as_str(),
+        let db_url = format!("sqlite://{}?mode=rwc", wallet_store_database_path);
+        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_url_and_run_migrations(
+            db_url.as_str(),
         )
         .await
-        .expect("pass");
-        did_webplus_wallet_storage_sqlite::WalletStorageSQLite::open_and_run_migrations(sqlite_pool)
-            .await
-            .expect("pass")
+        .expect("pass")
     };
     let wallet_storage_a = Arc::new(wallet_storage);
 
     let did_resolver_full = {
-        let sqlite_pool = sqlx::SqlitePool::connect(
-            format!("sqlite://{}?mode=rwc", did_doc_store_database_path).as_str(),
-        )
-        .await
-        .expect("pass");
+        let db_url = format!("sqlite://{}?mode=rwc", did_doc_store_database_path);
         let did_doc_storage =
-            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_and_run_migrations(
-                sqlite_pool,
+            did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
+                db_url.as_str(),
+                None,
             )
             .await
             .expect("pass");
@@ -501,13 +486,9 @@ async fn test_wallet_did_sign_vjson_verify() {
     tracing::debug!("created DID: {} - fully qualified: {}", did, controlled_did);
 
     let vjson_store = {
-        let sqlite_pool = sqlx::SqlitePool::connect(
-            format!("sqlite://{}?mode=rwc", vjson_store_database_path).as_str(),
-        )
-        .await
-        .expect("pass");
+        let db_url = format!("sqlite://{}?mode=rwc", vjson_store_database_path);
         let vjson_storage =
-            vjson_storage_sqlite::VJSONStorageSQLite::open_and_run_migrations(sqlite_pool)
+            vjson_storage_sqlite::VJSONStorageSQLite::open_url_and_run_migrations(db_url.as_str())
                 .await
                 .expect("pass");
         vjson_store::VJSONStore::new(Arc::new(vjson_storage))

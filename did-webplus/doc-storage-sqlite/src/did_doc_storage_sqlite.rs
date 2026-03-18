@@ -8,7 +8,7 @@ pub struct DIDDocStorageSQLite {
 }
 
 impl DIDDocStorageSQLite {
-    pub async fn open_and_run_migrations(sqlite_pool: SqlitePool) -> Result<Self> {
+    async fn open_and_run_migrations(sqlite_pool: SqlitePool) -> Result<Self> {
         sqlx::migrate!().run(&sqlite_pool).await.map_err(|err| {
             Error::StorageError(
                 format!(
@@ -19,6 +19,49 @@ impl DIDDocStorageSQLite {
             )
         })?;
         Ok(Self { sqlite_pool })
+    }
+    /// If synchronous_mode_o is None, default to "FULL".  Otherwise, the synchronous mode must be
+    /// one of Some("OFF"), Some("NORMAL"), Some("FULL"), Some("EXTRA").
+    /// See <https://sqlite.org/pragma.html> for details on the available synchronous modes.
+    pub async fn open_url_and_run_migrations(
+        db_url: &str,
+        synchronous_mode_o: Option<&'static str>,
+    ) -> Result<Self> {
+        match synchronous_mode_o {
+            Some("OFF") | Some("NORMAL") | Some("FULL") | Some("EXTRA") | None => {
+                // Valid.
+            }
+            Some(synchronous_mode) => {
+                return Err(Error::StorageError(
+                    format!("Invalid synchronous mode: {}", synchronous_mode).into(),
+                ));
+            }
+        }
+        tracing::debug!("Connecting to did_doc_store DB at {}", db_url);
+        // Always default to the most durable mode.
+        let synchronous_mode = synchronous_mode_o.unwrap_or("FULL");
+        let sqlite_pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .after_connect(move |conn, _meta| {
+                Box::pin(async move {
+                    // Prevent immediate failure when the DB is locked, instead wait up to 5 seconds for it to become available.
+                    sqlx::query("PRAGMA busy_timeout = 5000;")
+                        .execute(&mut *conn)
+                        .await?;
+                    sqlx::query(format!("PRAGMA synchronous = {};", synchronous_mode).as_str())
+                        .execute(conn)
+                        .await?;
+                    Ok(())
+                })
+            })
+            .connect(db_url)
+            .await?;
+
+        // Use WAL journal mode for better concurrency.
+        sqlx::query("PRAGMA journal_mode = WAL;")
+            .execute(&sqlite_pool)
+            .await?;
+
+        Self::open_and_run_migrations(sqlite_pool).await
     }
 }
 
