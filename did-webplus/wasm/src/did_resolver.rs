@@ -2,6 +2,7 @@ use crate::{DIDDocStore, HTTPOptions, Result, into_js_value};
 use std::{ops::Deref, sync::Arc};
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
+/// A DIDResolver will resolve a DID and produce a corresponding DID document.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct DIDResolver(Arc<dyn did_webplus_resolver::DIDResolver>);

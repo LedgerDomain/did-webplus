@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::wasm_bindgen;
 
+/// Specifies a hash function for use in generating self-hashes for did:webplus DID documents.
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum HashFunction {
@@ -14,6 +15,7 @@ pub enum HashFunction {
     Sha3_512,
 }
 
+/// Specifies a base for use in generating self-hashes for did:webplus DID documents.
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Base {
@@ -21,12 +23,14 @@ pub enum Base {
     Base64Url,
 }
 
+/// MBHashFunction represents a specific base and hash function for use in generating self-hashes for did:webplus DID documents.
 #[wasm_bindgen]
 #[derive(Clone, Debug)]
 pub struct MBHashFunction(selfhash::MBHashFunction);
 
 #[wasm_bindgen]
 impl MBHashFunction {
+    /// Creates a new MBHashFunction with the given base and hash function.
     pub fn new(base: Base, hash_function: HashFunction) -> Self {
         let base = match base {
             Base::Base58Btc => mbx::Base::Base58Btc,

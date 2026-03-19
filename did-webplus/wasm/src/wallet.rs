@@ -121,6 +121,8 @@ impl DeactivateDIDParameters {
     }
 }
 
+/// Wallet contains private keys, controls a set of DIDs, and is capable of creating WalletBasedSigners,
+/// which are used to sign artifacts such as JWTs, VCs, and VPs.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct Wallet(Arc<dyn did_webplus_wallet::Wallet>);

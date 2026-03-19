@@ -2,6 +2,9 @@ use crate::{DIDResolver, Result, WalletBasedSigner, date_to_offset_date_time, in
 use std::ops::Deref;
 use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
+/// Create the content of a VC (a JSON blob).  You can add additional credential-specific content to
+/// the JSON blob, though note that if you do, you will likely also need to specify an additional
+/// element in the additional_context_vo argument.
 #[wasm_bindgen]
 pub fn new_unsigned_credential(
     additional_context_vo: Option<Vec<String>>,
@@ -41,6 +44,7 @@ pub fn new_unsigned_credential(
     Ok(serde_wasm_bindgen::to_value(&unsigned_credential).map_err(into_js_value)?)
 }
 
+/// Issue an LDP-formatted VC (a JSON blob).  Use new_unsigned_credential to create the content of the credential.
 #[wasm_bindgen]
 pub async fn issue_vc_ldp(
     unsigned_credential_jsvalue: JsValue,
@@ -60,6 +64,8 @@ pub async fn issue_vc_ldp(
     Ok(serde_wasm_bindgen::to_value(&vc_ldp).map_err(into_js_value)?)
 }
 
+/// Verify an LDP-formatted VC (a JSON blob), returning an error if the verification fails.  NOTE: This
+/// does NOT also verify credential-specific validity constraints; that must be done separately and explicitly.
 #[wasm_bindgen]
 pub async fn verify_vc_ldp(vc_ldp_jsvalue: JsValue, did_resolver: &DIDResolver) -> Result<()> {
     let did_resolver_a = did_resolver.as_arc().clone();
@@ -74,6 +80,7 @@ pub async fn verify_vc_ldp(vc_ldp_jsvalue: JsValue, did_resolver: &DIDResolver) 
     Ok(())
 }
 
+/// Issue a JWT-formatted VC.  Use new_unsigned_credential to create the content of the credential.
 #[wasm_bindgen]
 pub async fn issue_vc_jwt(
     unsigned_credential_jsvalue: JsValue,
@@ -87,6 +94,8 @@ pub async fn issue_vc_jwt(
     Ok(vc_jwt.into_string())
 }
 
+/// Verify a JWT-formatted VC, returning an error if the verification fails.  NOTE: This
+/// does NOT also verify credential-specific validity constraints; that must be done separately and explicitly.
 #[wasm_bindgen]
 pub async fn verify_vc_jwt(vc_jwt: String, did_resolver: &DIDResolver) -> Result<()> {
     let did_resolver_a = did_resolver.as_arc().clone();

@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use wasm_bindgen::prelude::wasm_bindgen;
 
+/// A DIDDocStore is a data structure that contains DID documents that have been validated and added to the store.
+/// This provides a self-sovereign way to ensure that DID documents are valid and consistent.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct DIDDocStore(did_webplus_doc_store::DIDDocStore);
@@ -13,6 +15,7 @@ impl DIDDocStore {
 
 #[wasm_bindgen]
 impl DIDDocStore {
+    /// Creates a new DIDDocStore with a mock (i.e. memory-backed) DIDDocStorage implementation.
     pub async fn new_mock() -> Self {
         let did_doc_storage_mock = did_webplus_doc_storage_mock::DIDDocStorageMock::new();
         let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage_mock));

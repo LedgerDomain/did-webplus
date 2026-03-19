@@ -1,21 +1,27 @@
 use crate::{Result, into_js_value};
 use wasm_bindgen::prelude::wasm_bindgen;
 
+/// HTTPHeadersFor is a data structure that contains a mapping of hostnames to HTTP headers,
+/// used to configure the behavior of the HTTP clients (e.g. DID resolution, DID create/update/deactivate, etc.),
+/// to e.g. specify API keys for specific hosts.
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct HTTPHeadersFor(did_webplus_core::HTTPHeadersFor);
 
 #[wasm_bindgen]
 impl HTTPHeadersFor {
+    /// Creates a new HTTPHeadersFor with no headers.
     pub fn new() -> Result<Self> {
         Ok(Self(did_webplus_core::HTTPHeadersFor::new()))
     }
+    /// Parses a semicolon-separated list of `hostname=header_name=header_value` pairs into a HTTPHeadersFor.
     pub fn parse_from_semicolon_separated_pairs(s: String) -> Result<Self> {
         let http_headers_for =
             did_webplus_core::HTTPHeadersFor::parse_from_semicolon_separated_pairs(s.as_str())
                 .map_err(into_js_value)?;
         Ok(Self(http_headers_for))
     }
+    /// Adds a header for the given hostname.
     pub fn add_header(&mut self, hostname: String, header_name: String, header_value: String) {
         self.0.add_header(
             hostname,

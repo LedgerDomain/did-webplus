@@ -1,8 +1,10 @@
-use crate::{into_js_value, Result, Signer, VerifierResolver};
+use crate::{Result, Signer, VerifierResolver, into_js_value};
 use std::ops::Deref;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
 
-/// NOTE: The payload should be bytes (Vec<u8>), but for now just use a String.
+/// Sign a JWS.  payload_string specifies the payload of the JWS (the payload should be bytes (Vec<u8>), but
+/// for now just use a String).  payload_presence specifies whether the payload is attached or detached.
+/// payload_encoding specifies whether the payload is encoded or unencoded.
 #[wasm_bindgen]
 pub fn jws_sign(
     payload_string: String,
@@ -21,7 +23,7 @@ pub fn jws_sign(
     Ok(jws.into_string())
 }
 
-/// Note that the return value will be null, but will throw an error if the verification fails.
+/// Verify a JWS.  Note that the return value will be null, but will throw an error if the verification fails.
 // TODO: Support detached payload later.
 #[wasm_bindgen]
 pub fn jws_verify(jws: String, verifier_resolver: &VerifierResolver) -> js_sys::Promise {

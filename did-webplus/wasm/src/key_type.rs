@@ -2,6 +2,7 @@ use wasm_bindgen::JsValue;
 
 use crate::into_js_value;
 
+/// Specifies a key type, used e.g. in creating a private key.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub enum KeyType {

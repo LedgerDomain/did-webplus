@@ -1,12 +1,14 @@
 use crate::{Result, into_js_value};
 use wasm_bindgen::prelude::wasm_bindgen;
 
+/// A DID (Decentralized Identifier) is a unique identifier from which a DID document can be resolved.
 #[wasm_bindgen]
 #[derive(Clone, Debug)]
 pub struct DID(did_webplus_core::DID);
 
 #[wasm_bindgen]
 impl DID {
+    /// Tries to parse a DID from a string.
     pub fn try_from_string(did: String) -> Result<Self> {
         let did = did_webplus_core::DID::try_from(did).map_err(into_js_value)?;
         Ok(Self(did))

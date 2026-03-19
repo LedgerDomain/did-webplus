@@ -1,5 +1,7 @@
 use crate::Wallet;
 
+/// WalletBasedSigner represents a handle to a specific signing key in a specific wallet at a specific version of specific DID.
+/// See Wallet::new_wallet_based_signer for more information.
 #[wasm_bindgen::prelude::wasm_bindgen]
 #[derive(Clone)]
 pub struct WalletBasedSigner(did_webplus_wallet::WalletBasedSigner<Wallet>);

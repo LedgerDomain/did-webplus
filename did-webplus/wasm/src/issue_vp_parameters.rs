@@ -1,5 +1,6 @@
 use wasm_bindgen::prelude::wasm_bindgen;
 
+/// Parameters for issuing a VP.
 #[wasm_bindgen]
 #[derive(Clone, Debug)]
 pub struct IssueVPParameters {
@@ -10,7 +11,7 @@ pub struct IssueVPParameters {
 
 #[wasm_bindgen]
 impl IssueVPParameters {
-    #[wasm_bindgen]
+    /// Creates a new IssueVPParameters with the given challenge, domains, and nonce.
     pub fn new(
         challenge_o: Option<String>,
         domains_vo: Option<Vec<String>>,

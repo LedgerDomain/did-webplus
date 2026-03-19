@@ -69,6 +69,7 @@ pub fn new_unsigned_presentation(
     Ok(serde_wasm_bindgen::to_value(&unsigned_presentation)?)
 }
 
+/// Issue an LDP-formatted VP (a JSON blob).  Use new_unsigned_presentation to create the content of the presentation.
 #[wasm_bindgen]
 pub async fn issue_vp_ldp(
     unsigned_presentation_jsvalue: JsValue,
@@ -93,6 +94,9 @@ pub async fn issue_vp_ldp(
     Ok(serde_wasm_bindgen::to_value(&vp_ldp).map_err(into_js_value)?)
 }
 
+/// Verify an LDP-formatted VP (a JSON blob), returning an error if the verification fails.  NOTE: This
+/// does NOT also verify the credentials it contains.  Verifying credentials is its own complex procedure,
+/// so it must be done separately and explicitly.  See verify_vc_jwt and verify_vc_ldp.
 #[wasm_bindgen]
 pub async fn verify_vp_ldp(vp_ldp_jsvalue: JsValue, did_resolver: &DIDResolver) -> Result<()> {
     let did_resolver_a = did_resolver.as_arc().clone();
@@ -109,6 +113,7 @@ pub async fn verify_vp_ldp(vp_ldp_jsvalue: JsValue, did_resolver: &DIDResolver) 
     Ok(())
 }
 
+/// Issue a JWT-formatted VP.  Use new_unsigned_presentation to create the content of the presentation.
 #[wasm_bindgen]
 pub async fn issue_vp_jwt(
     unsigned_presentation_jsvalue: JsValue,
@@ -130,6 +135,9 @@ pub async fn issue_vp_jwt(
     Ok(vp_jwt.into_string())
 }
 
+/// Verify a JWT-formatted VP, returning an error if the verification fails.  NOTE: This
+/// does NOT also verify the credentials it contains.  Verifying credentials is its own complex procedure,
+/// so it must be done separately and explicitly.  See verify_vc_jwt and verify_vc_ldp.
 #[wasm_bindgen]
 pub async fn verify_vp_jwt(vp_jwt: String, did_resolver: &DIDResolver) -> Result<()> {
     let did_resolver_a = did_resolver.as_arc().clone();
