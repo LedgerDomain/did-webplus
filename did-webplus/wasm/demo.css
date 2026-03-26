@@ -98,6 +98,12 @@ code,
   }
 }
 
+.cardStack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .card {
   border: 1px solid var(--border);
   background: var(--panel);
@@ -245,6 +251,33 @@ code,
   font-size: 12px;
 }
 
+.btnPill {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1;
+}
+.btnPill:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.btnPill:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.headerMeta {
+  font-size: 12px;
+  max-width: 52%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .btnGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -313,6 +346,9 @@ code,
 
 .details {
   margin-top: 8px;
+}
+.hidden {
+  display: none !important;
 }
 .pre {
   white-space: pre-wrap;

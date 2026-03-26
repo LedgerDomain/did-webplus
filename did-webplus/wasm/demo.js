@@ -50,7 +50,7 @@ const state = {
   didMutationCooldownUntilMs: 0,
 };
 
-const DID_MUTATION_COOLDOWN_MS = 600;
+const DID_MUTATION_COOLDOWN_MS = 500;
 
 function startDidMutationCooldown() {
   state.didMutationCooldownUntilMs = Date.now() + DID_MUTATION_COOLDOWN_MS;
@@ -58,6 +58,24 @@ function startDidMutationCooldown() {
   setTimeout(() => {
     updateWalletDependentUi();
   }, DID_MUTATION_COOLDOWN_MS + 30);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchDidWithRetry({ didBase, attempts, delayMs }) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await state.wallet.fetch_did(didBase, getHttpOptions());
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (i + 1 < attempts) await sleep(delayMs);
+    }
+  }
+  throw lastErr ?? new Error("fetch_did failed");
 }
 
 const el = (() => {
@@ -68,8 +86,15 @@ const el = (() => {
   };
   return {
     appStatus: byId("appStatus"),
+    walletsCard: byId("walletsCard"),
+    activeWalletCard: byId("activeWalletCard"),
+    activeDidCard: byId("activeDidCard"),
     walletDbName: byId("walletDbName"),
-    activeWalletSummary: byId("activeWalletSummary"),
+    activeDidSummaryVersionId: byId("activeDidSummaryVersionId"),
+    activeWalletHeaderNameBtn: byId("activeWalletHeaderNameBtn"),
+    activeWalletHeaderUuidBtn: byId("activeWalletHeaderUuidBtn"),
+    activeDidHeaderDidBtn: byId("activeDidHeaderDidBtn"),
+    activeDidSummarySelfHashBtn: byId("activeDidSummarySelfHashBtn"),
     refreshWalletsBtn: byId("refreshWalletsBtn"),
     createWalletBtn: byId("createWalletBtn"),
     newWalletName: byId("newWalletName"),
@@ -96,8 +121,6 @@ const el = (() => {
     didResolveStatus: byId("didResolveStatus"),
     copyDidResolutionBtn: byId("copyDidResolutionBtn"),
     signingOffline: byId("signingOffline"),
-    signJwtKeyPurpose: byId("signJwtKeyPurpose"),
-    signingKeyId: byId("signingKeyId"),
 
     signJwtBtn: byId("signJwtBtn"),
     issueVcJwtBtn: byId("issueVcJwtBtn"),
@@ -136,6 +159,8 @@ const el = (() => {
 
     jsonEditorDialog: byId("jsonEditorDialog"),
     jsonEditorTitle: byId("jsonEditorTitle"),
+    jsonEditorSubtitle: byId("jsonEditorSubtitle"),
+    jsonEditorExtra: byId("jsonEditorExtra"),
     jsonEditorTextarea: byId("jsonEditorTextarea"),
     jsonEditorStatus: byId("jsonEditorStatus"),
     jsonEditorOkBtn: byId("jsonEditorOkBtn"),
@@ -182,6 +207,10 @@ function updateWalletDependentUi() {
   const hasDid = hasWallet && Boolean(state.activeDidFq);
   const cooldownActive = Date.now() < state.didMutationCooldownUntilMs;
   const allowDidMutations = hasDid && !state.didMutationInFlight && !cooldownActive;
+
+  el.activeWalletCard.classList.toggle("hidden", !hasWallet);
+  el.activeDidCard.classList.toggle("hidden", !hasDid);
+
   el.createDidBtn.disabled = !hasWallet;
   el.refreshDidsBtn.disabled = !hasWallet;
   el.updateDidBtn.disabled = !allowDidMutations;
@@ -211,6 +240,24 @@ async function copyTextToClipboard(text) {
   ta.select();
   document.execCommand("copy");
   document.body.removeChild(ta);
+}
+
+async function copyWithFeedback(buttonEl, text) {
+  const s = String(text ?? "");
+  if (!s) return;
+  await copyTextToClipboard(s);
+  if (!buttonEl) return;
+
+  const prevText = buttonEl.textContent;
+  const prevTitle = buttonEl.title;
+  buttonEl.textContent = "Copied";
+  buttonEl.title = "Copied to clipboard";
+  buttonEl.disabled = true;
+  setTimeout(() => {
+    buttonEl.textContent = prevText;
+    buttonEl.title = prevTitle || "Copy to clipboard";
+    buttonEl.disabled = false;
+  }, 900);
 }
 
 function safeJsonParse(text) {
@@ -347,6 +394,23 @@ function parseDidFq(didFq) {
   };
 }
 
+function setActiveDidSummary() {
+  if (!state.activeDidFq) {
+    el.activeDidSummaryVersionId.textContent = "—";
+    el.activeDidHeaderDidBtn.textContent = "—";
+    el.activeDidHeaderDidBtn.disabled = true;
+    el.activeDidSummarySelfHashBtn.textContent = "—";
+    el.activeDidSummarySelfHashBtn.disabled = true;
+    return;
+  }
+  const { base, selfHash, versionId } = parseDidFq(state.activeDidFq);
+  el.activeDidSummaryVersionId.textContent = versionId || "—";
+  el.activeDidHeaderDidBtn.textContent = base || "—";
+  el.activeDidHeaderDidBtn.disabled = !base;
+  el.activeDidSummarySelfHashBtn.textContent = selfHash || "—";
+  el.activeDidSummarySelfHashBtn.disabled = !selfHash;
+}
+
 function renderActiveDidsEmpty(message) {
   el.activeDidsTbody.innerHTML = "";
   const tr = document.createElement("tr");
@@ -362,6 +426,7 @@ async function refreshControlledDids() {
   if (!state.wallet) {
     state.dids = [];
     state.activeDidFq = "";
+    setActiveDidSummary();
     renderActiveDidsEmpty("Select an active wallet to load DIDs.");
     updateWalletDependentUi();
     return;
@@ -375,6 +440,7 @@ async function refreshControlledDids() {
   } else {
     state.activeDidFq = "";
   }
+  setActiveDidSummary();
 
   el.activeDidsTbody.innerHTML = "";
   if (!dids || dids.length === 0) {
@@ -396,6 +462,7 @@ async function refreshControlledDids() {
     radio.checked = didFq === state.activeDidFq;
     radio.addEventListener("change", async () => {
       state.activeDidFq = didFq;
+      setActiveDidSummary();
       updateWalletDependentUi();
       await refreshLocallyControlledVerificationMethods();
     });
@@ -521,13 +588,19 @@ function isWalletRecordDeleted(rec) {
 
 function setActiveWalletSummary() {
   if (!state.activeWalletUuid) {
-    el.activeWalletSummary.textContent = "(none)";
+    el.activeWalletHeaderNameBtn.textContent = "—";
+    el.activeWalletHeaderNameBtn.disabled = true;
+    el.activeWalletHeaderUuidBtn.textContent = "—";
+    el.activeWalletHeaderUuidBtn.disabled = true;
     return;
   }
   const rec =
     state.walletRecords.find((r) => (r.wallet_uuid?.() ?? "") === state.activeWalletUuid) ?? null;
-  const name = rec?.wallet_name_o?.() ?? null;
-  el.activeWalletSummary.textContent = name ? `${state.activeWalletUuid} (${name})` : state.activeWalletUuid;
+  const name = rec ? getWalletRecordName(rec) : "";
+  el.activeWalletHeaderNameBtn.textContent = name || "—";
+  el.activeWalletHeaderNameBtn.disabled = !name;
+  el.activeWalletHeaderUuidBtn.textContent = state.activeWalletUuid;
+  el.activeWalletHeaderUuidBtn.disabled = false;
 }
 
 function renderWalletsEmpty(message) {
@@ -546,6 +619,7 @@ async function clearActiveWallet({ reason }) {
   state.activeWalletUuid = "";
   setActiveWalletSummary();
   state.activeDidFq = "";
+  setActiveDidSummary();
   renderActiveDidsEmpty("Select an active wallet to load DIDs.");
   renderVmsEmpty("Select an active DID to load keys.");
   setSignedArtifact("");
@@ -562,9 +636,11 @@ async function openWalletByUuid(walletUuid) {
   state.wallet = await Wallet.open(DEFAULTS.walletDbName, uuid, DEFAULTS.vdgHost);
   state.activeWalletUuid = uuid;
   setActiveWalletSummary();
+  await refreshWalletRecords({ autoSelectSingle: false });
 
   // Active DID is wallet-specific.
   state.activeDidFq = "";
+  setActiveDidSummary();
   await refreshControlledDids();
   await refreshLocallyControlledVerificationMethods();
   setSignedArtifact("");
@@ -660,10 +736,78 @@ async function refreshWalletRecords({ autoSelectSingle }) {
 
 function openJsonEditor({ title, defaultValue }) {
   el.jsonEditorTitle.textContent = title;
+  el.jsonEditorSubtitle.textContent = "";
+  el.jsonEditorExtra.innerHTML = "";
   el.jsonEditorTextarea.value = defaultValue ?? "";
   setInlineStatus(el.jsonEditorStatus, "idle", "");
   el.jsonEditorDialog.showModal();
   el.jsonEditorTextarea.focus();
+}
+
+function openJsonEditorV2({ title, subtitle, defaultValue, extraEl }) {
+  el.jsonEditorTitle.textContent = title ?? "";
+  el.jsonEditorSubtitle.textContent = subtitle ?? "";
+  el.jsonEditorExtra.innerHTML = "";
+  if (extraEl) el.jsonEditorExtra.appendChild(extraEl);
+  el.jsonEditorTextarea.value = defaultValue ?? "";
+  setInlineStatus(el.jsonEditorStatus, "idle", "");
+  el.jsonEditorDialog.showModal();
+  el.jsonEditorTextarea.focus();
+}
+
+function buildSigningContextEl() {
+  const wrap = document.createElement("div");
+  wrap.className = "formRow";
+
+  const label = document.createElement("div");
+  label.className = "label";
+  label.textContent = "Sign using";
+
+  const row = document.createElement("div");
+  row.className = "row";
+
+  const walletRec =
+    state.walletRecords.find((r) => (r.wallet_uuid?.() ?? "") === state.activeWalletUuid) ?? null;
+  const walletName = walletRec ? getWalletRecordName(walletRec) : "";
+  const didBase = getActiveDidBase();
+  const didText = didBase || "—";
+
+  const walletNameBtn = document.createElement("button");
+  walletNameBtn.type = "button";
+  walletNameBtn.className = "btnPill mono";
+  walletNameBtn.title = "Copy to clipboard";
+  walletNameBtn.textContent = `Wallet name: ${walletName || "—"}`;
+  walletNameBtn.disabled = !walletName;
+  walletNameBtn.addEventListener("click", async () => {
+    if (!walletName) return;
+    await copyWithFeedback(walletNameBtn, walletName);
+  });
+
+  const walletBtn = document.createElement("button");
+  walletBtn.type = "button";
+  walletBtn.className = "btnPill mono";
+  walletBtn.title = "Copy to clipboard";
+  walletBtn.textContent = `Wallet UUID: ${state.activeWalletUuid || "—"}`;
+  walletBtn.disabled = !state.activeWalletUuid;
+  walletBtn.addEventListener("click", async () => {
+    if (!state.activeWalletUuid) return;
+    await copyWithFeedback(walletBtn, state.activeWalletUuid);
+  });
+
+  const didBtn = document.createElement("button");
+  didBtn.type = "button";
+  didBtn.className = "btnPill mono";
+  didBtn.title = "Copy to clipboard";
+  didBtn.textContent = `DID: ${didText}`;
+  didBtn.disabled = !didBase;
+  didBtn.addEventListener("click", async () => {
+    if (!didBase) return;
+    await copyWithFeedback(didBtn, didBase);
+  });
+
+  row.append(walletNameBtn, walletBtn, didBtn);
+  wrap.append(label, row);
+  return wrap;
 }
 
 function waitForJsonEditorOk() {
@@ -684,8 +828,6 @@ function waitForJsonEditorOk() {
 async function initApp() {
   setPill(el.appStatus, "warn", "Loading…");
   el.walletDbName.textContent = DEFAULTS.walletDbName;
-  el.newWalletName.value = DEFAULTS.walletName;
-  el.activeWalletSummary.textContent = "(none)";
   el.vdrCreateEndpoint.value = DEFAULTS.vdrCreateEndpoint;
   el.httpSchemeOverride.value = DEFAULTS.httpSchemeOverridePairs;
   el.httpHeadersFor.value = DEFAULTS.httpHeadersPairs;
@@ -732,6 +874,8 @@ function ensureHttpOptionsUpToDate() {
 
 async function handleCreateDid() {
   if (!state.wallet) return;
+  if (state.didMutationInFlight) return;
+  if (Date.now() < state.didMutationCooldownUntilMs) return;
   state.didMutationInFlight = true;
   updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Creating DID…");
@@ -763,18 +907,25 @@ async function handleCreateDid() {
 
 async function handleUpdateDid() {
   if (!state.wallet || !state.activeDidFq) return;
+  if (state.didMutationInFlight) return;
+  if (Date.now() < state.didMutationCooldownUntilMs) return;
   state.didMutationInFlight = true;
   updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Updating DID…");
   try {
     ensureHttpOptionsUpToDate();
     const didBase = getActiveDidBase();
+    // Ensure local view is current before building the update.
+    await fetchDidWithRetry({ didBase, attempts: 3, delayMs: 250 });
     const did = DID.try_from_string(didBase);
     const mbUpdateKey = mbHashFunctionDefault();
     const params = UpdateDIDParameters.new(did, null, mbUpdateKey);
     const didFq = await state.wallet.update_did(params, getHttpOptions());
     setInlineStatus(el.walletOpsStatus, "ok", "DID updated");
     state.activeDidFq = didFq;
+    // Re-fetch right after updating to reduce the chance we attempt a later update
+    // while the local doc chain is still settling.
+    await fetchDidWithRetry({ didBase, attempts: 3, delayMs: 250 });
     await refreshControlledDids();
     await refreshLocallyControlledVerificationMethods();
     startDidMutationCooldown();
@@ -789,6 +940,8 @@ async function handleUpdateDid() {
 
 async function handleDeactivateDidConfirmed() {
   if (!state.wallet || !state.activeDidFq) return;
+  if (state.didMutationInFlight) return;
+  if (Date.now() < state.didMutationCooldownUntilMs) return;
   state.didMutationInFlight = true;
   updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Deactivating DID…");
@@ -838,7 +991,6 @@ async function withEphemeralSigner({ keyPurpose, purposeLabel }, fn) {
   ensureHttpOptionsUpToDate();
   const didBase = getActiveDidBase();
   const offline = Boolean(el.signingOffline.checked);
-  const keyId = (el.signingKeyId.value ?? "").trim();
 
   if (!offline) {
     try {
@@ -851,7 +1003,7 @@ async function withEphemeralSigner({ keyPurpose, purposeLabel }, fn) {
   const signer = await state.wallet.new_wallet_based_signer(
     didBase,
     keyPurpose,
-    keyId ? keyId : null,
+    null,
     getHttpOptions(),
   );
   return await fn(signer);
@@ -868,13 +1020,47 @@ async function handleSignJwt() {
     name: "Grunty McParty",
     email: "g@mc-p.org",
   });
-  openJsonEditor({ title: "JWT claims (JSON)", defaultValue: defaultClaims });
+
+  const purposeWrap = document.createElement("div");
+  purposeWrap.className = "formRow";
+  const label = document.createElement("label");
+  label.className = "label";
+  label.textContent = "Key purpose";
+  const select = document.createElement("select");
+  select.className = "select";
+  select.id = "signJwtModalKeyPurpose";
+  for (const v of [
+    "assertionMethod",
+    "authentication",
+    "keyAgreement",
+    "capabilityInvocation",
+    "capabilityDelegation",
+  ]) {
+    const opt = document.createElement("option");
+    opt.value = v;
+    opt.textContent = v;
+    select.appendChild(opt);
+  }
+  select.value = "assertionMethod";
+  purposeWrap.append(label, select);
+
+  const extra = document.createElement("div");
+  extra.appendChild(buildSigningContextEl());
+  extra.appendChild(purposeWrap);
+
+  openJsonEditorV2({
+    title: "Sign JWT",
+    subtitle: "JWT claims (JSON)",
+    defaultValue: defaultClaims,
+    extraEl: extra,
+  });
+
   const { ok, text } = await waitForJsonEditorOk();
   if (!ok) return;
   try {
     setInlineStatus(el.signingStatus, "warn", "Signing JWT…");
     const claims = safeJsonParse(text);
-    const keyPurpose = String(el.signJwtKeyPurpose.value ?? "").trim() || "assertionMethod";
+    const keyPurpose = String(select.value ?? "").trim() || "assertionMethod";
     const jwt = await withEphemeralSigner(
       { keyPurpose, purposeLabel: "JWT signing" },
       async (signer) => await jwt_sign(claims, signer),
@@ -901,9 +1087,12 @@ async function handleIssueVcJwtOrLdp({ format }) {
     },
   };
   const defaultValue = prettyJson(unsigned);
-  openJsonEditor({
-    title: `Unsigned VC input (${format.toUpperCase()})`,
+  const fmt = format.toUpperCase();
+  openJsonEditorV2({
+    title: `Issue VC (${fmt})`,
+    subtitle: `Unsigned VC input (${fmt})`,
     defaultValue,
+    extraEl: buildSigningContextEl(),
   });
   const { ok, text } = await waitForJsonEditorOk();
   if (!ok) return;
@@ -958,9 +1147,12 @@ async function handleIssueVpJwtOrLdp({ format }) {
           issuanceDate: new Date(),
           expirationDate: new Date(Date.now() + 3600 * 1000),
         };
-  openJsonEditor({
-    title: `Unsigned VP input (${format.toUpperCase()})`,
+  const fmt = format.toUpperCase();
+  openJsonEditorV2({
+    title: `Issue VP (${fmt})`,
+    subtitle: `Unsigned VP input (${fmt})`,
     defaultValue: prettyJson(inputDefault),
+    extraEl: buildSigningContextEl(),
   });
   const { ok, text } = await waitForJsonEditorOk();
   if (!ok) return;
@@ -1053,19 +1245,25 @@ function wireEvents() {
   el.createWalletBtn.addEventListener("click", async () => {
     setInlineStatus(el.walletsStatus, "warn", "Creating…");
     try {
+      const before = new Set(state.walletRecords.map((r) => r.wallet_uuid()));
       const name = (el.newWalletName.value ?? "").trim();
       const createdWallet = await Wallet.create(
         DEFAULTS.walletDbName,
         name ? name : null,
         DEFAULTS.vdgHost,
       );
+      el.newWalletName.value = "";
       await refreshWalletRecords({ autoSelectSingle: false });
-      const newestUuid = pickNewestWalletUuid(state.walletRecords);
-      if (newestUuid) {
+      const after = state.walletRecords.map((r) => r.wallet_uuid());
+      const newlyCreatedUuid = after.find((uuid) => !before.has(uuid)) ?? "";
+      const chosenUuid = newlyCreatedUuid || pickNewestWalletUuid(state.walletRecords);
+      if (chosenUuid) {
         state.wallet = createdWallet;
-        state.activeWalletUuid = newestUuid;
+        state.activeWalletUuid = chosenUuid;
         setActiveWalletSummary();
+        await refreshWalletRecords({ autoSelectSingle: false });
         state.activeDidFq = "";
+        setActiveDidSummary();
         await refreshControlledDids();
         await refreshLocallyControlledVerificationMethods();
         setSignedArtifact("");
@@ -1111,6 +1309,32 @@ function wireEvents() {
 
   el.copySignedArtifactBtn.addEventListener("click", async () => {
     await copyTextToClipboard(el.signedArtifactOutput.value);
+  });
+
+  el.activeWalletHeaderNameBtn.addEventListener("click", async () => {
+    const rec =
+      state.walletRecords.find((r) => (r.wallet_uuid?.() ?? "") === state.activeWalletUuid) ??
+      null;
+    const name = rec ? getWalletRecordName(rec) : "";
+    if (!name) return;
+    await copyWithFeedback(el.activeWalletHeaderNameBtn, name);
+  });
+
+  el.activeWalletHeaderUuidBtn.addEventListener("click", async () => {
+    if (!state.activeWalletUuid) return;
+    await copyWithFeedback(el.activeWalletHeaderUuidBtn, state.activeWalletUuid);
+  });
+
+  el.activeDidHeaderDidBtn.addEventListener("click", async () => {
+    const base = getActiveDidBase();
+    if (!base) return;
+    await copyWithFeedback(el.activeDidHeaderDidBtn, base);
+  });
+
+  el.activeDidSummarySelfHashBtn.addEventListener("click", async () => {
+    const { selfHash } = parseDidFq(state.activeDidFq);
+    if (!selfHash) return;
+    await copyWithFeedback(el.activeDidSummarySelfHashBtn, selfHash);
   });
 
   el.signJwtBtn.addEventListener("click", handleSignJwt);

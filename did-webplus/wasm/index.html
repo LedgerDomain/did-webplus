@@ -19,214 +19,196 @@
         </header>
 
         <main class="grid">
-            <section class="card">
-                <h2>Global HTTP settings</h2>
-                <p class="muted">
-                    These settings apply to DID resolution, wallet DID create/update/deactivate, and wallet-based signer creation.
-                </p>
+            <div class="cardStack" id="walletStack">
+                <section class="card" id="walletsCard">
+                    <h2>Wallets</h2>
+                    <div class="row">
+                        <div class="inlineStatus" data-variant="idle">
+                            DB: <code id="walletDbName"></code>
+                        </div>
+                        <button class="btn btnGhost" id="refreshWalletsBtn">Refresh wallets</button>
+                        <div class="inlineStatus" id="walletsStatus" data-variant="idle"></div>
+                    </div>
 
-                <div class="formRow">
-                    <label class="label" for="httpSchemeOverride">
-                        HTTP scheme override (comma-separated <code>hostname=scheme</code>)
-                    </label>
-                    <input id="httpSchemeOverride" class="input" type="text"
-                        value="vdr.did-webplus-wasm.test=http,vdg.did-webplus-wasm.test=http" />
-                    <div class="help">Example: <code>vdr.did-webplus-wasm.test=http,vdg.did-webplus-wasm.test=http</code></div>
-                </div>
+                    <hr class="sep" />
 
-                <div class="formRow">
-                    <label class="label" for="httpHeadersFor">
-                        HTTP headers (semicolon-separated <code>hostname=header_name=header_value</code>)
-                    </label>
-                    <input id="httpHeadersFor" class="input" type="text" placeholder="(optional)" />
-                    <div class="help">Example: <code>vdr.example.org=x-api-key=abc123;vdg.example.org=Authorization=Bearer token</code></div>
-                </div>
+                    <div class="row">
+                        <div class="formRow grow">
+                            <label class="label" for="newWalletName">New wallet name (optional)</label>
+                            <input id="newWalletName" class="input" type="text" placeholder="(optional)" />
+                        </div>
+                        <div class="formRow">
+                            <label class="label">&nbsp;</label>
+                            <button class="btn" id="createWalletBtn">Create new wallet</button>
+                        </div>
+                    </div>
 
-                <div class="row">
-                    <button class="btn" id="applyHttpOptionsBtn">Apply</button>
-                    <div class="inlineStatus" id="httpOptionsStatus" data-variant="idle">Not applied yet</div>
-                </div>
-            </section>
+                    <div class="muted small">Select an active wallet to enable wallet-backed operations.</div>
 
-            <section class="card">
-                <h2>Wallet / DIDs</h2>
-                <div class="row">
+                    <div class="tableWrap">
+                        <table class="table" id="walletsTable">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Wallet UUID</th>
+                                    <th>Name</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+                            <tbody id="walletsTbody">
+                                <tr>
+                                    <td colspan="4" class="muted">Loading…</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="card hidden" id="activeWalletCard">
+                    <h2>Active Wallet</h2>
                     <div class="kv">
-                        <div class="k">Wallet DB</div>
-                        <div class="v"><code id="walletDbName"></code></div>
+                        <div class="k">Name</div>
+                        <div class="v">
+                            <button class="btnPill mono" id="activeWalletHeaderNameBtn" type="button" title="Copy to clipboard">—</button>
+                        </div>
                     </div>
                     <div class="kv">
-                        <div class="k">Active wallet</div>
-                        <div class="v"><code id="activeWalletSummary">(none)</code></div>
+                        <div class="k">UUID</div>
+                        <div class="v">
+                            <button class="btnPill mono" id="activeWalletHeaderUuidBtn" type="button" title="Copy to clipboard">—</button>
+                        </div>
                     </div>
-                </div>
 
-                <hr class="sep" />
-
-                <h3>Wallets (IndexedDB)</h3>
-                <div class="muted small">Select an active wallet to enable wallet-backed operations.</div>
-                <div class="row">
-                    <button class="btn btnGhost" id="refreshWalletsBtn">Refresh wallets</button>
-                    <div class="inlineStatus" id="walletsStatus" data-variant="idle"></div>
-                </div>
-
-                <div class="row">
-                    <div class="formRow grow">
-                        <label class="label" for="newWalletName">New wallet name (optional)</label>
-                        <input id="newWalletName" class="input" type="text" placeholder="(optional)" />
-                    </div>
                     <div class="formRow">
-                        <label class="label">&nbsp;</label>
-                        <button class="btn" id="createWalletBtn">Create new wallet</button>
+                        <label class="label" for="vdrCreateEndpoint">VDR create endpoint</label>
+                        <input id="vdrCreateEndpoint" class="input" type="url"
+                            value="http://vdr.did-webplus-wasm.test:8085" />
                     </div>
-                </div>
 
-                <div class="tableWrap">
-                    <table class="table" id="walletsTable">
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>Wallet UUID</th>
-                                <th>Name</th>
-                                <th>Created</th>
-                            </tr>
-                        </thead>
-                        <tbody id="walletsTbody">
-                            <tr>
-                                <td colspan="4" class="muted">Loading…</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <hr class="sep" />
-
-                <div class="formRow">
-                    <label class="label" for="vdrCreateEndpoint">VDR create endpoint</label>
-                    <input id="vdrCreateEndpoint" class="input" type="url"
-                        value="http://vdr.did-webplus-wasm.test:8085" />
-                </div>
-
-                <div class="row">
-                    <button class="btn" id="createDidBtn" disabled>Create DID</button>
-                    <button class="btn btnGhost" id="refreshDidsBtn" disabled>Refresh DIDs</button>
-                    <div class="inlineStatus" id="walletOpsStatus" data-variant="idle"></div>
-                </div>
-
-                <h3>Controlled DIDs (active wallet)</h3>
-                <div class="muted small">Select an active DID to enable DID operations and signing.</div>
-                <div class="tableWrap">
-                    <table class="table" id="activeDidsTable">
-                        <thead>
-                            <tr>
-                                <th></th>
-                                <th>DID</th>
-                                <th>selfHash</th>
-                                <th>versionId</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="activeDidsTbody">
-                            <tr>
-                                <td colspan="5" class="muted">Select an active wallet to load DIDs.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="row">
-                    <button class="btn" id="updateDidBtn" disabled>Update DID</button>
-                    <button class="btn btnDanger" id="deactivateDidBtn" disabled>Deactivate DID…</button>
-                </div>
-
-                <hr class="sep" />
-
-                <h3>Locally controlled verification methods (active DID)</h3>
-                <div class="muted small">Keys stored in the wallet for the selected DID/version.</div>
-                <div class="tableWrap">
-                    <table class="table" id="vmsTable">
-                        <thead>
-                            <tr>
-                                <th>DID</th>
-                                <th>selfHash</th>
-                                <th>versionId</th>
-                                <th>purpose</th>
-                                <th>pubKey</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="vmsTbody">
-                            <tr>
-                                <td colspan="6" class="muted">Select an active DID to load keys.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section class="card">
-                <h2>Resolve DID</h2>
-                <p class="muted">Resolve any DID query using the demo’s DID resolver.</p>
-                <div class="row">
-                    <input id="didResolveInput" class="input" type="text" placeholder="did:webplus:…" />
-                    <button class="btn" id="didResolveBtn">Resolve</button>
-                </div>
-                <div class="outputHeader">
-                    <div class="muted small">DID document (JCS)</div>
-                    <button class="btn btnSmall btnGhost" id="copyDidResolutionBtn" disabled>Copy</button>
-                </div>
-                <textarea class="textarea mono" id="didResolveOutput" readonly rows="8"></textarea>
-                <div class="inlineStatus" id="didResolveStatus" data-variant="idle">Not checked</div>
-            </section>
-
-            <section class="card">
-                <h2>Signing / Issuing</h2>
-                <div class="muted small">These actions require an active wallet and an active DID.</div>
-
-                <div class="row">
-                    <label class="row" style="gap: 8px;">
-                        <input id="signingOffline" type="checkbox" />
-                        <span class="small muted">Offline operation (skip DID fetch before signing)</span>
-                    </label>
-                </div>
-
-                <div class="row">
-                    <div class="formRow grow">
-                        <label class="label" for="signJwtKeyPurpose">Sign JWT key purpose</label>
-                        <select id="signJwtKeyPurpose" class="select">
-                            <option value="assertionMethod">assertionMethod</option>
-                            <option value="authentication">authentication</option>
-                            <option value="keyAgreement">keyAgreement</option>
-                            <option value="capabilityInvocation">capabilityInvocation</option>
-                            <option value="capabilityDelegation">capabilityDelegation</option>
-                        </select>
+                    <div class="row">
+                        <button class="btn" id="createDidBtn" disabled>Create DID</button>
+                        <button class="btn btnGhost" id="refreshDidsBtn" disabled>Refresh DIDs</button>
+                        <div class="inlineStatus" id="walletOpsStatus" data-variant="idle"></div>
                     </div>
-                    <div class="formRow grow">
-                        <label class="label" for="signingKeyId">Key ID (fragment)</label>
-                        <input id="signingKeyId" class="input" type="text" placeholder="(optional)" />
-                        <div class="help">If empty, wallet chooses a key.</div>
+
+                    <h3>Controlled DIDs</h3>
+                    <div class="muted small">Select an active DID to enable DID operations and signing.</div>
+                    <div class="tableWrap">
+                        <table class="table" id="activeDidsTable">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>DID</th>
+                                    <th>selfHash</th>
+                                    <th>versionId</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="activeDidsTbody">
+                                <tr>
+                                    <td colspan="5" class="muted">Select an active wallet to load DIDs.</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
-                </div>
+                </section>
 
-                <div class="btnGrid">
-                    <button class="btn" id="signJwtBtn" disabled>Sign JWT…</button>
-                    <button class="btn" id="issueVcJwtBtn" disabled>Issue VC (JWT)…</button>
-                    <button class="btn" id="issueVpJwtBtn" disabled>Issue VP (JWT)…</button>
-                    <button class="btn" id="issueVcLdpBtn" disabled>Issue VC (LDP)…</button>
-                    <button class="btn" id="issueVpLdpBtn" disabled>Issue VP (LDP)…</button>
-                </div>
+                <section class="card hidden" id="activeDidCard">
+                    <h2>Active DID</h2>
 
-                <div class="outputHeader">
-                    <div class="muted small">Signed artifact output</div>
-                    <button class="btn btnSmall btnGhost" id="copySignedArtifactBtn" disabled>Copy</button>
-                </div>
-                <textarea class="textarea mono" id="signedArtifactOutput" readonly rows="10"></textarea>
-                <div class="inlineStatus" id="signingStatus" data-variant="idle"></div>
-            </section>
+                    <div class="kv">
+                        <button class="btnPill mono" id="activeDidHeaderDidBtn" type="button" title="Copy to clipboard">—</button>
+                    </div>
 
-            <section class="card">
-                <h2>Verification</h2>
-                <div class="verifyGrid">
+                    <div class="kv">
+                        <div class="k">selfHash</div>
+                        <div class="v">
+                            <button class="btnPill mono" id="activeDidSummarySelfHashBtn" type="button" title="Copy to clipboard">—</button>
+                        </div>
+                    </div>
+
+                    <div class="kv">
+                        <div class="k">versionId</div>
+                        <div class="v"><code class="mono" id="activeDidSummaryVersionId">—</code></div>
+                    </div>
+
+                    <div class="row" style="margin-top: 10px;">
+                        <button class="btn" id="updateDidBtn" disabled>Update DID</button>
+                        <button class="btn btnDanger" id="deactivateDidBtn" disabled>Deactivate DID…</button>
+                    </div>
+
+                    <details class="details" id="vmsDetails">
+                        <summary>Locally controlled verification methods</summary>
+                        <div class="muted small">Keys stored in the wallet for the selected DID/version.</div>
+                        <div class="tableWrap">
+                            <table class="table" id="vmsTable">
+                                <thead>
+                                    <tr>
+                                        <th>DID</th>
+                                        <th>selfHash</th>
+                                        <th>versionId</th>
+                                        <th>purpose</th>
+                                        <th>pubKey</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vmsTbody">
+                                    <tr>
+                                        <td colspan="6" class="muted">Select an active DID to load keys.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+
+                    <hr class="sep" />
+
+                    <h2>Signing / Issuing</h2>
+                    <div class="muted small">These actions require an active wallet and an active DID.</div>
+
+                    <div class="row">
+                        <label class="row" style="gap: 8px;">
+                            <input id="signingOffline" type="checkbox" />
+                            <span class="small muted">Offline operation (skip DID fetch before signing)</span>
+                        </label>
+                    </div>
+
+                    <div class="btnGrid">
+                        <button class="btn" id="signJwtBtn" disabled>Sign JWT…</button>
+                        <button class="btn" id="issueVcJwtBtn" disabled>Issue VC (JWT)…</button>
+                        <button class="btn" id="issueVpJwtBtn" disabled>Issue VP (JWT)…</button>
+                        <button class="btn" id="issueVcLdpBtn" disabled>Issue VC (LDP)…</button>
+                        <button class="btn" id="issueVpLdpBtn" disabled>Issue VP (LDP)…</button>
+                    </div>
+
+                    <div class="outputHeader">
+                        <div class="muted small">Signed artifact output</div>
+                        <button class="btnPill" id="copySignedArtifactBtn" disabled title="Copy to clipboard">Copy to clipboard</button>
+                    </div>
+                    <textarea class="textarea mono" id="signedArtifactOutput" readonly rows="10"></textarea>
+                    <div class="inlineStatus" id="signingStatus" data-variant="idle"></div>
+                </section>
+            </div>
+
+            <div class="cardStack" id="utilsStack">
+                <section class="card">
+                    <h2>Resolve DID</h2>
+                    <p class="muted">Resolve any DID query using the demo’s DID resolver.</p>
+                    <div class="row">
+                        <input id="didResolveInput" class="input" type="text" placeholder="did:webplus:…" />
+                        <button class="btn" id="didResolveBtn">Resolve</button>
+                    </div>
+                    <div class="outputHeader">
+                        <div class="muted small">DID document (JCS)</div>
+                    <button class="btnPill" id="copyDidResolutionBtn" disabled title="Copy to clipboard">Copy to clipboard</button>
+                    </div>
+                    <textarea class="textarea mono" id="didResolveOutput" readonly rows="8"></textarea>
+                    <div class="inlineStatus" id="didResolveStatus" data-variant="idle">Not checked</div>
+                </section>
+
+                <section class="card">
+                    <h2>Verification</h2>
+                    <div class="verifyGrid">
                     <div class="verifyRow">
                         <div class="verifyTitle">JWT verify</div>
                         <textarea class="textarea mono" id="jwtVerifyInput" rows="3" placeholder="Paste JWT here"></textarea>
@@ -284,7 +266,37 @@
                         </div>
                     </div>
                 </div>
-            </section>
+                </section>
+
+                <section class="card">
+                    <h2>Global HTTP settings</h2>
+                    <p class="muted">
+                        These settings apply to DID resolution, wallet DID create/update/deactivate, and signing (including optional DID fetch before signing).
+                    </p>
+
+                    <div class="formRow">
+                        <label class="label" for="httpSchemeOverride">
+                            HTTP scheme override (comma-separated <code>hostname=scheme</code>)
+                        </label>
+                        <input id="httpSchemeOverride" class="input" type="text"
+                            value="vdr.did-webplus-wasm.test=http,vdg.did-webplus-wasm.test=http" />
+                        <div class="help">Example: <code>vdr.did-webplus-wasm.test=http,vdg.did-webplus-wasm.test=http</code></div>
+                    </div>
+
+                    <div class="formRow">
+                        <label class="label" for="httpHeadersFor">
+                            HTTP headers (semicolon-separated <code>hostname=header_name=header_value</code>)
+                        </label>
+                        <input id="httpHeadersFor" class="input" type="text" placeholder="(optional)" />
+                        <div class="help">Example: <code>vdr.example.org=x-api-key=abc123;vdg.example.org=Authorization=Bearer token</code></div>
+                    </div>
+
+                    <div class="row">
+                        <button class="btn" id="applyHttpOptionsBtn">Apply</button>
+                        <div class="inlineStatus" id="httpOptionsStatus" data-variant="idle">Not applied yet</div>
+                    </div>
+                </section>
+            </div>
         </main>
     </div>
 
@@ -303,6 +315,8 @@
     <dialog class="dialog" id="jsonEditorDialog">
         <form method="dialog" class="dialogBody">
             <h3 id="jsonEditorTitle">Edit JSON</h3>
+            <div id="jsonEditorExtra"></div>
+            <div class="muted small" id="jsonEditorSubtitle"></div>
             <textarea class="textarea mono" id="jsonEditorTextarea" rows="14"></textarea>
             <div class="inlineStatus" id="jsonEditorStatus" data-variant="idle"></div>
             <div class="row right">

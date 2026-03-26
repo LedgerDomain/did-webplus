@@ -214,8 +214,8 @@ impl DIDDocument {
             if expected_prev_did_document_o.is_none() {
                 return Err(Error::Malformed(
                     format!(
-                        "Non-root DID document (selfHash: {:?}) must have a previous DID document.",
-                        self.self_hash
+                        "Non-root DID document (selfHash: {:?}, versionId: {}) must have a previous DID document.",
+                        self.self_hash, self.version_id
                     )
                     .into(),
                 ));
@@ -293,8 +293,10 @@ impl DIDDocument {
         let prev_did_document_self_hash = self.prev_did_document_self_hash_o.as_ref().unwrap();
         if prev_did_document_self_hash.deref() != expected_prev_did_document_self_hash {
             return Err(Error::Malformed(format!(
-                "Non-root DID document's prev_did_document_self_hash ({}) must match the self-hash of the previous DID document ({}).",
-                prev_did_document_self_hash, expected_prev_did_document_self_hash
+                "Non-root DID document's prev_did_document_self_hash ({}; versionId: {}) must match the self-hash of the previous DID document ({}; versionId: {}).",
+                prev_did_document_self_hash,
+                self.version_id,
+                expected_prev_did_document_self_hash, expected_prev_did_document.version_id
             ).into()));
         }
 
