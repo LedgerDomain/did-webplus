@@ -269,10 +269,16 @@
                 </section>
 
                 <section class="card">
-                    <h2>Global HTTP settings</h2>
+                    <h2>Global Settings</h2>
                     <p class="muted">
                         These settings apply to DID resolution, wallet DID create/update/deactivate, and signing (including optional DID fetch before signing).
                     </p>
+
+                    <div class="formRow">
+                        <label class="label" for="vdgHost">VDG host</label>
+                        <input id="vdgHost" class="input" type="text" placeholder="vdg.example.org:443" />
+                        <div class="help">Hostname (and optional port) for DID fetch/resolution agreement scope.</div>
+                    </div>
 
                     <div class="formRow">
                         <label class="label" for="httpSchemeOverride">

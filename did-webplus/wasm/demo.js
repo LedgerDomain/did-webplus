@@ -102,6 +102,7 @@ const el = (() => {
     walletsTbody: byId("walletsTbody"),
     httpSchemeOverride: byId("httpSchemeOverride"),
     httpHeadersFor: byId("httpHeadersFor"),
+    vdgHost: byId("vdgHost"),
     applyHttpOptionsBtn: byId("applyHttpOptionsBtn"),
     httpOptionsStatus: byId("httpOptionsStatus"),
 
@@ -166,6 +167,15 @@ const el = (() => {
     jsonEditorOkBtn: byId("jsonEditorOkBtn"),
   };
 })();
+
+function getVdgHost() {
+  return String(el.vdgHost.value ?? "").trim();
+}
+
+function getVdgHostOrNull() {
+  const s = getVdgHost();
+  return s ? s : null;
+}
 
 function setPill(pillEl, variant, text) {
   pillEl.dataset.variant = variant;
@@ -633,7 +643,7 @@ async function openWalletByUuid(walletUuid) {
     await clearActiveWallet({ reason: "" });
     return;
   }
-  state.wallet = await Wallet.open(DEFAULTS.walletDbName, uuid, DEFAULTS.vdgHost);
+  state.wallet = await Wallet.open(DEFAULTS.walletDbName, uuid, getVdgHostOrNull());
   state.activeWalletUuid = uuid;
   setActiveWalletSummary();
   await refreshWalletRecords({ autoSelectSingle: false });
@@ -828,6 +838,7 @@ function waitForJsonEditorOk() {
 async function initApp() {
   setPill(el.appStatus, "warn", "Loading…");
   el.walletDbName.textContent = DEFAULTS.walletDbName;
+  el.vdgHost.value = DEFAULTS.vdgHost;
   el.vdrCreateEndpoint.value = DEFAULTS.vdrCreateEndpoint;
   el.httpSchemeOverride.value = DEFAULTS.httpSchemeOverridePairs;
   el.httpHeadersFor.value = DEFAULTS.httpHeadersPairs;
@@ -837,7 +848,7 @@ async function initApp() {
 
   setInlineStatus(el.httpOptionsStatus, "ok", "Applied (defaults)");
 
-  state.didResolver = DIDResolver.new_thin(DEFAULTS.vdgHost, getHttpOptions());
+  state.didResolver = DIDResolver.new_thin(getVdgHost(), getHttpOptions());
 
   state.ready = true;
   setPill(el.appStatus, "ok", "Ready");
@@ -852,7 +863,7 @@ async function initApp() {
 async function handleApplyHttpOptions() {
   try {
     // Recreate resolver to pick up new global HTTPOptions
-    state.didResolver = DIDResolver.new_thin(DEFAULTS.vdgHost, getHttpOptions());
+    state.didResolver = DIDResolver.new_thin(getVdgHost(), getHttpOptions());
     setInlineStatus(el.httpOptionsStatus, "ok", "Applied");
   } catch (e) {
     console.error(e);
@@ -864,7 +875,7 @@ function ensureHttpOptionsUpToDate() {
   // Treat the global HTTP settings inputs as the source of truth.
   // This prevents subtle issues where the user edits inputs but forgets to click Apply.
   try {
-    state.didResolver = DIDResolver.new_thin(DEFAULTS.vdgHost, getHttpOptions());
+    state.didResolver = DIDResolver.new_thin(getVdgHost(), getHttpOptions());
     setInlineStatus(el.httpOptionsStatus, "ok", "Applied");
   } catch (e) {
     // Keep old options; the caller will hit a better error at the point of use.
@@ -1250,7 +1261,7 @@ function wireEvents() {
       const createdWallet = await Wallet.create(
         DEFAULTS.walletDbName,
         name ? name : null,
-        DEFAULTS.vdgHost,
+        getVdgHostOrNull(),
       );
       el.newWalletName.value = "";
       await refreshWalletRecords({ autoSelectSingle: false });
