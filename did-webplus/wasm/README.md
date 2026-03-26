@@ -42,11 +42,11 @@ You should see the log output of the VDR under `vdr.did-webplus-wasm.test_1` and
 
 ### Running Tests in `node.js`
 
+TEMPORARY NOTE: This is not expected to work at the moment.
+
 Note that the test VDR and VDG MUST be running while running these tests.  See above for instructions.  From this directory (the did-webplus-wasm crate directory, which is `did-webplus/did-webplus/wasm`), run
 
-    wasm-pack test --node
-
-TEMPORARY NOTE: This is not expected to work at the moment.
+    wasm-pack test --node # DON'T RUN THESE TESTS -- temporarily out of service.
 
 ### Running Tests in Browser (Headless Mode)
 

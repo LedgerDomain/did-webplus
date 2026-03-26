@@ -7,7 +7,7 @@ use did_webplus_core::{
 use did_webplus_doc_store::DIDDocRecord;
 use did_webplus_wallet_store::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyUsage, PrivKeyUsageRecord,
-    VerificationMethodRecord, WalletRecord, WalletStorageCtx,
+    VerificationMethodRecord, WalletRecord, WalletRecordFilter, WalletStorageCtx,
 };
 use std::borrow::Cow;
 use wasm_bindgen_futures::JsFuture;
@@ -56,8 +56,6 @@ fn into_wallet_error<E: std::fmt::Display>(e: E) -> did_webplus_wallet::Error {
 #[derive(Clone, Debug)]
 pub struct SoftwareWalletIndexedDB {
     db_name: String,
-    #[allow(unused)]
-    db_version: u32,
     ctx: WalletStorageCtx,
     /// Optionally specifies the host (i.e. hostname and optional port number) of a VDG to use in the
     /// DIDResolverFull for fetching DID documents.  This is used so that this resolver can take part
@@ -68,22 +66,21 @@ pub struct SoftwareWalletIndexedDB {
 
 impl SoftwareWalletIndexedDB {
     pub const CURRENT_DB_VERSION: u32 = 1;
+    /// Create a new wallet in the given database.
     pub async fn create(
         db_name: String,
-        db_version: u32,
         wallet_name_o: Option<String>,
         vdg_host_o: Option<String>,
     ) -> Result<Self> {
-        tracing::debug!(
-            db_name,
-            db_version,
-            wallet_name_o,
-            "SoftwareWalletIndexedDB::create"
-        );
+        tracing::debug!(db_name, wallet_name_o, "SoftwareWalletIndexedDB::create");
         let factory = indexed_db::Factory::<Error>::get().context("opening IndexedDB")?;
         tracing::debug!("created factory");
         let db = factory
-            .open(&db_name, db_version, Self::version_change_callback)
+            .open(
+                &db_name,
+                Self::CURRENT_DB_VERSION,
+                Self::version_change_callback,
+            )
             .await
             .context("opening the database")?;
         tracing::debug!("opened database");
@@ -121,28 +118,117 @@ impl SoftwareWalletIndexedDB {
             panic!("Failed to create a unique wallet UUID after 5 attempts; this is so unlikely that it's almost certainly a programmer error");
         }).await?;
 
-        tracing::debug!(
-            db_name,
-            db_version,
-            ctx.wallets_rowid,
-            "successfully created wallet"
-        );
+        tracing::debug!(db_name, ctx.wallets_rowid, "successfully created wallet");
         Ok(Self {
             db_name,
-            db_version,
             ctx,
             vdg_host_o,
         })
     }
+    /// Get the WalletRecord for the given wallet UUID.
+    pub async fn get_wallet_record(
+        db_name: String,
+        wallet_uuid: uuid::Uuid,
+    ) -> Result<WalletRecord> {
+        let factory = indexed_db::Factory::<Error>::get().context("opening IndexedDB")?;
+        let db = factory
+            .open(
+                &db_name,
+                Self::CURRENT_DB_VERSION,
+                Self::version_change_callback,
+            )
+            .await
+            .context("opening the database")?;
+        let wallet_record = db
+            .transaction(&[Self::WALLETS_OBJECT_STORE])
+            .rw()
+            .run(async move |transaction| {
+                let wallets_object_store = transaction.object_store(Self::WALLETS_OBJECT_STORE)?;
+                let wallet_record_jsvalue_o = wallets_object_store
+                    .index(Self::WALLETS_INDEX_WALLET_UUID)?
+                    .get(&serde_wasm_bindgen::to_value(&wallet_uuid).unwrap())
+                    .await?;
+                if let Some(wallet_record_jsvalue) = wallet_record_jsvalue_o {
+                    let wallet_record =
+                        serde_wasm_bindgen::from_value::<WalletRecord>(wallet_record_jsvalue)
+                            .map_err(|e| Error::from(anyhow::anyhow!("{}", e)))?;
+                    return Ok(wallet_record);
+                }
+
+                // Backward compatibility: earlier DB versions used an index key-path that didn't match
+                // the serialized field name (camelCase), causing index lookups to fail. Fall back to a scan.
+                let wallet_records_jsvalue_v = wallets_object_store.get_all(None).await?;
+                for jsvalue in wallet_records_jsvalue_v.iter() {
+                    let wallet_record =
+                        serde_wasm_bindgen::from_value::<WalletRecord>(jsvalue.clone())
+                            .map_err(|e| Error::from(anyhow::anyhow!("{}", e)))?;
+                    if wallet_record.wallet_uuid == wallet_uuid {
+                        return Ok(wallet_record);
+                    }
+                }
+
+                Err(Error::from(anyhow::anyhow!(
+                    "Wallet with UUID {:?} not found",
+                    wallet_uuid
+                ))
+                .into())
+            })
+            .await?;
+        Ok(wallet_record)
+    }
+    /// Get the WalletRecord-s for the given WalletRecordFilter.
+    pub async fn get_wallet_records(
+        db_name: String,
+        wallet_record_filter: WalletRecordFilter,
+    ) -> Result<Vec<WalletRecord>> {
+        let factory = indexed_db::Factory::<Error>::get().context("opening IndexedDB")?;
+        let db = factory
+            .open(
+                &db_name,
+                Self::CURRENT_DB_VERSION,
+                Self::version_change_callback,
+            )
+            .await
+            .context("opening the database")?;
+        let wallet_records_v = db
+            .transaction(&[Self::WALLETS_OBJECT_STORE])
+            .run(async move |transaction| {
+                let wallets_object_store = transaction.object_store(Self::WALLETS_OBJECT_STORE)?;
+                let wallet_records_jsvalue_v = wallets_object_store.get_all(None).await?;
+                let wallet_records = wallet_records_jsvalue_v
+                    .iter()
+                    .filter_map(|jsvalue| {
+                        let wallet_record =
+                            match serde_wasm_bindgen::from_value::<WalletRecord>(jsvalue.clone()) {
+                                Ok(wallet_record) => wallet_record,
+                                Err(e) => {
+                                    tracing::error!(
+                                        "Failed to deserialize WalletRecord from IndexedDB row: {}",
+                                        e
+                                    );
+                                    return None;
+                                }
+                            };
+                        if wallet_record_filter.matches(&wallet_record) {
+                            Some(wallet_record)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                Ok(wallet_records)
+            })
+            .await?;
+        Ok(wallet_records_v)
+    }
+    /// Open the wallet with the given UUID.
     pub async fn open(
         db_name: String,
-        db_version: u32,
         wallet_uuid: uuid::Uuid,
         vdg_host_o: Option<String>,
     ) -> Result<Self> {
         tracing::debug!(
             db_name,
-            db_version,
             "SoftwareWalletIndexedDB::open; wallet_uuid: {:?}",
             wallet_uuid
         );
@@ -153,7 +239,11 @@ impl SoftwareWalletIndexedDB {
 
         // Open the database, creating it and/or applying migrations if needed
         let db = factory
-            .open(&db_name, db_version, Self::version_change_callback)
+            .open(
+                &db_name,
+                Self::CURRENT_DB_VERSION,
+                Self::version_change_callback,
+            )
             .await
             .context("opening the database")?;
         tracing::debug!("opened database");
@@ -162,28 +252,55 @@ impl SoftwareWalletIndexedDB {
             .transaction(&[Self::WALLETS_OBJECT_STORE])
             .run(async move |transaction| {
                 tracing::debug!("started transaction for opening a wallet");
-                let wallets_rowid_jsvalue_o = transaction
-                    .object_store(Self::WALLETS_OBJECT_STORE)?
-                    .index("wallet_uuid index")?
-                    .get(&serde_wasm_bindgen::to_value(&wallet_uuid).unwrap())
+                let wallets_object_store = transaction.object_store(Self::WALLETS_OBJECT_STORE)?;
+
+                // We need the auto-incremented primary key (wallets_rowid) to open the wallet, since
+                // other object stores reference it. Use an index cursor so we can read `primary_key()`.
+                let mut cursor = wallets_object_store
+                    .index(Self::WALLETS_INDEX_WALLET_UUID)?
+                    .cursor()
+                    .open()
                     .await?;
-                if wallets_rowid_jsvalue_o.is_none() {
-                    return Err(Error::from(anyhow::anyhow!(
-                        "Wallet with UUID {:?} not found",
-                        wallet_uuid
-                    ))
-                    .into());
+
+                loop {
+                    let wallet_record_jsvalue_o = cursor.value();
+                    if wallet_record_jsvalue_o.is_none() {
+                        break;
+                    }
+                    let wallet_record_jsvalue = wallet_record_jsvalue_o.unwrap();
+                    let wallet_record =
+                        serde_wasm_bindgen::from_value::<WalletRecord>(wallet_record_jsvalue)
+                            .map_err(|e| Error::from(anyhow::anyhow!("{}", e)))?;
+                    if wallet_record.wallet_uuid == wallet_uuid {
+                        let wallets_rowid_jsvalue = cursor.primary_key().ok_or_else(|| {
+                            Error::from(anyhow::anyhow!(
+                                "IndexedDB cursor missing primary key for wallet_uuid {:?}",
+                                wallet_uuid
+                            ))
+                        })?;
+                        let wallets_rowid = wallets_rowid_jsvalue.as_f64().ok_or_else(|| {
+                            Error::from(anyhow::anyhow!(
+                                "IndexedDB primary key was not a number for wallet_uuid {:?}: {:?}",
+                                wallet_uuid,
+                                wallets_rowid_jsvalue
+                            ))
+                        })? as i64;
+                        tracing::debug!(wallets_rowid, "successfully opened wallet");
+                        return Ok(WalletStorageCtx { wallets_rowid });
+                    }
+                    cursor.advance(1).await?;
                 }
-                let wallets_rowid_jsvalue = wallets_rowid_jsvalue_o.unwrap();
-                let wallets_rowid = wallets_rowid_jsvalue.as_f64().unwrap() as i64;
-                tracing::debug!(wallets_rowid, "successfully opened wallet");
-                return Ok(WalletStorageCtx { wallets_rowid });
+
+                Err(Error::from(anyhow::anyhow!(
+                    "Wallet with UUID {:?} not found",
+                    wallet_uuid
+                ))
+                .into())
             })
             .await?;
 
         Ok(Self {
             db_name,
-            db_version,
             ctx,
             vdg_host_o,
         })
@@ -422,7 +539,9 @@ impl SoftwareWalletIndexedDB {
             .auto_increment()
             .create()?;
         wallets_object_store
-            .build_index(Self::WALLETS_INDEX_WALLET_UUID, "wallet_uuid")
+            // `WalletRecord` is serialized with `#[serde(rename_all = "camelCase")]`, so the field is
+            // `walletUuid` in IndexedDB.
+            .build_index(Self::WALLETS_INDEX_WALLET_UUID, "walletUuid")
             .create()?;
 
         let priv_keys_object_store = db

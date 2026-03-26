@@ -1,6 +1,6 @@
 use crate::{
     DID, HTTPOptions, LocallyControlledVerificationMethodFilter, MBHashFunction, Result,
-    VerificationMethodRecord, WalletBasedSigner, into_js_value,
+    VerificationMethodRecord, WalletBasedSigner, WalletRecord, into_js_value,
 };
 use std::{ops::Deref, str::FromStr, sync::Arc};
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -155,7 +155,35 @@ impl Wallet {
             Ok(Self(Arc::new(software_wallet)).into())
         })
     }
-    // TODO: Method for listing wallets in a given database.
+    /// Get the WalletRecord for the given wallet UUID.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn get_wallet_record(db_name: String, wallet_uuid: String) -> Result<WalletRecord> {
+        let wallet_uuid = uuid::Uuid::parse_str(&wallet_uuid).map_err(into_js_value)?;
+        let wallet_record =
+            did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::get_wallet_record(
+                db_name,
+                wallet_uuid,
+            )
+            .await
+            .map_err(into_js_value)?;
+        Ok(wallet_record.into())
+    }
+    /// Get all WalletRecord-s in the given database.
+    #[cfg(target_arch = "wasm32")]
+    pub async fn get_wallet_records(db_name: String) -> Result<Vec<WalletRecord>> {
+        let wallet_record_filter = did_webplus_wallet_store::WalletRecordFilter::default();
+        let wallet_records =
+            did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::get_wallet_records(
+                db_name,
+                wallet_record_filter,
+            )
+            .await
+            .map_err(into_js_value)?;
+        Ok(wallet_records
+            .into_iter()
+            .map(|wallet_record| wallet_record.into())
+            .collect())
+    }
     /// Create a new (IndexedDB-backed) wallet in the given database, with optional wallet name.
     #[cfg(target_arch = "wasm32")]
     pub async fn create(
@@ -166,7 +194,6 @@ impl Wallet {
         let software_wallet_indexeddb =
             did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::create(
                 db_name,
-                did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::CURRENT_DB_VERSION,
                 wallet_name_o,
                 vdg_host_o,
             )
@@ -185,7 +212,6 @@ impl Wallet {
         let software_wallet_indexeddb =
             did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::open(
                 db_name,
-                did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::CURRENT_DB_VERSION,
                 wallet_uuid,
                 vdg_host_o,
             )

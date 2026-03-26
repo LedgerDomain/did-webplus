@@ -2,7 +2,10 @@
 
 use std::{ops::Deref, sync::Arc};
 
-use wasm_bindgen_test::wasm_bindgen_test;
+use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
+
+// IndexedDB and other Web APIs used here are not available in the Node.js test runner.
+wasm_bindgen_test_configure!(run_in_browser);
 
 // TEMP -- disable vjson tests for now.
 
@@ -70,6 +73,88 @@ async fn test_vjson_sign_and_verify() {
         .expect("pass");
 }
 */
+
+/// Exercises IndexedDB wallet lifecycle helpers: `Wallet::create`, `Wallet::open`,
+/// `Wallet::get_wallet_record`, and `Wallet::get_wallet_records`.
+#[wasm_bindgen_test]
+async fn test_wallet_create_open_get_wallet_record_and_get_wallet_records() {
+    console_error_panic_hook::set_once();
+    wasm_logger::init(wasm_logger::Config::new(log::Level::Debug));
+
+    let db_name = format!("test_wallet_create_open_records_{}", uuid::Uuid::new_v4());
+    let wallet_name_a = "wasm test wallet A".to_string();
+
+    let _wallet_a = did_webplus_wasm::Wallet::create(
+        db_name.clone(),
+        Some(wallet_name_a.clone()),
+        Some("vdg.example.test".to_string()),
+    )
+    .await
+    .expect("Wallet::create");
+
+    let records = did_webplus_wasm::Wallet::get_wallet_records(db_name.clone())
+        .await
+        .expect("Wallet::get_wallet_records after first create");
+    assert_eq!(records.len(), 1);
+    let record_a = &records[0];
+    assert_eq!(record_a.wallet_name(), Some(wallet_name_a.clone()));
+    assert!(record_a.deleted_at().is_none());
+    let wallet_uuid_a = record_a.wallet_uuid();
+
+    let fetched_a =
+        did_webplus_wasm::Wallet::get_wallet_record(db_name.clone(), wallet_uuid_a.clone())
+            .await
+            .expect("Wallet::get_wallet_record");
+    assert_eq!(fetched_a.wallet_uuid(), wallet_uuid_a);
+    assert_eq!(fetched_a.wallet_name(), Some(wallet_name_a.clone()));
+
+    let opened_a = did_webplus_wasm::Wallet::open(
+        db_name.clone(),
+        wallet_uuid_a.clone(),
+        Some("vdg.example.test".to_string()),
+    )
+    .await
+    .expect("Wallet::open first wallet");
+    let dids_a = opened_a
+        .get_controlled_dids(None)
+        .await
+        .expect("get_controlled_dids");
+    assert!(dids_a.is_empty());
+
+    let wallet_name_b = "wasm test wallet B".to_string();
+    let _wallet_b =
+        did_webplus_wasm::Wallet::create(db_name.clone(), Some(wallet_name_b.clone()), None)
+            .await
+            .expect("Wallet::create second wallet");
+
+    let records = did_webplus_wasm::Wallet::get_wallet_records(db_name.clone())
+        .await
+        .expect("Wallet::get_wallet_records after second create");
+    assert_eq!(records.len(), 2);
+
+    for record in &records {
+        let uuid = record.wallet_uuid();
+        let fetched = did_webplus_wasm::Wallet::get_wallet_record(db_name.clone(), uuid.clone())
+            .await
+            .unwrap_or_else(|_| panic!("get_wallet_record for {}", uuid));
+        assert_eq!(fetched.wallet_uuid(), uuid);
+        assert_eq!(fetched.wallet_name(), record.wallet_name());
+    }
+
+    let uuid_b = records
+        .iter()
+        .find(|r| r.wallet_name() == Some(wallet_name_b.clone()))
+        .expect("second wallet record")
+        .wallet_uuid();
+    let opened_b = did_webplus_wasm::Wallet::open(db_name, uuid_b, None)
+        .await
+        .expect("Wallet::open second wallet");
+    let dids_b = opened_b
+        .get_controlled_dids(None)
+        .await
+        .expect("get_controlled_dids B");
+    assert!(dids_b.is_empty());
+}
 
 #[wasm_bindgen_test]
 #[allow(unused)]

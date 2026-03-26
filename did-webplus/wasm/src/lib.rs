@@ -21,6 +21,7 @@ mod vjson_store;
 mod vp;
 mod wallet;
 mod wallet_based_signer;
+mod wallet_record;
 
 pub use crate::{
     did::DID,
@@ -46,6 +47,7 @@ pub use crate::{
     vp::{issue_vp_jwt, issue_vp_ldp, new_unsigned_presentation, verify_vp_jwt, verify_vp_ldp},
     wallet::{CreateDIDParameters, DeactivateDIDParameters, UpdateDIDParameters, Wallet},
     wallet_based_signer::WalletBasedSigner,
+    wallet_record::WalletRecord,
 };
 pub type Error = JsValue;
 pub type Result<T> = std::result::Result<T, JsValue>;
