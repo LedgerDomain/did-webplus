@@ -1,6 +1,6 @@
 use crate::{
     DID, HTTPOptions, LocallyControlledVerificationMethodFilter, MBHashFunction, Result,
-    VerificationMethodRecord, WalletBasedSigner, WalletRecord, into_js_value,
+    VerificationMethodRecord, WalletBasedSigner, into_js_value,
 };
 use std::{ops::Deref, str::FromStr, sync::Arc};
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -157,7 +157,10 @@ impl Wallet {
     }
     /// Get the WalletRecord for the given wallet UUID.
     #[cfg(target_arch = "wasm32")]
-    pub async fn get_wallet_record(db_name: String, wallet_uuid: String) -> Result<WalletRecord> {
+    pub async fn get_wallet_record(
+        db_name: String,
+        wallet_uuid: String,
+    ) -> Result<crate::WalletRecord> {
         let wallet_uuid = uuid::Uuid::parse_str(&wallet_uuid).map_err(into_js_value)?;
         let wallet_record =
             did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::get_wallet_record(
@@ -170,7 +173,7 @@ impl Wallet {
     }
     /// Get all WalletRecord-s in the given database.
     #[cfg(target_arch = "wasm32")]
-    pub async fn get_wallet_records(db_name: String) -> Result<Vec<WalletRecord>> {
+    pub async fn get_wallet_records(db_name: String) -> Result<Vec<crate::WalletRecord>> {
         let wallet_record_filter = did_webplus_wallet_store::WalletRecordFilter::default();
         let wallet_records =
             did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::get_wallet_records(
