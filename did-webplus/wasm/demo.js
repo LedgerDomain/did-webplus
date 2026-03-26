@@ -41,11 +41,24 @@ const DEFAULTS = Object.freeze({
 const state = {
   ready: false,
   wallet: null,
+  activeWalletUuid: "",
+  walletRecords: [],
   didResolver: null,
   dids: [],
   activeDidFq: "",
-  walletBasedSigner: null,
+  didMutationInFlight: false,
+  didMutationCooldownUntilMs: 0,
 };
+
+const DID_MUTATION_COOLDOWN_MS = 600;
+
+function startDidMutationCooldown() {
+  state.didMutationCooldownUntilMs = Date.now() + DID_MUTATION_COOLDOWN_MS;
+  updateWalletDependentUi();
+  setTimeout(() => {
+    updateWalletDependentUi();
+  }, DID_MUTATION_COOLDOWN_MS + 30);
+}
 
 const el = (() => {
   const byId = (id) => {
@@ -56,7 +69,12 @@ const el = (() => {
   return {
     appStatus: byId("appStatus"),
     walletDbName: byId("walletDbName"),
-    walletName: byId("walletName"),
+    activeWalletSummary: byId("activeWalletSummary"),
+    refreshWalletsBtn: byId("refreshWalletsBtn"),
+    createWalletBtn: byId("createWalletBtn"),
+    newWalletName: byId("newWalletName"),
+    walletsStatus: byId("walletsStatus"),
+    walletsTbody: byId("walletsTbody"),
     httpSchemeOverride: byId("httpSchemeOverride"),
     httpHeadersFor: byId("httpHeadersFor"),
     applyHttpOptionsBtn: byId("applyHttpOptionsBtn"),
@@ -65,7 +83,7 @@ const el = (() => {
     vdrCreateEndpoint: byId("vdrCreateEndpoint"),
     createDidBtn: byId("createDidBtn"),
     refreshDidsBtn: byId("refreshDidsBtn"),
-    activeDidSelect: byId("activeDidSelect"),
+    activeDidsTbody: byId("activeDidsTbody"),
     updateDidBtn: byId("updateDidBtn"),
     deactivateDidBtn: byId("deactivateDidBtn"),
     walletOpsStatus: byId("walletOpsStatus"),
@@ -77,12 +95,9 @@ const el = (() => {
     didResolveOutput: byId("didResolveOutput"),
     didResolveStatus: byId("didResolveStatus"),
     copyDidResolutionBtn: byId("copyDidResolutionBtn"),
-
-    signerKeyPurpose: byId("signerKeyPurpose"),
-    signerKeyId: byId("signerKeyId"),
-    createSignerBtn: byId("createSignerBtn"),
-    clearSignerBtn: byId("clearSignerBtn"),
-    signerStatus: byId("signerStatus"),
+    signingOffline: byId("signingOffline"),
+    signJwtKeyPurpose: byId("signJwtKeyPurpose"),
+    signingKeyId: byId("signingKeyId"),
 
     signJwtBtn: byId("signJwtBtn"),
     issueVcJwtBtn: byId("issueVcJwtBtn"),
@@ -153,15 +168,8 @@ function getActiveDidBase() {
   return fq.split("?")[0];
 }
 
-function clearSigner(reason) {
-  state.walletBasedSigner = null;
-  setInlineStatus(el.signerStatus, "idle", reason ?? "No signer");
-  el.clearSignerBtn.disabled = true;
-  updateSignButtons();
-}
-
 function updateSignButtons() {
-  const enabled = Boolean(state.walletBasedSigner);
+  const enabled = Boolean(state.wallet) && Boolean(state.activeDidFq);
   el.signJwtBtn.disabled = !enabled;
   el.issueVcJwtBtn.disabled = !enabled;
   el.issueVpJwtBtn.disabled = !enabled;
@@ -169,11 +177,16 @@ function updateSignButtons() {
   el.issueVpLdpBtn.disabled = !enabled;
 }
 
-function updateDidActionButtons() {
-  const hasDid = Boolean(state.activeDidFq);
-  el.updateDidBtn.disabled = !hasDid;
-  el.deactivateDidBtn.disabled = !hasDid;
-  el.createSignerBtn.disabled = !hasDid;
+function updateWalletDependentUi() {
+  const hasWallet = Boolean(state.wallet);
+  const hasDid = hasWallet && Boolean(state.activeDidFq);
+  const cooldownActive = Date.now() < state.didMutationCooldownUntilMs;
+  const allowDidMutations = hasDid && !state.didMutationInFlight && !cooldownActive;
+  el.createDidBtn.disabled = !hasWallet;
+  el.refreshDidsBtn.disabled = !hasWallet;
+  el.updateDidBtn.disabled = !allowDidMutations;
+  el.deactivateDidBtn.disabled = !allowDidMutations;
+  updateSignButtons();
 }
 
 function setSignedArtifact(text) {
@@ -322,26 +335,99 @@ function preflightHttpScheme({ targetUrl, purposeLabel }) {
   }
 }
 
+function parseDidFq(didFq) {
+  const fq = String(didFq ?? "").trim();
+  const [base, query] = fq.split("?");
+  const params = new URLSearchParams(query ?? "");
+  return {
+    fq,
+    base: base ?? "",
+    selfHash: params.get("selfHash") ?? "",
+    versionId: params.get("versionId") ?? "",
+  };
+}
+
+function renderActiveDidsEmpty(message) {
+  el.activeDidsTbody.innerHTML = "";
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 5;
+  td.className = "muted";
+  td.textContent = message;
+  tr.appendChild(td);
+  el.activeDidsTbody.appendChild(tr);
+}
+
 async function refreshControlledDids() {
-  if (!state.wallet) return;
+  if (!state.wallet) {
+    state.dids = [];
+    state.activeDidFq = "";
+    renderActiveDidsEmpty("Select an active wallet to load DIDs.");
+    updateWalletDependentUi();
+    return;
+  }
   const dids = await state.wallet.get_controlled_dids(null);
   state.dids = dids;
 
   const current = state.activeDidFq;
-  el.activeDidSelect.innerHTML = `<option value="">(none)</option>`;
-  for (const did of dids) {
-    const opt = document.createElement("option");
-    opt.value = did;
-    opt.textContent = did;
-    el.activeDidSelect.appendChild(opt);
-  }
   if (current && dids.includes(current)) {
-    el.activeDidSelect.value = current;
+    // keep
   } else {
     state.activeDidFq = "";
-    el.activeDidSelect.value = "";
   }
-  updateDidActionButtons();
+
+  el.activeDidsTbody.innerHTML = "";
+  if (!dids || dids.length === 0) {
+    renderActiveDidsEmpty("No controlled DIDs found for this wallet.");
+    updateWalletDependentUi();
+    return;
+  }
+
+  for (const didFq of dids) {
+    const { base, selfHash, versionId } = parseDidFq(didFq);
+
+    const tr = document.createElement("tr");
+
+    const tdActive = document.createElement("td");
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "activeDidFq";
+    radio.value = didFq;
+    radio.checked = didFq === state.activeDidFq;
+    radio.addEventListener("change", async () => {
+      state.activeDidFq = didFq;
+      updateWalletDependentUi();
+      await refreshLocallyControlledVerificationMethods();
+    });
+    tdActive.appendChild(radio);
+
+    const tdDid = document.createElement("td");
+    tdDid.className = "mono";
+    tdDid.textContent = base;
+
+    const tdHash = document.createElement("td");
+    tdHash.className = "mono";
+    tdHash.textContent = selfHash || "—";
+
+    const tdVer = document.createElement("td");
+    tdVer.className = "mono";
+    tdVer.textContent = versionId || "—";
+
+    const tdCopy = document.createElement("td");
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "btn btnSmall btnGhost";
+    copyBtn.type = "button";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", async () => {
+      await copyTextToClipboard(base);
+    });
+    tdCopy.appendChild(copyBtn);
+
+    tr.append(tdActive, tdDid, tdHash, tdVer, tdCopy);
+    el.activeDidsTbody.appendChild(tr);
+  }
+
+  updateWalletDependentUi();
 }
 
 function renderVmsEmpty(message) {
@@ -406,6 +492,172 @@ async function refreshLocallyControlledVerificationMethods() {
   }
 }
 
+function formatWalletRecordTime(s) {
+  const raw = String(s ?? "").trim();
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleString();
+}
+
+function getWalletRecordName(rec) {
+  try {
+    if (typeof rec.wallet_name_o === "function") return rec.wallet_name_o() ?? "";
+  } catch {}
+  try {
+    if (typeof rec.wallet_name === "function") return rec.wallet_name() ?? "";
+  } catch {}
+  return "";
+}
+
+function isWalletRecordDeleted(rec) {
+  try {
+    const v = rec.deleted_at_o?.();
+    return Boolean(v);
+  } catch {
+    return false;
+  }
+}
+
+function setActiveWalletSummary() {
+  if (!state.activeWalletUuid) {
+    el.activeWalletSummary.textContent = "(none)";
+    return;
+  }
+  const rec =
+    state.walletRecords.find((r) => (r.wallet_uuid?.() ?? "") === state.activeWalletUuid) ?? null;
+  const name = rec?.wallet_name_o?.() ?? null;
+  el.activeWalletSummary.textContent = name ? `${state.activeWalletUuid} (${name})` : state.activeWalletUuid;
+}
+
+function renderWalletsEmpty(message) {
+  el.walletsTbody.innerHTML = "";
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 4;
+  td.className = "muted";
+  td.textContent = message;
+  tr.appendChild(td);
+  el.walletsTbody.appendChild(tr);
+}
+
+async function clearActiveWallet({ reason }) {
+  state.wallet = null;
+  state.activeWalletUuid = "";
+  setActiveWalletSummary();
+  state.activeDidFq = "";
+  renderActiveDidsEmpty("Select an active wallet to load DIDs.");
+  renderVmsEmpty("Select an active DID to load keys.");
+  setSignedArtifact("");
+  setInlineStatus(el.walletOpsStatus, "idle", reason ?? "");
+  updateWalletDependentUi();
+}
+
+async function openWalletByUuid(walletUuid) {
+  const uuid = String(walletUuid ?? "").trim();
+  if (!uuid) {
+    await clearActiveWallet({ reason: "" });
+    return;
+  }
+  state.wallet = await Wallet.open(DEFAULTS.walletDbName, uuid, DEFAULTS.vdgHost);
+  state.activeWalletUuid = uuid;
+  setActiveWalletSummary();
+
+  // Active DID is wallet-specific.
+  state.activeDidFq = "";
+  await refreshControlledDids();
+  await refreshLocallyControlledVerificationMethods();
+  setSignedArtifact("");
+  updateWalletDependentUi();
+}
+
+function pickNewestWalletUuid(records) {
+  let best = null;
+  let bestT = -Infinity;
+  for (const rec of records) {
+    const uuid = rec.wallet_uuid?.() ?? "";
+    const createdAt = rec.created_at?.() ?? "";
+    const t = new Date(createdAt).getTime();
+    if (!uuid) continue;
+    const tt = Number.isNaN(t) ? -Infinity : t;
+    if (best === null || tt > bestT) {
+      best = uuid;
+      bestT = tt;
+    }
+  }
+  return best ?? "";
+}
+
+async function refreshWalletRecords({ autoSelectSingle }) {
+  setInlineStatus(el.walletsStatus, "warn", "Loading…");
+  try {
+    const records = await Wallet.get_wallet_records(DEFAULTS.walletDbName);
+    const active = state.activeWalletUuid;
+    const visible = (records ?? []).filter((r) => !isWalletRecordDeleted(r));
+    state.walletRecords = visible;
+
+    el.walletsTbody.innerHTML = "";
+    if (!visible || visible.length === 0) {
+      renderWalletsEmpty("No wallets found. Create a new wallet to begin.");
+      await clearActiveWallet({ reason: "" });
+      setInlineStatus(el.walletsStatus, "ok", "Loaded (0)");
+      return;
+    }
+
+    for (const rec of visible) {
+      const uuid = rec.wallet_uuid();
+      const name = getWalletRecordName(rec);
+      const createdAt = rec.created_at?.() ?? "";
+
+      const tr = document.createElement("tr");
+
+      const tdActive = document.createElement("td");
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "activeWalletUuid";
+      radio.value = uuid;
+      radio.checked = uuid === active;
+      radio.addEventListener("change", async () => {
+        setInlineStatus(el.walletOpsStatus, "idle", "");
+        await openWalletByUuid(uuid);
+      });
+      tdActive.appendChild(radio);
+
+      const tdUuid = document.createElement("td");
+      tdUuid.className = "mono";
+      tdUuid.textContent = uuid;
+
+      const tdName = document.createElement("td");
+      tdName.textContent = name || "—";
+
+      const tdCreated = document.createElement("td");
+      tdCreated.className = "mono";
+      tdCreated.textContent = formatWalletRecordTime(createdAt);
+
+      tr.append(tdActive, tdUuid, tdName, tdCreated);
+      el.walletsTbody.appendChild(tr);
+    }
+
+    // If active wallet disappeared, clear it.
+    if (active && !visible.some((r) => r.wallet_uuid() === active)) {
+      await clearActiveWallet({ reason: "" });
+    }
+
+    // Auto-select when exactly one record exists and none is active.
+    if (autoSelectSingle && !state.activeWalletUuid && visible.length === 1) {
+      await openWalletByUuid(visible[0].wallet_uuid());
+    }
+
+    setActiveWalletSummary();
+    setInlineStatus(el.walletsStatus, "ok", `Loaded (${visible.length})`);
+  } catch (e) {
+    console.error(e);
+    renderWalletsEmpty(`Failed to load wallets: ${String(e)}`);
+    setInlineStatus(el.walletsStatus, "bad", String(e));
+    await clearActiveWallet({ reason: "" });
+  }
+}
+
 function openJsonEditor({ title, defaultValue }) {
   el.jsonEditorTitle.textContent = title;
   el.jsonEditorTextarea.value = defaultValue ?? "";
@@ -432,7 +684,8 @@ function waitForJsonEditorOk() {
 async function initApp() {
   setPill(el.appStatus, "warn", "Loading…");
   el.walletDbName.textContent = DEFAULTS.walletDbName;
-  el.walletName.textContent = DEFAULTS.walletName;
+  el.newWalletName.value = DEFAULTS.walletName;
+  el.activeWalletSummary.textContent = "(none)";
   el.vdrCreateEndpoint.value = DEFAULTS.vdrCreateEndpoint;
   el.httpSchemeOverride.value = DEFAULTS.httpSchemeOverridePairs;
   el.httpHeadersFor.value = DEFAULTS.httpHeadersPairs;
@@ -442,16 +695,14 @@ async function initApp() {
 
   setInlineStatus(el.httpOptionsStatus, "ok", "Applied (defaults)");
 
-  state.wallet = await Wallet.create(DEFAULTS.walletDbName, DEFAULTS.walletName, DEFAULTS.vdgHost);
   state.didResolver = DIDResolver.new_thin(DEFAULTS.vdgHost, getHttpOptions());
 
   state.ready = true;
   setPill(el.appStatus, "ok", "Ready");
 
-  await refreshControlledDids();
+  await refreshWalletRecords({ autoSelectSingle: true });
   renderVmsEmpty("Select an active DID to load keys.");
-  updateDidActionButtons();
-  clearSigner("No signer");
+  updateWalletDependentUi();
   setSignedArtifact("");
   setInlineStatus(el.walletOpsStatus, "idle", "");
 }
@@ -481,6 +732,8 @@ function ensureHttpOptionsUpToDate() {
 
 async function handleCreateDid() {
   if (!state.wallet) return;
+  state.didMutationInFlight = true;
+  updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Creating DID…");
   try {
     ensureHttpOptionsUpToDate();
@@ -495,20 +748,23 @@ async function handleCreateDid() {
     const params = CreateDIDParameters.new(endpoint, mbForDid, mbForUpdateKey);
     const didFq = await state.wallet.create_did(params, getHttpOptions());
     setInlineStatus(el.walletOpsStatus, "ok", "DID created");
-    await refreshControlledDids();
     state.activeDidFq = didFq;
-    el.activeDidSelect.value = didFq;
-    updateDidActionButtons();
-    clearSigner("Signer cleared (DID changed)");
+    await refreshControlledDids();
     await refreshLocallyControlledVerificationMethods();
+    startDidMutationCooldown();
   } catch (e) {
     console.error(e);
     setInlineStatus(el.walletOpsStatus, "bad", String(e));
+  } finally {
+    state.didMutationInFlight = false;
+    updateWalletDependentUi();
   }
 }
 
 async function handleUpdateDid() {
   if (!state.wallet || !state.activeDidFq) return;
+  state.didMutationInFlight = true;
+  updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Updating DID…");
   try {
     ensureHttpOptionsUpToDate();
@@ -518,20 +774,23 @@ async function handleUpdateDid() {
     const params = UpdateDIDParameters.new(did, null, mbUpdateKey);
     const didFq = await state.wallet.update_did(params, getHttpOptions());
     setInlineStatus(el.walletOpsStatus, "ok", "DID updated");
-    await refreshControlledDids();
     state.activeDidFq = didFq;
-    el.activeDidSelect.value = didFq;
-    updateDidActionButtons();
-    clearSigner("Signer cleared (DID updated)");
+    await refreshControlledDids();
     await refreshLocallyControlledVerificationMethods();
+    startDidMutationCooldown();
   } catch (e) {
     console.error(e);
     setInlineStatus(el.walletOpsStatus, "bad", String(e));
+  } finally {
+    state.didMutationInFlight = false;
+    updateWalletDependentUi();
   }
 }
 
 async function handleDeactivateDidConfirmed() {
   if (!state.wallet || !state.activeDidFq) return;
+  state.didMutationInFlight = true;
+  updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Deactivating DID…");
   try {
     ensureHttpOptionsUpToDate();
@@ -540,15 +799,16 @@ async function handleDeactivateDidConfirmed() {
     const params = DeactivateDIDParameters.new(did, null);
     const didFq = await state.wallet.deactivate_did(params, getHttpOptions());
     setInlineStatus(el.walletOpsStatus, "ok", "DID deactivated");
-    await refreshControlledDids();
     state.activeDidFq = didFq;
-    el.activeDidSelect.value = didFq;
-    updateDidActionButtons();
-    clearSigner("Signer cleared (DID deactivated)");
+    await refreshControlledDids();
     await refreshLocallyControlledVerificationMethods();
+    startDidMutationCooldown();
   } catch (e) {
     console.error(e);
     setInlineStatus(el.walletOpsStatus, "bad", String(e));
+  } finally {
+    state.didMutationInFlight = false;
+    updateWalletDependentUi();
   }
 }
 
@@ -571,34 +831,34 @@ async function handleResolveDid() {
   }
 }
 
-async function handleCreateSigner() {
-  if (!state.wallet || !state.activeDidFq) return;
-  try {
-    ensureHttpOptionsUpToDate();
-    const didBase = getActiveDidBase();
-    const purpose = el.signerKeyPurpose.value;
-    const keyId = (el.signerKeyId.value ?? "").trim();
-    setInlineStatus(el.signerStatus, "warn", "Creating signer…");
-    state.walletBasedSigner = await state.wallet.new_wallet_based_signer(
-      didBase,
-      purpose,
-      keyId ? keyId : null,
-      getHttpOptions(),
-    );
-    setInlineStatus(el.signerStatus, "ok", "Signer ready");
-    el.clearSignerBtn.disabled = false;
-    updateSignButtons();
-  } catch (e) {
-    console.error(e);
-    state.walletBasedSigner = null;
-    setInlineStatus(el.signerStatus, "bad", String(e));
-    el.clearSignerBtn.disabled = true;
-    updateSignButtons();
+async function withEphemeralSigner({ keyPurpose, purposeLabel }, fn) {
+  if (!state.wallet) throw new Error("No active wallet selected");
+  if (!state.activeDidFq) throw new Error("No active DID selected");
+
+  ensureHttpOptionsUpToDate();
+  const didBase = getActiveDidBase();
+  const offline = Boolean(el.signingOffline.checked);
+  const keyId = (el.signingKeyId.value ?? "").trim();
+
+  if (!offline) {
+    try {
+      await state.wallet.fetch_did(didBase, getHttpOptions());
+    } catch (e) {
+      throw new Error(`Failed to fetch DID before ${purposeLabel}: ${String(e)}`);
+    }
   }
+
+  const signer = await state.wallet.new_wallet_based_signer(
+    didBase,
+    keyPurpose,
+    keyId ? keyId : null,
+    getHttpOptions(),
+  );
+  return await fn(signer);
 }
 
 async function handleSignJwt() {
-  if (!state.walletBasedSigner) return;
+  if (!state.wallet || !state.activeDidFq) return;
   const defaultClaims = prettyJson({
     iss: getActiveDidBase() || "did:webplus:example",
     sub: "https://example.org/subject",
@@ -614,7 +874,11 @@ async function handleSignJwt() {
   try {
     setInlineStatus(el.signingStatus, "warn", "Signing JWT…");
     const claims = safeJsonParse(text);
-    const jwt = await jwt_sign(claims, state.walletBasedSigner);
+    const keyPurpose = String(el.signJwtKeyPurpose.value ?? "").trim() || "assertionMethod";
+    const jwt = await withEphemeralSigner(
+      { keyPurpose, purposeLabel: "JWT signing" },
+      async (signer) => await jwt_sign(claims, signer),
+    );
     setSignedArtifact(jwt);
     setInlineStatus(el.signingStatus, "ok", "JWT signed");
   } catch (e) {
@@ -624,7 +888,7 @@ async function handleSignJwt() {
 }
 
 async function handleIssueVcJwtOrLdp({ format }) {
-  if (!state.walletBasedSigner) return;
+  if (!state.wallet || !state.activeDidFq) return;
   const unsigned = {
     additionalContexts: null,
     credentialId: "https://example.org/#CredentialId",
@@ -653,13 +917,19 @@ async function handleIssueVcJwtOrLdp({ format }) {
       new Date(input.expirationDate),
       input.credentialSubject ?? {},
     );
-    if (format === "jwt") {
-      const vcJwt = await issue_vc_jwt(unsignedVc, state.walletBasedSigner);
-      setSignedArtifact(vcJwt);
-    } else {
-      const vcLdp = await issue_vc_ldp(unsignedVc, state.walletBasedSigner, state.didResolver);
-      setSignedArtifact(stringifyForArtifact(vcLdp));
-    }
+    const keyPurpose = "assertionMethod";
+    await withEphemeralSigner(
+      { keyPurpose, purposeLabel: `VC issuance (${format.toUpperCase()})` },
+      async (signer) => {
+        if (format === "jwt") {
+          const vcJwt = await issue_vc_jwt(unsignedVc, signer);
+          setSignedArtifact(vcJwt);
+        } else {
+          const vcLdp = await issue_vc_ldp(unsignedVc, signer, state.didResolver);
+          setSignedArtifact(stringifyForArtifact(vcLdp));
+        }
+      },
+    );
     setInlineStatus(el.signingStatus, "ok", `VC issued (${format.toUpperCase()})`);
   } catch (e) {
     console.error(e);
@@ -668,7 +938,7 @@ async function handleIssueVcJwtOrLdp({ format }) {
 }
 
 async function handleIssueVpJwtOrLdp({ format }) {
-  if (!state.walletBasedSigner) return;
+  if (!state.wallet || !state.activeDidFq) return;
   const inputDefaultBase = {
     additionalContexts: null,
     presentationId: "https://example.org/#PresentationId",
@@ -710,18 +980,19 @@ async function handleIssueVpJwtOrLdp({ format }) {
       p.domains ?? null,
       p.nonce ?? null,
     );
-    if (format === "jwt") {
-      const vpJwt = await issue_vp_jwt(unsignedVp, issueParams, state.walletBasedSigner);
-      setSignedArtifact(vpJwt);
-    } else {
-      const vpLdp = await issue_vp_ldp(
-        unsignedVp,
-        issueParams,
-        state.walletBasedSigner,
-        state.didResolver,
-      );
-      setSignedArtifact(stringifyForArtifact(vpLdp));
-    }
+    const keyPurpose = "authentication";
+    await withEphemeralSigner(
+      { keyPurpose, purposeLabel: `VP issuance (${format.toUpperCase()})` },
+      async (signer) => {
+        if (format === "jwt") {
+          const vpJwt = await issue_vp_jwt(unsignedVp, issueParams, signer);
+          setSignedArtifact(vpJwt);
+        } else {
+          const vpLdp = await issue_vp_ldp(unsignedVp, issueParams, signer, state.didResolver);
+          setSignedArtifact(stringifyForArtifact(vpLdp));
+        }
+      },
+    );
     setInlineStatus(el.signingStatus, "ok", `VP issued (${format.toUpperCase()})`);
   } catch (e) {
     console.error(e);
@@ -775,7 +1046,40 @@ async function handleSimpleVerify({ kind }) {
 function wireEvents() {
   el.applyHttpOptionsBtn.addEventListener("click", handleApplyHttpOptions);
 
+  el.refreshWalletsBtn.addEventListener("click", async () => {
+    await refreshWalletRecords({ autoSelectSingle: true });
+  });
+
+  el.createWalletBtn.addEventListener("click", async () => {
+    setInlineStatus(el.walletsStatus, "warn", "Creating…");
+    try {
+      const name = (el.newWalletName.value ?? "").trim();
+      const createdWallet = await Wallet.create(
+        DEFAULTS.walletDbName,
+        name ? name : null,
+        DEFAULTS.vdgHost,
+      );
+      await refreshWalletRecords({ autoSelectSingle: false });
+      const newestUuid = pickNewestWalletUuid(state.walletRecords);
+      if (newestUuid) {
+        state.wallet = createdWallet;
+        state.activeWalletUuid = newestUuid;
+        setActiveWalletSummary();
+        state.activeDidFq = "";
+        await refreshControlledDids();
+        await refreshLocallyControlledVerificationMethods();
+        setSignedArtifact("");
+        updateWalletDependentUi();
+      }
+      setInlineStatus(el.walletsStatus, "ok", "Created");
+    } catch (e) {
+      console.error(e);
+      setInlineStatus(el.walletsStatus, "bad", String(e));
+    }
+  });
+
   el.refreshDidsBtn.addEventListener("click", async () => {
+    if (!state.wallet) return;
     setInlineStatus(el.walletOpsStatus, "warn", "Refreshing…");
     try {
       await refreshControlledDids();
@@ -800,20 +1104,10 @@ function wireEvents() {
     }
   });
 
-  el.activeDidSelect.addEventListener("change", async () => {
-    state.activeDidFq = el.activeDidSelect.value;
-    updateDidActionButtons();
-    clearSigner("Signer cleared (active DID changed)");
-    await refreshLocallyControlledVerificationMethods();
-  });
-
   el.copyDidResolutionBtn.addEventListener("click", async () => {
     await copyTextToClipboard(el.didResolveOutput.value);
   });
   el.didResolveBtn.addEventListener("click", handleResolveDid);
-
-  el.createSignerBtn.addEventListener("click", handleCreateSigner);
-  el.clearSignerBtn.addEventListener("click", () => clearSigner("No signer"));
 
   el.copySignedArtifactBtn.addEventListener("click", async () => {
     await copyTextToClipboard(el.signedArtifactOutput.value);

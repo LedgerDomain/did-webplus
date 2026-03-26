@@ -56,9 +56,47 @@
                         <div class="v"><code id="walletDbName"></code></div>
                     </div>
                     <div class="kv">
-                        <div class="k">Wallet name</div>
-                        <div class="v"><code id="walletName"></code></div>
+                        <div class="k">Active wallet</div>
+                        <div class="v"><code id="activeWalletSummary">(none)</code></div>
                     </div>
+                </div>
+
+                <hr class="sep" />
+
+                <h3>Wallets (IndexedDB)</h3>
+                <div class="muted small">Select an active wallet to enable wallet-backed operations.</div>
+                <div class="row">
+                    <button class="btn btnGhost" id="refreshWalletsBtn">Refresh wallets</button>
+                    <div class="inlineStatus" id="walletsStatus" data-variant="idle"></div>
+                </div>
+
+                <div class="row">
+                    <div class="formRow grow">
+                        <label class="label" for="newWalletName">New wallet name (optional)</label>
+                        <input id="newWalletName" class="input" type="text" placeholder="(optional)" />
+                    </div>
+                    <div class="formRow">
+                        <label class="label">&nbsp;</label>
+                        <button class="btn" id="createWalletBtn">Create new wallet</button>
+                    </div>
+                </div>
+
+                <div class="tableWrap">
+                    <table class="table" id="walletsTable">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Wallet UUID</th>
+                                <th>Name</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="walletsTbody">
+                            <tr>
+                                <td colspan="4" class="muted">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <hr class="sep" />
@@ -70,17 +108,30 @@
                 </div>
 
                 <div class="row">
-                    <button class="btn" id="createDidBtn">Create DID</button>
-                    <button class="btn btnGhost" id="refreshDidsBtn">Refresh DIDs</button>
+                    <button class="btn" id="createDidBtn" disabled>Create DID</button>
+                    <button class="btn btnGhost" id="refreshDidsBtn" disabled>Refresh DIDs</button>
                     <div class="inlineStatus" id="walletOpsStatus" data-variant="idle"></div>
                 </div>
 
-                <div class="formRow">
-                    <label class="label" for="activeDidSelect">Active DID</label>
-                    <select id="activeDidSelect" class="select">
-                        <option value="">(none)</option>
-                    </select>
-                    <div class="help">Changing the active DID clears the active WalletBasedSigner.</div>
+                <h3>Controlled DIDs (active wallet)</h3>
+                <div class="muted small">Select an active DID to enable DID operations and signing.</div>
+                <div class="tableWrap">
+                    <table class="table" id="activeDidsTable">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>DID</th>
+                                <th>selfHash</th>
+                                <th>versionId</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="activeDidsTbody">
+                            <tr>
+                                <td colspan="5" class="muted">Select an active wallet to load DIDs.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="row">
@@ -129,13 +180,20 @@
             </section>
 
             <section class="card">
-                <h2>WalletBasedSigner</h2>
-                <p class="muted">Select a DID, then create a signer for signing operations. Changing DID or updating/deactivating clears the signer.</p>
+                <h2>Signing / Issuing</h2>
+                <div class="muted small">These actions require an active wallet and an active DID.</div>
+
+                <div class="row">
+                    <label class="row" style="gap: 8px;">
+                        <input id="signingOffline" type="checkbox" />
+                        <span class="small muted">Offline operation (skip DID fetch before signing)</span>
+                    </label>
+                </div>
 
                 <div class="row">
                     <div class="formRow grow">
-                        <label class="label" for="signerKeyPurpose">Key purpose</label>
-                        <select id="signerKeyPurpose" class="select">
+                        <label class="label" for="signJwtKeyPurpose">Sign JWT key purpose</label>
+                        <select id="signJwtKeyPurpose" class="select">
                             <option value="assertionMethod">assertionMethod</option>
                             <option value="authentication">authentication</option>
                             <option value="keyAgreement">keyAgreement</option>
@@ -144,22 +202,11 @@
                         </select>
                     </div>
                     <div class="formRow grow">
-                        <label class="label" for="signerKeyId">Key ID (fragment)</label>
-                        <input id="signerKeyId" class="input" type="text" placeholder="(optional)" />
+                        <label class="label" for="signingKeyId">Key ID (fragment)</label>
+                        <input id="signingKeyId" class="input" type="text" placeholder="(optional)" />
                         <div class="help">If empty, wallet chooses a key.</div>
                     </div>
                 </div>
-
-                <div class="row">
-                    <button class="btn" id="createSignerBtn" disabled>Create signer</button>
-                    <button class="btn btnGhost" id="clearSignerBtn" disabled>Clear signer</button>
-                    <div class="inlineStatus" id="signerStatus" data-variant="idle">No signer</div>
-                </div>
-            </section>
-
-            <section class="card">
-                <h2>Signing / Issuing</h2>
-                <div class="muted small">These actions require an active WalletBasedSigner.</div>
 
                 <div class="btnGrid">
                     <button class="btn" id="signJwtBtn" disabled>Sign JWT…</button>

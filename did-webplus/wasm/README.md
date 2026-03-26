@@ -114,7 +114,9 @@ and then load `http://localhost:3000` in your web browser.  This demo is intenti
 
 - **On page load**:
   - Initializes the WASM module.
-  - Creates an IndexedDB-backed wallet.
+  - Loads wallet records from IndexedDB and populates the wallet picker UI.
+    - If exactly one wallet exists, it is opened automatically.
+    - If multiple wallets exist, you must select an active wallet before wallet-backed actions are enabled.
   - Creates a DID resolver (thin resolver against the local dev VDG).
   - Nothing else is done automatically.
 
@@ -122,9 +124,11 @@ and then load `http://localhost:3000` in your web browser.  This demo is intenti
   - The demo has a single global `HTTPOptions` configuration (scheme overrides + per-host headers) that applies to DID resolution and all wallet HTTP operations. This avoids needing to configure HTTP options per call.
 
 - **User-driven actions**:
-  - Wallet DID operations: create DID (with user-specified VDR create endpoint), update DID, deactivate DID (with irreversible confirmation modal).
-  - Select the “active DID” used for update/deactivate and for all signing operations.
-  - Create/clear a `WalletBasedSigner` used for signing, automatically cleared when active DID changes or when update/deactivate is performed.
-  - Sign/issue: JWT, VC (JWT/LDP), VP (JWT/LDP). Signed artifacts are displayed with a Copy button.
+  - Wallet selection: create a new wallet record and/or select an active wallet.
+  - Wallet DID operations (require an active wallet): create DID (with user-specified VDR create endpoint), update DID, deactivate DID (with irreversible confirmation modal).
+  - Select the “active DID” (tabular view with copy-to-clipboard for the base DID).
+  - Sign/issue (require active wallet + active DID): JWT, VC (JWT/LDP), VP (JWT/LDP). Signed artifacts are displayed with a Copy button.
+    - The demo creates a `WalletBasedSigner` automatically just-in-time for each signing action and uses it only for that single operation.
+    - By default it calls `fetch_did` before creating the signer so the wallet has the latest DID state; you can skip that with “Offline operation”.
   - Verify: JWT, VC (JWT/LDP), VP (JWT/LDP) with a simple tri-state result (not checked / valid / invalid).
   - Resolve DID: resolve arbitrary DID queries and show the resolved DID document (JCS) with Copy.

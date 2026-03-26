@@ -254,41 +254,54 @@ impl SoftwareWalletIndexedDB {
                 tracing::debug!("started transaction for opening a wallet");
                 let wallets_object_store = transaction.object_store(Self::WALLETS_OBJECT_STORE)?;
 
-                // We need the auto-incremented primary key (wallets_rowid) to open the wallet, since
-                // other object stores reference it. Use an index cursor so we can read `primary_key()`.
-                let mut cursor = wallets_object_store
-                    .index(Self::WALLETS_INDEX_WALLET_UUID)?
-                    .cursor()
-                    .open()
-                    .await?;
+                async fn scan_cursor_for_wallet(
+                    mut cursor: indexed_db::Cursor<Error>,
+                    wallet_uuid: uuid::Uuid,
+                ) -> Result<Option<WalletStorageCtx>, indexed_db::Error<Error>> {
+                    loop {
+                        let wallet_record_jsvalue_o = cursor.value();
+                        if wallet_record_jsvalue_o.is_none() {
+                            return Ok(None);
+                        }
+                        let wallet_record_jsvalue = wallet_record_jsvalue_o.unwrap();
+                        let wallet_record =
+                            serde_wasm_bindgen::from_value::<WalletRecord>(wallet_record_jsvalue)
+                                .map_err(|e| Error::from(anyhow::anyhow!("{}", e)))?;
+                        if wallet_record.wallet_uuid == wallet_uuid {
+                            let wallets_rowid_jsvalue = cursor.primary_key().ok_or_else(|| {
+                                Error::from(anyhow::anyhow!(
+                                    "IndexedDB cursor missing primary key for wallet_uuid {:?}",
+                                    wallet_uuid
+                                ))
+                            })?;
+                            let wallets_rowid = wallets_rowid_jsvalue.as_f64().ok_or_else(|| {
+                                Error::from(anyhow::anyhow!(
+                                    "IndexedDB primary key was not a number for wallet_uuid {:?}: {:?}",
+                                    wallet_uuid,
+                                    wallets_rowid_jsvalue
+                                ))
+                            })? as i64;
+                            return Ok(Some(WalletStorageCtx { wallets_rowid }));
+                        }
+                        cursor.advance(1).await?;
+                    }
+                }
 
-                loop {
-                    let wallet_record_jsvalue_o = cursor.value();
-                    if wallet_record_jsvalue_o.is_none() {
-                        break;
+                // We need the auto-incremented primary key (wallets_rowid) to open the wallet, since
+                // other object stores reference it. Prefer index cursor, but fall back to store cursor
+                // for backward compatibility with older DBs where the index was missing/broken.
+                if let Ok(index) = wallets_object_store.index(Self::WALLETS_INDEX_WALLET_UUID) {
+                    let cursor = index.cursor().open().await?;
+                    if let Some(ctx) = scan_cursor_for_wallet(cursor, wallet_uuid).await? {
+                        tracing::debug!(ctx.wallets_rowid, "successfully opened wallet (index)");
+                        return Ok(ctx);
                     }
-                    let wallet_record_jsvalue = wallet_record_jsvalue_o.unwrap();
-                    let wallet_record =
-                        serde_wasm_bindgen::from_value::<WalletRecord>(wallet_record_jsvalue)
-                            .map_err(|e| Error::from(anyhow::anyhow!("{}", e)))?;
-                    if wallet_record.wallet_uuid == wallet_uuid {
-                        let wallets_rowid_jsvalue = cursor.primary_key().ok_or_else(|| {
-                            Error::from(anyhow::anyhow!(
-                                "IndexedDB cursor missing primary key for wallet_uuid {:?}",
-                                wallet_uuid
-                            ))
-                        })?;
-                        let wallets_rowid = wallets_rowid_jsvalue.as_f64().ok_or_else(|| {
-                            Error::from(anyhow::anyhow!(
-                                "IndexedDB primary key was not a number for wallet_uuid {:?}: {:?}",
-                                wallet_uuid,
-                                wallets_rowid_jsvalue
-                            ))
-                        })? as i64;
-                        tracing::debug!(wallets_rowid, "successfully opened wallet");
-                        return Ok(WalletStorageCtx { wallets_rowid });
-                    }
-                    cursor.advance(1).await?;
+                }
+
+                let cursor = wallets_object_store.cursor().open().await?;
+                if let Some(ctx) = scan_cursor_for_wallet(cursor, wallet_uuid).await? {
+                    tracing::debug!(ctx.wallets_rowid, "successfully opened wallet (scan)");
+                    return Ok(ctx);
                 }
 
                 Err(Error::from(anyhow::anyhow!(

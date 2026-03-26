@@ -348,6 +348,11 @@ code,
   text-align: left;
   vertical-align: top;
 }
+.table th:first-child,
+.table td:first-child {
+  width: 1%;
+  white-space: nowrap;
+}
 .table th {
   color: var(--muted2);
   font-weight: 700;
