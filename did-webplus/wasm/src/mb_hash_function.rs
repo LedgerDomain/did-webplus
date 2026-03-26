@@ -25,7 +25,7 @@ pub enum Base {
 
 /// MBHashFunction represents a specific base and hash function for use in generating self-hashes for did:webplus DID documents.
 #[wasm_bindgen]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MBHashFunction(selfhash::MBHashFunction);
 
 #[wasm_bindgen]

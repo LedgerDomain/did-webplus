@@ -1,4 +1,7 @@
-use crate::{DID, HTTPOptions, MBHashFunction, Result, WalletBasedSigner, into_js_value};
+use crate::{
+    DID, HTTPOptions, LocallyControlledVerificationMethodFilter, MBHashFunction, Result,
+    VerificationMethodRecord, WalletBasedSigner, into_js_value,
+};
 use std::{ops::Deref, str::FromStr, sync::Arc};
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -299,6 +302,24 @@ impl Wallet {
             .await
             .map_err(into_js_value)?;
         Ok(controlled_did.to_string())
+    }
+    /// Returns the list of locally-controlled verification methods for the given filter.
+    pub async fn get_locally_controlled_verification_methods(
+        &self,
+        locally_controlled_verification_method_filter: LocallyControlledVerificationMethodFilter,
+    ) -> Result<Vec<VerificationMethodRecord>> {
+        let locally_controlled_verification_method_filter =
+            locally_controlled_verification_method_filter.into();
+        Ok(self
+            .deref()
+            .get_locally_controlled_verification_methods(
+                &locally_controlled_verification_method_filter,
+            )
+            .await
+            .map_err(into_js_value)?
+            .into_iter()
+            .map(|(verification_method_record, _signer_bytes)| verification_method_record.into())
+            .collect())
     }
     /// Create a WalletBasedSigner for the given DID and key purpose.
     pub async fn new_wallet_based_signer(

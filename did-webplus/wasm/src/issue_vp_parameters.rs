@@ -2,10 +2,14 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Parameters for issuing a VP.
 #[wasm_bindgen]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueVPParameters {
+    #[serde(rename = "challenge")]
     challenge_o: Option<String>,
+    #[serde(rename = "domains")]
     domains_vo: Option<Vec<String>>,
+    #[serde(rename = "nonce")]
     nonce_o: Option<String>,
 }
 

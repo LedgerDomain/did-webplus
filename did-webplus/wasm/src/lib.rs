@@ -7,10 +7,13 @@ mod http_scheme_override;
 mod issue_vp_parameters;
 mod jws;
 mod jwt;
+mod key_purpose;
 mod key_type;
+mod locally_controlled_verification_method_filter;
 mod mb_hash_function;
 mod signer;
 mod vc;
+mod verification_method_record;
 mod verifier_resolver;
 mod vjson;
 mod vjson_resolver;
@@ -29,10 +32,13 @@ pub use crate::{
     issue_vp_parameters::IssueVPParameters,
     jws::{jws_sign, jws_verify},
     jwt::{jwt_sign, jwt_verify},
+    key_purpose::{KeyPurpose, key_purpose_as_str},
     key_type::KeyType,
+    locally_controlled_verification_method_filter::LocallyControlledVerificationMethodFilter,
     mb_hash_function::{Base, HashFunction, MBHashFunction},
     signer::Signer,
     vc::{issue_vc_jwt, issue_vc_ldp, new_unsigned_credential, verify_vc_jwt, verify_vc_ldp},
+    verification_method_record::VerificationMethodRecord,
     verifier_resolver::VerifierResolver,
     vjson::{vjson_default_schema, vjson_self_hash, vjson_sign_and_self_hash, vjson_verify},
     vjson_resolver::VJSONResolver,

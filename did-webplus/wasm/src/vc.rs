@@ -13,21 +13,8 @@ pub fn new_unsigned_credential(
     expiration_date: js_sys::Date,
     credential_subject: JsValue,
 ) -> Result<JsValue> {
-    tracing::debug!(
-        "HIPPO new_unsigned_credential: issuance_date: {:?}, expiration_date: {:?}",
-        issuance_date,
-        expiration_date
-    );
     let issuance_date = date_to_offset_date_time(issuance_date);
-    tracing::debug!(
-        "   HIPPO new_unsigned_credential: issuance_date: {:?}",
-        issuance_date
-    );
     let expiration_date = date_to_offset_date_time(expiration_date);
-    tracing::debug!(
-        "   HIPPO new_unsigned_credential: expiration_date: {:?}",
-        expiration_date
-    );
     let credential_subject: serde_json::Value =
         serde_wasm_bindgen::from_value(credential_subject).map_err(into_js_value)?;
     let unsigned_credential = did_webplus_ssi::new_unsigned_credential(
@@ -36,10 +23,6 @@ pub fn new_unsigned_credential(
         issuance_date,
         expiration_date,
         credential_subject,
-    );
-    tracing::debug!(
-        "HIPPO new_unsigned_credential: unsigned_credential: {:?}",
-        unsigned_credential
     );
     Ok(serde_wasm_bindgen::to_value(&unsigned_credential).map_err(into_js_value)?)
 }
@@ -61,7 +44,16 @@ pub async fn issue_vc_ldp(
     )
     .await
     .map_err(into_js_value)?;
-    Ok(serde_wasm_bindgen::to_value(&vc_ldp).map_err(into_js_value)?)
+    let vc_ldp_json = serde_json::to_value(&vc_ldp).map_err(into_js_value)?;
+    let vc_ldp_jsvalue = serde_wasm_bindgen::to_value(&vc_ldp_json).map_err(into_js_value)?;
+    // // TEMP: Verify it round tripped properly
+    // {
+    //     let vc_ldp_json_2 =
+    //         serde_wasm_bindgen::from_value::<serde_json::Value>(vc_ldp_jsvalue.clone())
+    //             .map_err(into_js_value)?;
+    //     assert_eq!(vc_ldp_json, vc_ldp_json_2);
+    // }
+    Ok(vc_ldp_jsvalue)
 }
 
 /// Verify an LDP-formatted VC (a JSON blob), returning an error if the verification fails.  NOTE: This

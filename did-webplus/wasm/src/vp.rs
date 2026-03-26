@@ -91,7 +91,20 @@ pub async fn issue_vp_ldp(
     )
     .await
     .map_err(into_js_value)?;
-    Ok(serde_wasm_bindgen::to_value(&vp_ldp).map_err(into_js_value)?)
+    let vp_ldp_json = serde_json::to_value(&vp_ldp).map_err(into_js_value)?;
+    let vp_ldp_jsvalue = serde_wasm_bindgen::to_value(&vp_ldp_json).map_err(into_js_value)?;
+    // // TEMP: Verify it round tripped properly
+    // {
+    //     let vp_ldp_json_2 =
+    //         serde_wasm_bindgen::from_value::<serde_json::Value>(vp_ldp_jsvalue.clone())
+    //             .map_err(into_js_value)?;
+    //     tracing::debug!(
+    //         "DONKEY vp_ldp_json_2 (as string): {}",
+    //         serde_json::to_string(&vp_ldp_json_2).expect("pass")
+    //     );
+    //     assert_eq!(vp_ldp_json, vp_ldp_json_2);
+    // }
+    Ok(vp_ldp_jsvalue)
 }
 
 /// Verify an LDP-formatted VP (a JSON blob), returning an error if the verification fails.  NOTE: This

@@ -184,7 +184,7 @@ async fn test_software_wallet_indexeddb() {
         let jwt_string = did_webplus_wasm::jwt_sign(claims_jsvalue, &wallet_based_signer)
             .await
             .expect("signature failed");
-        tracing::info!("OSTRICH jwt_string: {}", jwt_string);
+        tracing::info!("jwt_string: {}", jwt_string);
 
         // Verify the JWT.
         let jwt_verify_r = did_webplus_wasm::jwt_verify(jwt_string.clone(), &did_resolver).await;
@@ -260,7 +260,13 @@ async fn test_software_wallet_indexeddb() {
         )
         .await
         .expect("signature failed");
-        tracing::info!("OSTRICH vc_ldp_jsvalue: {:?}", vc_ldp_jsvalue);
+        tracing::info!("vc_ldp_jsvalue: {:?}", vc_ldp_jsvalue);
+        {
+            let vc_ldp =
+                serde_wasm_bindgen::from_value::<serde_json::Value>(vc_ldp_jsvalue.clone())
+                    .expect("pass");
+            tracing::debug!("vc_ldp as JSON: {}", vc_ldp);
+        }
 
         // Verify the VC.
         did_webplus_wasm::verify_vc_ldp(vc_ldp_jsvalue.clone(), &did_resolver)
@@ -292,7 +298,7 @@ async fn test_software_wallet_indexeddb() {
             did_webplus_wasm::issue_vc_jwt(unsigned_credential_jsvalue, &wallet_based_signer)
                 .await
                 .expect("signature failed");
-        tracing::info!("OSTRICH vc_jwt: {:?}", vc_jwt);
+        tracing::info!("vc_jwt: {:?}", vc_jwt);
 
         // Verify the VC.
         did_webplus_wasm::verify_vc_jwt(vc_jwt.clone(), &did_resolver)
@@ -325,7 +331,7 @@ async fn test_software_wallet_indexeddb() {
         {
             let vp = serde_wasm_bindgen::from_value::<serde_json::Value>(vp_ldp_of_vc_ldp.clone())
                 .expect("pass");
-            tracing::info!("OSTRICH vp_ldp_of_vc_ldp: {}", vp);
+            tracing::info!("vp_ldp_of_vc_ldp: {}", vp);
         }
 
         // Verify the VP.
@@ -356,7 +362,7 @@ async fn test_software_wallet_indexeddb() {
         )
         .await
         .expect("signature failed");
-        tracing::info!("OSTRICH vp_jwt_of_vc_ldp: {}", vp_jwt_of_vc_ldp);
+        tracing::info!("vp_jwt_of_vc_ldp: {}", vp_jwt_of_vc_ldp);
 
         // Verify the VP.
         did_webplus_wasm::verify_vp_jwt(vp_jwt_of_vc_ldp.clone(), &did_resolver)
@@ -387,7 +393,7 @@ async fn test_software_wallet_indexeddb() {
         {
             let vp = serde_wasm_bindgen::from_value::<serde_json::Value>(vp_ldp_of_vc_jwt.clone())
                 .expect("pass");
-            tracing::info!("OSTRICH vp_ldp_of_vc_jwt: {}", vp);
+            tracing::info!("vp_ldp_of_vc_jwt: {}", vp);
         }
 
         // Verify the VP.
@@ -417,7 +423,7 @@ async fn test_software_wallet_indexeddb() {
         )
         .await
         .expect("signature failed");
-        tracing::info!("OSTRICH vp_jwt_of_vc_jwt: {}", vp_jwt_of_vc_jwt);
+        tracing::info!("vp_jwt_of_vc_jwt: {}", vp_jwt_of_vc_jwt);
 
         // Verify the VP.
         did_webplus_wasm::verify_vp_jwt(vp_jwt_of_vc_jwt.clone(), &did_resolver)

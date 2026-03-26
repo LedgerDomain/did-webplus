@@ -90,11 +90,11 @@ It appears that no logging is sent to stdout when the tests are run within node.
 
 ### Build and Run the Example Web Page
 
-Note that the test VDR and VDG MUST be running in order for this example to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory, which is `did-webplus/did-webplus/wasm`), ensure the wasm package has been built:
+Note that the test VDR and VDG MUST be running in order for this example to work.  See above for instructions.  From this directory (the did-webplus-wasm crate directory, which is `did-webplus/did-webplus/wasm`), ensure the (release build of the) wasm package has been built:
 
     wasm-pack build --target web --all-features
 
-This should populate the `pkg` directory with various files, including:
+Because this involves a size-optimization pass, this may take a few minutes to complete (during development, use `wasm-pack build --target web --all-features --debug` instead, which should complete quickly).  This should populate the `pkg` directory with various files, including:
 
     did_webplus_wasm_bg.wasm
     did_webplus_wasm_bg.wasm.d.ts
@@ -108,6 +108,23 @@ Then run a local web server to serve the example web page (`index.html`), e.g.
 
     python3 -m http.server 3000
 
-and then load `http://localhost:3000` in your web browser.  This is a very ugly -- but working -- example of some critical features of did-webplus running in a browser.
+and then load `http://localhost:3000` in your web browser.  This demo is intentionally **static** (no Vite/bundler) and is meant to be a simple but usable, professional-ish UI for exercising the WASM SDK.
 
-For now, the IndexedDB-backed wallet is demonstrated upon first load, and its results can be seen in the console log.  There should be corresponding VDR log messages (e.g. about DID creation).
+#### Demo behavior
+
+- **On page load**:
+  - Initializes the WASM module.
+  - Creates an IndexedDB-backed wallet.
+  - Creates a DID resolver (thin resolver against the local dev VDG).
+  - Nothing else is done automatically.
+
+- **Global HTTP settings**:
+  - The demo has a single global `HTTPOptions` configuration (scheme overrides + per-host headers) that applies to DID resolution and all wallet HTTP operations. This avoids needing to configure HTTP options per call.
+
+- **User-driven actions**:
+  - Wallet DID operations: create DID (with user-specified VDR create endpoint), update DID, deactivate DID (with irreversible confirmation modal).
+  - Select the “active DID” used for update/deactivate and for all signing operations.
+  - Create/clear a `WalletBasedSigner` used for signing, automatically cleared when active DID changes or when update/deactivate is performed.
+  - Sign/issue: JWT, VC (JWT/LDP), VP (JWT/LDP). Signed artifacts are displayed with a Copy button.
+  - Verify: JWT, VC (JWT/LDP), VP (JWT/LDP) with a simple tri-state result (not checked / valid / invalid).
+  - Resolve DID: resolve arbitrary DID queries and show the resolved DID document (JCS) with Copy.

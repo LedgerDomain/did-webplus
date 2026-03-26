@@ -4,98 +4,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>did:webplus wasm test</title>
+    <title>did:webplus WASM SDK Demo</title>
+    <link rel="stylesheet" href="./demo.css" />
 </head>
-<script type="module">
-    import init, {
-        Signer, jws_sign, jws_verify, JWSPayloadPresence, JWSPayloadEncoding, VJSONStore, vjson_default_schema,
-        vjson_self_hash, VerifierResolver, vjson_verify, Wallet
-    } from './pkg/did_webplus_wasm.js';
-
-    async function run() {
-        // Initialize the Wasm module
-        await init();
-
-        window.signer = Signer.did_key_generate_temp();
-        window.verifier_resolver = VerifierResolver.new_with_did_key();
-        window.vjson_store = await VJSONStore.new_mock();
-        // Generate a VJSONResolver from the VJSONStore.
-        window.vjson_resolver = window.vjson_store.as_resolver();
-        window.wallet = await Wallet.create("wallet_db_1", `Example Wallet ${new Date().toISOString()}`);
-
-        // Create a DID
-        let controlled_did = await window.wallet.create_did("http://vdr.did-webplus-wasm.test:8085");
-        console.log("Created DID: " + controlled_did);
-
-        // Do some more setup
-        document.getElementById("key_id").textContent = window.signer.key_id();
-        document.getElementById("vjson_default_schema").textContent = vjson_default_schema();
-        document.getElementById("controlled_did").textContent = controlled_did;
-    }
-
-    window.sign_jws_input = function () {
-        let jws_input = document.getElementById("jws_input").value;
-        let jws = jws_sign(jws_input, JWSPayloadPresence.Attached, JWSPayloadEncoding.Base64, window.signer);
-        document.getElementById("jws_output").textContent = jws;
-    }
-
-    window.verify_jws_output = async function () {
-        let jws_output = document.getElementById("jws_output").textContent;
-        // TODO: Figure out why jws_output isn't set correctly after you manually change the jws_output textarea.
-        let result = await jws_verify(jws_output, window.verifier_resolver)
-            .then((value) => "JWS is Valid")
-            .catch((value) => "JWS is INVALID");
-        document.getElementById("jws_verification").textContent = result;
-    }
-
-    window.vjson_self_hash = async function () {
-        let vjson_input = document.getElementById("vjson_input").textContent;
-        let result = await vjson_self_hash(vjson_input, window.vjson_resolver);
-        document.getElementById("vjson_input").textContent = result;
-    }
-
-    window.vjson_verify = async function () {
-        let vjson_input = document.getElementById("vjson_input").textContent;
-        let result = await vjson_verify(vjson_input, window.vjson_resolver, window.verifier_resolver);
-        document.getElementById("vjson_verification").textContent = result;
-    }
-
-    window.update_did = async function () {
-        let controlled_did = document.getElementById("controlled_did").textContent;
-        // Chop off the query params.
-        let did = controlled_did.split("?")[0];
-        let result = await window.wallet.update_did(did, "http");
-        document.getElementById("controlled_did").textContent = result;
-    }
-
-    run().catch(console.error);
-</script>
 
 <body>
-    <h1>did:webplus wasm test</h1>
-    <div>Key ID: <div id="key_id"></div>
+    <div class="page">
+        <header class="appHeader">
+            <div>
+                <div class="appTitle">did:webplus WASM SDK Demo</div>
+                <div class="appSubtitle">Static (no bundler). Wallet + DID resolver on load. Everything else is user-driven.</div>
+            </div>
+            <div class="statusPill" id="appStatus" data-variant="warn">Loading…</div>
+        </header>
+
+        <main class="grid">
+            <section class="card">
+                <h2>Global HTTP settings</h2>
+                <p class="muted">
+                    These settings apply to DID resolution, wallet DID create/update/deactivate, and wallet-based signer creation.
+                </p>
+
+                <div class="formRow">
+                    <label class="label" for="httpSchemeOverride">
+                        HTTP scheme override (comma-separated <code>hostname=scheme</code>)
+                    </label>
+                    <input id="httpSchemeOverride" class="input" type="text"
+                        value="vdr.did-webplus-wasm.test=http,vdg.did-webplus-wasm.test=http" />
+                    <div class="help">Example: <code>vdr.did-webplus-wasm.test=http,vdg.did-webplus-wasm.test=http</code></div>
+                </div>
+
+                <div class="formRow">
+                    <label class="label" for="httpHeadersFor">
+                        HTTP headers (semicolon-separated <code>hostname=header_name=header_value</code>)
+                    </label>
+                    <input id="httpHeadersFor" class="input" type="text" placeholder="(optional)" />
+                    <div class="help">Example: <code>vdr.example.org=x-api-key=abc123;vdg.example.org=Authorization=Bearer token</code></div>
+                </div>
+
+                <div class="row">
+                    <button class="btn" id="applyHttpOptionsBtn">Apply</button>
+                    <div class="inlineStatus" id="httpOptionsStatus" data-variant="idle">Not applied yet</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Wallet / DIDs</h2>
+                <div class="row">
+                    <div class="kv">
+                        <div class="k">Wallet DB</div>
+                        <div class="v"><code id="walletDbName"></code></div>
+                    </div>
+                    <div class="kv">
+                        <div class="k">Wallet name</div>
+                        <div class="v"><code id="walletName"></code></div>
+                    </div>
+                </div>
+
+                <hr class="sep" />
+
+                <div class="formRow">
+                    <label class="label" for="vdrCreateEndpoint">VDR create endpoint</label>
+                    <input id="vdrCreateEndpoint" class="input" type="url"
+                        value="http://vdr.did-webplus-wasm.test:8085" />
+                </div>
+
+                <div class="row">
+                    <button class="btn" id="createDidBtn">Create DID</button>
+                    <button class="btn btnGhost" id="refreshDidsBtn">Refresh DIDs</button>
+                    <div class="inlineStatus" id="walletOpsStatus" data-variant="idle"></div>
+                </div>
+
+                <div class="formRow">
+                    <label class="label" for="activeDidSelect">Active DID</label>
+                    <select id="activeDidSelect" class="select">
+                        <option value="">(none)</option>
+                    </select>
+                    <div class="help">Changing the active DID clears the active WalletBasedSigner.</div>
+                </div>
+
+                <div class="row">
+                    <button class="btn" id="updateDidBtn" disabled>Update DID</button>
+                    <button class="btn btnDanger" id="deactivateDidBtn" disabled>Deactivate DID…</button>
+                </div>
+
+                <hr class="sep" />
+
+                <h3>Locally controlled verification methods (active DID)</h3>
+                <div class="muted small">Keys stored in the wallet for the selected DID/version.</div>
+                <div class="tableWrap">
+                    <table class="table" id="vmsTable">
+                        <thead>
+                            <tr>
+                                <th>DID</th>
+                                <th>selfHash</th>
+                                <th>versionId</th>
+                                <th>purpose</th>
+                                <th>pubKey</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="vmsTbody">
+                            <tr>
+                                <td colspan="6" class="muted">Select an active DID to load keys.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Resolve DID</h2>
+                <p class="muted">Resolve any DID query using the demo’s DID resolver.</p>
+                <div class="row">
+                    <input id="didResolveInput" class="input" type="text" placeholder="did:webplus:…" />
+                    <button class="btn" id="didResolveBtn">Resolve</button>
+                </div>
+                <div class="outputHeader">
+                    <div class="muted small">DID document (JCS)</div>
+                    <button class="btn btnSmall btnGhost" id="copyDidResolutionBtn" disabled>Copy</button>
+                </div>
+                <textarea class="textarea mono" id="didResolveOutput" readonly rows="8"></textarea>
+                <div class="inlineStatus" id="didResolveStatus" data-variant="idle">Not checked</div>
+            </section>
+
+            <section class="card">
+                <h2>WalletBasedSigner</h2>
+                <p class="muted">Select a DID, then create a signer for signing operations. Changing DID or updating/deactivating clears the signer.</p>
+
+                <div class="row">
+                    <div class="formRow grow">
+                        <label class="label" for="signerKeyPurpose">Key purpose</label>
+                        <select id="signerKeyPurpose" class="select">
+                            <option value="assertionMethod">assertionMethod</option>
+                            <option value="authentication">authentication</option>
+                            <option value="keyAgreement">keyAgreement</option>
+                            <option value="capabilityInvocation">capabilityInvocation</option>
+                            <option value="capabilityDelegation">capabilityDelegation</option>
+                        </select>
+                    </div>
+                    <div class="formRow grow">
+                        <label class="label" for="signerKeyId">Key ID (fragment)</label>
+                        <input id="signerKeyId" class="input" type="text" placeholder="(optional)" />
+                        <div class="help">If empty, wallet chooses a key.</div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <button class="btn" id="createSignerBtn" disabled>Create signer</button>
+                    <button class="btn btnGhost" id="clearSignerBtn" disabled>Clear signer</button>
+                    <div class="inlineStatus" id="signerStatus" data-variant="idle">No signer</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Signing / Issuing</h2>
+                <div class="muted small">These actions require an active WalletBasedSigner.</div>
+
+                <div class="btnGrid">
+                    <button class="btn" id="signJwtBtn" disabled>Sign JWT…</button>
+                    <button class="btn" id="issueVcJwtBtn" disabled>Issue VC (JWT)…</button>
+                    <button class="btn" id="issueVpJwtBtn" disabled>Issue VP (JWT)…</button>
+                    <button class="btn" id="issueVcLdpBtn" disabled>Issue VC (LDP)…</button>
+                    <button class="btn" id="issueVpLdpBtn" disabled>Issue VP (LDP)…</button>
+                </div>
+
+                <div class="outputHeader">
+                    <div class="muted small">Signed artifact output</div>
+                    <button class="btn btnSmall btnGhost" id="copySignedArtifactBtn" disabled>Copy</button>
+                </div>
+                <textarea class="textarea mono" id="signedArtifactOutput" readonly rows="10"></textarea>
+                <div class="inlineStatus" id="signingStatus" data-variant="idle"></div>
+            </section>
+
+            <section class="card">
+                <h2>Verification</h2>
+                <div class="verifyGrid">
+                    <div class="verifyRow">
+                        <div class="verifyTitle">JWT verify</div>
+                        <textarea class="textarea mono" id="jwtVerifyInput" rows="3" placeholder="Paste JWT here"></textarea>
+                        <div class="row">
+                            <button class="btn" id="jwtVerifyBtn">Verify</button>
+                            <div class="inlineStatus" id="jwtVerifyStatus" data-variant="warn">Not checked</div>
+                        </div>
+                        <details class="details">
+                            <summary>Verification result (when valid)</summary>
+                            <pre class="pre mono" id="jwtVerifyResult"></pre>
+                        </details>
+                    </div>
+
+                    <div class="verifyRow">
+                        <div class="verifyTitle">VC verify (JWT)</div>
+                        <textarea class="textarea mono" id="vcJwtVerifyInput" rows="3" placeholder="Paste VC JWT here"></textarea>
+                        <div class="row">
+                            <button class="btn" id="vcJwtVerifyBtn">Verify</button>
+                            <div class="inlineStatus" id="vcJwtVerifyStatus" data-variant="warn">Not checked</div>
+                        </div>
+                        <details class="details">
+                            <summary>Decoded JWT (when valid)</summary>
+                            <pre class="pre mono" id="vcJwtVerifyResult"></pre>
+                        </details>
+                    </div>
+
+                    <div class="verifyRow">
+                        <div class="verifyTitle">VP verify (JWT)</div>
+                        <textarea class="textarea mono" id="vpJwtVerifyInput" rows="3" placeholder="Paste VP JWT here"></textarea>
+                        <div class="row">
+                            <button class="btn" id="vpJwtVerifyBtn">Verify</button>
+                            <div class="inlineStatus" id="vpJwtVerifyStatus" data-variant="warn">Not checked</div>
+                        </div>
+                        <details class="details">
+                            <summary>Decoded JWT (when valid)</summary>
+                            <pre class="pre mono" id="vpJwtVerifyResult"></pre>
+                        </details>
+                    </div>
+
+                    <div class="verifyRow">
+                        <div class="verifyTitle">VC verify (LDP JSON)</div>
+                        <textarea class="textarea mono" id="vcLdpVerifyInput" rows="6" placeholder="Paste VC LDP JSON here"></textarea>
+                        <div class="row">
+                            <button class="btn" id="vcLdpVerifyBtn">Verify</button>
+                            <div class="inlineStatus" id="vcLdpVerifyStatus" data-variant="warn">Not checked</div>
+                        </div>
+                    </div>
+
+                    <div class="verifyRow">
+                        <div class="verifyTitle">VP verify (LDP JSON)</div>
+                        <textarea class="textarea mono" id="vpLdpVerifyInput" rows="6" placeholder="Paste VP LDP JSON here"></textarea>
+                        <div class="row">
+                            <button class="btn" id="vpLdpVerifyBtn">Verify</button>
+                            <div class="inlineStatus" id="vpLdpVerifyStatus" data-variant="warn">Not checked</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
-    <div>JWS Input: <textarea id="jws_input">{"blah": 123}</textarea></div>
-    <div><button id="sign" onclick="sign_jws_input()">Sign</button></div>
-    <div>JWS Output: <textarea id="jws_output"></textarea></div>
-    <div><button id="verify" onclick="verify_jws_output()">Verify</button></div>
-    <div>JWS Verify Result: <div id="jws_verification"></div>
-    </div>
-    <br>
-    <br>
-    <div>VJSON Default Schema:</div>
-    <div id="vjson_default_schema"></div>
-    <div>VJSON Input: <textarea id="vjson_input">{"blah": 123, "$id": "vjson:///"}</textarea></div>
-    <div><button id="vjson_self_hash" onclick="vjson_self_hash()">Self-Hash VJSON</button></div>
-    <div><button id="vjson_verify" onclick="vjson_verify()">Verify VJSON</button></div>
-    <div>VJSON Verify Result: <div id="vjson_verification"></div>
-    </div>
-    <br>
-    <br>
-    <h2>Wallet Operations</h2>
-    <div>Controlled DID: <div id="controlled_did"></div>
-    </div>
-    <div><button id="update_did" onclick="update_did()">Update DID</button></div>
+
+    <dialog class="dialog" id="confirmDeactivateDialog">
+        <form method="dialog" class="dialogBody">
+            <h3>Deactivate DID?</h3>
+            <p class="dangerText">ARE YOU SURE? THIS IS IRREVERSIBLE.</p>
+            <p class="muted small">This will remove all verification methods and disallow future updates.</p>
+            <div class="row right">
+                <button class="btn btnGhost" value="cancel">Cancel</button>
+                <button class="btn btnDanger" id="confirmDeactivateBtn" value="confirm">Deactivate</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="dialog" id="jsonEditorDialog">
+        <form method="dialog" class="dialogBody">
+            <h3 id="jsonEditorTitle">Edit JSON</h3>
+            <textarea class="textarea mono" id="jsonEditorTextarea" rows="14"></textarea>
+            <div class="inlineStatus" id="jsonEditorStatus" data-variant="idle"></div>
+            <div class="row right">
+                <button class="btn btnGhost" value="cancel">Cancel</button>
+                <button class="btn" id="jsonEditorOkBtn" value="ok">OK</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script type="module" src="./demo.js"></script>
 </body>
 
 </html>
