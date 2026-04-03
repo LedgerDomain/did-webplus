@@ -210,6 +210,7 @@ async fn test_software_wallet_indexeddb() {
             "assertionMethod".to_string(),
             None,
             Some(http_options.clone()),
+            true,
         )
         .await
         .expect("pass");

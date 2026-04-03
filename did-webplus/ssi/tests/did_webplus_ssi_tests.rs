@@ -93,6 +93,7 @@ async fn test_ssi_jwt_issue_did_webplus_impl(
         did_webplus_core::KeyPurpose::AssertionMethod,
         None,
         None,
+        true,
     )
     .await
     .expect("pass");
@@ -198,6 +199,7 @@ async fn test_ssi_vc_issue_0_impl(
         did_webplus_core::KeyPurpose::AssertionMethod,
         None,
         None,
+        true,
     )
     .await
     .expect("pass");

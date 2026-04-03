@@ -351,12 +351,16 @@ impl Wallet {
             .collect())
     }
     /// Create a WalletBasedSigner for the given DID and key purpose.
+    ///
+    /// When `fetch_did_first` is true, refreshes the DID from the network before selecting the key.
+    /// Set to false for offline signing using only the wallet's cached DID documents.
     pub async fn new_wallet_based_signer(
         &self,
         did: String,
         key_purpose: String,
         key_id_o: Option<String>,
         http_options_o: Option<HTTPOptions>,
+        fetch_did_first: bool,
     ) -> Result<WalletBasedSigner> {
         let did = did_webplus_core::DIDStr::new_ref(&did).map_err(into_js_value)?;
         let key_purpose =
@@ -369,6 +373,7 @@ impl Wallet {
             key_purpose,
             key_id_o.as_deref(),
             http_options_o.as_ref(),
+            fetch_did_first,
         )
         .await
         .map_err(into_js_value)?;

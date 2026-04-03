@@ -17,7 +17,10 @@ pub struct WalletBasedSigner<W: Wallet> {
 }
 
 impl<W: Wallet> WalletBasedSigner<W> {
-    /// This will fetch the latest DID document for the DID being used to sign, and then get the appropriate signing key.
+    /// Resolves the signing key from the wallet's local store. When `fetch_did_first` is true, the
+    /// latest DID document is fetched from the network before lookup (recommended when the wallet may
+    /// be stale). When false, only locally stored documents are used (offline signing).
+    ///
     /// If the filter doesn't match exactly one verification method record, then an error will be returned.
     pub async fn new(
         wallet: W,
@@ -25,8 +28,11 @@ impl<W: Wallet> WalletBasedSigner<W> {
         key_purpose: did_webplus_core::KeyPurpose,
         key_id_o: Option<&str>,
         http_options_o: Option<&did_webplus_core::HTTPOptions>,
+        fetch_did_first: bool,
     ) -> Result<Self> {
-        wallet.fetch_did(did, http_options_o).await?;
+        if fetch_did_first {
+            wallet.fetch_did(did, http_options_o).await?;
+        }
         let locally_controlled_verification_method_filter =
             did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
                 did_o: Some(did.to_owned()),

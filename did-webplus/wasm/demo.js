@@ -860,10 +860,21 @@ async function initApp() {
   setInlineStatus(el.walletOpsStatus, "idle", "");
 }
 
+/// Rebuild the thin resolver and re-open the active wallet so VDG host / HTTP options match the inputs.
+async function applyGlobalSettingsFromInputs() {
+  state.didResolver = DIDResolver.new_thin(getVdgHost(), getHttpOptions());
+  if (state.activeWalletUuid) {
+    state.wallet = await Wallet.open(
+      DEFAULTS.walletDbName,
+      state.activeWalletUuid,
+      getVdgHostOrNull(),
+    );
+  }
+}
+
 async function handleApplyHttpOptions() {
   try {
-    // Recreate resolver to pick up new global HTTPOptions
-    state.didResolver = DIDResolver.new_thin(getVdgHost(), getHttpOptions());
+    await applyGlobalSettingsFromInputs();
     setInlineStatus(el.httpOptionsStatus, "ok", "Applied");
   } catch (e) {
     console.error(e);
@@ -871,11 +882,11 @@ async function handleApplyHttpOptions() {
   }
 }
 
-function ensureHttpOptionsUpToDate() {
-  // Treat the global HTTP settings inputs as the source of truth.
+async function ensureHttpOptionsUpToDate() {
+  // Treat the global HTTP settings inputs as the source of truth (including VDG host on the wallet).
   // This prevents subtle issues where the user edits inputs but forgets to click Apply.
   try {
-    state.didResolver = DIDResolver.new_thin(getVdgHost(), getHttpOptions());
+    await applyGlobalSettingsFromInputs();
     setInlineStatus(el.httpOptionsStatus, "ok", "Applied");
   } catch (e) {
     // Keep old options; the caller will hit a better error at the point of use.
@@ -891,7 +902,7 @@ async function handleCreateDid() {
   updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Creating DID…");
   try {
-    ensureHttpOptionsUpToDate();
+    await ensureHttpOptionsUpToDate();
     const endpoint = normalizeUrlInput(el.vdrCreateEndpoint.value);
     if (!endpoint) throw new Error("VDR create endpoint is empty");
     // Validate URL format lightly
@@ -924,7 +935,7 @@ async function handleUpdateDid() {
   updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Updating DID…");
   try {
-    ensureHttpOptionsUpToDate();
+    await ensureHttpOptionsUpToDate();
     const didBase = getActiveDidBase();
     // Ensure local view is current before building the update.
     await fetchDidWithRetry({ didBase, attempts: 3, delayMs: 250 });
@@ -957,7 +968,7 @@ async function handleDeactivateDidConfirmed() {
   updateWalletDependentUi();
   setInlineStatus(el.walletOpsStatus, "warn", "Deactivating DID…");
   try {
-    ensureHttpOptionsUpToDate();
+    await ensureHttpOptionsUpToDate();
     const didBase = getActiveDidBase();
     const did = DID.try_from_string(didBase);
     const params = DeactivateDIDParameters.new(did, null);
@@ -982,7 +993,7 @@ async function handleResolveDid() {
   el.didResolveOutput.value = "";
   el.copyDidResolutionBtn.disabled = true;
   try {
-    ensureHttpOptionsUpToDate();
+    await ensureHttpOptionsUpToDate();
     const q = (el.didResolveInput.value ?? "").trim();
     if (!q) throw new Error("DID query is empty");
     const doc = await did_resolve(q, state.didResolver);
@@ -995,27 +1006,21 @@ async function handleResolveDid() {
   }
 }
 
-async function withEphemeralSigner({ keyPurpose, purposeLabel }, fn) {
+async function withEphemeralSigner({ keyPurpose }, fn) {
   if (!state.wallet) throw new Error("No active wallet selected");
   if (!state.activeDidFq) throw new Error("No active DID selected");
 
-  ensureHttpOptionsUpToDate();
+  await ensureHttpOptionsUpToDate();
   const didBase = getActiveDidBase();
   const offline = Boolean(el.signingOffline.checked);
-
-  if (!offline) {
-    try {
-      await state.wallet.fetch_did(didBase, getHttpOptions());
-    } catch (e) {
-      throw new Error(`Failed to fetch DID before ${purposeLabel}: ${String(e)}`);
-    }
-  }
+  const fetchDidFirst = !offline;
 
   const signer = await state.wallet.new_wallet_based_signer(
     didBase,
     keyPurpose,
     null,
     getHttpOptions(),
+    fetchDidFirst,
   );
   return await fn(signer);
 }
@@ -1073,7 +1078,7 @@ async function handleSignJwt() {
     const claims = safeJsonParse(text);
     const keyPurpose = String(select.value ?? "").trim() || "assertionMethod";
     const jwt = await withEphemeralSigner(
-      { keyPurpose, purposeLabel: "JWT signing" },
+      { keyPurpose },
       async (signer) => await jwt_sign(claims, signer),
     );
     setSignedArtifact(jwt);
@@ -1119,7 +1124,7 @@ async function handleIssueVcJwtOrLdp({ format }) {
     );
     const keyPurpose = "assertionMethod";
     await withEphemeralSigner(
-      { keyPurpose, purposeLabel: `VC issuance (${format.toUpperCase()})` },
+      { keyPurpose },
       async (signer) => {
         if (format === "jwt") {
           const vcJwt = await issue_vc_jwt(unsignedVc, signer);
@@ -1185,7 +1190,7 @@ async function handleIssueVpJwtOrLdp({ format }) {
     );
     const keyPurpose = "authentication";
     await withEphemeralSigner(
-      { keyPurpose, purposeLabel: `VP issuance (${format.toUpperCase()})` },
+      { keyPurpose },
       async (signer) => {
         if (format === "jwt") {
           const vpJwt = await issue_vp_jwt(unsignedVp, issueParams, signer);
