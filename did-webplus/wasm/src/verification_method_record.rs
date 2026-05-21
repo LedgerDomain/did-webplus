@@ -15,6 +15,10 @@ impl VerificationMethodRecord {
             .to_owned()
             .into()
     }
+    /// Returns the fully qualified key resource, i.e. the "id" field of the verification method.
+    pub fn did_key_resource_fully_qualified(&self) -> String {
+        self.0.did_key_resource_fully_qualified.to_string()
+    }
     /// Returns the "selfHash" field of the version of the DID for this verification method.
     pub fn query_self_hash(&self) -> String {
         self.0
@@ -41,7 +45,7 @@ impl VerificationMethodRecord {
         }
         key_purpose_v
     }
-    /// Returns the public key (in multihash format) for this verification method.
+    /// Returns the public key (in multikey format) for this verification method.
     pub fn pub_key(&self) -> String {
         self.0.pub_key.to_string()
     }
