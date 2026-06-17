@@ -4,11 +4,7 @@ version = "0.2.0"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2024"
 
-# [features]
-# async-traits = ["dep:async-trait"]
-
 [dependencies]
-# async-trait = { version = "0.1.80", optional = true }
 derive_more = { version = "0.99.17", default-features = false, features = [
     "deref",
     "display",
@@ -16,17 +12,17 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "into",
 ] }
 did-webplus-core = { path = "../core", features = ["ed25519-dalek"] }
-ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
+ed25519-dalek = { workspace = true, features = ["rand_core"] }
 log = "0.4.21"
-mbx = { version = "0.1.1", features = ["ed25519-dalek"] }
+mbx = { workspace = true, features = ["ed25519-dalek"] }
 rand = "0.8"
-selfhash = "0.5.1"
+selfhash = { workspace = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false }
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
-signature-dyn = "0.1.0"
+signature-dyn = { workspace = true }
 thiserror = { version = "1.0.60", default-features = false }
 time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 

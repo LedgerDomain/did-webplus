@@ -246,7 +246,90 @@ async fn test_software_wallet_indexeddb() {
     };
     let did_resolver = did_webplus_wasm::DIDResolver::new(did_resolver_a.clone());
 
-    // TODO: JWS sign and verify.
+    // Sign and verify a JWS using jws_sign and jws_verify
+    {
+        let payload = "HIPPO WORLD!".to_string();
+
+        // Attached, encoded payload.
+        {
+            let jws = did_webplus_wasm::jws_sign(
+                payload.clone(),
+                did_webplus_jws::JWSPayloadPresence::Attached,
+                did_webplus_jws::JWSPayloadEncoding::Base64,
+                &wallet_based_signer,
+            )
+            .await
+            .expect("signature failed");
+            tracing::info!("jws: {}", jws);
+
+            // Verify the JWS.
+            let verifier_resolver =
+                did_webplus_wasm::VerifierResolver::new_with_did_webplus(did_resolver.clone());
+            did_webplus_wasm::jws_verify(jws, None, &verifier_resolver)
+                .await
+                .expect("verification failed");
+        }
+
+        // Attached, unencoded payload.
+        {
+            let jws = did_webplus_wasm::jws_sign(
+                payload.clone(),
+                did_webplus_jws::JWSPayloadPresence::Attached,
+                did_webplus_jws::JWSPayloadEncoding::None,
+                &wallet_based_signer,
+            )
+            .await
+            .expect("signature failed");
+            tracing::info!("jws: {}", jws);
+
+            // Verify the JWS.
+            let verifier_resolver =
+                did_webplus_wasm::VerifierResolver::new_with_did_webplus(did_resolver.clone());
+            did_webplus_wasm::jws_verify(jws, None, &verifier_resolver)
+                .await
+                .expect("verification failed");
+        }
+
+        // Detached, encoded payload.
+        {
+            let jws = did_webplus_wasm::jws_sign(
+                payload.clone(),
+                did_webplus_jws::JWSPayloadPresence::Detached,
+                did_webplus_jws::JWSPayloadEncoding::Base64,
+                &wallet_based_signer,
+            )
+            .await
+            .expect("signature failed");
+            tracing::info!("jws: {}", jws);
+
+            // Verify the JWS.
+            let verifier_resolver =
+                did_webplus_wasm::VerifierResolver::new_with_did_webplus(did_resolver.clone());
+            did_webplus_wasm::jws_verify(jws, Some(payload.clone()), &verifier_resolver)
+                .await
+                .expect("verification failed");
+        }
+
+        // Detached, unencoded payload.
+        {
+            let jws = did_webplus_wasm::jws_sign(
+                payload.clone(),
+                did_webplus_jws::JWSPayloadPresence::Detached,
+                did_webplus_jws::JWSPayloadEncoding::None,
+                &wallet_based_signer,
+            )
+            .await
+            .expect("signature failed");
+            tracing::info!("jws: {}", jws);
+
+            // Verify the JWS.
+            let verifier_resolver =
+                did_webplus_wasm::VerifierResolver::new_with_did_webplus(did_resolver.clone());
+            did_webplus_wasm::jws_verify(jws, Some(payload.clone()), &verifier_resolver)
+                .await
+                .expect("verification failed");
+        }
+    }
 
     // Sign and verify a JWT using did_webplus_ssi
     {

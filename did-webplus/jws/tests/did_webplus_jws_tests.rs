@@ -1,12 +1,9 @@
-use did_webplus_jws::{JWSPayloadEncoding, JWSPayloadPresence, JWS};
+use did_webplus_jws::{JWS, JWSPayloadEncoding, JWSPayloadPresence};
 
-fn test_jws_impl(
-    signer: &dyn signature_dyn::SignerDynT,
-    verifier: &dyn signature_dyn::VerifierDynT,
-) {
+fn test_jws_impl(signer: &dyn signature_dyn::SignerT, verifier: &dyn signature_dyn::VerifierT) {
     println!(
         "--------- testing JWS with alg {:?}",
-        signer.jose_algorithm(),
+        signer.key_type().jose_algorithm(),
     );
     let payload = r#""HIPPO WORLD!""#.as_bytes();
     for payload_presence in [JWSPayloadPresence::Attached, JWSPayloadPresence::Detached] {
@@ -37,7 +34,8 @@ fn test_jws_impl(
 #[cfg(feature = "ed25519-dalek")]
 #[test]
 fn test_jws_ed25519_dalek() {
-    let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    use signature_dyn::GenerateRandom;
+    let signing_key = ed25519_dalek::SigningKey::generate_random();
     let verifying_key = signing_key.verifying_key();
     test_jws_impl(&signing_key, &verifying_key);
 }
@@ -45,9 +43,8 @@ fn test_jws_ed25519_dalek() {
 #[cfg(feature = "ed448-goldilocks")]
 #[test]
 fn test_jws_ed448_goldilocks() {
-    let signing_key = ed448_goldilocks::SigningKey::generate(&mut rand_0_9::rand_core::UnwrapMut(
-        &mut rand_0_9::rngs::OsRng,
-    ));
+    use ed448_goldilocks::elliptic_curve::Generate;
+    let signing_key = ed448_goldilocks::SigningKey::generate();
     let verifying_key = signing_key.verifying_key();
     test_jws_impl(&signing_key, &verifying_key);
 }
@@ -55,7 +52,8 @@ fn test_jws_ed448_goldilocks() {
 #[cfg(feature = "k256")]
 #[test]
 fn test_jws_k256() {
-    let signing_key = k256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+    use signature_dyn::GenerateRandom;
+    let signing_key = k256::ecdsa::SigningKey::generate_random();
     let verifying_key = signing_key.verifying_key();
     test_jws_impl(&signing_key, verifying_key);
 }
@@ -63,7 +61,8 @@ fn test_jws_k256() {
 #[cfg(feature = "p256")]
 #[test]
 fn test_jws_p256() {
-    let signing_key = p256::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+    use signature_dyn::GenerateRandom;
+    let signing_key = p256::ecdsa::SigningKey::generate_random();
     let verifying_key = signing_key.verifying_key();
     test_jws_impl(&signing_key, verifying_key);
 }
@@ -71,7 +70,8 @@ fn test_jws_p256() {
 #[cfg(feature = "p384")]
 #[test]
 fn test_jws_p384() {
-    let signing_key = p384::ecdsa::SigningKey::random(&mut rand::rngs::OsRng);
+    use signature_dyn::GenerateRandom;
+    let signing_key = p384::ecdsa::SigningKey::generate_random();
     let verifying_key = signing_key.verifying_key();
     test_jws_impl(&signing_key, verifying_key);
 }
@@ -79,9 +79,8 @@ fn test_jws_p384() {
 #[cfg(feature = "p521")]
 #[test]
 fn test_jws_p521() {
-    let signing_key = p521::ecdsa::SigningKey::random(&mut rand_0_9::rand_core::UnwrapMut(
-        &mut rand_0_9::rngs::OsRng,
-    ));
+    use p521::elliptic_curve::Generate;
+    let signing_key = p521::ecdsa::SigningKey::generate();
     let verifying_key = signing_key.verifying_key();
     test_jws_impl(&signing_key, verifying_key);
 }

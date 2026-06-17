@@ -9,5 +9,5 @@ sqlx-postgres = ["sqlx/postgres"]
 sqlx-sqlite = ["sqlx/sqlite"]
 
 [dependencies]
-async-trait = "0.1.80"
+async-trait = { workspace = true }
 sqlx = { version = "0.8.2", optional = true, default-features = false }

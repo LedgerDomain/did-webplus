@@ -6,8 +6,8 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.94"
-async-trait = "0.1.80"
-signature-dyn = "0.1.0"
+async-trait = { workspace = true }
+signature-dyn = { workspace = true }
 thiserror = "1.0.60"
 tracing = "0.1.37"
 url = "2.5.4"

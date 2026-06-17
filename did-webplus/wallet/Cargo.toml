@@ -14,12 +14,12 @@ ssi = [
 ]
 
 [dependencies]
-async-trait = "0.1.80"
+async-trait = { workspace = true }
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
 did-webplus-wallet-store = { path = "../wallet-store" }
-selfhash = { version = "0.5.1", features = ["mbx"] }
-signature-dyn = "0.1.0"
+selfhash = { workspace = true, features = ["mbx"] }
+signature-dyn = { workspace = true }
 ssi-claims = { version = "0.4.0", optional = true, features = ["webplus"] }
 ssi-crypto = { version = "0.2", optional = true }
 ssi-jwk = { version = "0.3.2", optional = true }

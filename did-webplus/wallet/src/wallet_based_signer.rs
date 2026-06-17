@@ -12,8 +12,8 @@ pub struct WalletBasedSigner<W: Wallet> {
     key_purpose: did_webplus_core::KeyPurpose,
     /// Specifies the specific key that will be used to sign.
     key_fully_qualified: did_webplus_core::DIDKeyResourceFullyQualified,
-    /// Specifies the JOSE algorithm for this key.
-    jose_algorithm: &'static str,
+    /// Specifies the verifier for this key.
+    verifier_bytes: signature_dyn::VerifierBytes<'static>,
 }
 
 impl<W: Wallet> WalletBasedSigner<W> {
@@ -46,13 +46,13 @@ impl<W: Wallet> WalletBasedSigner<W> {
                 locally_controlled_verification_method_filter,
             )
             .await?;
-        use signature_dyn::SignerDynT;
-        let jose_algorithm = signer_bytes.jose_algorithm();
+        use signature_dyn::SignerT;
+        let verifier_bytes = signer_bytes.get_verifier_bytes()?.into_owned();
         Ok(Self {
             wallet,
             key_purpose,
             key_fully_qualified: verification_method_record.did_key_resource_fully_qualified,
-            jose_algorithm,
+            verifier_bytes,
         })
     }
     pub fn key_purpose(&self) -> did_webplus_core::KeyPurpose {
@@ -63,14 +63,51 @@ impl<W: Wallet> WalletBasedSigner<W> {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl<W: Wallet> signature_dyn::AsyncSignerT for WalletBasedSigner<W> {
+    async fn async_key_id(&self) -> signature_dyn::Result<Option<String>> {
+        // Return the fully qualified DID key resource as a string.
+        Ok(Some(self.key_fully_qualified.to_string()))
+    }
+    async fn async_key_type(&self) -> signature_dyn::Result<signature_dyn::KeyType> {
+        // Return the key type of the signing key.
+        Ok(self.verifier_bytes.key_type())
+    }
+    async fn async_get_verifier(&self) -> signature_dyn::Result<Box<dyn signature_dyn::VerifierT>> {
+        Ok(Box::new(self.verifier_bytes.clone()))
+    }
+    async fn async_try_sign_message(
+        &self,
+        message_byte_v: &[u8],
+    ) -> signature_dyn::Result<Box<dyn signature_dyn::SignatureT>> {
+        let (_verification_method_record, signer_bytes) = self
+            .wallet
+            .get_locally_controlled_verification_method(
+                did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
+                    did_o: Some(self.key_fully_qualified.did().to_owned()),
+                    key_purpose_o: Some(self.key_purpose),
+                    version_id_o: Some(self.key_fully_qualified.query_version_id()),
+                    key_id_o: Some(self.key_fully_qualified.fragment().to_string()),
+                    result_limit_o: None,
+                },
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        use signature_dyn::SignerT;
+        Ok(signer_bytes.try_sign_message(message_byte_v)?)
+    }
+}
+
 // For signing JWS and JWT (plain JWT, but also VC-JWT and VP-JWT)
 impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
     async fn fetch_info(
         &self,
     ) -> std::result::Result<ssi_jws::JwsSignerInfo, ssi_claims::SignatureError> {
+        let key_type = self.verifier_bytes.key_type();
         // Have to convert the JOSE algorithm to an ssi_jws::Algorithm.
         // NOTE: ssi-jwk crate does not support all the algorithms that did:webplus does.
-        let algorithm = match self.jose_algorithm {
+        let algorithm = match key_type.jose_algorithm() {
             signature_dyn::ED25519_JOSE_ALGORITHM => ssi_jwk::Algorithm::EdDSA,
             signature_dyn::P256_JOSE_ALGORITHM => ssi_jwk::Algorithm::ES256,
             signature_dyn::P384_JOSE_ALGORITHM => ssi_jwk::Algorithm::ES384,
@@ -79,7 +116,7 @@ impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
             _ => {
                 return Err(ssi_claims::SignatureError::Other(format!(
                     "unsupported JOSE algorithm: {:?}",
-                    self.jose_algorithm
+                    key_type.jose_algorithm()
                 )));
             }
         };
@@ -105,7 +142,7 @@ impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
             )
             .await
             .map_err(|e| ssi_claims::SignatureError::Other(e.to_string()))?;
-        use signature_dyn::SignerDynT;
+        use signature_dyn::SignerT;
         Ok(signer_bytes
             .try_sign_message(signing_bytes)
             .map_err(|e| ssi_claims::SignatureError::Other(e.to_string()))?
@@ -158,11 +195,13 @@ impl<W: Wallet> ssi_verification_methods::MessageSigner<AnySignatureAlgorithm>
                 ));
             }
         };
-        if self.jose_algorithm != expected_jose {
+        let key_type = self.verifier_bytes.key_type();
+        if key_type.jose_algorithm() != expected_jose {
             return Err(ssi_claims::MessageSignatureError::UnsupportedAlgorithm(
                 format!(
                     "algorithm mismatch: key uses {}, suite requires {}",
-                    self.jose_algorithm, expected_jose
+                    key_type.jose_algorithm(),
+                    expected_jose
                 ),
             ));
         }

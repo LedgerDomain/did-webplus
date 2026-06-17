@@ -1,6 +1,6 @@
 use crate::DIDResourceStr;
 
-/// This will turn a did:key DIDResource into a Box<dyn signature_dyn::VerifierDynT>.
+/// This will turn a did:key DIDResource into a Box<dyn signature_dyn::VerifierT>.
 pub struct DIDKeyVerifierResolver;
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
@@ -9,7 +9,7 @@ impl verifier_resolver::VerifierResolver for DIDKeyVerifierResolver {
     async fn resolve(
         &self,
         verifier_str: &str,
-    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
+    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierT>> {
         if !verifier_str.starts_with("did:key:") {
             Err(verifier_resolver::Error::InvalidVerifier(
                 format!(

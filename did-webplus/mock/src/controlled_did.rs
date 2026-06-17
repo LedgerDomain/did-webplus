@@ -5,7 +5,6 @@ use did_webplus_core::{
     UpdateKey, now_utc_milliseconds,
 };
 use selfhash::HashRefT;
-use signature_dyn::SignerDynT;
 
 use crate::{Microledger, MicroledgerMutView, MicroledgerView, VDRClient};
 
@@ -28,7 +27,8 @@ impl ControlledDID {
         let (signer_bytes_m, current_public_key_set) = Self::generate_new_keys();
 
         // Generate the update signing key (for when the this root DID document is updated later).
-        let update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        use signature_dyn::GenerateRandom;
+        let update_signing_key = ed25519_dalek::SigningKey::generate_random();
         let update_verifying_key = update_signing_key.verifying_key();
         let update_pub_key = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
             mbx::Base::Base64Url,
@@ -89,7 +89,8 @@ impl ControlledDID {
         let (new_signer_bytes_m, new_public_key_set) = Self::generate_new_keys();
 
         // Generate the next update signing key (for when the this new DID document is updated later).
-        let next_update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        use signature_dyn::GenerateRandom;
+        let next_update_signing_key = ed25519_dalek::SigningKey::generate_random();
         let next_update_verifying_key = next_update_signing_key.verifying_key();
         let next_update_pub_key = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
             mbx::Base::Base64Url,
@@ -193,28 +194,26 @@ impl ControlledDID {
     ) {
         // Generate a full set of private keys.
 
-        let ed25519_signing_key_authentication =
-            ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        use signature_dyn::GenerateRandom;
+        let ed25519_signing_key_authentication = ed25519_dalek::SigningKey::generate_random();
         let ed25519_verifying_key_authentication =
             ed25519_signing_key_authentication.verifying_key();
 
-        let ed25519_signing_key_assertion_method =
-            ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        let ed25519_signing_key_assertion_method = ed25519_dalek::SigningKey::generate_random();
         let ed25519_verifying_key_assertion_method =
             ed25519_signing_key_assertion_method.verifying_key();
 
-        let ed25519_signing_key_key_agreement =
-            ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        let ed25519_signing_key_key_agreement = ed25519_dalek::SigningKey::generate_random();
         let ed25519_verifying_key_key_agreement = ed25519_signing_key_key_agreement.verifying_key();
 
         // This will be used exclusively for signing DID documents.
         let ed25519_signing_key_capability_invocation =
-            ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+            ed25519_dalek::SigningKey::generate_random();
         let ed25519_verifying_key_capability_invocation =
             ed25519_signing_key_capability_invocation.verifying_key();
 
         let ed25519_signing_key_capability_delegation =
-            ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+            ed25519_dalek::SigningKey::generate_random();
         let ed25519_verifying_key_capability_delegation =
             ed25519_signing_key_capability_delegation.verifying_key();
 
@@ -243,13 +242,15 @@ impl ControlledDID {
         let signer_bytes_m = {
             let mut signer_bytes_m: HashMap<mbx::MBPubKey, signature_dyn::SignerBytes<'static>> =
                 HashMap::new();
+            use signature_dyn::ExtractableSignerT;
             signer_bytes_m.insert(
                 mbx::MBPubKey::from_ed25519_dalek_verifying_key(
                     mbx::Base::Base64Url,
                     &ed25519_verifying_key_authentication,
                 ),
                 ed25519_signing_key_authentication
-                    .to_signer_bytes()
+                    .extract_signer_bytes()
+                    .unwrap()
                     .into_owned(),
             );
             signer_bytes_m.insert(
@@ -258,7 +259,8 @@ impl ControlledDID {
                     &ed25519_verifying_key_assertion_method,
                 ),
                 ed25519_signing_key_assertion_method
-                    .to_signer_bytes()
+                    .extract_signer_bytes()
+                    .unwrap()
                     .into_owned(),
             );
             signer_bytes_m.insert(
@@ -267,7 +269,8 @@ impl ControlledDID {
                     &ed25519_verifying_key_key_agreement,
                 ),
                 ed25519_signing_key_key_agreement
-                    .to_signer_bytes()
+                    .extract_signer_bytes()
+                    .unwrap()
                     .into_owned(),
             );
             signer_bytes_m.insert(
@@ -276,7 +279,8 @@ impl ControlledDID {
                     &ed25519_verifying_key_capability_invocation,
                 ),
                 ed25519_signing_key_capability_invocation
-                    .to_signer_bytes()
+                    .extract_signer_bytes()
+                    .unwrap()
                     .into_owned(),
             );
             signer_bytes_m.insert(
@@ -285,7 +289,8 @@ impl ControlledDID {
                     &ed25519_verifying_key_capability_delegation,
                 ),
                 ed25519_signing_key_capability_delegation
-                    .to_signer_bytes()
+                    .extract_signer_bytes()
+                    .unwrap()
                     .into_owned(),
             );
             signer_bytes_m

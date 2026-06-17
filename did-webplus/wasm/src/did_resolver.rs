@@ -56,7 +56,7 @@ impl verifier_resolver::VerifierResolver for DIDResolver {
     async fn resolve(
         &self,
         verifier_str: &str,
-    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
+    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierT>> {
         self.as_verifier_resolver().resolve(verifier_str).await
     }
 }

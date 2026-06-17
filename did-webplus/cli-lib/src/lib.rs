@@ -2,13 +2,13 @@ pub use anyhow::Result;
 
 pub fn private_key_generate(
     key_type: signature_dyn::KeyType,
-) -> Box<dyn signature_dyn::SignerDynT> {
+) -> Box<dyn signature_dyn::ExtractableSignerT> {
     key_type.generate_random_private_key()
 }
 
 /// Determine the did:key representation of the public key corresponding to this private key.
-pub fn did_key_from_private(signer: &dyn signature_dyn::SignerDynT) -> Result<did_key::DID> {
-    Ok(did_key::DID::try_from(&signer.verifier_bytes()?)?)
+pub fn did_key_from_private(signer: &dyn signature_dyn::SignerT) -> Result<did_key::DID> {
+    Ok(did_key::DID::try_from(&signer.get_verifier_bytes()?)?)
 }
 
 /// PKCS8 is a standard format for representing cryptographic keys, e.g. for storing in a file.
@@ -33,7 +33,7 @@ pub fn private_key_write_to_pkcs8_pem_file(
 // TODO: Make a browser-specific version of this that writes to some appropriate kind of browser storage.
 pub fn private_key_read_from_pkcs8_pem_file(
     private_key_path: &std::path::Path,
-) -> Result<Box<dyn signature_dyn::SignerDynT>> {
+) -> Result<Box<dyn signature_dyn::ExtractableSignerT>> {
     use signature_dyn::PKCS8Read;
     // This is a bit of a hack.  It would be better to somehow determine the key type first,
     // then invoke the correct read function.
@@ -102,9 +102,9 @@ pub fn did_key_sign_jws(
     payload_bytes: &mut dyn std::io::Read,
     payload_presence: did_webplus_jws::JWSPayloadPresence,
     payload_encoding: did_webplus_jws::JWSPayloadEncoding,
-    signer: &dyn signature_dyn::SignerDynT,
+    signer: &dyn signature_dyn::SignerT,
 ) -> Result<did_webplus_jws::JWS<'static>> {
-    let did_resource = did_key::DIDResource::try_from(&signer.verifier_bytes()?)?;
+    let did_resource = did_key::DIDResource::try_from(&signer.get_verifier_bytes()?)?;
     let jws = did_webplus_jws::JWS::signed(
         did_resource.to_string(),
         payload_bytes,
@@ -117,10 +117,10 @@ pub fn did_key_sign_jws(
 
 pub async fn did_key_sign_vjson(
     value: &mut serde_json::Value,
-    signer: &dyn signature_dyn::SignerDynT,
+    signer: &dyn signature_dyn::SignerT,
     vjson_resolver: &dyn vjson_core::VJSONResolver,
 ) -> Result<mbx::MBHash> {
-    let did_resource = did_key::DIDResource::try_from(&signer.verifier_bytes()?)?;
+    let did_resource = did_key::DIDResource::try_from(&signer.get_verifier_bytes()?)?;
     let kid = did_resource.to_string();
     let verifier_resolver = did_key::DIDKeyVerifierResolver;
     Ok(vjson_core::sign_and_self_hash_vjson(

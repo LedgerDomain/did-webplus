@@ -125,13 +125,14 @@ fn test_example_creating_and_updating_a_did() {
         "# Example: Creating and Updating a DID\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-mock --all-features -- --nocapture test_example_creating_and_updating_a_did\n\n## Creating a DID\n"
     );
 
-    let update_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    use signature_dyn::GenerateRandom;
+    let update_key_0 = ed25519_dalek::SigningKey::generate_random();
     let update_pub_key_0 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
         mbx::Base::Base64Url,
         &update_key_0.verifying_key(),
     );
 
-    let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing_key_0 = ed25519_dalek::SigningKey::generate_random();
     let verifying_key_0 = signing_key_0.verifying_key();
     let pub_key_0 =
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_0);
@@ -205,13 +206,13 @@ fn test_example_creating_and_updating_a_did() {
         (microledger, priv_jwk_0)
     };
 
-    let update_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_key_1 = ed25519_dalek::SigningKey::generate_random();
     let update_pub_key_1 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
         mbx::Base::Base64Url,
         &update_key_1.verifying_key(),
     );
 
-    let signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing_key_1 = ed25519_dalek::SigningKey::generate_random();
     let verifying_key_1 = signing_key_1.verifying_key();
     let pub_key_1 =
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_1);
@@ -315,13 +316,13 @@ fn test_example_creating_and_updating_a_did() {
         priv_jwk_1
     };
 
-    let update_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_key_2 = ed25519_dalek::SigningKey::generate_random();
     let update_pub_key_2 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
         mbx::Base::Base64Url,
         &update_key_2.verifying_key(),
     );
 
-    let signing_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing_key_2 = ed25519_dalek::SigningKey::generate_random();
     let verifying_key_2 = signing_key_2.verifying_key();
     let pub_key_2 =
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_2);
@@ -526,8 +527,11 @@ fn test_did_operations() {
                 .expect("pass");
 
                 // Directly verify the JWS
-                use signature_dyn::SignerDynT;
-                let verifier_bytes = signer_bytes.verifier_bytes().expect("pass");
+                use signature_dyn::SignerT;
+                let verifier_bytes = signer_bytes
+                    .get_verifier_bytes()
+                    .expect("pass")
+                    .into_owned();
                 jws.verify(&verifier_bytes, None).expect("pass");
 
                 let jws_signing_time = now_utc_milliseconds();

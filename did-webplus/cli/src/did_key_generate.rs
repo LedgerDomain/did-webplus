@@ -22,7 +22,7 @@ impl DIDKeyGenerate {
 
         // Do the processing
         let signer_b = did_webplus_cli_lib::private_key_generate(self.key_type);
-        let signer_bytes = signer_b.to_signer_bytes();
+        let signer_bytes = signer_b.extract_signer_bytes()?;
         did_webplus_cli_lib::private_key_write_to_pkcs8_pem_file(&signer_bytes, &private_key_path)?;
         let did = did_webplus_cli_lib::did_key_from_private(signer_b.as_ref())?;
 

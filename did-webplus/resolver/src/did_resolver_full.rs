@@ -700,7 +700,7 @@ impl verifier_resolver::VerifierResolver for DIDResolverFull {
     async fn resolve(
         &self,
         verifier_str: &str,
-    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
+    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierT>> {
         verifier_resolver_impl(verifier_str, self).await
     }
 }

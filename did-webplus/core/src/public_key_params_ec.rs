@@ -68,9 +68,9 @@ impl TryFrom<&PublicKeyParamsEC> for mbx::MBPubKey {
     }
 }
 
-impl TryFrom<&dyn signature_dyn::VerifierDynT> for PublicKeyParamsEC {
+impl TryFrom<&dyn signature_dyn::VerifierT> for PublicKeyParamsEC {
     type Error = Error;
-    fn try_from(verifier: &dyn signature_dyn::VerifierDynT) -> Result<Self, Self::Error> {
+    fn try_from(verifier: &dyn signature_dyn::VerifierT) -> Result<Self, Self::Error> {
         match verifier.key_type() {
             // signature_dyn::KeyType::Secp256k1 => {
             //     unimplemented!("blah");

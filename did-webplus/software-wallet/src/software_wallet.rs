@@ -10,7 +10,7 @@ use did_webplus_wallet_store::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter, PrivKeyUsage,
     PrivKeyUsageRecord, VerificationMethodRecord, WalletStorage, WalletStorageCtx,
 };
-use signature_dyn::SignerDynT;
+use signature_dyn::SignerT;
 use std::{borrow::Cow, sync::Arc};
 
 #[derive(Clone)]
@@ -158,13 +158,14 @@ impl Wallet for SoftwareWallet {
         // Generate an appropriate set of keys.  Record the creation timestamp.
         let now_utc = now_utc_milliseconds();
         // TODO: Somehow iterate?
+        use signature_dyn::GenerateRandom;
         let priv_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate_random(),
         };
         // TODO: Somehow iterate?
         let pub_key_m = enum_map::enum_map! {
@@ -307,7 +308,7 @@ impl Wallet for SoftwareWallet {
                 None
             };
             let comment_o = Some("generated during DID create".to_string());
-            use signature_dyn::SignerDynT;
+            use signature_dyn::ExtractableSignerT;
             self.wallet_storage_a
                 .add_priv_key(
                     Some(transaction_b.as_mut()),
@@ -323,7 +324,7 @@ impl Wallet for SoftwareWallet {
                         usage_count: 0,
                         deleted_at_o: None,
                         private_key_bytes_o: Some(
-                            priv_key_m[key_purpose].to_signer_bytes().to_owned(),
+                            priv_key_m[key_purpose].extract_signer_bytes()?.to_owned(),
                         ),
                         comment_o,
                     },
@@ -367,13 +368,14 @@ impl Wallet for SoftwareWallet {
         // Rotate the appropriate set of keys.  Record the creation timestamp.
         let now_utc = now_utc_milliseconds();
         // TODO: Somehow iterate?
+        use signature_dyn::GenerateRandom;
         let priv_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate_random(),
         };
         // TODO: Somehow iterate?
         let pub_key_m = enum_map::enum_map! {
@@ -526,7 +528,7 @@ impl Wallet for SoftwareWallet {
 
         let signing_kid = mbx::MBPubKey::try_from_verifier_bytes(
             mbx::Base::Base64Url,
-            &priv_key_for_update.verifier_bytes()?,
+            &priv_key_for_update.get_verifier_bytes()?,
         )
         .expect("programmer error")
         .to_string();
@@ -627,6 +629,7 @@ impl Wallet for SoftwareWallet {
                 "generated during DID update versionId {} -> {}",
                 latest_did_document.version_id, updated_did_document.version_id
             ));
+            use signature_dyn::ExtractableSignerT;
             self.wallet_storage_a
                 .add_priv_key(
                     Some(transaction_b.as_mut()),
@@ -642,7 +645,7 @@ impl Wallet for SoftwareWallet {
                         usage_count: 0,
                         deleted_at_o: None,
                         private_key_bytes_o: Some(
-                            priv_key_m[key_purpose].to_signer_bytes().into_owned(),
+                            priv_key_m[key_purpose].extract_signer_bytes()?.into_owned(),
                         ),
                         comment_o,
                     },
@@ -850,7 +853,7 @@ impl Wallet for SoftwareWallet {
 
         let signing_kid = mbx::MBPubKey::try_from_verifier_bytes(
             mbx::Base::Base64Url,
-            &priv_key_for_update.verifier_bytes()?,
+            &priv_key_for_update.get_verifier_bytes()?,
         )
         .expect("programmer error")
         .to_string();

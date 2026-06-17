@@ -39,22 +39,22 @@ did-webplus-jws = { path = "../jws" }
 did-webplus-resolver = { path = "../resolver" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-store = { path = "../wallet-store" }
-ed25519-dalek = { version = "2.2.0", optional = true, features = ["rand_core"] }
-ed448-goldilocks = { version = "0.14.0-pre.4", optional = true }
-k256 = { version = "0.13.1", optional = true }
-mbx = "0.1.1"
-p256 = { version = "0.13.2", optional = true }
-p384 = { version = "0.13.1", optional = true }
-p521 = { version = "0.14.0-pre.11", optional = true, features = ["ecdsa"] }
+ed25519-dalek = { workspace = true, optional = true, features = ["rand_core"] }
+ed448-goldilocks = { workspace = true, optional = true }
+k256 = { workspace = true, optional = true }
+mbx = { workspace = true }
+p256 = { workspace = true, optional = true }
+p384 = { workspace = true, optional = true }
+p521 = { workspace = true, optional = true, features = ["ecdsa"] }
 rand = "0.8"
-selfhash = { version = "0.5.1", features = [
+selfhash = { workspace = true, features = [
     "blake3",
     "sha3-256",
     "self-hashable-json",
 ] }
 serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
-signature-dyn = { version = "0.1.0", features = ["pkcs8", "random"] }
+signature-dyn = { workspace = true, features = ["pkcs8", "random"] }
 storage-traits = { path = "../../storage-traits" }
 tracing = "0.1.37"
 verifier-resolver = { path = "../../verifier-resolver" }

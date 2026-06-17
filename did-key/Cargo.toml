@@ -16,12 +16,12 @@ verifier-resolver = ["dep:async-trait", "dep:verifier-resolver"]
 
 [dependencies]
 anyhow = "1.0.94"
-async-trait = { version = "0.1.80", optional = true }
-mbx = { version = "0.1.1", features = ["signature-dyn"] }
+async-trait = { workspace = true, optional = true }
+mbx = { workspace = true, features = ["signature-dyn"] }
 multibase = "0.9.1"
-pneutype = "0.5.1"
+pneutype = { workspace = true }
 serde = { version = "1.0", optional = true, features = ["derive"] }
-signature-dyn = "0.1.0"
+signature-dyn = { workspace = true }
 ssi-multicodec = "0.2.0"
 tracing = "0.1.37"
 verifier-resolver = { path = "../verifier-resolver", optional = true }

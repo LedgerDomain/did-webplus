@@ -1041,13 +1041,14 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         let now_utc = now_utc_milliseconds();
         // TODO: This should use SubtleCrypto, not ed25519-dalek.
         // TODO: Somehow iterate?
+        use signature_dyn::GenerateRandom;
         let priv_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate_random(),
         };
         // TODO: Somehow iterate?
         let pub_key_m = enum_map::enum_map! {
@@ -1170,7 +1171,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         None
                     };
                     let comment_o = Some("generated during DID create".to_string());
-                    use signature_dyn::SignerDynT;
+                    use signature_dyn::ExtractableSignerT;
                     let priv_key_blob = PrivKeyBlob {
                         wallets_rowid: ctx_clone.wallets_rowid,
                         priv_key_record: PrivKeyRecord {
@@ -1184,7 +1185,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             usage_count: 0,
                             deleted_at_o: None,
                             private_key_bytes_o: Some(
-                                priv_key_m[key_purpose].to_signer_bytes().to_owned(),
+                                priv_key_m[key_purpose].extract_signer_bytes().map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error extracting signer bytes; error was: {}", e))))?.to_owned(),
                             ),
                             comment_o,
                         },
@@ -1349,13 +1350,14 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
         // Rotate the appropriate set of keys.  Record the creation timestamp.
         let now_utc = time::OffsetDateTime::now_utc();
         // TODO: Somehow iterate?
+        use signature_dyn::GenerateRandom;
         let priv_key_m = enum_map::enum_map! {
-            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
-            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng),
+            KeyPurpose::Authentication => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::AssertionMethod => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::KeyAgreement => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::CapabilityInvocation => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::CapabilityDelegation => ed25519_dalek::SigningKey::generate_random(),
+            KeyPurpose::UpdateDIDDocument => ed25519_dalek::SigningKey::generate_random(),
         };
         // TODO: Somehow iterate?
         let pub_key_m = enum_map::enum_map! {
@@ -1567,10 +1569,10 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 )
                 .expect("programmer error");
 
-                use signature_dyn::SignerDynT;
+                use signature_dyn::SignerT;
                 let signing_kid = mbx::MBPubKey::try_from_verifier_bytes(
                     mbx::Base::Base64Url,
-                    &priv_key_for_update.verifier_bytes().map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error converting verifier bytes to MBPubKey; error was: {}", e))))?//.map_err(into_wallet_error)?,
+                    &priv_key_for_update.get_verifier_bytes().map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error converting verifier bytes to MBPubKey; error was: {}", e))))?//.map_err(into_wallet_error)?,
                     // &priv_key_for_update.verifier_bytes().expect("TEMP HACK")//.map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error converting verifier bytes to MBPubKey; error was: {}", e))))?//.map_err(into_wallet_error)?,
                 )
                 .expect("programmer error")
@@ -1661,6 +1663,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                         "generated during DID update versionId {} -> {}",
                         latest_did_document.version_id, updated_did_document.version_id
                     ));
+                    use signature_dyn::ExtractableSignerT;
                     let priv_key_blob = PrivKeyBlob {
                         wallets_rowid: ctx_clone.wallets_rowid,
                         priv_key_record: PrivKeyRecord {
@@ -1674,7 +1677,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             usage_count: 0,
                             deleted_at_o: None,
                             private_key_bytes_o: Some(
-                                priv_key_m[key_purpose].to_signer_bytes().to_owned(),
+                                priv_key_m[key_purpose].extract_signer_bytes().map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error extracting signer bytes; error was: {}", e))))?.to_owned(),
                             ),
                             comment_o,
                         },
@@ -2153,10 +2156,10 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 )
                 .expect("programmer error");
 
-                use signature_dyn::SignerDynT;
+                use signature_dyn::SignerT;
                 let signing_kid = mbx::MBPubKey::try_from_verifier_bytes(
                     mbx::Base::Base64Url,
-                    &priv_key_for_update.verifier_bytes().map_err(|e| {
+                    &priv_key_for_update.get_verifier_bytes().map_err(|e| {
                         indexed_db::Error::from(Error::from(anyhow::anyhow!(
                             "error converting verifier bytes to MBPubKey; error was: {}",
                             e

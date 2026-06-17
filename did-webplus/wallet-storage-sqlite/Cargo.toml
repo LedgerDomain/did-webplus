@@ -5,13 +5,13 @@ authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2024"
 
 [dependencies]
-async-trait = "0.1.80"
+async-trait = { workspace = true }
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }
-mbx = { version = "0.1.1", features = ["signature-dyn"] }
-selfhash = "0.5.1"
-signature-dyn = "0.1.0"
+mbx = { workspace = true, features = ["signature-dyn"] }
+selfhash = { workspace = true }
+signature-dyn = { workspace = true }
 sqlx = { version = "0.8.2", features = ["sqlite", "time", "uuid"] }
 storage-traits = { path = "../../storage-traits", features = ["sqlx-sqlite"] }
 time = { version = "0.3", features = ["serde"] }

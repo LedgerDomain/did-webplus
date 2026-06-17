@@ -2,7 +2,7 @@
 /// DIDResolver lazily, which matters if loading the resolver involves opening a connection to
 /// a database.
 ///
-/// This will turn a did:webplus DIDResource[FullyQualified] into a Box<dyn signature_dyn::VerifierDynT>.
+/// This will turn a did:webplus DIDResource[FullyQualified] into a Box<dyn signature_dyn::VerifierT>.
 pub struct DIDWebplusVerifierResolver {
     pub did_resolver_factory_b: Box<dyn did_webplus_resolver::DIDResolverFactory>,
 }
@@ -13,7 +13,7 @@ impl verifier_resolver::VerifierResolver for DIDWebplusVerifierResolver {
     async fn resolve(
         &self,
         verifier_str: &str,
-    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
+    ) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierT>> {
         if !verifier_str.starts_with("did:webplus:") {
             Err(verifier_resolver::Error::InvalidVerifier(
                 format!(

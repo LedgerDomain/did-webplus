@@ -157,6 +157,7 @@ pub trait Wallet: Send + Sync {
     /// Otherwise, returns an error.  Note that this method will ignore the result_limit_o field of the filter.
     // TODO: Make a LocallyControlledVerificationMethodsFilter separate from LocallyControlledVerificationMethodFilter,
     // because of the differing semantics of the result_limit_o field?
+    // TODO: This should return signature_dyn::AsyncSignerT instead of signature_dyn::SignerBytes<'static>.
     async fn get_locally_controlled_verification_method(
         &self,
         mut locally_controlled_verification_method_filter: LocallyControlledVerificationMethodFilter,

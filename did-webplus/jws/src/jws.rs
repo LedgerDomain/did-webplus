@@ -1,4 +1,4 @@
-use crate::{error, require, Error, JWSHeader, JWSPayloadEncoding, JWSPayloadPresence, Result};
+use crate::{Error, JWSHeader, JWSPayloadEncoding, JWSPayloadPresence, Result, error, require};
 use base64::Engine;
 use std::{borrow::Cow, io::Write};
 
@@ -111,15 +111,64 @@ impl<'j> JWS<'j> {
         payload_bytes: &mut dyn std::io::Read,
         payload_presence: JWSPayloadPresence,
         payload_encoding: JWSPayloadEncoding,
-        signer: &dyn signature_dyn::SignerDynT,
+        signer: &dyn signature_dyn::SignerT,
     ) -> Result<Self> {
+        let (header, signing_input, jws) = Self::assemble_header_signing_input_and_jws(
+            kid,
+            payload_bytes,
+            payload_presence,
+            payload_encoding,
+            signer.key_type(),
+        )?;
+
+        let signature = signer
+            .try_sign_message(signing_input.as_slice())
+            .map_err(|e| error!("error while signing JWS: {}", e))?;
+
+        Self::attach_signature_to_jws(header, jws, signature)
+    }
+    /// Async version of JWS::signed.
+    pub async fn async_signed(
+        kid: String,
+        payload_bytes: &mut dyn std::io::Read,
+        payload_presence: JWSPayloadPresence,
+        payload_encoding: JWSPayloadEncoding,
+        signer: &dyn signature_dyn::AsyncSignerT,
+    ) -> Result<Self> {
+        let (header, signing_input, jws) = Self::assemble_header_signing_input_and_jws(
+            kid,
+            payload_bytes,
+            payload_presence,
+            payload_encoding,
+            signer
+                .async_key_type()
+                .await
+                .map_err(|e| error!("error while getting key type: {}", e))?,
+        )?;
+
+        let signature = signer
+            .async_try_sign_message(signing_input.as_slice())
+            .await
+            .map_err(|e| error!("error while signing JWS: {}", e))?;
+
+        Self::attach_signature_to_jws(header, jws, signature)
+    }
+    /// Returns the header, signing input, and JWS for the given kid, payload bytes, payload presence,
+    /// and payload encoding.
+    fn assemble_header_signing_input_and_jws(
+        kid: String,
+        payload_bytes: &mut dyn std::io::Read,
+        payload_presence: JWSPayloadPresence,
+        payload_encoding: JWSPayloadEncoding,
+        signer_key_type: signature_dyn::KeyType,
+    ) -> Result<(JWSHeader, Vec<u8>, Vec<u8>)> {
         let (crit, b64) = if payload_encoding == JWSPayloadEncoding::Base64 {
             (None, None)
         } else {
             (Some(vec![String::from("b64")]), Some(false))
         };
         let header = JWSHeader {
-            alg: signer.jose_algorithm().to_string(),
+            alg: signer_key_type.jose_algorithm().to_string(),
             kid,
             crit,
             b64,
@@ -182,8 +231,13 @@ impl<'j> JWS<'j> {
             }
         }
 
-        // Sign the signing_input.
-        let signature = signer.sign_message(signing_input.as_slice());
+        Ok((header, signing_input, jws))
+    }
+    fn attach_signature_to_jws(
+        header: JWSHeader,
+        mut jws: Vec<u8>,
+        signature: Box<dyn signature_dyn::SignatureT>,
+    ) -> Result<Self> {
         let signature_bytes = signature.to_signature_bytes().into_owned();
 
         // Write the concatenation separator '.' into the JWS.
@@ -210,7 +264,7 @@ impl<'j> JWS<'j> {
     /// detached payload, and None if it's an attached payload.
     pub fn verify(
         &self,
-        verifier: &dyn signature_dyn::VerifierDynT,
+        verifier: &dyn signature_dyn::VerifierT,
         detached_payload_bytes_o: Option<&mut dyn std::io::Read>,
     ) -> Result<()> {
         // Verify the JWS alg and crv fields match the verifier.
@@ -302,7 +356,7 @@ impl<'j> TryFrom<Cow<'j, str>> for JWS<'j> {
         let mut split = jws_str.split('.');
 
         let header_base64 = split.next().ok_or(error!("JWS missing header"))?;
-        let payload_base64 = split.next().ok_or(error!("JWS missing payload"))?;
+        let payload = split.next().ok_or(error!("JWS missing payload"))?;
         let signature_base64 = split.next().ok_or(error!("JWS missing signature"))?;
         if split.next().is_some() {
             return Err(error!("JWS has too many parts"));
@@ -312,20 +366,12 @@ impl<'j> TryFrom<Cow<'j, str>> for JWS<'j> {
         if header_base64.contains(char::is_whitespace) {
             return Err(error!("Encoded JWS header contains whitespace"));
         }
-        // TODO: This needs to change to support attached, non-encoded payloads.
-        if payload_base64.contains(char::is_whitespace) {
-            return Err(error!("Encoded JWS payload contains whitespace"));
-        }
         if signature_base64.contains(char::is_whitespace) {
             return Err(error!("Encoded JWS signature contains whitespace",));
         }
 
         if !is_base64url_encoded(header_base64) {
             return Err(error!("JWS header is not base64url-encoded"));
-        }
-        // TODO: This needs to change to support attached, non-encoded payloads.
-        if !is_base64url_encoded(payload_base64) {
-            return Err(error!("JWS payload is not base64url-encoded",));
         }
         if !is_base64url_encoded(signature_base64) {
             return Err(error!("JWS signature is not base64url-encoded",));
@@ -341,6 +387,18 @@ impl<'j> TryFrom<Cow<'j, str>> for JWS<'j> {
                 e
             )
         })?;
+
+        // Check for "b64" in the "crit" field, and if it's present, then check if the payload is base64url-encoded.
+        let b64_expected = if header.crit.is_some() {
+            header.crit.as_deref().unwrap().iter().any(|c| c == "b64") && header.b64.unwrap_or(true)
+        } else {
+            // If not present, "b64" is understood to be true.
+            // https://datatracker.ietf.org/doc/html/rfc7797.html#section-7
+            true
+        };
+        if b64_expected && !is_base64url_encoded(payload) {
+            return Err(error!("JWS payload was expected to be base64url-encoded"));
+        }
 
         let signature_byte_v = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(signature_base64.as_bytes())

@@ -17,7 +17,7 @@ async fn test_did_key_generate_write_read_sign_jws_verify_impl(key_type: signatu
 
     let signer_b = did_webplus_cli_lib::private_key_generate(key_type);
     let did = did_webplus_cli_lib::did_key_from_private(signer_b.as_ref()).expect("pass");
-    let signer_bytes = signer_b.to_signer_bytes();
+    let signer_bytes = signer_b.extract_signer_bytes().expect("pass");
     did_webplus_cli_lib::private_key_write_to_pkcs8_pem_file(&signer_bytes, &private_key_path)
         .expect("pass");
 
@@ -26,7 +26,10 @@ async fn test_did_key_generate_write_read_sign_jws_verify_impl(key_type: signatu
     let read_did = did_webplus_cli_lib::did_key_from_private(read_signer_b.as_ref()).expect("pass");
     // Check that the DIDs and the signers are the same.
     assert_eq!(read_did, did);
-    assert_eq!(read_signer_b.to_signer_bytes(), signer_bytes);
+    assert_eq!(
+        read_signer_b.extract_signer_bytes().expect("pass"),
+        signer_bytes
+    );
 
     let payload = r#"{"blah": 123}"#;
     // Sign and then verify an attached-payload JWS

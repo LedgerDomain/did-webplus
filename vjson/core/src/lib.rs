@@ -175,7 +175,7 @@ pub fn validate_against_json_schema(
 pub async fn sign_and_self_hash_vjson(
     value: &mut serde_json::Value,
     kid: String,
-    signer: &dyn signature_dyn::SignerDynT,
+    signer: &dyn signature_dyn::SignerT,
     vjson_resolver: &dyn VJSONResolver,
     verifier_resolver_o: Option<&dyn verifier_resolver::VerifierResolver>,
 ) -> Result<mbx::MBHash> {

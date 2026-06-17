@@ -162,9 +162,10 @@ fn test_root_did_document_sign_and_verify() {
         selfhash::MBHashFunction::sha3_384(mbx::Base::Base64Url),
         selfhash::MBHashFunction::sha3_512(mbx::Base::Base64Url),
     ] {
-        let update_signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        use signature_dyn::GenerateRandom;
+        let update_signing_key = ed25519_dalek::SigningKey::generate_random();
         let update_verifying_key = update_signing_key.verifying_key();
-        let signing_key = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+        let signing_key = ed25519_dalek::SigningKey::generate_random();
         let verifying_key = signing_key.verifying_key();
         let pub_key =
             mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key);
@@ -247,7 +248,8 @@ fn test_did_update_sign_and_verify() {
         "# Example: DID Microledger\n\nThis example can be run via command:\n\n    cargo test -p did-webplus-core --all-features -- --nocapture test_did_update_sign_and_verify\n\n## Example DID Documents\n\nHere is an example of the DID documents in the microledger for a DID.\n\nRoot DID document (`versionId` 0):\n"
     );
 
-    let update_signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    use signature_dyn::GenerateRandom;
+    let update_signing_key_0 = ed25519_dalek::SigningKey::generate_random();
     let update_verifying_key_0 = update_signing_key_0.verifying_key();
     // Determine the update rules; just the one key, and just use did:key to identify it.
     let update_pub_key_0 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
@@ -260,7 +262,7 @@ fn test_did_update_sign_and_verify() {
     );
 
     // Create the keypair for the verification method.
-    let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing_key_0 = ed25519_dalek::SigningKey::generate_random();
     let verifying_key_0 = signing_key_0.verifying_key();
     let pub_key_0 =
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_0);
@@ -298,7 +300,7 @@ fn test_did_update_sign_and_verify() {
     // and create another update rules key.
 
     // Determine the update rules; just the one key, and just use did:key to identify it.
-    let update_signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_signing_key_1 = ed25519_dalek::SigningKey::generate_random();
     let update_verifying_key_1 = update_signing_key_1.verifying_key();
     let update_pub_key_1 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
         mbx::Base::Base64Url,
@@ -310,7 +312,7 @@ fn test_did_update_sign_and_verify() {
     });
 
     // Create the new keypair for the verification method.
-    let signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing_key_1 = ed25519_dalek::SigningKey::generate_random();
     let verifying_key_1 = signing_key_1.verifying_key();
     let pub_key_1 =
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_1);
@@ -432,7 +434,8 @@ fn priv_jwk_from_ed25519_signing_key(
 #[test]
 #[serial_test::serial]
 fn test_signature_generation_with_witness() {
-    let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    use signature_dyn::GenerateRandom;
+    let signing_key_0 = ed25519_dalek::SigningKey::generate_random();
     let verifying_key_0 = signing_key_0.verifying_key();
     let pub_key_0 =
         mbx::MBPubKey::from_ed25519_dalek_verifying_key(mbx::Base::Base64Url, &verifying_key_0);
@@ -644,9 +647,10 @@ fn produce_complete_did_documents_jsonl() {
     let mb_hash_function = selfhash::MBHashFunction::sha3_256(mbx::Base::Base64Url);
 
     // Initial set of verification method keys
-    let signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    use signature_dyn::GenerateRandom;
+    let signing_key_0 = ed25519_dalek::SigningKey::generate_random();
     // This is the key to update the initial DID doc.
-    let update_signing_key_0 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_signing_key_0 = ed25519_dalek::SigningKey::generate_random();
     let update_verifying_key_0 = update_signing_key_0.verifying_key();
     let update_pub_key_0 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
         mbx::Base::Base64Url,
@@ -691,9 +695,9 @@ fn produce_complete_did_documents_jsonl() {
     );
 
     // Next set of verification method keys
-    let signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing_key_1 = ed25519_dalek::SigningKey::generate_random();
     // This is the next update key
-    let update_signing_key_1 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_signing_key_1 = ed25519_dalek::SigningKey::generate_random();
     let update_verifying_key_1 = update_signing_key_1.verifying_key();
     let update_pub_key_1 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
         mbx::Base::Base64Url,
@@ -746,9 +750,9 @@ fn produce_complete_did_documents_jsonl() {
     );
 
     // Next set of verification method keys (these are used only if produce_deactivated_did is false)
-    let signing_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let signing_key_2 = ed25519_dalek::SigningKey::generate_random();
     // This is the next update key
-    let update_signing_key_2 = ed25519_dalek::SigningKey::generate(&mut rand::rngs::OsRng);
+    let update_signing_key_2 = ed25519_dalek::SigningKey::generate_random();
     let update_verifying_key_2 = update_signing_key_2.verifying_key();
     let update_pub_key_2 = mbx::MBPubKey::from_ed25519_dalek_verifying_key(
         mbx::Base::Base64Url,

@@ -15,7 +15,6 @@ async fn test_software_wallet_indexeddb_basic() {
     let software_wallet_indexeddb =
         did_webplus_software_wallet_indexeddb::SoftwareWalletIndexedDB::create(
             "test_software_wallet_indexeddb_basic".to_string(),
-            1,
             Some("test_software_wallet_indexeddb_basic Wallet #0".to_string()),
             None,
         )

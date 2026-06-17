@@ -43,7 +43,7 @@ pub trait DIDResolver: Send + Sync + verifier_resolver::VerifierResolver {
 pub async fn verifier_resolver_impl(
     verifier_str: &str,
     did_resolver: &dyn DIDResolver,
-) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierDynT>> {
+) -> verifier_resolver::Result<Box<dyn signature_dyn::VerifierT>> {
     if !verifier_str.starts_with("did:webplus:") {
         Err(verifier_resolver::Error::InvalidVerifier(
             format!(

@@ -1,8 +1,4 @@
 [patch.crates-io]
-mbx = { git = "https://github.com/LedgerDomain/mbx", rev = "mbx-v0.1.1" }
-pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.5.1" }
-signature-dyn = { git = "https://github.com/LedgerDomain/signature-dyn", rev = "signature-dyn-v0.1.0" }
 ssi-claims = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-crypto = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
 ssi-dids = { git = "https://github.com/LedgerDomain/ssi", branch = "did-webplus-changes" }
@@ -49,3 +45,16 @@ members = [
     "vjson/storage-sqlite",
     "vjson/store",
 ]
+
+[workspace.dependencies]
+async-trait = "0.1.89"
+ed25519-dalek = "3.0.0-rc.0"
+ed448-goldilocks = "0.14.0-pre.13"
+k256 = "0.14.0-rc.11"
+mbx = { git = "https://github.com/LedgerDomain/mbx", rev = "mbx-v0.2.3" }
+p256 = "0.14.0-rc.11"
+p384 = "0.14.0-rc.11"
+p521 = "0.14.0-rc.11"
+pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.6.2" }
+signature-dyn = { git = "https://github.com/LedgerDomain/signature-dyn", rev = "signature-dyn-v0.2.2" }

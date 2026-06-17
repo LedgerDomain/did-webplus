@@ -384,7 +384,7 @@ impl DIDDocument {
     pub fn sign(
         &self,
         kid: String,
-        signer: &dyn signature_dyn::SignerDynT,
+        signer: &dyn signature_dyn::SignerT,
     ) -> Result<did_webplus_jws::JWS<'static>> {
         let bytes_to_sign = self.bytes_to_sign()?;
         Ok(did_webplus_jws::JWS::signed(

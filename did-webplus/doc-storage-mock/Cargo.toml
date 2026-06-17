@@ -5,10 +5,10 @@ authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2024"
 
 [dependencies]
-async-trait = "0.1.80"
+async-trait = { workspace = true }
 did-webplus-core = { path = "../core" }
 did-webplus-doc-store = { path = "../doc-store" }
-mbx = "0.1.1"
-selfhash = "0.5.1"
+mbx = { workspace = true }
+selfhash = { workspace = true }
 storage-traits = { path = "../../storage-traits" }
 time = "0.3"
