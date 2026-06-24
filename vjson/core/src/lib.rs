@@ -7,11 +7,11 @@ mod vjson_resolver;
 mod vjson_schema;
 
 pub use crate::{
-    default_schema::{DefaultSchema, DEFAULT_SCHEMA},
+    default_schema::{DEFAULT_SCHEMA, DefaultSchema},
     direct_dependencies::DirectDependencies,
     error::{
-        error_already_exists, error_internal_error, error_invalid_vjson, error_malformed,
-        error_not_found, error_storage_error, Error,
+        Error, error_already_exists, error_internal_error, error_invalid_vjson, error_malformed,
+        error_not_found, error_storage_error,
     },
     validate::Validate,
     vjson_properties::VJSONProperties,
@@ -175,7 +175,7 @@ pub fn validate_against_json_schema(
 pub async fn sign_and_self_hash_vjson(
     value: &mut serde_json::Value,
     kid: String,
-    signer: &dyn signature_dyn::SignerT,
+    async_signer: &dyn signature_dyn::AsyncSignerT,
     vjson_resolver: &dyn VJSONResolver,
     verifier_resolver_o: Option<&dyn verifier_resolver::VerifierResolver>,
 ) -> Result<mbx::MBHash> {
@@ -227,13 +227,14 @@ pub async fn sign_and_self_hash_vjson(
             self_hashable_json.value().to_string()
         );
         let payload_bytes = serde_json_canonicalizer::to_vec(self_hashable_json.value()).unwrap();
-        did_webplus_jws::JWS::signed(
+        did_webplus_jws::JWS::async_signed(
             kid,
             &mut payload_bytes.as_slice(),
             did_webplus_jws::JWSPayloadPresence::Detached,
             did_webplus_jws::JWSPayloadEncoding::Base64,
-            signer,
+            async_signer,
         )
+        .await
         .map_err(|e| Error::InternalError(format!("Failed to sign JWS; error was: {}", e).into()))?
     };
 

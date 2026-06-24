@@ -4012,8 +4012,8 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mbx"
-version = "0.2.3"
-source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.2.3#396772df40a8bab71a59a98e6bbb70fba9689101"
+version = "0.3.0"
+source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.3.0#357c662f67dcd2cc09246baf2391412b89c02bc7"
 dependencies = [
  "blake3",
  "ed25519-dalek 3.0.0-rc.0",
@@ -5412,8 +5412,8 @@ checksum = "16c2f82143577edb4921b71ede051dac62ca3c16084e918bf7b40c96ae10eb33"
 
 [[package]]
 name = "selfhash"
-version = "0.6.2"
-source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.6.2#05d54d68b719cd5bae25c22a573aec5c4b1c2ca3"
+version = "0.7.0"
+source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.7.0#729a99d5d00270856aa09114191df15649b544de"
 dependencies = [
  "base64 0.21.7",
  "blake3",
@@ -5779,8 +5779,8 @@ dependencies = [
 
 [[package]]
 name = "signature-dyn"
-version = "0.2.2"
-source = "git+https://github.com/LedgerDomain/signature-dyn?rev=signature-dyn-v0.2.2#95e6109e09d7eb234db28d3ce02005053a120386"
+version = "0.3.0"
+source = "git+https://github.com/LedgerDomain/signature-dyn?rev=signature-dyn-v0.3.0#5c0a2f427bd81e85d56fc7dcc79e02f982eb75d6"
 dependencies = [
  "async-trait",
  "ed25519-dalek 3.0.0-rc.0",

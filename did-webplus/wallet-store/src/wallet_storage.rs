@@ -1,10 +1,9 @@
 use crate::{
-    verification_method_record::VerificationMethodRecord,
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter,
     PrivKeyUsageRecord, PrivKeyUsageRecordFilter, Result, WalletRecord, WalletRecordFilter,
-    WalletStorageCtx,
+    WalletStorageCtx, verification_method_record::VerificationMethodRecord,
 };
-use did_webplus_core::{now_utc_milliseconds, DIDKeyResourceFullyQualifiedStr};
+use did_webplus_core::now_utc_milliseconds;
 use std::sync::Arc;
 
 /// Trait which defines the storage interface for a WalletStore.
@@ -50,7 +49,9 @@ pub trait WalletStorage:
                 }
             }
         }
-        panic!("Failed to create a unique wallet UUID after 5 attempts; this is so unlikely that it's almost certainly a programmer error");
+        panic!(
+            "Failed to create a unique wallet UUID after 5 attempts; this is so unlikely that it's almost certainly a programmer error"
+        );
     }
     async fn add_wallet(
         &self,
@@ -106,13 +107,6 @@ pub trait WalletStorage:
         priv_key_usage_record_filter: &PrivKeyUsageRecordFilter,
     ) -> Result<Vec<PrivKeyUsageRecord>>;
 
-    async fn get_verification_method(
-        &self,
-        transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        ctx: &WalletStorageCtx,
-        did_key_resource_fully_qualified: &DIDKeyResourceFullyQualifiedStr,
-    ) -> Result<VerificationMethodRecord>;
-
     /// A "locally controlled" verification method is one whose associated priv key is present in the wallet.
     /// In particular, the deleted_at_o fields are each None and priv_key_bytes_o fields are each Some(_).
     async fn get_locally_controlled_verification_methods(
@@ -120,7 +114,12 @@ pub trait WalletStorage:
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>>;
+    ) -> Result<
+        Vec<(
+            VerificationMethodRecord,
+            Box<dyn signature_dyn::AsyncSignerT + Send + Sync>,
+        )>,
+    >;
 
     /// Upcast to &dyn did_webplus_doc_store::DIDDocStorage.
     fn as_did_doc_storage(&self) -> &dyn did_webplus_doc_store::DIDDocStorage;

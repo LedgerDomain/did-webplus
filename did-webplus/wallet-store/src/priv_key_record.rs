@@ -6,7 +6,8 @@ pub struct PrivKeyRecord {
     /// The pub key corresponding to this priv key.
     pub pub_key: mbx::MBPubKey,
     /// The hash of the pub key, used in pre-rotation schemes.
-    // TODO: Make this an appropriate type.
+    // TODO: Make this an appropriate type -- Option<mbx::MBHash> ?  This would have implications
+    // in the database schema that would require a migration.
     pub hashed_pub_key: String,
     /// If this is Some(did), then use of this priv key is restricted to the given DID.
     // TODO: Make this an appropriate type.

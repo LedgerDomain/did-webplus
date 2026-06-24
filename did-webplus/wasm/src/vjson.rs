@@ -32,7 +32,7 @@ pub async fn vjson_sign_and_self_hash(
     if signer.key_id_as_str().starts_with("did:key:") {
         did_webplus_cli_lib::did_key_sign_vjson(
             &mut vjson_value,
-            signer.deref(),
+            &signature_dyn::AsAsyncSigner::new(signer.deref()),
             vjson_resolver.deref(),
         )
         .await

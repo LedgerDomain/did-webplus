@@ -449,15 +449,20 @@ impl SoftwareWalletIndexedDB {
                                 ))
                             })?;
 
-                            let key_purpose_flags = did_document
-                                .public_key_material
-                                .key_purpose_flags_for_key_id_fragment(
-                                    verification_method.id.fragment(),
-                                );
                             let verification_method_record = VerificationMethodRecord {
                                 did_key_resource_fully_qualified: verification_method.id.clone(),
-                                key_purpose_flags,
                                 pub_key,
+                                hashed_pub_key: priv_key_record.hashed_pub_key.clone(),
+                                did_restriction_o: priv_key_record.did_restriction_o.clone(),
+                                key_purpose_restriction_o: priv_key_record
+                                    .key_purpose_restriction_o
+                                    .clone(),
+                                created_at: priv_key_record.created_at,
+                                last_used_at_o: priv_key_record.last_used_at_o,
+                                max_usage_count_o: priv_key_record.max_usage_count_o,
+                                usage_count: priv_key_record.usage_count,
+                                deleted_at_o: priv_key_record.deleted_at_o,
+                                comment_o: priv_key_record.comment_o.clone(),
                             };
                             locally_controlled_verification_method_v
                                 .push((verification_method_record, priv_key_record.clone()));
@@ -1417,18 +1422,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                                 .get_all_keys_in(compound_key.clone()..=compound_key, Some(1))
                                 .await?;
                             if let Some(primary_key) = primary_keys.into_iter().next() {
-                                let key_purpose_flags = latest_did_document
-                                    .public_key_material
-                                    .key_purpose_flags_for_key_id_fragment(
-                                        verification_method.id.fragment(),
-                                    );
-                                let verification_method_record =
-                                    did_webplus_wallet_store::VerificationMethodRecord {
-                                        did_key_resource_fully_qualified: did_fully_qualified
-                                            .with_fragment(verification_method.id.fragment()),
-                                        key_purpose_flags,
-                                        pub_key,
-                                    };
                                 let priv_key_blob =
                                     serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue)
                                         .map_err(|e| {
@@ -1437,6 +1430,21 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                                                 e
                                             ))
                                         })?;
+                                let verification_method_record =
+                                    did_webplus_wallet_store::VerificationMethodRecord {
+                                        did_key_resource_fully_qualified: did_fully_qualified
+                                            .with_fragment(verification_method.id.fragment()),
+                                        pub_key,
+                                        hashed_pub_key: priv_key_blob.priv_key_record.hashed_pub_key.clone(),
+                                        did_restriction_o: priv_key_blob.priv_key_record.did_restriction_o.clone(),
+                                        key_purpose_restriction_o: priv_key_blob.priv_key_record.key_purpose_restriction_o.clone(),
+                                        created_at: priv_key_blob.priv_key_record.created_at,
+                                        last_used_at_o: priv_key_blob.priv_key_record.last_used_at_o,
+                                        max_usage_count_o: priv_key_blob.priv_key_record.max_usage_count_o,
+                                        usage_count: priv_key_blob.priv_key_record.usage_count,
+                                        deleted_at_o: priv_key_blob.priv_key_record.deleted_at_o,
+                                        comment_o: priv_key_blob.priv_key_record.comment_o.clone(),
+                                    };
                                 locally_controlled_verification_method_v
                                     .push((verification_method_record, priv_key_blob, primary_key));
                             }
@@ -2011,18 +2019,6 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                                 .get_all_keys_in(compound_key.clone()..=compound_key, Some(1))
                                 .await?;
                             if let Some(primary_key) = primary_keys.into_iter().next() {
-                                let key_purpose_flags = latest_did_document
-                                    .public_key_material
-                                    .key_purpose_flags_for_key_id_fragment(
-                                        verification_method.id.fragment(),
-                                    );
-                                let verification_method_record =
-                                    did_webplus_wallet_store::VerificationMethodRecord {
-                                        did_key_resource_fully_qualified: did_fully_qualified
-                                            .with_fragment(verification_method.id.fragment()),
-                                        key_purpose_flags,
-                                        pub_key,
-                                    };
                                 let priv_key_blob =
                                     serde_wasm_bindgen::from_value::<PrivKeyBlob>(priv_key_blob_jsvalue)
                                         .map_err(|e| {
@@ -2031,6 +2027,21 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                                                 e
                                             ))
                                         })?;
+                                let verification_method_record =
+                                    did_webplus_wallet_store::VerificationMethodRecord {
+                                        did_key_resource_fully_qualified: did_fully_qualified
+                                            .with_fragment(verification_method.id.fragment()),
+                                        pub_key,
+                                        hashed_pub_key: priv_key_blob.priv_key_record.hashed_pub_key.clone(),
+                                        did_restriction_o: priv_key_blob.priv_key_record.did_restriction_o.clone(),
+                                        key_purpose_restriction_o: priv_key_blob.priv_key_record.key_purpose_restriction_o.clone(),
+                                        created_at: priv_key_blob.priv_key_record.created_at,
+                                        last_used_at_o: priv_key_blob.priv_key_record.last_used_at_o,
+                                        max_usage_count_o: priv_key_blob.priv_key_record.max_usage_count_o,
+                                        usage_count: priv_key_blob.priv_key_record.usage_count,
+                                        deleted_at_o: priv_key_blob.priv_key_record.deleted_at_o,
+                                        comment_o: priv_key_blob.priv_key_record.comment_o.clone(),
+                                    };
                                 v.push((
                                     verification_method_record,
                                     priv_key_blob,
@@ -2442,7 +2453,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
     ) -> did_webplus_wallet::Result<
         Vec<(
             VerificationMethodRecord,
-            signature_dyn::SignerBytes<'static>,
+            Box<dyn signature_dyn::AsyncSignerT + Send + Sync>,
         )>,
     > {
         let results = self
@@ -2458,7 +2469,9 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 let signer_bytes = priv_key_record
                     .private_key_bytes_o
                     .expect("programmer error: priv_key_bytes_o was verified Some(_) in the loop");
-                (verification_method_record, signer_bytes)
+                let async_signer_b: Box<dyn signature_dyn::AsyncSignerT + Send + Sync> =
+                    Box::new(signer_bytes);
+                (verification_method_record, async_signer_b)
             })
             .collect())
     }

@@ -431,7 +431,7 @@ impl did_webplus_wallet::Wallet for Wallet {
     ) -> did_webplus_wallet::Result<
         Vec<(
             did_webplus_wallet_store::VerificationMethodRecord,
-            signature_dyn::SignerBytes<'static>,
+            Box<dyn signature_dyn::AsyncSignerT + Send + Sync>,
         )>,
     > {
         self.0

@@ -23,7 +23,7 @@ rand = "0.8"
 reqwest = { version = "0.12.5", features = ["json"] }
 selfhash = { workspace = true }
 serde_json = "1.0.107"
-signature-dyn = { workspace = true }
+signature-dyn = { workspace = true, features = ["ed25519-dalek", "random"] }
 storage-traits = { path = "../../storage-traits" }
 time = "0.3"
 # TEMP HACK MAYBE

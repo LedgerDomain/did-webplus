@@ -4,9 +4,7 @@ use crate::db::{
     Index, IndexedRowT, OnConflict, RowId, RowT, SigilT, Table, TableError, TableResult,
     TableWithPrimaryKey,
 };
-use did_webplus_core::{
-    DID, DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, now_utc_milliseconds,
-};
+use did_webplus_core::{DID, DIDDocument, DIDStr, now_utc_milliseconds};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter};
 use did_webplus_wallet_store::{
     LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter,
@@ -578,8 +576,16 @@ impl WalletStorageMockState {
                                 .1
                                 .as_str(),
                         ),
-                    key_purpose_flags: verification_method_row.key_purpose_flags,
                     pub_key: verification_method_row.pub_key.clone(),
+                    hashed_pub_key: priv_key_row.hashed_pub_key.clone(),
+                    did_restriction_o: priv_key_row.did_restriction_o.clone(),
+                    key_purpose_restriction_o: priv_key_row.key_purpose_restriction_o.clone(),
+                    created_at: priv_key_row.created_at,
+                    last_used_at_o: priv_key_row.last_used_at_o,
+                    max_usage_count_o: priv_key_row.max_usage_count_o,
+                    usage_count: priv_key_row.usage_count,
+                    deleted_at_o: priv_key_row.deleted_at_o,
+                    comment_o: priv_key_row.comment_o.clone(),
                 },
                 did_document: serde_json::from_str(&did_document_row.did_document_jcs)
                     .expect("programmer error: record corruption"),
@@ -863,20 +869,17 @@ impl did_webplus_wallet_store::WalletStorage for WalletStorageMock {
         }
         Ok(priv_key_usage_record_v)
     }
-    async fn get_verification_method(
-        &self,
-        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        _ctx: &WalletStorageCtx,
-        _did_key_resource_fully_qualified: &DIDKeyResourceFullyQualifiedStr,
-    ) -> did_webplus_wallet_store::Result<VerificationMethodRecord> {
-        unimplemented!();
-    }
     async fn get_locally_controlled_verification_methods(
         &self,
         _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> did_webplus_wallet_store::Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>> {
+    ) -> did_webplus_wallet_store::Result<
+        Vec<(
+            VerificationMethodRecord,
+            Box<dyn signature_dyn::AsyncSignerT + Send + Sync>,
+        )>,
+    > {
         let state_g = self.state_la.read().unwrap();
         Ok(state_g
             .get_locally_controlled_verification_methods(
@@ -885,9 +888,15 @@ impl did_webplus_wallet_store::WalletStorage for WalletStorageMock {
             )?
             .into_iter()
             .map(|locally_controlled_verification_method| {
+                let async_signer_b: Box<dyn signature_dyn::AsyncSignerT + Send + Sync> = Box::new(
+                    locally_controlled_verification_method
+                        .priv_key_record
+                        .private_key_bytes_o
+                        .unwrap(),
+                );
                 (
                     locally_controlled_verification_method.verification_method_record,
-                    locally_controlled_verification_method.priv_key_record,
+                    async_signer_b,
                 )
             })
             .collect())

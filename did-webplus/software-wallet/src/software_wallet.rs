@@ -677,14 +677,14 @@ impl Wallet for SoftwareWallet {
             .await?;
 
         // Retire the priv keys for the old locally-controlled verification methods.
-        for (_verification_method_record, priv_key_record) in
+        for (verification_method_record, _signer_b) in
             locally_controlled_verification_method_v.into_iter()
         {
             self.wallet_storage_a
                 .delete_priv_key(
                     Some(transaction_b.as_mut()),
                     &self.ctx,
-                    &priv_key_record.pub_key,
+                    &verification_method_record.pub_key,
                 )
                 .await?;
         }
@@ -961,14 +961,14 @@ impl Wallet for SoftwareWallet {
             .await?;
 
         // Retire the priv keys for the old locally-controlled verification methods.
-        for (_verification_method_record, priv_key_record) in
+        for (verification_method_record, _signer_b) in
             locally_controlled_verification_method_v.into_iter()
         {
             self.wallet_storage_a
                 .delete_priv_key(
                     Some(transaction_b.as_mut()),
                     &self.ctx,
-                    &priv_key_record.pub_key,
+                    &verification_method_record.pub_key,
                 )
                 .await?;
         }
@@ -994,7 +994,7 @@ impl Wallet for SoftwareWallet {
     ) -> Result<
         Vec<(
             VerificationMethodRecord,
-            signature_dyn::SignerBytes<'static>,
+            Box<dyn signature_dyn::AsyncSignerT + Send + Sync>,
         )>,
     > {
         let mut transaction_b = self
@@ -1014,12 +1014,6 @@ impl Wallet for SoftwareWallet {
             .commit()
             .await
             .map_err(|e| did_webplus_wallet_store::Error::from(e))?;
-        Ok(query_result_v
-            .into_iter()
-            .map(|(verification_method_record, priv_key_record)| {
-                let signer_bytes = priv_key_record.private_key_bytes_o.unwrap();
-                (verification_method_record, signer_bytes)
-            })
-            .collect())
+        Ok(query_result_v)
     }
 }

@@ -26,7 +26,9 @@ Ensure you're in the did-webplus-cli dir.  Then run:
 
     cargo install --path .
 
-This will build and install the `did-webplus` binary to `~/.cargo/bin` (or wherever cargo is configured to install binaries), and should be accessible on your path.
+This will build and install the `did-webplus` binary to `~/.cargo/bin` (or wherever cargo is configured to install binaries), and should be accessible on your path.  Note that if there is a compile error, then it's possible some dependency has unintentionally broken semver with an update, so in that case, run:
+
+    cargo install --path . --frozen
 
 ## Running against the dockerized demo VDR and VDG services
 

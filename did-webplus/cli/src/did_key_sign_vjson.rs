@@ -31,8 +31,12 @@ impl DIDKeySignVJSON {
         let verifier_resolver_map = self.verifier_resolver_args.get_verifier_resolver_map();
 
         // Do the processing
-        did_webplus_cli_lib::did_key_sign_vjson(&mut value, signer_b.as_ref(), &vjson_store)
-            .await?;
+        did_webplus_cli_lib::did_key_sign_vjson(
+            &mut value,
+            &signature_dyn::AsAsyncSigner::new(signer_b.as_ref()),
+            &vjson_store,
+        )
+        .await?;
         self.vjson_storage_behavior_args
             .store_if_requested(&value, &vjson_store, &verifier_resolver_map)
             .await?;

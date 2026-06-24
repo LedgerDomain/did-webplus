@@ -41,13 +41,12 @@ impl<W: Wallet> WalletBasedSigner<W> {
                 key_id_o: key_id_o.map(|key_id| key_id.to_owned()),
                 result_limit_o: None,
             };
-        let (verification_method_record, signer_bytes) = wallet
+        let (verification_method_record, async_signer_b) = wallet
             .get_locally_controlled_verification_method(
                 locally_controlled_verification_method_filter,
             )
             .await?;
-        use signature_dyn::SignerT;
-        let verifier_bytes = signer_bytes.get_verifier_bytes()?.into_owned();
+        let verifier_bytes = async_signer_b.async_get_verifier_bytes().await?.into_owned();
         Ok(Self {
             wallet,
             key_purpose,
@@ -81,7 +80,7 @@ impl<W: Wallet> signature_dyn::AsyncSignerT for WalletBasedSigner<W> {
         &self,
         message_byte_v: &[u8],
     ) -> signature_dyn::Result<Box<dyn signature_dyn::SignatureT>> {
-        let (_verification_method_record, signer_bytes) = self
+        let (_verification_method_record, async_signer_b) = self
             .wallet
             .get_locally_controlled_verification_method(
                 did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
@@ -94,8 +93,7 @@ impl<W: Wallet> signature_dyn::AsyncSignerT for WalletBasedSigner<W> {
             )
             .await
             .map_err(|e| e.to_string())?;
-        use signature_dyn::SignerT;
-        Ok(signer_bytes.try_sign_message(message_byte_v)?)
+        Ok(async_signer_b.async_try_sign_message(message_byte_v).await?)
     }
 }
 
@@ -129,7 +127,7 @@ impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
         &self,
         signing_bytes: &[u8],
     ) -> std::result::Result<Vec<u8>, ssi_claims::SignatureError> {
-        let (_verification_method_record, signer_bytes) = self
+        let (_verification_method_record, async_signer_b) = self
             .wallet
             .get_locally_controlled_verification_method(
                 did_webplus_wallet_store::LocallyControlledVerificationMethodFilter {
@@ -142,9 +140,9 @@ impl<W: Wallet> ssi_jws::JwsSigner for WalletBasedSigner<W> {
             )
             .await
             .map_err(|e| ssi_claims::SignatureError::Other(e.to_string()))?;
-        use signature_dyn::SignerT;
-        Ok(signer_bytes
-            .try_sign_message(signing_bytes)
+        Ok(async_signer_b
+            .async_try_sign_message(signing_bytes)
+            .await
             .map_err(|e| ssi_claims::SignatureError::Other(e.to_string()))?
             .to_signature_bytes()
             .bytes()

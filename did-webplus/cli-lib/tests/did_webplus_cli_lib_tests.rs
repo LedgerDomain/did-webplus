@@ -115,7 +115,7 @@ async fn test_did_key_sign_vjson_verify_impl(key_type: signature_dyn::KeyType) {
     // Sign
     let price_quote_schema_self_hash = did_webplus_cli_lib::did_key_sign_vjson(
         &mut price_quote_schema,
-        signer_b.as_ref(),
+        &signature_dyn::AsAsyncExtractableSigner::new(signer_b.as_ref()),
         &vjson_store,
     )
     .await
@@ -149,10 +149,13 @@ async fn test_did_key_sign_vjson_verify_impl(key_type: signature_dyn::KeyType) {
         "A fancy, fancy rock",
         "6,000,000 USD",
     );
-    let _price_quote_self_hash =
-        did_webplus_cli_lib::did_key_sign_vjson(&mut price_quote, signer_b.as_ref(), &vjson_store)
-            .await
-            .expect("pass");
+    let _price_quote_self_hash = did_webplus_cli_lib::did_key_sign_vjson(
+        &mut price_quote,
+        &signature_dyn::AsAsyncSigner::new(signer_b.as_ref()),
+        &vjson_store,
+    )
+    .await
+    .expect("pass");
     tracing::debug!(
         "price_quote: {}",
         serde_json::to_string_pretty(&price_quote).unwrap()

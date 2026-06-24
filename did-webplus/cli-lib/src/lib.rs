@@ -2,7 +2,7 @@ pub use anyhow::Result;
 
 pub fn private_key_generate(
     key_type: signature_dyn::KeyType,
-) -> Box<dyn signature_dyn::ExtractableSignerT> {
+) -> Box<dyn signature_dyn::ExtractableSignerT + Send + Sync> {
     key_type.generate_random_private_key()
 }
 
@@ -33,7 +33,7 @@ pub fn private_key_write_to_pkcs8_pem_file(
 // TODO: Make a browser-specific version of this that writes to some appropriate kind of browser storage.
 pub fn private_key_read_from_pkcs8_pem_file(
     private_key_path: &std::path::Path,
-) -> Result<Box<dyn signature_dyn::ExtractableSignerT>> {
+) -> Result<Box<dyn signature_dyn::ExtractableSignerT + Send + Sync>> {
     use signature_dyn::PKCS8Read;
     // This is a bit of a hack.  It would be better to somehow determine the key type first,
     // then invoke the correct read function.
@@ -117,16 +117,17 @@ pub fn did_key_sign_jws(
 
 pub async fn did_key_sign_vjson(
     value: &mut serde_json::Value,
-    signer: &dyn signature_dyn::SignerT,
+    async_signer: &(dyn signature_dyn::AsyncSignerT + Send + Sync),
     vjson_resolver: &dyn vjson_core::VJSONResolver,
 ) -> Result<mbx::MBHash> {
-    let did_resource = did_key::DIDResource::try_from(&signer.get_verifier_bytes()?)?;
+    let did_resource =
+        did_key::DIDResource::try_from(&async_signer.async_get_verifier_bytes().await?)?;
     let kid = did_resource.to_string();
     let verifier_resolver = did_key::DIDKeyVerifierResolver;
     Ok(vjson_core::sign_and_self_hash_vjson(
         value,
         kid,
-        signer,
+        async_signer,
         vjson_resolver,
         Some(&verifier_resolver),
     )
@@ -358,7 +359,7 @@ async fn wallet_did_select_key(
     key_id_o: Option<&str>,
 ) -> Result<(
     did_webplus_wallet_store::VerificationMethodRecord,
-    signature_dyn::SignerBytes<'static>,
+    Box<dyn signature_dyn::AsyncSignerT + Send + Sync>,
 )> {
     let query_result_v = wallet
         .get_locally_controlled_verification_methods(
@@ -414,20 +415,21 @@ pub async fn wallet_did_sign_jws(
     key_id_o: Option<&str>,
 ) -> Result<did_webplus_jws::JWS<'static>> {
     // Get the specified signing key.
-    let (verification_method_record, signer_bytes) =
+    let (verification_method_record, async_signer_b) =
         wallet_did_select_key(wallet, controlled_did_o, key_purpose_o, key_id_o).await?;
     // Form the kid (key ID).
     let kid = verification_method_record
         .did_key_resource_fully_qualified
         .to_string();
 
-    let jws = did_webplus_jws::JWS::signed(
+    let jws = did_webplus_jws::JWS::async_signed(
         kid,
         payload_bytes,
         payload_presence,
         payload_encoding,
-        &signer_bytes,
-    )?;
+        async_signer_b.as_ref(),
+    )
+    .await?;
 
     Ok(jws)
 }
@@ -445,7 +447,7 @@ pub async fn wallet_did_sign_vjson(
     verifier_resolver: &dyn verifier_resolver::VerifierResolver,
 ) -> Result<mbx::MBHash> {
     // Get the specified signing key.
-    let (verification_method_record, signer_bytes) =
+    let (verification_method_record, async_signer_b) =
         wallet_did_select_key(wallet, controlled_did_o, key_purpose_o, key_id_o).await?;
     // Form the kid (key ID).
     let kid = verification_method_record
@@ -455,7 +457,7 @@ pub async fn wallet_did_sign_vjson(
     Ok(vjson_core::sign_and_self_hash_vjson(
         value,
         kid,
-        &signer_bytes,
+        async_signer_b.as_ref(),
         vjson_resolver,
         Some(verifier_resolver),
     )

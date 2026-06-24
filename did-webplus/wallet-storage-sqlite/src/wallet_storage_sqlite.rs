@@ -1,7 +1,5 @@
 use crate::{DIDDocumentRowSQLite, PrivKeyRow, PrivKeyUsageInsert, PrivKeyUsageSelect};
-use did_webplus_core::{
-    DIDDocument, DIDKeyResourceFullyQualifiedStr, DIDStr, KeyPurposeFlags, now_utc_milliseconds,
-};
+use did_webplus_core::{DIDDocument, DIDStr, now_utc_milliseconds};
 use did_webplus_doc_store::{DIDDocRecord, DIDDocRecordFilter, DIDDocStorage};
 use did_webplus_wallet_store::{
     Error, LocallyControlledVerificationMethodFilter, PrivKeyRecord, PrivKeyRecordFilter,
@@ -898,21 +896,17 @@ impl WalletStorage for WalletStorageSQLite {
         Ok(priv_key_usage_record_v)
     }
 
-    async fn get_verification_method(
-        &self,
-        _transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
-        _ctx: &WalletStorageCtx,
-        _did_key_resource_fully_qualified: &DIDKeyResourceFullyQualifiedStr,
-    ) -> Result<VerificationMethodRecord> {
-        unimplemented!();
-    }
-
     async fn get_locally_controlled_verification_methods(
         &self,
         transaction_o: Option<&mut dyn storage_traits::TransactionDynT>,
         ctx: &WalletStorageCtx,
         locally_controlled_verification_method_filter: &LocallyControlledVerificationMethodFilter,
-    ) -> Result<Vec<(VerificationMethodRecord, PrivKeyRecord)>> {
+    ) -> Result<
+        Vec<(
+            VerificationMethodRecord,
+            Box<dyn signature_dyn::AsyncSignerT + Send + Sync>,
+        )>,
+    > {
         let filter_on_did = locally_controlled_verification_method_filter
             .did_o
             .is_some();
@@ -1024,27 +1018,6 @@ impl WalletStorage for WalletStorageSQLite {
                 .with_queries(self_hash, version_id)
                 .with_fragment(query_result.key_id_fragment.as_str());
 
-            let key_purpose_flags = KeyPurposeFlags::try_from(
-                u8::try_from(query_result.key_purpose_flags).map_err(|e| {
-                    Error::RecordCorruption(
-                        format!(
-                            "invalid verification_methods.key_purpose_flags value {}; error was: {}",
-                            query_result.key_purpose_flags, e,
-                        )
-                        .into(),
-                    )
-                })?,
-            )
-            .map_err(|e| {
-                Error::RecordCorruption(
-                    format!(
-                        "invalid verification_methods.key_purpose_flags value {}; error was: {}",
-                        query_result.key_purpose_flags, e,
-                    )
-                    .into(),
-                )
-            })?;
-
             let priv_key_row = PrivKeyRow {
                 wallets_rowid: ctx.wallets_rowid,
                 pub_key: query_result.pub_key,
@@ -1065,11 +1038,21 @@ impl WalletStorage for WalletStorageSQLite {
 
             let verification_method_record = VerificationMethodRecord {
                 did_key_resource_fully_qualified,
-                key_purpose_flags,
                 pub_key: priv_key_record.pub_key.clone(),
+                hashed_pub_key: priv_key_record.hashed_pub_key.clone(),
+                did_restriction_o: priv_key_record.did_restriction_o,
+                key_purpose_restriction_o: priv_key_record.key_purpose_restriction_o,
+                created_at: priv_key_record.created_at,
+                last_used_at_o: priv_key_record.last_used_at_o,
+                max_usage_count_o: priv_key_record.max_usage_count_o,
+                usage_count: priv_key_record.usage_count,
+                deleted_at_o: priv_key_record.deleted_at_o,
+                comment_o: priv_key_record.comment_o,
             };
+            let async_signer_b: Box<dyn signature_dyn::AsyncSignerT + Send + Sync> =
+                Box::new(priv_key_record.private_key_bytes_o.unwrap());
             locally_controlled_verification_method_v
-                .push((verification_method_record, priv_key_record));
+                .push((verification_method_record, async_signer_b));
         }
         Ok(locally_controlled_verification_method_v)
     }

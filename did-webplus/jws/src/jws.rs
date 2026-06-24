@@ -133,20 +133,20 @@ impl<'j> JWS<'j> {
         payload_bytes: &mut dyn std::io::Read,
         payload_presence: JWSPayloadPresence,
         payload_encoding: JWSPayloadEncoding,
-        signer: &dyn signature_dyn::AsyncSignerT,
+        async_signer: &dyn signature_dyn::AsyncSignerT,
     ) -> Result<Self> {
         let (header, signing_input, jws) = Self::assemble_header_signing_input_and_jws(
             kid,
             payload_bytes,
             payload_presence,
             payload_encoding,
-            signer
+            async_signer
                 .async_key_type()
                 .await
                 .map_err(|e| error!("error while getting key type: {}", e))?,
         )?;
 
-        let signature = signer
+        let signature = async_signer
             .async_try_sign_message(signing_input.as_slice())
             .await
             .map_err(|e| error!("error while signing JWS: {}", e))?;
