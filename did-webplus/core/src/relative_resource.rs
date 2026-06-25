@@ -15,19 +15,22 @@ impl<F: pneutype::PneuStr + ?Sized> Fragment for F {}
     serialize,
     string_field = "1"
 )]
-pub struct RelativeResource<F: 'static + Fragment + ?Sized>(std::marker::PhantomData<F>, String);
+pub struct RelativeResource<F: 'static + std::fmt::Display + Fragment + ?Sized>(
+    std::marker::PhantomData<F>,
+    String,
+);
 
 /// Because RelativeResource has a type parameter that doesn't require Clone,
 /// the standard derive(Clone) doesn't work, because it has incorrect, non-minimal bounds.
 /// See <https://github.com/rust-lang/rust/issues/41481>
 /// and <https://github.com/rust-lang/rust/issues/26925>
-impl<F: 'static + Fragment + ?Sized> Clone for RelativeResource<F> {
+impl<F: 'static + std::fmt::Display + Fragment + ?Sized> Clone for RelativeResource<F> {
     fn clone(&self) -> Self {
         Self(Default::default(), self.1.clone())
     }
 }
 
-impl<F: 'static + Fragment + ?Sized> RelativeResource<F> {
+impl<F: 'static + std::fmt::Display + Fragment + ?Sized> RelativeResource<F> {
     pub fn from_fragment(fragment: &F) -> Self {
         Self::try_from(format!("#{}", fragment)).expect("programmer error")
     }

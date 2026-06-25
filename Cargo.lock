@@ -1165,7 +1165,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d162beedaa69905488a8da94f5ac3edb4dd4788b732fadb7bd120b2625c1976"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 2.0.108",
 ]
 
 [[package]]
@@ -4012,8 +4012,8 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mbx"
-version = "0.3.0"
-source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.3.0#357c662f67dcd2cc09246baf2391412b89c02bc7"
+version = "0.4.0"
+source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.4.0#2f55bbb8f252476f6e7547586284fd7cc47f0dd5"
 dependencies = [
  "blake3",
  "ed25519-dalek 3.0.0-rc.0",
@@ -4029,6 +4029,7 @@ dependencies = [
  "signature 3.0.0",
  "signature-dyn",
  "ssi-multicodec",
+ "zeroize",
 ]
 
 [[package]]
@@ -4644,16 +4645,16 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "pneutype"
-version = "0.5.1"
-source = "git+https://github.com/vdods/pneutype?rev=pneutype-v0.5.1#765cee3ca578fdbae0afd3c3ed973a6707600897"
+version = "0.6.0"
+source = "git+https://github.com/vdods/pneutype?rev=pneutype-v0.6.0#47461243f3b72be5870c6125f947a5cfdf98cc89"
 dependencies = [
  "pneutype-derive",
 ]
 
 [[package]]
 name = "pneutype-derive"
-version = "0.5.1"
-source = "git+https://github.com/vdods/pneutype?rev=pneutype-v0.5.1#765cee3ca578fdbae0afd3c3ed973a6707600897"
+version = "0.6.0"
+source = "git+https://github.com/vdods/pneutype?rev=pneutype-v0.6.0#47461243f3b72be5870c6125f947a5cfdf98cc89"
 dependencies = [
  "darling 0.13.4",
  "proc-macro2",
@@ -5412,8 +5413,8 @@ checksum = "16c2f82143577edb4921b71ede051dac62ca3c16084e918bf7b40c96ae10eb33"
 
 [[package]]
 name = "selfhash"
-version = "0.7.0"
-source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.7.0#729a99d5d00270856aa09114191df15649b544de"
+version = "0.7.1"
+source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.7.1#3fc931b5af5fbd0a222e0d598349a2c3e864483d"
 dependencies = [
  "base64 0.21.7",
  "blake3",
@@ -5779,8 +5780,8 @@ dependencies = [
 
 [[package]]
 name = "signature-dyn"
-version = "0.3.0"
-source = "git+https://github.com/LedgerDomain/signature-dyn?rev=signature-dyn-v0.3.0#5c0a2f427bd81e85d56fc7dcc79e02f982eb75d6"
+version = "0.4.0"
+source = "git+https://github.com/LedgerDomain/signature-dyn?rev=signature-dyn-v0.4.0#b7236aa45a6553ce1561fa831fcd4058fb7c74be"
 dependencies = [
  "async-trait",
  "ed25519-dalek 3.0.0-rc.0",
@@ -5794,6 +5795,7 @@ dependencies = [
  "serde",
  "signature 3.0.0",
  "ssi-multicodec",
+ "zeroize",
 ]
 
 [[package]]

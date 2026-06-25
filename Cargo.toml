@@ -51,10 +51,10 @@ async-trait = "0.1.89"
 ed25519-dalek = "3.0.0-rc.0"
 ed448-goldilocks = "0.14.0-pre.13"
 k256 = "0.14.0-rc.11"
-mbx = { git = "https://github.com/LedgerDomain/mbx", rev = "mbx-v0.3.0" }
+mbx = { git = "https://github.com/LedgerDomain/mbx", rev = "mbx-v0.4.0" }
 p256 = "0.14.0-rc.11"
 p384 = "0.14.0-rc.11"
 p521 = "0.14.0-rc.11"
-pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.5.1" }
-selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.7.0" }
-signature-dyn = { git = "https://github.com/LedgerDomain/signature-dyn", rev = "signature-dyn-v0.3.0" }
+pneutype = { git = "https://github.com/vdods/pneutype", rev = "pneutype-v0.6.0" }
+selfhash = { git = "https://github.com/LedgerDomain/selfhash", rev = "selfhash-v0.7.1" }
+signature-dyn = { git = "https://github.com/LedgerDomain/signature-dyn", rev = "signature-dyn-v0.4.0" }
