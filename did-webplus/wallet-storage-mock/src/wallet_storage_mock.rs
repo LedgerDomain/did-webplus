@@ -58,7 +58,7 @@ struct PrivKeyRow {
     usage_count: u32,
     deleted_at_o: Option<time::OffsetDateTime>,
     priv_key_format_o: Option<String>,
-    priv_key_bytes_o: Option<Vec<u8>>,
+    signer_bytes_o: Option<signature_dyn::SignerBytes>,
     comment_o: Option<String>,
 }
 
@@ -66,11 +66,11 @@ impl PrivKeyRow {
     pub fn from_priv_key_record(ctx: &WalletStorageCtx, priv_key_record: PrivKeyRecord) -> Self {
         let wallets_row_id = RowId::from(ctx.wallets_rowid as usize);
         let key_type = priv_key_record.pub_key.try_into_key_type().unwrap();
-        let (priv_key_format_o, priv_key_bytes_o) =
-            if let Some(signer_bytes) = priv_key_record.private_key_bytes_o {
+        let (priv_key_format_o, signer_bytes_o) =
+            if let Some(signer_bytes) = priv_key_record.signer_bytes_o {
                 (
                     Some("signature_dyn::SignerBytes".to_string()),
-                    Some(signer_bytes.bytes().to_vec()),
+                    Some(signer_bytes),
                 )
             } else {
                 (None, None)
@@ -87,7 +87,7 @@ impl PrivKeyRow {
             usage_count: priv_key_record.usage_count,
             deleted_at_o: priv_key_record.deleted_at_o,
             priv_key_format_o,
-            priv_key_bytes_o,
+            signer_bytes_o,
             comment_o: priv_key_record.comment_o,
         }
     }
@@ -106,16 +106,6 @@ impl TryFrom<PrivKeyRow> for PrivKeyRecord {
             priv_key_row.priv_key_format_o.as_deref(),
             Some("signature_dyn::SignerBytes")
         );
-        let private_key_bytes_o = if let Some(priv_key_bytes) = priv_key_row.priv_key_bytes_o {
-            Some(
-                signature_dyn::SignerBytes::new(priv_key_row.key_type, priv_key_bytes.into())
-                    .map_err(|e| {
-                        did_webplus_wallet_store::Error::RecordCorruption(e.to_string().into())
-                    })?,
-            )
-        } else {
-            None
-        };
         Ok(PrivKeyRecord {
             pub_key: priv_key_row.wallets_rowid_pub_key.1,
             hashed_pub_key: priv_key_row.hashed_pub_key,
@@ -126,7 +116,7 @@ impl TryFrom<PrivKeyRow> for PrivKeyRecord {
             max_usage_count_o: priv_key_row.max_usage_count_o,
             usage_count: priv_key_row.usage_count,
             deleted_at_o: priv_key_row.deleted_at_o,
-            private_key_bytes_o,
+            signer_bytes_o: priv_key_row.signer_bytes_o,
             comment_o: priv_key_row.comment_o,
         })
     }
@@ -891,7 +881,7 @@ impl did_webplus_wallet_store::WalletStorage for WalletStorageMock {
                 let async_signer_b: Box<dyn signature_dyn::AsyncSignerT + Send + Sync> = Box::new(
                     locally_controlled_verification_method
                         .priv_key_record
-                        .private_key_bytes_o
+                        .signer_bytes_o
                         .unwrap(),
                 );
                 (

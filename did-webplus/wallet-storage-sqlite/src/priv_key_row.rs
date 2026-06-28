@@ -3,6 +3,8 @@ use std::str::FromStr;
 use did_webplus_core::KeyPurposeFlags;
 use did_webplus_wallet_store::{Error, PrivKeyRecord, Result, WalletStorageCtx};
 
+/// Note that zeroize::ZeroizeOnDrop is implemented for this type, which zeroizes the
+/// priv_key_bytes_o field on drop -- see below.
 pub struct PrivKeyRow {
     pub wallets_rowid: i64,
     pub pub_key: String,
@@ -72,22 +74,24 @@ impl PrivKeyRow {
         priv_key_record: PrivKeyRecord,
     ) -> Result<Self> {
         if priv_key_record.deleted_at_o.is_some() {
-            if priv_key_record.private_key_bytes_o.is_some() {
+            if priv_key_record.signer_bytes_o.is_some() {
                 return Err(Error::Malformed(
                     "priv_key_o must be None if deleted_at_o is Some".into(),
                 ));
             }
         } else {
-            if priv_key_record.private_key_bytes_o.is_none() {
+            if priv_key_record.signer_bytes_o.is_none() {
                 return Err(Error::Malformed(
                     "priv_key_o must be Some if deleted_at_o is None".into(),
                 ));
             }
         }
-        let (priv_key_format_o, priv_key_bytes_o) = match priv_key_record.private_key_bytes_o {
-            Some(private_key_bytes) => {
+        let (priv_key_format_o, priv_key_bytes_o) = match priv_key_record.signer_bytes_o {
+            Some(signer_bytes) => {
                 let priv_key_format = "signature_dyn::SignerBytes".to_string();
-                let priv_key_bytes = private_key_bytes.bytes().to_vec();
+                // Temporarily strip off Zeroizing<_> to get the bytes.  This will go into PrivKeyRow,
+                // which implements zeroize::ZeroizeOnDrop, and take care of zeroizing the bytes.
+                let priv_key_bytes = signer_bytes.into_bytes().to_vec();
                 (Some(priv_key_format), Some(priv_key_bytes))
             }
             None => (None, None),
@@ -119,12 +123,15 @@ impl PrivKeyRow {
         retval.validate()?;
         Ok(retval)
     }
-    pub fn try_into_priv_key_record(self) -> Result<PrivKeyRecord> {
+    pub fn try_into_priv_key_record(mut self) -> Result<PrivKeyRecord> {
         self.validate()?;
 
         let key_type = signature_dyn::KeyType::from_str(self.key_type.as_str()).unwrap();
 
-        let priv_key_bytes_o = match (self.priv_key_format_o, self.priv_key_bytes_o) {
+        let signer_bytes_o = match (
+            std::mem::take(&mut self.priv_key_format_o),
+            std::mem::take(&mut self.priv_key_bytes_o),
+        ) {
             (Some(priv_key_format), Some(priv_key_bytes)) => match priv_key_format.as_str() {
                 "signature_dyn::SignerBytes" => Some(
                     signature_dyn::SignerBytes::new(key_type, priv_key_bytes.into())
@@ -146,10 +153,10 @@ impl PrivKeyRow {
         };
 
         Ok(PrivKeyRecord {
-            pub_key: mbx::MBPubKey::try_from(self.pub_key)
+            pub_key: mbx::MBPubKey::try_from(std::mem::take(&mut self.pub_key))
                 .map_err(|e| Error::RecordCorruption(e.to_string().into()))?,
-            hashed_pub_key: self.hashed_pub_key,
-            did_restriction_o: self.did_restriction_o,
+            hashed_pub_key: std::mem::take(&mut self.hashed_pub_key),
+            did_restriction_o: std::mem::take(&mut self.did_restriction_o),
             key_purpose_restriction_o: self
                 .key_purpose_restriction_o
                 .map(|key_purpose_restriction| {
@@ -169,8 +176,18 @@ impl PrivKeyRow {
                 .map_err(|e| Error::RecordCorruption(e.to_string().into()))?,
             usage_count: self.usage_count.try_into().expect("overflow"),
             deleted_at_o: self.deleted_at_o,
-            private_key_bytes_o: priv_key_bytes_o,
-            comment_o: self.comment_o,
+            signer_bytes_o,
+            comment_o: std::mem::take(&mut self.comment_o),
         })
     }
 }
+
+impl Drop for PrivKeyRow {
+    fn drop(&mut self) {
+        if let Some(priv_key_bytes) = &mut self.priv_key_bytes_o {
+            zeroize::Zeroize::zeroize(priv_key_bytes);
+        }
+    }
+}
+
+impl zeroize::ZeroizeOnDrop for PrivKeyRow {}

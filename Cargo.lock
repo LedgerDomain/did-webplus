@@ -1991,6 +1991,7 @@ dependencies = [
  "time",
  "tracing",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
@@ -4012,8 +4013,8 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mbx"
-version = "0.4.0"
-source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.4.0#2f55bbb8f252476f6e7547586284fd7cc47f0dd5"
+version = "0.5.0"
+source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.5.0#8f5dc2c43dd02f6ac50a3b373fb50b4788a6d462"
 dependencies = [
  "blake3",
  "ed25519-dalek 3.0.0-rc.0",
@@ -5413,8 +5414,8 @@ checksum = "16c2f82143577edb4921b71ede051dac62ca3c16084e918bf7b40c96ae10eb33"
 
 [[package]]
 name = "selfhash"
-version = "0.7.1"
-source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.7.1#3fc931b5af5fbd0a222e0d598349a2c3e864483d"
+version = "0.8.0"
+source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.8.0#0e0f1044278adedcab9ee47ac49cff777e16bee6"
 dependencies = [
  "base64 0.21.7",
  "blake3",
@@ -5780,8 +5781,8 @@ dependencies = [
 
 [[package]]
 name = "signature-dyn"
-version = "0.4.0"
-source = "git+https://github.com/LedgerDomain/signature-dyn?rev=signature-dyn-v0.4.0#b7236aa45a6553ce1561fa831fcd4058fb7c74be"
+version = "0.5.0"
+source = "git+https://github.com/LedgerDomain/signature-dyn?rev=signature-dyn-v0.5.0#086e78ed4118614278f88a7b10e40bf7cb5c5d1b"
 dependencies = [
  "async-trait",
  "ed25519-dalek 3.0.0-rc.0",
@@ -8306,18 +8307,19 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.8.2"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b97154e67e32c85465826e8bcc1c59429aaaf107c1e4a9e53c8d8ccd5eff88d0"
+checksum = "e13c156562582aa81c60cb29407084cdb54c4164760106ab78e6c5b0858cf64e"
 dependencies = [
+ "serde",
  "zeroize_derive",
 ]
 
 [[package]]
 name = "zeroize_derive"
-version = "1.4.2"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
+checksum = "3c50655cbb0fe3fc43170059e702f1ce5e19b84cec58dc87b037a09935c2f328"
 dependencies = [
  "proc-macro2",
  "quote",

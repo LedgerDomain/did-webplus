@@ -443,9 +443,9 @@ impl SoftwareWalletIndexedDB {
                             if priv_key_record.deleted_at_o.is_some() {
                                 continue;
                             }
-                            priv_key_record.private_key_bytes_o.clone().ok_or_else(|| {
+                            priv_key_record.priv_key_bytes_o.clone().ok_or_else(|| {
                                 Error::from(anyhow::anyhow!(
-                                    "priv key has no private_key_bytes_o (deleted or corrupted)"
+                                    "priv key has no priv_key_bytes_o (deleted or corrupted)"
                                 ))
                             })?;
 
@@ -1189,7 +1189,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             max_usage_count_o,
                             usage_count: 0,
                             deleted_at_o: None,
-                            private_key_bytes_o: Some(
+                            priv_key_bytes_o: Some(
                                 priv_key_m[key_purpose].extract_signer_bytes().map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error extracting signer bytes; error was: {}", e))))?.to_owned(),
                             ),
                             comment_o,
@@ -1524,7 +1524,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 // Select the appropriate key to sign the update.
                 let priv_key_record_for_update = &matching_update_key_v[0];
                 let priv_key_for_update = priv_key_record_for_update
-                    .private_key_bytes_o
+                    .priv_key_bytes_o
                     .as_ref()
                     .expect(
                         "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
@@ -1684,7 +1684,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                             max_usage_count_o,
                             usage_count: 0,
                             deleted_at_o: None,
-                            private_key_bytes_o: Some(
+                            priv_key_bytes_o: Some(
                                 priv_key_m[key_purpose].extract_signer_bytes().map_err(|e| indexed_db::Error::from(Error::from(anyhow::anyhow!("error extracting signer bytes; error was: {}", e))))?.to_owned(),
                             ),
                             comment_o,
@@ -1734,7 +1734,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 {
                     let mut soft_deleted_record = priv_key_blob.priv_key_record.clone();
                     soft_deleted_record.deleted_at_o = Some(now_utc);
-                    soft_deleted_record.private_key_bytes_o = None;
+                    soft_deleted_record.priv_key_bytes_o = None;
                     let soft_deleted_blob = PrivKeyBlob {
                         priv_key_record: soft_deleted_record,
                         ..priv_key_blob.clone()
@@ -1763,7 +1763,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 if let Some(update_key_primary_key) = update_key_primary_keys.into_iter().next() {
                     let mut soft_deleted_record = (*priv_key_record_for_update).clone();
                     soft_deleted_record.deleted_at_o = Some(now_utc);
-                    soft_deleted_record.private_key_bytes_o = None;
+                    soft_deleted_record.priv_key_bytes_o = None;
                     let soft_deleted_blob = PrivKeyBlob {
                         wallets_rowid: ctx_clone.wallets_rowid,
                         priv_key_record: soft_deleted_record,
@@ -2119,7 +2119,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
 
                 let priv_key_record_for_update = &matching_update_key_v[0];
                 let priv_key_for_update = priv_key_record_for_update
-                    .private_key_bytes_o
+                    .priv_key_bytes_o
                     .as_ref()
                     .expect(
                         "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
@@ -2274,7 +2274,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 {
                     let mut soft_deleted_record = priv_key_blob.priv_key_record.clone();
                     soft_deleted_record.deleted_at_o = Some(now_utc);
-                    soft_deleted_record.private_key_bytes_o = None;
+                    soft_deleted_record.priv_key_bytes_o = None;
                     let soft_deleted_blob = PrivKeyBlob {
                         priv_key_record: soft_deleted_record,
                         ..priv_key_blob.clone()
@@ -2302,7 +2302,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
                 if let Some(update_key_primary_key) = update_key_primary_keys.into_iter().next() {
                     let mut soft_deleted_record = (*priv_key_record_for_update).clone();
                     soft_deleted_record.deleted_at_o = Some(now_utc);
-                    soft_deleted_record.private_key_bytes_o = None;
+                    soft_deleted_record.priv_key_bytes_o = None;
                     let soft_deleted_blob = PrivKeyBlob {
                         wallets_rowid: ctx_clone.wallets_rowid,
                         priv_key_record: soft_deleted_record,
@@ -2467,7 +2467,7 @@ impl did_webplus_wallet::Wallet for SoftwareWalletIndexedDB {
             .into_iter()
             .map(|(verification_method_record, priv_key_record)| {
                 let signer_bytes = priv_key_record
-                    .private_key_bytes_o
+                    .priv_key_bytes_o
                     .expect("programmer error: priv_key_bytes_o was verified Some(_) in the loop");
                 let async_signer_b: Box<dyn signature_dyn::AsyncSignerT + Send + Sync> =
                     Box::new(signer_bytes);

@@ -323,7 +323,7 @@ impl Wallet for SoftwareWallet {
                         max_usage_count_o,
                         usage_count: 0,
                         deleted_at_o: None,
-                        private_key_bytes_o: Some(
+                        signer_bytes_o: Some(
                             priv_key_m[key_purpose].extract_signer_bytes()?.to_owned(),
                         ),
                         comment_o,
@@ -469,12 +469,9 @@ impl Wallet for SoftwareWallet {
 
         // Select the appropriate key to sign the update.
         let priv_key_record_for_update = &matching_update_key_v[0];
-        let priv_key_for_update = priv_key_record_for_update
-            .private_key_bytes_o
-            .as_ref()
-            .expect(
-                "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
-            );
+        let priv_key_for_update = priv_key_record_for_update.signer_bytes_o.as_ref().expect(
+            "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
+        );
 
         // Define the update rules.  Temporary limitation: Just specify a single key.
         // TODO: Support multiple update keys.
@@ -644,9 +641,7 @@ impl Wallet for SoftwareWallet {
                         max_usage_count_o,
                         usage_count: 0,
                         deleted_at_o: None,
-                        private_key_bytes_o: Some(
-                            priv_key_m[key_purpose].extract_signer_bytes()?.into_owned(),
-                        ),
+                        signer_bytes_o: Some(priv_key_m[key_purpose].extract_signer_bytes()?),
                         comment_o,
                     },
                 )
@@ -806,12 +801,9 @@ impl Wallet for SoftwareWallet {
 
         // Select the appropriate key to sign the update.
         let priv_key_record_for_update = &matching_update_key_v[0];
-        let priv_key_for_update = priv_key_record_for_update
-            .private_key_bytes_o
-            .as_ref()
-            .expect(
-                "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
-            );
+        let priv_key_for_update = priv_key_record_for_update.signer_bytes_o.as_ref().expect(
+            "programmer error: priv_key_bytes_o was expected to be Some(_); i.e. not deleted",
+        );
 
         // Define the update rules -- UpdatesDisallowed, thereby deactivating the DID.
         let update_rules = RootLevelUpdateRules::from(UpdatesDisallowed {});

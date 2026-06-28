@@ -22,7 +22,7 @@ serde_json = { version = "1", default-features = false }
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
-signature-dyn = { workspace = true }
+signature-dyn = { workspace = true, features = ["ed25519-dalek", "random"] }
 thiserror = { version = "1.0.60", default-features = false }
 time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 

@@ -7,7 +7,9 @@ pub struct PrivKeyRecord {
     pub pub_key: mbx::MBPubKey,
     /// The hash of the pub key, used in pre-rotation schemes.
     // TODO: Make this an appropriate type -- Option<mbx::MBHash> ?  This would have implications
-    // in the database schema that would require a migration.
+    // in the database schema that would require a migration.  Because there are multiple hash
+    // functions that could be used to generate this hash, this should be recorded using whatever
+    // value went into the DID document.
     pub hashed_pub_key: String,
     /// If this is Some(did), then use of this priv key is restricted to the given DID.
     // TODO: Make this an appropriate type.
@@ -26,13 +28,12 @@ pub struct PrivKeyRecord {
     pub max_usage_count_o: Option<u32>,
     /// The number of cryptographic operations this priv key has been used for.
     pub usage_count: u32,
-    /// If this is Some(time), then this priv key has been deleted at that time.  In this case, the private_key_bytes_o
+    /// If this is Some(time), then this priv key has been deleted at that time.  In this case, the priv_key_bytes_o
     /// field will be None.
     #[serde(with = "time::serde::rfc3339::option")]
     pub deleted_at_o: Option<time::OffsetDateTime>,
-    /// The priv key, or None if this priv key has been deleted.
-    // TODO: REDACT THIS in std::fmt::Debug impl:
-    pub private_key_bytes_o: Option<signature_dyn::SignerBytes<'static>>,
+    /// The priv key as signature_dyn::SignerBytes, or None if this priv key has been deleted.
+    pub signer_bytes_o: Option<signature_dyn::SignerBytes>,
     /// Optional comment field for this key.  Could be used to give a human-readable name, description, or
     /// intented usage for this key.
     pub comment_o: Option<String>,

@@ -544,6 +544,10 @@ impl WalletStorage for WalletStorageSQLite {
         priv_key_record: PrivKeyRecord,
     ) -> Result<()> {
         let priv_key_row = PrivKeyRow::try_from_priv_key_record(ctx, priv_key_record)?;
+        let priv_key_bytes_o = priv_key_row
+            .priv_key_bytes_o
+            .as_ref()
+            .map(|priv_key_bytes| priv_key_bytes.as_slice());
         let query = sqlx::query!(
             r#"
                 INSERT INTO priv_keys(
@@ -576,7 +580,7 @@ impl WalletStorage for WalletStorageSQLite {
             priv_key_row.usage_count,
             priv_key_row.deleted_at_o,
             priv_key_row.priv_key_format_o,
-            priv_key_row.priv_key_bytes_o,
+            priv_key_bytes_o,
             priv_key_row.comment_o,
         );
         if let Some(transaction) = transaction_o {
@@ -1050,7 +1054,7 @@ impl WalletStorage for WalletStorageSQLite {
                 comment_o: priv_key_record.comment_o,
             };
             let async_signer_b: Box<dyn signature_dyn::AsyncSignerT + Send + Sync> =
-                Box::new(priv_key_record.private_key_bytes_o.unwrap());
+                Box::new(priv_key_record.signer_bytes_o.unwrap());
             locally_controlled_verification_method_v
                 .push((verification_method_record, async_signer_b));
         }

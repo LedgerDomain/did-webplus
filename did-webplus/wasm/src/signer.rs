@@ -10,7 +10,9 @@ pub struct Signer {
     /// "did:key:<base58enc-key>#<base58enc-key>" (see did_key::DIDResource) and
     /// "did:webplus:<hostname>:<path>:<root-self-hash>?selfHash=<query-self-hash>&versionId=<version-id>#<key-id>"
     /// (see did_webplus_core::DIDKeyResourceFullyQualified).
-    // TODO: This may not be necessary anymore because SignerT has a key_id() method.
+    // TODO: This may not be necessary anymore because SignerT has a key_id() method, though to use a
+    // signing key from a crate (e.g. ed25519-dalek::SigningKey) to sign with did:key, a wrapper type is
+    // still necessary.
     key_id: String,
     /// The signer itself.
     signer_a: Arc<dyn signature_dyn::SignerT + Send + Sync>,

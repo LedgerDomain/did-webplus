@@ -17,3 +17,4 @@ storage-traits = { path = "../../storage-traits", features = ["sqlx-sqlite"] }
 time = { version = "0.3", features = ["serde"] }
 tracing = "0.1.37"
 uuid = "1.9.1"
+zeroize = { workspace = true }

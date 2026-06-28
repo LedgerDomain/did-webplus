@@ -10,7 +10,7 @@ use crate::{Microledger, MicroledgerMutView, MicroledgerView, VDRClient};
 
 pub struct ControlledDID {
     pub current_public_key_set: PublicKeySet<mbx::MBPubKey>,
-    signer_bytes_m: HashMap<mbx::MBPubKey, signature_dyn::SignerBytes<'static>>,
+    signer_bytes_m: HashMap<mbx::MBPubKey, signature_dyn::SignerBytes>,
     update_signing_key: ed25519_dalek::SigningKey,
     microledger: Microledger,
 }
@@ -160,10 +160,7 @@ impl ControlledDID {
     pub fn signer_and_key_id_for_key_purpose(
         &self,
         key_purpose: KeyPurpose,
-    ) -> (
-        &signature_dyn::SignerBytes<'_>,
-        DIDKeyResourceFullyQualified,
-    ) {
+    ) -> (&signature_dyn::SignerBytes, DIDKeyResourceFullyQualified) {
         let public_key_v = self
             .current_public_key_set
             .public_keys_for_purpose(key_purpose);
@@ -189,7 +186,7 @@ impl ControlledDID {
         (signer_bytes, key_id)
     }
     fn generate_new_keys() -> (
-        HashMap<mbx::MBPubKey, signature_dyn::SignerBytes<'static>>,
+        HashMap<mbx::MBPubKey, signature_dyn::SignerBytes>,
         PublicKeySet<mbx::MBPubKey>,
     ) {
         // Generate a full set of private keys.
@@ -240,7 +237,7 @@ impl ControlledDID {
             )],
         };
         let signer_bytes_m = {
-            let mut signer_bytes_m: HashMap<mbx::MBPubKey, signature_dyn::SignerBytes<'static>> =
+            let mut signer_bytes_m: HashMap<mbx::MBPubKey, signature_dyn::SignerBytes> =
                 HashMap::new();
             use signature_dyn::ExtractableSignerT;
             signer_bytes_m.insert(
@@ -250,8 +247,7 @@ impl ControlledDID {
                 ),
                 ed25519_signing_key_authentication
                     .extract_signer_bytes()
-                    .unwrap()
-                    .into_owned(),
+                    .unwrap(),
             );
             signer_bytes_m.insert(
                 mbx::MBPubKey::from_ed25519_dalek_verifying_key(
@@ -260,8 +256,7 @@ impl ControlledDID {
                 ),
                 ed25519_signing_key_assertion_method
                     .extract_signer_bytes()
-                    .unwrap()
-                    .into_owned(),
+                    .unwrap(),
             );
             signer_bytes_m.insert(
                 mbx::MBPubKey::from_ed25519_dalek_verifying_key(
@@ -270,8 +265,7 @@ impl ControlledDID {
                 ),
                 ed25519_signing_key_key_agreement
                     .extract_signer_bytes()
-                    .unwrap()
-                    .into_owned(),
+                    .unwrap(),
             );
             signer_bytes_m.insert(
                 mbx::MBPubKey::from_ed25519_dalek_verifying_key(
@@ -280,8 +274,7 @@ impl ControlledDID {
                 ),
                 ed25519_signing_key_capability_invocation
                     .extract_signer_bytes()
-                    .unwrap()
-                    .into_owned(),
+                    .unwrap(),
             );
             signer_bytes_m.insert(
                 mbx::MBPubKey::from_ed25519_dalek_verifying_key(
@@ -290,8 +283,7 @@ impl ControlledDID {
                 ),
                 ed25519_signing_key_capability_delegation
                     .extract_signer_bytes()
-                    .unwrap()
-                    .into_owned(),
+                    .unwrap(),
             );
             signer_bytes_m
         };
