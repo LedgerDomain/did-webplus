@@ -84,12 +84,25 @@ mbx = { workspace = true, features = ["codec-str"] }
 rand = { version = "0.8", features = ["std_rng"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
+signature = { workspace = true }
 signature-dyn = { workspace = true, features = ["random"] }
-ssi-jwk = { version = "0.3.2", default-features = false, features = [
+ssi-jwk = { version = "0.3.2", features = [
     "ed25519",
+    "secp256k1",
+    "secp256r1",
+    "secp384r1",
 ] }
-ssi-jws = { version = "0.3.1", default-features = false, features = [
-    "ed25519",
-] }
+ssi-jws = { version = "0.3.1", features = ["ed25519"] }
 test-util = { path = "../../test-util" }
 url = "2.5.4"
+
+# # NOTE: These are for the test_ssi_jwk_interop_* tests, which have passed, and don't need to be continually run.
+
+# # ssi-jwk crate uses ed25519-dalek 2.2.
+# ed25519_dalek_2_2 = { package = "ed25519-dalek", version = "2.2" }
+# # ssi-jwk crate uses k256 0.13.
+# k256_0_13 = { package = "k256", version = "0.13" }
+# # ssi-jwk crate uses p256 0.13.
+# p256_0_13 = { package = "p256", version = "0.13" }
+# # ssi-jwk crate uses p384 0.13.
+# p384_0_13 = { package = "p384", version = "0.13" }

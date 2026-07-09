@@ -436,48 +436,152 @@ mod test {
     #[cfg(feature = "k256")]
     #[test]
     fn test_roundtrip_public_key_params_ec_secp256k1() {
-        use signature_dyn::GenerateRandom;
-        let signing_key = k256::ecdsa::SigningKey::generate_random();
-        let verifying_key = signing_key.verifying_key();
-        let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
-        let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_ec).unwrap();
-        let recovered_verifying_key = k256::ecdsa::VerifyingKey::try_from(&mb_pub_key).unwrap();
-        assert_eq!(verifying_key, &recovered_verifying_key);
+        for _ in 0..10 {
+            use signature_dyn::GenerateRandom;
+            let signing_key = k256::ecdsa::SigningKey::generate_random();
+            let verifying_key = signing_key.verifying_key();
+            let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
+            let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_ec).unwrap();
+            let recovered_verifying_key = k256::ecdsa::VerifyingKey::try_from(&mb_pub_key).unwrap();
+            assert_eq!(verifying_key, &recovered_verifying_key);
+
+            // Print out this data as a test vector.
+            println!(
+                "secp256k1 test vector: MBPubKey is {} and corresponding public_key_params_ec is {}",
+                mb_pub_key,
+                serde_json::to_string(&public_key_params_ec).unwrap()
+            );
+        }
     }
 
     #[cfg(feature = "p256")]
     #[test]
     fn test_roundtrip_public_key_params_ec_p256() {
-        use signature_dyn::GenerateRandom;
-        let signing_key = p256::ecdsa::SigningKey::generate_random();
-        let verifying_key = signing_key.verifying_key();
-        let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
-        let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_ec).unwrap();
-        let recovered_verifying_key = p256::ecdsa::VerifyingKey::try_from(&mb_pub_key).unwrap();
-        assert_eq!(verifying_key, &recovered_verifying_key);
+        for _ in 0..10 {
+            use signature_dyn::GenerateRandom;
+            let signing_key = p256::ecdsa::SigningKey::generate_random();
+            let verifying_key = signing_key.verifying_key();
+            let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
+            let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_ec).unwrap();
+            let recovered_verifying_key = p256::ecdsa::VerifyingKey::try_from(&mb_pub_key).unwrap();
+            assert_eq!(verifying_key, &recovered_verifying_key);
+
+            // Print out this data as a test vector.
+            println!(
+                "P-256 test vector: MBPubKey is {} and corresponding public_key_params_ec is {}",
+                mb_pub_key,
+                serde_json::to_string(&public_key_params_ec).unwrap()
+            );
+        }
     }
 
     #[cfg(feature = "p384")]
     #[test]
     fn test_roundtrip_public_key_params_ec_p384() {
-        use signature_dyn::GenerateRandom;
-        let signing_key = p384::ecdsa::SigningKey::generate_random();
-        let verifying_key = signing_key.verifying_key();
-        let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
-        let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_ec).unwrap();
-        let recovered_verifying_key = p384::ecdsa::VerifyingKey::try_from(&mb_pub_key).unwrap();
-        assert_eq!(verifying_key, &recovered_verifying_key);
+        for _ in 0..10 {
+            use signature_dyn::GenerateRandom;
+            let signing_key = p384::ecdsa::SigningKey::generate_random();
+            let verifying_key = signing_key.verifying_key();
+            let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
+            let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_ec).unwrap();
+            let recovered_verifying_key = p384::ecdsa::VerifyingKey::try_from(&mb_pub_key).unwrap();
+            assert_eq!(verifying_key, &recovered_verifying_key);
+
+            // Print out this data as a test vector.
+            println!(
+                "P-384 test vector: MBPubKey is {} and corresponding public_key_params_ec is {}",
+                mb_pub_key,
+                serde_json::to_string(&public_key_params_ec).unwrap()
+            );
+        }
     }
 
     #[cfg(feature = "p521")]
     #[test]
     fn test_roundtrip_public_key_params_ec_p521() {
-        use signature_dyn::GenerateRandom;
-        let signing_key = p521::ecdsa::SigningKey::generate_random();
-        let verifying_key = signing_key.verifying_key();
-        let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
-        let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_ec).unwrap();
-        let recovered_verifying_key = p521::ecdsa::VerifyingKey::try_from(&mb_pub_key).unwrap();
-        assert_eq!(verifying_key, &recovered_verifying_key);
+        for _ in 0..10 {
+            use signature_dyn::GenerateRandom;
+            let signing_key = p521::ecdsa::SigningKey::generate_random();
+            let verifying_key = signing_key.verifying_key();
+            let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
+            let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_ec).unwrap();
+            let recovered_verifying_key = p521::ecdsa::VerifyingKey::try_from(&mb_pub_key).unwrap();
+            assert_eq!(verifying_key, &recovered_verifying_key);
+
+            // Print out this data as a test vector.
+            println!(
+                "P-521 test vector: MBPubKey is {} and corresponding public_key_params_ec is {}",
+                mb_pub_key,
+                serde_json::to_string(&public_key_params_ec).unwrap()
+            );
+        }
     }
+
+    // NOTE: See the comment under [dev-dependencies] in Cargo.toml for the reason these tests are commented out.
+
+    // #[cfg(feature = "k256")]
+    // #[test]
+    // fn test_ssi_jwk_interop_secp256k1() {
+    //     for _ in 0..10 {
+    //         use signature_dyn::GenerateRandom;
+    //         let signing_key = k256::ecdsa::SigningKey::generate_random();
+    //         let verifying_key = signing_key.verifying_key();
+    //         let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
+    //         let ec_params = ssi_jwk::ECParams {
+    //             curve: Some(public_key_params_ec.crv),
+    //             x_coordinate: Some(public_key_params_ec.x.try_into().unwrap()),
+    //             y_coordinate: Some(public_key_params_ec.y.try_into().unwrap()),
+    //             ecc_private_key: None,
+    //         };
+    //         let recovered_public_key = k256_0_13::PublicKey::try_from(&ec_params).unwrap();
+    //         // Dumb but effective.
+    //         let verifying_key_bytes_b = verifying_key.to_sec1_bytes();
+    //         let recovered_public_key_bytes_b = recovered_public_key.to_sec1_bytes();
+    //         assert_eq!(verifying_key_bytes_b, recovered_public_key_bytes_b);
+    //     }
+    // }
+
+    // #[cfg(feature = "p256")]
+    // #[test]
+    // fn test_ssi_jwk_interop_p256() {
+    //     for _ in 0..10 {
+    //         use signature_dyn::GenerateRandom;
+    //         let signing_key = p256::ecdsa::SigningKey::generate_random();
+    //         let verifying_key = signing_key.verifying_key();
+    //         let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
+    //         let ec_params = ssi_jwk::ECParams {
+    //             curve: Some(public_key_params_ec.crv),
+    //             x_coordinate: Some(public_key_params_ec.x.try_into().unwrap()),
+    //             y_coordinate: Some(public_key_params_ec.y.try_into().unwrap()),
+    //             ecc_private_key: None,
+    //         };
+    //         let recovered_public_key = p256_0_13::PublicKey::try_from(&ec_params).unwrap();
+    //         // Dumb but effective.
+    //         let verifying_key_bytes_b = verifying_key.to_sec1_bytes();
+    //         let recovered_public_key_bytes_b = recovered_public_key.to_sec1_bytes();
+    //         assert_eq!(verifying_key_bytes_b, recovered_public_key_bytes_b);
+    //     }
+    // }
+
+    // #[cfg(feature = "p384")]
+    // #[test]
+    // fn test_ssi_jwk_interop_p384() {
+    //     for _ in 0..10 {
+    //         use signature_dyn::GenerateRandom;
+    //         let signing_key = p384::ecdsa::SigningKey::generate_random();
+    //         let verifying_key = signing_key.verifying_key();
+    //         let public_key_params_ec = PublicKeyParamsEC::try_from(verifying_key).unwrap();
+    //         let ec_params = ssi_jwk::ECParams {
+    //             curve: Some(public_key_params_ec.crv),
+    //             x_coordinate: Some(public_key_params_ec.x.try_into().unwrap()),
+    //             y_coordinate: Some(public_key_params_ec.y.try_into().unwrap()),
+    //             ecc_private_key: None,
+    //         };
+    //         let recovered_public_key = p384_0_13::PublicKey::try_from(&ec_params).unwrap();
+    //         // Dumb but effective.
+    //         let verifying_key_bytes_b = verifying_key.to_sec1_bytes();
+    //         let recovered_public_key_bytes_b = recovered_public_key.to_sec1_bytes();
+    //         assert_eq!(verifying_key_bytes_b, recovered_public_key_bytes_b);
+    //     }
+    // }
 }

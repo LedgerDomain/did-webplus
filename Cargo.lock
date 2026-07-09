@@ -1493,6 +1493,7 @@ dependencies = [
  "serde_json_canonicalizer 0.3.1",
  "serde_with 3.15.1",
  "serial_test",
+ "signature 3.0.0",
  "signature-dyn",
  "ssi-jwk",
  "ssi-jws",

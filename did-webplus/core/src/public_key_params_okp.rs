@@ -165,25 +165,67 @@ mod test {
     #[cfg(feature = "ed25519-dalek")]
     #[test]
     fn test_roundtrip_public_key_params_okp_ed25519() {
-        use signature_dyn::GenerateRandom;
-        let signing_key = ed25519_dalek::SigningKey::generate_random();
-        let verifying_key = signing_key.verifying_key();
-        let public_key_params_okp = PublicKeyParamsOKP::try_from(&verifying_key).unwrap();
-        let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_okp).unwrap();
-        let recovered_verifying_key = ed25519_dalek::VerifyingKey::try_from(&mb_pub_key).unwrap();
-        assert_eq!(verifying_key, recovered_verifying_key);
+        for _ in 0..10 {
+            use signature_dyn::GenerateRandom;
+            let signing_key = ed25519_dalek::SigningKey::generate_random();
+            let verifying_key = signing_key.verifying_key();
+            let public_key_params_okp = PublicKeyParamsOKP::try_from(&verifying_key).unwrap();
+            let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_okp).unwrap();
+            let recovered_verifying_key =
+                ed25519_dalek::VerifyingKey::try_from(&mb_pub_key).unwrap();
+            assert_eq!(verifying_key, recovered_verifying_key);
+            // Print out this data as a test vector.
+            println!(
+                "Ed25519 test vector: MBPubKey is {} and corresponding public_key_params_okp is {}",
+                mb_pub_key,
+                serde_json::to_string(&public_key_params_okp).unwrap()
+            );
+        }
     }
 
     #[cfg(feature = "ed448-goldilocks")]
     #[test]
     fn test_roundtrip_public_key_params_okp_ed448() {
-        use signature_dyn::GenerateRandom;
-        let signing_key = ed448_goldilocks::SigningKey::generate_random();
-        let verifying_key = signing_key.verifying_key();
-        let public_key_params_okp = PublicKeyParamsOKP::try_from(&verifying_key).unwrap();
-        let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_okp).unwrap();
-        let recovered_verifying_key =
-            ed448_goldilocks::VerifyingKey::try_from(&mb_pub_key).unwrap();
-        assert_eq!(verifying_key, recovered_verifying_key);
+        for _ in 0..10 {
+            use signature_dyn::GenerateRandom;
+            let signing_key = ed448_goldilocks::SigningKey::generate_random();
+            let verifying_key = signing_key.verifying_key();
+            let public_key_params_okp = PublicKeyParamsOKP::try_from(&verifying_key).unwrap();
+            let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_okp).unwrap();
+            let recovered_verifying_key =
+                ed448_goldilocks::VerifyingKey::try_from(&mb_pub_key).unwrap();
+            assert_eq!(verifying_key, recovered_verifying_key);
+
+            // Print out this data as a test vector.
+            println!(
+                "Ed448 test vector: MBPubKey is {} and corresponding public_key_params_okp is {}",
+                mb_pub_key,
+                serde_json::to_string(&public_key_params_okp).unwrap()
+            );
+        }
     }
+
+    // NOTE: See the comment under [dev-dependencies] in Cargo.toml for the reason this test is commented out.
+
+    // #[cfg(feature = "ed25519-dalek")]
+    // #[test]
+    // fn test_ssi_jwk_interop_ed25519() {
+    //     for _ in 0..10 {
+    //         use signature_dyn::GenerateRandom;
+    //         let signing_key = ed25519_dalek::SigningKey::generate_random();
+    //         let verifying_key = signing_key.verifying_key();
+    //         let public_key_params_okp = PublicKeyParamsOKP::try_from(&verifying_key).unwrap();
+    //         let octet_params = ssi_jwk::OctetParams {
+    //             curve: public_key_params_okp.crv,
+    //             public_key: public_key_params_okp.x.try_into().unwrap(),
+    //             private_key: None,
+    //         };
+    //         let recovered_verifying_key =
+    //             ed25519_dalek_2_2::VerifyingKey::try_from(&octet_params).unwrap();
+    //         // Dumb but effective.
+    //         let verifying_key_bytes = verifying_key.to_bytes();
+    //         let recovered_verifying_key_bytes = recovered_verifying_key.to_bytes();
+    //         assert_eq!(verifying_key_bytes, recovered_verifying_key_bytes);
+    //     }
+    // }
 }
