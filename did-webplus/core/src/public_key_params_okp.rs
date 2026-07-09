@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{Error, base64_encode_256_bits, base64_encode_456_bits};
 
 // "kty" of "OKP" is used for curves including "Ed25519".
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
@@ -12,6 +12,13 @@ impl PublicKeyParamsOKP {
     pub fn ed25519(x: String) -> Self {
         Self {
             crv: "Ed25519".into(),
+            x,
+        }
+    }
+    /// Convenience function for creating the PublicKeyParamsOKP for an Ed448 key.
+    pub fn ed448(x: String) -> Self {
+        Self {
+            crv: "Ed448".into(),
             x,
         }
     }
@@ -34,11 +41,20 @@ impl TryFrom<&mbx::MBPubKeyStr> for PublicKeyParamsOKP {
                     x: public_key_base64.to_string(),
                 })
             }
-            ssi_multicodec::SECP256K1_PUB => {
-                unimplemented!("blah");
+            ssi_multicodec::ED448_PUB => {
+                let mut buffer = [0u8; 76];
+                let public_key_base64 = base64_encode_456_bits(
+                    <&[u8; 57]>::try_from(decoded.data())
+                        .map_err(|_| Error::Malformed("Invalid Ed448 public key".into()))?,
+                    &mut buffer,
+                );
+                Ok(Self {
+                    crv: "Ed448".into(),
+                    x: public_key_base64.to_string(),
+                })
             }
-            ssi_multicodec::P256_PUB => {
-                unimplemented!("blah");
+            ssi_multicodec::SECP256K1_PUB | ssi_multicodec::P256_PUB | ssi_multicodec::P384_PUB | ssi_multicodec::P521_PUB => {
+                Err(Error::Malformed("Secp256k1, P256, P384, and P521 keys should use PublicKeyParamsEC, not PublicKeyParamsOKP".into()))
             }
             _ => {
                 return Err(Error::Unrecognized(
@@ -61,13 +77,13 @@ impl TryFrom<&PublicKeyParamsOKP> for mbx::MBPubKey {
                 #[cfg(feature = "ed25519-dalek")]
                 {
                     let mut buffer = [0u8; 33];
-                    let public_key_bytes =
-                        base64_decode_256_bits(public_key_params_okp.x.as_str(), &mut buffer)
-                            .map_err(|_| {
-                                Error::Malformed(
-                                    "Invalid Base64URL encoding of Ed25519 public key".into(),
-                                )
-                            })?;
+                    let public_key_bytes = crate::base64_decode_256_bits(
+                        public_key_params_okp.x.as_str(),
+                        &mut buffer,
+                    )
+                    .map_err(|_| {
+                        Error::Malformed("Invalid Base64URL encoding of Ed25519 public key".into())
+                    })?;
                     let verifying_key =
                         ed25519_dalek::VerifyingKey::try_from(&public_key_bytes[..])
                             .map_err(|_| Error::Malformed("Invalid Ed25519 public key".into()))?;
@@ -86,7 +102,21 @@ impl TryFrom<&PublicKeyParamsOKP> for mbx::MBPubKey {
             "Ed448" => {
                 #[cfg(feature = "ed448-goldilocks")]
                 {
-                    todo!();
+                    let mut buffer = [0u8; 57];
+                    let public_key_bytes = crate::base64_decode_456_bits(
+                        public_key_params_okp.x.as_str(),
+                        &mut buffer,
+                    )
+                    .map_err(|_| {
+                        Error::Malformed("Invalid Base64URL encoding of Ed448 public key".into())
+                    })?;
+                    let verifying_key =
+                        ed448_goldilocks::VerifyingKey::from_bytes(public_key_bytes)
+                            .map_err(|_| Error::Malformed("Invalid Ed448 public key".into()))?;
+                    Ok(mbx::MBPubKey::from_ed448_goldilocks_verifying_key(
+                        mbx::Base::Base64Url,
+                        &verifying_key,
+                    ))
                 }
                 #[cfg(not(feature = "ed448-goldilocks"))]
                 {
@@ -102,38 +132,58 @@ impl TryFrom<&PublicKeyParamsOKP> for mbx::MBPubKey {
     }
 }
 
-/// This function is to assist in no-alloc base64 encoding of 256 bits.
-fn base64_encode_256_bits<'a>(input_byte_v: &[u8; 32], buffer: &'a mut [u8; 43]) -> &'a str {
-    use base64::Engine;
-    base64::engine::general_purpose::URL_SAFE_NO_PAD
-        .encode_slice(input_byte_v, buffer)
-        .unwrap();
-    std::str::from_utf8(&*buffer).unwrap()
+impl TryFrom<&ed25519_dalek::VerifyingKey> for PublicKeyParamsOKP {
+    type Error = Error;
+    fn try_from(verifying_key: &ed25519_dalek::VerifyingKey) -> Result<Self, Self::Error> {
+        let mut buffer = [0u8; 43];
+        let public_key_base64 =
+            crate::base64_encode_256_bits(verifying_key.as_bytes(), &mut buffer);
+        Ok(Self {
+            crv: "Ed25519".into(),
+            x: public_key_base64.to_string(),
+        })
+    }
 }
 
-/// This function is to assist in no-alloc base64 decoding of 256 bits.
-/// 256 bits is 43 base64 chars (rounded up), but 43 base64 chars is 258 bits,
-/// so there has to be an extra byte in the buffer for base64 to decode into.
-#[cfg(feature = "ed25519-dalek")]
-fn base64_decode_256_bits<'a>(
-    input_str: &str,
-    buffer: &'a mut [u8; 33],
-) -> crate::Result<&'a [u8; 32]> {
-    if !input_str.is_ascii() {
-        return Err(Error::Malformed("not ASCII".into()));
+impl TryFrom<&ed448_goldilocks::VerifyingKey> for PublicKeyParamsOKP {
+    type Error = Error;
+    fn try_from(verifying_key: &ed448_goldilocks::VerifyingKey) -> Result<Self, Self::Error> {
+        let mut buffer = [0u8; 76];
+        let public_key_base64 =
+            crate::base64_encode_456_bits(verifying_key.as_bytes(), &mut buffer);
+        Ok(Self {
+            crv: "Ed448".into(),
+            x: public_key_base64.to_string(),
+        })
     }
-    if input_str.len() != 43 {
-        return Err(Error::Malformed("expected 43 base64 chars".into()));
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[cfg(feature = "ed25519-dalek")]
+    #[test]
+    fn test_roundtrip_public_key_params_okp_ed25519() {
+        use signature_dyn::GenerateRandom;
+        let signing_key = ed25519_dalek::SigningKey::generate_random();
+        let verifying_key = signing_key.verifying_key();
+        let public_key_params_okp = PublicKeyParamsOKP::try_from(&verifying_key).unwrap();
+        let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_okp).unwrap();
+        let recovered_verifying_key = ed25519_dalek::VerifyingKey::try_from(&mb_pub_key).unwrap();
+        assert_eq!(verifying_key, recovered_verifying_key);
     }
-    use base64::Engine;
-    base64::engine::general_purpose::URL_SAFE_NO_PAD
-        .decode_slice(input_str.as_bytes(), buffer)
-        .map_err(|_| "base64 decode of 256 bit value failed")?;
-    // Ensure that the last byte is zero, otherwise there were more than 256 bits in the base64 string.
-    if buffer[32] != 0 {
-        return Err(Error::Malformed("does not parse as 256 bit value".into()));
+
+    #[cfg(feature = "ed448-goldilocks")]
+    #[test]
+    fn test_roundtrip_public_key_params_okp_ed448() {
+        use signature_dyn::GenerateRandom;
+        let signing_key = ed448_goldilocks::SigningKey::generate_random();
+        let verifying_key = signing_key.verifying_key();
+        let public_key_params_okp = PublicKeyParamsOKP::try_from(&verifying_key).unwrap();
+        let mb_pub_key = mbx::MBPubKey::try_from(&public_key_params_okp).unwrap();
+        let recovered_verifying_key =
+            ed448_goldilocks::VerifyingKey::try_from(&mb_pub_key).unwrap();
+        assert_eq!(verifying_key, recovered_verifying_key);
     }
-    // Cut off the last byte, which we know is zero.
-    let output_byte_v: &[u8; 32] = buffer[0..32].try_into().unwrap();
-    Ok(output_byte_v)
 }

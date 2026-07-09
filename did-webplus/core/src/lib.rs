@@ -1,3 +1,4 @@
+mod base64;
 mod creation_metadata;
 mod did;
 mod did_document;
@@ -33,7 +34,14 @@ mod relative_resource_str;
 mod update_rules;
 mod verification_method;
 
-pub(crate) use crate::did_fully_qualified_str::parse_did_query_params;
+pub(crate) use crate::{
+    base64::{
+        base64_decode_256_bits, base64_decode_384_bits, base64_decode_456_bits,
+        base64_decode_521_bits, base64_encode_256_bits, base64_encode_384_bits,
+        base64_encode_456_bits, base64_encode_521_bits,
+    },
+    did_fully_qualified_str::parse_did_query_params,
+};
 pub use crate::{
     creation_metadata::CreationMetadata,
     did::DID,

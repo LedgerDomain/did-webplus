@@ -81,9 +81,10 @@ did-key = { path = "../../did-key", features = [
 did-webplus-jws = { path = "../jws", features = ["ed25519-dalek"] }
 ed25519-dalek = { workspace = true, features = ["digest", "rand_core"] }
 mbx = { workspace = true, features = ["codec-str"] }
-rand = "0.8"
+rand = { version = "0.8", features = ["std_rng"] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
+signature-dyn = { workspace = true, features = ["random"] }
 ssi-jwk = { version = "0.3.2", default-features = false, features = [
     "ed25519",
 ] }
