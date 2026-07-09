@@ -436,7 +436,9 @@ mod test {
     #[cfg(feature = "k256")]
     #[test]
     fn test_roundtrip_public_key_params_ec_secp256k1() {
-        for _ in 0..10 {
+        const TEST_VECTOR_COUNT: usize = 10;
+        println!("\nsecp256k1 test vectors:\n[");
+        for i in 0..TEST_VECTOR_COUNT {
             use signature_dyn::GenerateRandom;
             let signing_key = k256::ecdsa::SigningKey::generate_random();
             let verifying_key = signing_key.verifying_key();
@@ -447,17 +449,21 @@ mod test {
 
             // Print out this data as a test vector.
             println!(
-                "secp256k1 test vector: MBPubKey is {} and corresponding public_key_params_ec is {}",
-                mb_pub_key,
-                serde_json::to_string(&public_key_params_ec).unwrap()
+                "    {{\"mbPubKey\": {:?}, \"publicKeyParamsEC\": {}}}{}",
+                mb_pub_key.as_str(),
+                serde_json::to_string(&public_key_params_ec).unwrap(),
+                if i == TEST_VECTOR_COUNT - 1 { "" } else { "," }
             );
         }
+        println!("]");
     }
 
     #[cfg(feature = "p256")]
     #[test]
     fn test_roundtrip_public_key_params_ec_p256() {
-        for _ in 0..10 {
+        const TEST_VECTOR_COUNT: usize = 10;
+        println!("\nP-256 test vectors:\n[");
+        for i in 0..TEST_VECTOR_COUNT {
             use signature_dyn::GenerateRandom;
             let signing_key = p256::ecdsa::SigningKey::generate_random();
             let verifying_key = signing_key.verifying_key();
@@ -468,17 +474,21 @@ mod test {
 
             // Print out this data as a test vector.
             println!(
-                "P-256 test vector: MBPubKey is {} and corresponding public_key_params_ec is {}",
-                mb_pub_key,
-                serde_json::to_string(&public_key_params_ec).unwrap()
+                "    {{\"mbPubKey\": {:?}, \"publicKeyParamsEC\": {}}}{}",
+                mb_pub_key.as_str(),
+                serde_json::to_string(&public_key_params_ec).unwrap(),
+                if i == TEST_VECTOR_COUNT - 1 { "" } else { "," }
             );
         }
+        println!("]");
     }
 
     #[cfg(feature = "p384")]
     #[test]
     fn test_roundtrip_public_key_params_ec_p384() {
-        for _ in 0..10 {
+        const TEST_VECTOR_COUNT: usize = 10;
+        println!("\nP-384 test vectors:\n[");
+        for i in 0..TEST_VECTOR_COUNT {
             use signature_dyn::GenerateRandom;
             let signing_key = p384::ecdsa::SigningKey::generate_random();
             let verifying_key = signing_key.verifying_key();
@@ -489,17 +499,21 @@ mod test {
 
             // Print out this data as a test vector.
             println!(
-                "P-384 test vector: MBPubKey is {} and corresponding public_key_params_ec is {}",
-                mb_pub_key,
-                serde_json::to_string(&public_key_params_ec).unwrap()
+                "    {{\"mbPubKey\": {:?}, \"publicKeyParamsEC\": {}}}{}",
+                mb_pub_key.as_str(),
+                serde_json::to_string(&public_key_params_ec).unwrap(),
+                if i == TEST_VECTOR_COUNT - 1 { "" } else { "," }
             );
         }
+        println!("]");
     }
 
     #[cfg(feature = "p521")]
     #[test]
     fn test_roundtrip_public_key_params_ec_p521() {
-        for _ in 0..10 {
+        const TEST_VECTOR_COUNT: usize = 10;
+        println!("\nP-521 test vectors:\n[");
+        for i in 0..TEST_VECTOR_COUNT {
             use signature_dyn::GenerateRandom;
             let signing_key = p521::ecdsa::SigningKey::generate_random();
             let verifying_key = signing_key.verifying_key();
@@ -510,11 +524,13 @@ mod test {
 
             // Print out this data as a test vector.
             println!(
-                "P-521 test vector: MBPubKey is {} and corresponding public_key_params_ec is {}",
-                mb_pub_key,
-                serde_json::to_string(&public_key_params_ec).unwrap()
+                "    {{\"mbPubKey\": {:?}, \"publicKeyParamsEC\": {}}}{}",
+                mb_pub_key.as_str(),
+                serde_json::to_string(&public_key_params_ec).unwrap(),
+                if i == TEST_VECTOR_COUNT - 1 { "" } else { "," }
             );
         }
+        println!("]");
     }
 
     // NOTE: See the comment under [dev-dependencies] in Cargo.toml for the reason these tests are commented out.

@@ -165,7 +165,9 @@ mod test {
     #[cfg(feature = "ed25519-dalek")]
     #[test]
     fn test_roundtrip_public_key_params_okp_ed25519() {
-        for _ in 0..10 {
+        const TEST_VECTOR_COUNT: usize = 10;
+        println!("\nEd25519 test vectors:\n[");
+        for i in 0..TEST_VECTOR_COUNT {
             use signature_dyn::GenerateRandom;
             let signing_key = ed25519_dalek::SigningKey::generate_random();
             let verifying_key = signing_key.verifying_key();
@@ -176,17 +178,21 @@ mod test {
             assert_eq!(verifying_key, recovered_verifying_key);
             // Print out this data as a test vector.
             println!(
-                "Ed25519 test vector: MBPubKey is {} and corresponding public_key_params_okp is {}",
-                mb_pub_key,
-                serde_json::to_string(&public_key_params_okp).unwrap()
+                "    {{\"mbPubKey\": {:?}, \"publicKeyJwk\": {}}}{}",
+                mb_pub_key.as_str(),
+                serde_json::to_string(&public_key_params_okp).unwrap(),
+                if i == TEST_VECTOR_COUNT - 1 { "" } else { "," }
             );
         }
+        println!("]");
     }
 
     #[cfg(feature = "ed448-goldilocks")]
     #[test]
     fn test_roundtrip_public_key_params_okp_ed448() {
-        for _ in 0..10 {
+        const TEST_VECTOR_COUNT: usize = 10;
+        println!("\nEd448 test vectors:\n[");
+        for i in 0..TEST_VECTOR_COUNT {
             use signature_dyn::GenerateRandom;
             let signing_key = ed448_goldilocks::SigningKey::generate_random();
             let verifying_key = signing_key.verifying_key();
@@ -198,11 +204,13 @@ mod test {
 
             // Print out this data as a test vector.
             println!(
-                "Ed448 test vector: MBPubKey is {} and corresponding public_key_params_okp is {}",
-                mb_pub_key,
-                serde_json::to_string(&public_key_params_okp).unwrap()
+                "    {{\"mbPubKey\": {:?}, \"publicKeyJwk\": {}}}{}",
+                mb_pub_key.as_str(),
+                serde_json::to_string(&public_key_params_okp).unwrap(),
+                if i == TEST_VECTOR_COUNT - 1 { "" } else { "," }
             );
         }
+        println!("]");
     }
 
     // NOTE: See the comment under [dev-dependencies] in Cargo.toml for the reason this test is commented out.
