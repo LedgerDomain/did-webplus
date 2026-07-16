@@ -26,6 +26,7 @@ verifier-resolver = { path = "../../verifier-resolver" }
 
 [dev-dependencies]
 ctor = "0.4.1"
+did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
 did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-vdg-lib = { path = "../vdg-lib", features = ["postgres"] }
 did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }

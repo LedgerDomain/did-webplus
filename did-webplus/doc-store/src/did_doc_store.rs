@@ -56,28 +56,40 @@ impl DIDDocStore {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            // Parallelize the validation of the sequence of DID documents.
-            let handle_v = did_document_jcs_v
-                .iter()
-                .zip(did_document_v.iter())
-                .zip(prev_did_document_oi)
-                .map(|((&did_document_jcs, did_document), prev_did_document_o)| {
-                    // TEMP HACK -- copying is not ideal.  Figure out how to do this without copying.
-                    // Maybe re-borrowing?  It would need to be aware of a lifetime that ends at the call to join_all.
-                    let prev_did_document_o = prev_did_document_o.cloned();
-                    let did_document = did_document.clone();
-                    let did_document_jcs = did_document_jcs.to_string();
-                    tokio::task::spawn(async move {
-                        did_document.verify_is_canonically_serialized(&did_document_jcs)?;
-                        let validate_r = did_document.verify_nonrecursive(prev_did_document_o.as_ref()).map(|_keri_hash| ());
-                        tracing::trace!("validating predecessor DID document with versionId {}; prev_did_document_o versionId: {:?}; result: {:?}", did_document.version_id, prev_did_document_o.as_ref().map(|did_document| did_document.version_id), validate_r);
-                        validate_r
-                    })
-                }).collect::<Vec<_>>();
-            let result_v = futures::future::join_all(handle_v).await;
-            for result in result_v {
-                // TEMP HACK -- handle errors properly
-                result.unwrap().unwrap();
+            use rayon::prelude::{
+                IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,
+                ParallelIterator,
+            };
+
+            // Collect references to prev DID docs so we can zip in parallel.
+            let prev_did_document_ov: Vec<Option<&DIDDocument>> = prev_did_document_oi.collect();
+
+            let validate_in_parallel = || {
+                did_document_jcs_v
+                    .par_iter()
+                    .zip(did_document_v.par_iter())
+                    .zip(prev_did_document_ov.into_par_iter())
+                    .try_for_each(
+                        |((&did_document_jcs, did_document), prev_did_document_o)| -> Result<()> {
+                            did_document.verify_is_canonically_serialized(did_document_jcs)?;
+                            did_document
+                                .verify_nonrecursive(prev_did_document_o)
+                                .map(|_| ())?;
+                            Ok(())
+                        },
+                    )
+            };
+
+            // On the multi-thread runtime, block_in_place lets other tasks migrate off this worker
+            // while rayon does CPU-bound work. On current_thread it would panic, so run rayon
+            // directly (blocking the single worker for the duration of validation).
+            match tokio::runtime::Handle::try_current() {
+                Ok(handle)
+                    if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread =>
+                {
+                    tokio::task::block_in_place(validate_in_parallel)?
+                }
+                _ => validate_in_parallel()?,
             }
         }
         #[cfg(target_arch = "wasm32")]
@@ -99,6 +111,7 @@ impl DIDDocStore {
                     prev_did_document_o.map(|did_document| did_document.version_id)
                 );
                 let time_start = time::OffsetDateTime::now_utc();
+                did_document.verify_is_canonically_serialized(did_document_jcs)?;
                 did_document.verify_nonrecursive(prev_did_document_o)?;
                 let duration = time::OffsetDateTime::now_utc() - time_start;
                 tracing::debug!(

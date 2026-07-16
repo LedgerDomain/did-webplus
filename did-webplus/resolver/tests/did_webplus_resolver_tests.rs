@@ -993,7 +993,7 @@ async fn test_did_resolver_impl(
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_did_resolver_full_vdr_only() {
     let services_config = ServicesConfig::with_vdr(
         50010,
@@ -1010,7 +1010,7 @@ async fn test_did_resolver_full_vdr_only() {
 // TODO: Write a test for DIDResolverFull with a VDG -- this will have different resolution
 // metadata than the VDR-only test, so it would require more work to specify.
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_did_resolver_thin() {
     let services_config = ServicesConfig::with_vdg_and_vdr(
         50031,
