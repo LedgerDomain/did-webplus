@@ -161,10 +161,17 @@ async fn test_vdg_wallet_operations_impl(
         .expect("pass");
     let http_scheme_override_o = Some(&http_scheme_override);
 
+    let did_path_o = if use_path {
+        Some("user".to_string())
+    } else {
+        None
+    };
+
     // Setup of mock services
-    let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with_hostname(
+    let mock_vdr_la: Arc<RwLock<MockVDR>> = Arc::new(RwLock::new(MockVDR::new_with(
         vdr_hostname.into(),
         vdr_did_port_o,
+        did_path_o.clone(),
         None,
     )));
     let mock_vdr_lam = {
@@ -179,111 +186,132 @@ async fn test_vdg_wallet_operations_impl(
     // Create the wallet.
     let mut alice_wallet = MockWallet::new("Alice's Wallet".to_string(), mock_vdr_client_a.clone());
     // Have it create a DID
-    let did_path_o = if use_path {
-        Some("user".to_string())
-    } else {
-        None
-    };
     for &base in &[
         // mbx::Base::Base58Btc,
         mbx::Base::Base64Url,
     ] {
-        for mb_hash_function in &[
-            selfhash::MBHashFunction::blake3(base),
-            // selfhash::MBHashFunction::sha224(base),
-            selfhash::MBHashFunction::sha256(base),
-            // selfhash::MBHashFunction::sha384(base),
-            selfhash::MBHashFunction::sha512(base),
-            // selfhash::MBHashFunction::sha3_224(base),
-            selfhash::MBHashFunction::sha3_256(base),
-            // selfhash::MBHashFunction::sha3_384(base),
-            // selfhash::MBHashFunction::sha3_512(base),
-        ] {
-            println!("Testing with mb_hash_function: {:?}", mb_hash_function);
-
-            let alice_did = alice_wallet
-                .create_did(
-                    vdr_hostname.to_string(),
-                    vdr_did_port_o,
-                    did_path_o.clone(),
-                    &mb_hash_function,
-                )
-                .expect("pass");
-            let alice_did_documents_jsonl_url =
-                alice_did.resolution_url_for_did_documents_jsonl(http_scheme_override_o);
-            tracing::trace!(
-                "alice_did_documents_jsonl_url: {}",
-                alice_did_documents_jsonl_url
-            );
-
-            // Hacky way to test the VDR without using a real Wallet.
-            // This uses the DID document it created with the mock VDR and sends it to the real VDR.
-            {
-                let alice_did_document = alice_wallet
-                    .controlled_did(&alice_did)
-                    .expect("pass")
-                    .microledger()
-                    .view()
-                    .latest_did_document();
-                let alice_did_document_jcs =
-                    alice_did_document.serialize_canonically().expect("pass");
-                tracing::debug!(
-                    "Alice's latest DID document (HTTP POST-ing DID document to VDR): {}",
-                    alice_did_document_jcs
+        for &key_type in signature_dyn::KEY_TYPE_V {
+            for mb_hash_function in &[
+                selfhash::MBHashFunction::blake3(base),
+                // selfhash::MBHashFunction::sha224(base),
+                selfhash::MBHashFunction::sha256(base),
+                // selfhash::MBHashFunction::sha384(base),
+                selfhash::MBHashFunction::sha512(base),
+                // selfhash::MBHashFunction::sha3_224(base),
+                selfhash::MBHashFunction::sha3_256(base),
+                // selfhash::MBHashFunction::sha3_384(base),
+                // selfhash::MBHashFunction::sha3_512(base),
+            ] {
+                println!(
+                    "Testing with base {:?}, key_type {:?}, and mb_hash_function {:?}",
+                    base, key_type, mb_hash_function
                 );
+
+                let alice_did = alice_wallet
+                    .create_did(
+                        vdr_hostname.to_string(),
+                        vdr_did_port_o,
+                        did_path_o.clone(),
+                        key_type,
+                        &mb_hash_function,
+                    )
+                    .expect("pass");
+                let alice_did_documents_jsonl_url =
+                    alice_did.resolution_url_for_did_documents_jsonl(http_scheme_override_o);
+                tracing::trace!(
+                    "alice_did_documents_jsonl_url: {}",
+                    alice_did_documents_jsonl_url
+                );
+
+                // Hacky way to test the VDR without using a real Wallet.
+                // This uses the DID document it created with the mock VDR and sends it to the real VDR.
+                {
+                    let alice_did_document = alice_wallet
+                        .controlled_did(&alice_did)
+                        .expect("pass")
+                        .microledger()
+                        .view()
+                        .latest_did_document();
+                    let alice_did_document_jcs =
+                        alice_did_document.serialize_canonically().expect("pass");
+                    tracing::debug!(
+                        "Alice's latest DID document (HTTP POST-ing DID document to VDR): {}",
+                        alice_did_document_jcs
+                    );
+                    assert_eq!(
+                        test_util::REQWEST_CLIENT
+                            .post(&alice_did_documents_jsonl_url)
+                            .body(alice_did_document_jcs)
+                            .send()
+                            .await
+                            .expect("pass")
+                            .status(),
+                        reqwest::StatusCode::OK
+                    );
+                }
+                // Fetch all DID documents for this DID.
                 assert_eq!(
                     test_util::REQWEST_CLIENT
-                        .post(&alice_did_documents_jsonl_url)
-                        .body(alice_did_document_jcs)
+                        .get(&alice_did_documents_jsonl_url)
                         .send()
                         .await
                         .expect("pass")
                         .status(),
                     reqwest::StatusCode::OK
                 );
-            }
-            // Fetch all DID documents for this DID.
-            assert_eq!(
-                test_util::REQWEST_CLIENT
-                    .get(&alice_did_documents_jsonl_url)
-                    .send()
-                    .await
-                    .expect("pass")
-                    .status(),
-                reqwest::StatusCode::OK
-            );
-            // Have it update the DID a bunch of times
-            for _ in 0..5 {
-                update_did(
-                    &mut alice_wallet,
-                    &alice_did,
-                    &alice_did_documents_jsonl_url,
-                )
-                .await;
-            }
-
-            // sleep for a second to make sure the vdg gets updated
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-            // Simplest test of the VDG for now.
-            {
-                // First, test the bad api keys and make sure they're rejected.
-                tracing::debug!(
-                    "issuing some unauthorized requests to test test-authz-api-keys functionality"
-                );
-                for bad_header_map in bad_header_map_v.iter() {
-                    let response: reqwest::Response =
-                        get_did_response(vdg_base_url, alice_did.as_str(), bad_header_map.clone())
-                            .await;
-                    let status = response.status();
-                    assert!(
-                        status == reqwest::StatusCode::UNAUTHORIZED
-                            || status == reqwest::StatusCode::BAD_REQUEST,
-                        "expected UNAUTHORIZED or BAD_REQUEST status, got {:?}",
-                        status
-                    );
+                // Have it update the DID a bunch of times
+                for _ in 0..5 {
+                    update_did(
+                        &mut alice_wallet,
+                        &alice_did,
+                        key_type,
+                        &alice_did_documents_jsonl_url,
+                    )
+                    .await;
                 }
 
+                // sleep for a second to make sure the vdg gets updated
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+                // Simplest test of the VDG for now.
+                {
+                    // First, test the bad api keys and make sure they're rejected.
+                    tracing::debug!(
+                        "issuing some unauthorized requests to test test-authz-api-keys functionality"
+                    );
+                    for bad_header_map in bad_header_map_v.iter() {
+                        let response: reqwest::Response = get_did_response(
+                            vdg_base_url,
+                            alice_did.as_str(),
+                            bad_header_map.clone(),
+                        )
+                        .await;
+                        let status = response.status();
+                        assert!(
+                            status == reqwest::StatusCode::UNAUTHORIZED
+                                || status == reqwest::StatusCode::BAD_REQUEST,
+                            "expected UNAUTHORIZED or BAD_REQUEST status, got {:?}",
+                            status
+                        );
+                    }
+
+                    let response: reqwest::Response =
+                        get_did_response(vdg_base_url, alice_did.as_str(), header_map.clone())
+                            .await;
+                    assert_eq!(response.status(), reqwest::StatusCode::OK);
+                    let response_headers = response.headers().clone();
+                    let alice_did_document =
+                        serde_json::from_str(response.text().await.expect("pass").as_str())
+                            .expect("pass");
+                    test_cache_headers(&response_headers, &alice_did_document);
+                    assert!(
+                        response_headers["X-DID-Webplus-VDG-Cache-Hit"]
+                            .to_str()
+                            .unwrap()
+                            == "false"
+                    );
+                }
+                // Run it again to make sure the VDG has cached stuff.
                 let response: reqwest::Response =
                     get_did_response(vdg_base_url, alice_did.as_str(), header_map.clone()).await;
                 assert_eq!(response.status(), reqwest::StatusCode::OK);
@@ -298,140 +326,128 @@ async fn test_vdg_wallet_operations_impl(
                         .unwrap()
                         == "false"
                 );
+
+                // Ask for a particular version that the VDG is known to have to see if it hits the VDR.
+                let alice_did_version_id_query = format!("{}?versionId=3", alice_did);
+                let response: reqwest::Response = get_did_response(
+                    vdg_base_url,
+                    &alice_did_version_id_query,
+                    header_map.clone(),
+                )
+                .await;
+                assert_eq!(response.status(), reqwest::StatusCode::OK);
+                let response_headers = response.headers().clone();
+                let alice_did_document =
+                    serde_json::from_str(response.text().await.expect("pass").as_str())
+                        .expect("pass");
+                test_cache_headers(&response_headers, &alice_did_document);
+                assert!(
+                    response_headers["X-DID-Webplus-VDG-Cache-Hit"]
+                        .to_str()
+                        .unwrap()
+                        == "true",
+                    "response.headers: {:?}",
+                    response_headers
+                );
+
+                // Ask for a particular self-hash that the VDG is known to have to see if it hits the VDR.
+                let alice_did_document = alice_wallet
+                    .controlled_did(&alice_did)
+                    .expect("pass")
+                    .microledger()
+                    .view()
+                    .latest_did_document();
+                let alice_did_self_hash_query =
+                    format!("{}?selfHash={}", alice_did, alice_did_document.self_hash);
+                let response =
+                    get_did_response(vdg_base_url, &alice_did_self_hash_query, header_map.clone())
+                        .await;
+                assert_eq!(response.status(), reqwest::StatusCode::OK);
+                assert!(
+                    response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
+                        .to_str()
+                        .unwrap()
+                        == "true"
+                );
+
+                // Ask for both self-hash and version_id which are consistent.
+                let alice_did_self_hash_version_query = format!(
+                    "{}?selfHash={}&versionId={}",
+                    alice_did, alice_did_document.self_hash, alice_did_document.version_id
+                );
+                let response = get_did_response(
+                    vdg_base_url,
+                    &alice_did_self_hash_version_query,
+                    header_map.clone(),
+                )
+                .await;
+                assert_eq!(response.status(), reqwest::StatusCode::OK);
+                assert!(
+                    response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
+                        .to_str()
+                        .unwrap()
+                        == "true"
+                );
+
+                // Ask for both self-hash and version_id which are inconsistent.
+                assert!(alice_did_document.version_id != 0);
+                let alice_did_self_hash_version_inconsistent_query = format!(
+                    "{}?selfHash={}&versionId={}",
+                    alice_did, alice_did_document.self_hash, 0
+                );
+                let response = get_did_response(
+                    vdg_base_url,
+                    &alice_did_self_hash_version_inconsistent_query,
+                    header_map.clone(),
+                )
+                .await;
+                assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
+
+                // Ask for a particular version that the VDG is known to have, but with a bad selfHash
+                // to see if it will return an error.
+                let alice_did_bad_query = format!("{}?versionId=3&selfHash=XXXX", alice_did);
+                let response =
+                    get_did_response(vdg_base_url, &alice_did_bad_query, header_map.clone()).await;
+                assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
+
+                // Ask for a particular version that the VDG is known not to have to see if it errors correctly.
+                let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
+                let response: reqwest::Response = get_did_response(
+                    vdg_base_url,
+                    &alice_did_version_id_query,
+                    header_map.clone(),
+                )
+                .await;
+                assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
+
+                // update the did again
+                update_did(
+                    &mut alice_wallet,
+                    &alice_did,
+                    key_type,
+                    &alice_did_documents_jsonl_url,
+                )
+                .await;
+
+                // sleep for a second to make sure the vdg gets updated
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+                // Ask for the new version to see if the VDG has been notified of the update.
+                let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
+                let response: reqwest::Response = get_did_response(
+                    vdg_base_url,
+                    &alice_did_version_id_query,
+                    header_map.clone(),
+                )
+                .await;
+                assert_eq!(response.status(), reqwest::StatusCode::OK);
+                assert_eq!(
+                    response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
+                        .to_str()
+                        .unwrap(),
+                    "true"
+                );
             }
-            // Run it again to make sure the VDG has cached stuff.
-            let response: reqwest::Response =
-                get_did_response(vdg_base_url, alice_did.as_str(), header_map.clone()).await;
-            assert_eq!(response.status(), reqwest::StatusCode::OK);
-            let response_headers = response.headers().clone();
-            let alice_did_document =
-                serde_json::from_str(response.text().await.expect("pass").as_str()).expect("pass");
-            test_cache_headers(&response_headers, &alice_did_document);
-            assert!(
-                response_headers["X-DID-Webplus-VDG-Cache-Hit"]
-                    .to_str()
-                    .unwrap()
-                    == "false"
-            );
-
-            // Ask for a particular version that the VDG is known to have to see if it hits the VDR.
-            let alice_did_version_id_query = format!("{}?versionId=3", alice_did);
-            let response: reqwest::Response = get_did_response(
-                vdg_base_url,
-                &alice_did_version_id_query,
-                header_map.clone(),
-            )
-            .await;
-            assert_eq!(response.status(), reqwest::StatusCode::OK);
-            let response_headers = response.headers().clone();
-            let alice_did_document =
-                serde_json::from_str(response.text().await.expect("pass").as_str()).expect("pass");
-            test_cache_headers(&response_headers, &alice_did_document);
-            assert!(
-                response_headers["X-DID-Webplus-VDG-Cache-Hit"]
-                    .to_str()
-                    .unwrap()
-                    == "true",
-                "response.headers: {:?}",
-                response_headers
-            );
-
-            // Ask for a particular self-hash that the VDG is known to have to see if it hits the VDR.
-            let alice_did_document = alice_wallet
-                .controlled_did(&alice_did)
-                .expect("pass")
-                .microledger()
-                .view()
-                .latest_did_document();
-            let alice_did_self_hash_query =
-                format!("{}?selfHash={}", alice_did, alice_did_document.self_hash);
-            let response =
-                get_did_response(vdg_base_url, &alice_did_self_hash_query, header_map.clone())
-                    .await;
-            assert_eq!(response.status(), reqwest::StatusCode::OK);
-            assert!(
-                response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
-                    .to_str()
-                    .unwrap()
-                    == "true"
-            );
-
-            // Ask for both self-hash and version_id which are consistent.
-            let alice_did_self_hash_version_query = format!(
-                "{}?selfHash={}&versionId={}",
-                alice_did, alice_did_document.self_hash, alice_did_document.version_id
-            );
-            let response = get_did_response(
-                vdg_base_url,
-                &alice_did_self_hash_version_query,
-                header_map.clone(),
-            )
-            .await;
-            assert_eq!(response.status(), reqwest::StatusCode::OK);
-            assert!(
-                response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
-                    .to_str()
-                    .unwrap()
-                    == "true"
-            );
-
-            // Ask for both self-hash and version_id which are inconsistent.
-            assert!(alice_did_document.version_id != 0);
-            let alice_did_self_hash_version_inconsistent_query = format!(
-                "{}?selfHash={}&versionId={}",
-                alice_did, alice_did_document.self_hash, 0
-            );
-            let response = get_did_response(
-                vdg_base_url,
-                &alice_did_self_hash_version_inconsistent_query,
-                header_map.clone(),
-            )
-            .await;
-            assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
-
-            // Ask for a particular version that the VDG is known to have, but with a bad selfHash
-            // to see if it will return an error.
-            let alice_did_bad_query = format!("{}?versionId=3&selfHash=XXXX", alice_did);
-            let response =
-                get_did_response(vdg_base_url, &alice_did_bad_query, header_map.clone()).await;
-            assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
-
-            // Ask for a particular version that the VDG is known not to have to see if it errors correctly.
-            let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
-            let response: reqwest::Response = get_did_response(
-                vdg_base_url,
-                &alice_did_version_id_query,
-                header_map.clone(),
-            )
-            .await;
-            assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
-
-            // update the did again
-            update_did(
-                &mut alice_wallet,
-                &alice_did,
-                &alice_did_documents_jsonl_url,
-            )
-            .await;
-
-            // sleep for a second to make sure the vdg gets updated
-            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-            // Ask for the new version to see if the VDG has been notified of the update.
-            let alice_did_version_id_query = format!("{}?versionId=6", alice_did);
-            let response: reqwest::Response = get_did_response(
-                vdg_base_url,
-                &alice_did_version_id_query,
-                header_map.clone(),
-            )
-            .await;
-            assert_eq!(response.status(), reqwest::StatusCode::OK);
-            assert_eq!(
-                response.headers()["X-DID-Webplus-VDG-Cache-Hit"]
-                    .to_str()
-                    .unwrap(),
-                "true"
-            );
         }
     }
 }
@@ -439,9 +455,10 @@ async fn test_vdg_wallet_operations_impl(
 async fn update_did(
     alice_wallet: &mut MockWallet,
     alice_did: &did_webplus_core::DID,
+    key_type: signature_dyn::KeyType,
     alice_did_documents_jsonl_url: &str,
 ) {
-    alice_wallet.update_did(alice_did).expect("pass");
+    alice_wallet.update_did(alice_did, key_type).expect("pass");
     // Hacky way to test the VDR without using a real Wallet.
     // This uses the DID document it updated with the mock VDR and sends it to the real VDR.
     {

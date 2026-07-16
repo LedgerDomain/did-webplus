@@ -445,14 +445,15 @@ fn test_example_creating_and_updating_a_did() {
 #[test]
 #[serial_test::serial]
 fn test_did_operations() {
-    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with_hostname(
-        "example.com".into(),
+    let mock_vdr_la = Arc::new(RwLock::new(MockVDR::new_with(
+        "ledgerdomain.github.io".into(),
         None,
+        Some("did-webplus-spec".into()),
         None,
     )));
     let mock_vdr_lam = {
         let mut mock_vdr_lam = HashMap::new();
-        mock_vdr_lam.insert("example.com".to_string(), mock_vdr_la.clone());
+        mock_vdr_lam.insert("ledgerdomain.github.io".to_string(), mock_vdr_la.clone());
         mock_vdr_lam
     };
     let mock_vdg_la = Arc::new(RwLock::new(MockVDG::new(
@@ -474,285 +475,327 @@ fn test_did_operations() {
         // mbx::Base::Base58Btc,
         mbx::Base::Base64Url,
     ] {
-        for mb_hash_function in &[
-            selfhash::MBHashFunction::blake3(base),
-            // selfhash::MBHashFunction::sha224(base),
-            selfhash::MBHashFunction::sha256(base),
-            // selfhash::MBHashFunction::sha384(base),
-            selfhash::MBHashFunction::sha512(base),
-            // selfhash::MBHashFunction::sha3_224(base),
-            selfhash::MBHashFunction::sha3_256(base),
-            // selfhash::MBHashFunction::sha3_384(base),
-            // selfhash::MBHashFunction::sha3_512(base),
-        ] {
-            println!("Testing with mb_hash_function: {:?}", mb_hash_function);
+        for &key_type in signature_dyn::KEY_TYPE_V {
+            for mb_hash_function in &[
+                selfhash::MBHashFunction::blake3(base),
+                // selfhash::MBHashFunction::sha224(base),
+                selfhash::MBHashFunction::sha256(base),
+                // selfhash::MBHashFunction::sha384(base),
+                selfhash::MBHashFunction::sha512(base),
+                // selfhash::MBHashFunction::sha3_224(base),
+                selfhash::MBHashFunction::sha3_256(base),
+                // selfhash::MBHashFunction::sha3_384(base),
+                // selfhash::MBHashFunction::sha3_512(base),
+            ] {
+                println!(
+                    "Testing with base {:?}, key_type {:?}, and mb_hash_function {:?}",
+                    base, key_type, mb_hash_function
+                );
 
-            let alice_did = alice_wallet
-                .create_did(
-                    "example.com".to_string(),
+                let alice_did = alice_wallet
+                    .create_did(
+                        "ledgerdomain.github.io".to_string(),
+                        None,
+                        Some("did-webplus-spec".to_string()),
+                        key_type,
+                        &mb_hash_function,
+                    )
+                    .expect("pass");
+
+                // This Resolver keeps its own local MockVerifiedCache, and talks to the VDRs directly.
+                let mut mock_resolver_full = MockResolverFull::new(
+                    "Bob's Resolver".to_string(),
+                    // Some(mock_vdg_la.clone()),
                     None,
-                    Some("user".to_string()),
-                    &mb_hash_function,
-                )
-                .expect("pass");
+                    mock_vdr_lam.clone(),
+                );
 
-            // This Resolver keeps its own local MockVerifiedCache, and talks to the VDRs directly.
-            let mut mock_resolver_full = MockResolverFull::new(
-                "Bob's Resolver".to_string(),
-                // Some(mock_vdg_la.clone()),
-                None,
-                mock_vdr_lam.clone(),
-            );
+                // This MockResolverThin doesn't keep a local MockVerifiedCache, and instead uses a VDG to do its resolution.
+                let mut mock_resolver_thin = MockResolverThin::new(
+                    "Charlie's MockResolverThin".to_string(),
+                    mock_vdg_la.clone(),
+                );
 
-            // This MockResolverThin doesn't keep a local MockVerifiedCache, and instead uses a VDG to do its resolution.
-            let mut mock_resolver_thin = MockResolverThin::new(
-                "Charlie's MockResolverThin".to_string(),
-                mock_vdg_la.clone(),
-            );
+                // Sign and verify a JWS.
+                {
+                    let message = "This Alice is the best Alice.";
+                    let (signer_bytes, kid) = alice_wallet
+                        .controlled_did(&alice_did)
+                        .expect("pass")
+                        .signer_and_key_id_for_key_purpose(KeyPurpose::Authentication);
+                    let jws = JWS::signed(
+                        kid.to_string(),
+                        &mut message.as_bytes(),
+                        JWSPayloadPresence::Attached,
+                        JWSPayloadEncoding::Base64,
+                        signer_bytes,
+                    )
+                    .expect("pass");
 
-            // Sign and verify a JWS.
-            {
-                let message = "This Alice is the best Alice.";
-                let (signer_bytes, kid) = alice_wallet
+                    // Directly verify the JWS
+                    use signature_dyn::SignerT;
+                    let verifier_bytes = signer_bytes
+                        .get_verifier_bytes()
+                        .expect("pass")
+                        .into_owned();
+                    jws.verify(&verifier_bytes, None).expect("pass");
+
+                    let jws_signing_time = now_utc_milliseconds();
+                    println!("jws_string: {}", jws);
+
+                    // Type-forget the JWS, so that it has to go through the whole code path from String.
+                    let jws_string = jws.into_string();
+
+                    let jws = JWS::try_from(jws_string).expect("pass");
+
+                    // Verify the JWS using the full resolver.
+                    let (did_document, did_document_metadata) = resolve_did_and_verify_jws(
+                        &jws,
+                        &mut mock_resolver_full,
+                        did_webplus_core::KeyPurpose::Authentication,
+                        DIDResolutionOptions::all_metadata(false),
+                        None,
+                    )
+                    .expect("pass");
+
+                    // Also resolve using mock_resolver_thin.
+                    let (did_document_2, did_document_metadata_2) = resolve_did_and_verify_jws(
+                        &jws,
+                        &mut mock_resolver_thin,
+                        did_webplus_core::KeyPurpose::Authentication,
+                        DIDResolutionOptions::all_metadata(false),
+                        None,
+                    )
+                    .expect("pass");
+
+                    assert_eq!(did_document, did_document_2);
+                    assert_eq!(did_document_metadata, did_document_metadata_2);
+                    assert!(did_document_metadata.creation_metadata_o.is_some());
+                    assert!(did_document_metadata.latest_update_metadata_o.is_some());
+                    assert!(did_document_metadata.deactivated_o.is_some());
+
+                    assert!(did_document.valid_from <= jws_signing_time);
+                    match did_document_metadata.next_update_metadata_o.as_ref() {
+                        Some(next_update) => {
+                            assert!(jws_signing_time < next_update.next_update_time_milliseconds());
+                        }
+                        None => {
+                            // Nothing to check, this DID document is the latest.
+                        }
+                    }
+                }
+
+                // Do some resolutions.
+                println!("-- Let's do some DID resolutions ---------------------------------");
+                let mut mock_resolver_full = MockResolverFull::new(
+                    "MockVerifiedCache's MockResolverFull".to_string(),
+                    // No VDG, only VDRs.
+                    None,
+                    mock_vdr_lam.clone(),
+                );
+                {
+                    let (did_document, did_document_metadata) = mock_verified_cache
+                        .resolve_did_document(
+                            &alice_did,
+                            None,
+                            None,
+                            DIDResolutionOptions::all_metadata(false),
+                            &mut mock_resolver_full,
+                        )
+                        .expect("pass");
+                    // This Cow::into_owned is necessary here to release the mutable borrow of mock_verified_cache.
+                    let did_document = did_document.into_owned();
+                    println!(
+                        "LATEST (which is root) did_document: {}",
+                        serde_json::to_string_pretty(&did_document).expect("pass")
+                    );
+                    println!(
+                        "and its did_document_metadata: {}",
+                        serde_json::to_string_pretty(&did_document_metadata).expect("pass")
+                    );
+
+                    // Do a resolution against specific query params
+                    if false {
+                        {
+                            let (did_document_query, did_document_metadata_query) =
+                                mock_verified_cache
+                                    .resolve_did_document(
+                                        &alice_did,
+                                        Some(0),
+                                        None,
+                                        DIDResolutionOptions::all_metadata(false),
+                                        &mut mock_resolver_full,
+                                    )
+                                    .expect("pass");
+                            assert_eq!(*did_document_query, did_document);
+                            assert_eq!(did_document_metadata_query, did_document_metadata);
+                        }
+                        {
+                            let (did_document_query, did_document_metadata_query) =
+                                mock_verified_cache
+                                    .resolve_did_document(
+                                        &alice_did,
+                                        None,
+                                        Some(did_document.self_hash.deref()),
+                                        DIDResolutionOptions::all_metadata(false),
+                                        &mut mock_resolver_full,
+                                    )
+                                    .expect("pass");
+                            assert_eq!(*did_document_query, did_document);
+                            assert_eq!(did_document_metadata_query, did_document_metadata);
+                        }
+                        {
+                            // Both query params
+                            let (did_document_query, did_document_metadata_query) =
+                                mock_verified_cache
+                                    .resolve_did_document(
+                                        &alice_did,
+                                        Some(0),
+                                        Some(did_document.self_hash.deref()),
+                                        DIDResolutionOptions::all_metadata(false),
+                                        &mut mock_resolver_full,
+                                    )
+                                    .expect("pass");
+                            assert_eq!(*did_document_query, did_document);
+                            assert_eq!(did_document_metadata_query, did_document_metadata);
+                        }
+                    }
+                }
+
+                println!("----------------------------------------------------");
+                println!("-- Wallet updates its DID (first update) -----------");
+                println!("----------------------------------------------------");
+                alice_wallet.update_did(&alice_did, key_type).expect("pass");
+
+                // Do some resolutions.
+                println!("-- Let's do some more resolutions ---------------------------------");
+                {
+                    println!("-- First, we'll resolve the root DID document -----------------");
+                    let (did_document, did_document_metadata) = mock_verified_cache
+                        .resolve_did_document(
+                            &alice_did,
+                            Some(0),
+                            None,
+                            DIDResolutionOptions::all_metadata(false),
+                            &mut mock_resolver_full,
+                        )
+                        .expect("pass");
+                    println!(
+                        "ROOT did_document: {}",
+                        serde_json::to_string_pretty(&did_document).expect("pass")
+                    );
+                    println!(
+                        "and its did_document_metadata: {}",
+                        serde_json::to_string_pretty(&did_document_metadata).expect("pass")
+                    );
+
+                    println!("-- Now, we'll resolve the latest DID document -----------------");
+                    let (did_document, did_document_metadata) = mock_verified_cache
+                        .resolve_did_document(
+                            &alice_did,
+                            None,
+                            None,
+                            DIDResolutionOptions::all_metadata(false),
+                            &mut mock_resolver_full,
+                        )
+                        .expect("pass");
+                    println!(
+                        "LATEST did_document: {}",
+                        serde_json::to_string_pretty(&did_document).expect("pass")
+                    );
+                    println!(
+                        "and its did_document_metadata: {}",
+                        serde_json::to_string_pretty(&did_document_metadata).expect("pass")
+                    );
+
+                    println!("-- Finally, we'll resolve the latest DID document again -------");
+                    let (did_document, did_document_metadata) = mock_verified_cache
+                        .resolve_did_document(
+                            &alice_did,
+                            None,
+                            None,
+                            DIDResolutionOptions::all_metadata(false),
+                            &mut mock_resolver_full,
+                        )
+                        .expect("pass");
+                    // This Cow::into_owned is necessary here to release the mutable borrow of mock_verified_cache.
+                    let did_document = did_document.into_owned();
+                    println!(
+                        "LATEST did_document: {}",
+                        serde_json::to_string_pretty(&did_document).expect("pass")
+                    );
+                    println!(
+                        "and its did_document_metadata: {}",
+                        serde_json::to_string_pretty(&did_document_metadata).expect("pass")
+                    );
+
+                    // Do a resolution against specific query params
+                    if false {
+                        {
+                            let (did_document_query, did_document_metadata_query) =
+                                mock_verified_cache
+                                    .resolve_did_document(
+                                        &alice_did,
+                                        Some(did_document.version_id),
+                                        None,
+                                        DIDResolutionOptions::all_metadata(false),
+                                        &mut mock_resolver_full,
+                                    )
+                                    .expect("pass");
+                            assert_eq!(*did_document_query, did_document);
+                            assert_eq!(did_document_metadata_query, did_document_metadata);
+                        }
+                        {
+                            let (did_document_query, did_document_metadata_query) =
+                                mock_verified_cache
+                                    .resolve_did_document(
+                                        &alice_did,
+                                        None,
+                                        Some(did_document.self_hash.deref()),
+                                        DIDResolutionOptions::all_metadata(false),
+                                        &mut mock_resolver_full,
+                                    )
+                                    .expect("pass");
+                            assert_eq!(*did_document_query, did_document);
+                            assert_eq!(did_document_metadata_query, did_document_metadata);
+                        }
+                        {
+                            // Both query params
+                            let (did_document_query, did_document_metadata_query) =
+                                mock_verified_cache
+                                    .resolve_did_document(
+                                        &alice_did,
+                                        Some(did_document.version_id),
+                                        Some(did_document.self_hash.deref()),
+                                        DIDResolutionOptions::all_metadata(false),
+                                        &mut mock_resolver_full,
+                                    )
+                                    .expect("pass");
+                            assert_eq!(*did_document_query, did_document);
+                            assert_eq!(did_document_metadata_query, did_document_metadata);
+                        }
+                    }
+                }
+
+                println!("----------------------------------------------------");
+                println!("-- Wallet deactivates its DID -----------");
+                println!("----------------------------------------------------");
+                alice_wallet.deactivate_did(&alice_did).expect("pass");
+
+                // Now print the DID's microledger:
+                println!("-- JSONL-formatted microledger for {} :", alice_did);
+                let alice_did_microledger_view = alice_wallet
                     .controlled_did(&alice_did)
-                    .expect("pass")
-                    .signer_and_key_id_for_key_purpose(KeyPurpose::Authentication);
-                let jws = JWS::signed(
-                    kid.to_string(),
-                    &mut message.as_bytes(),
-                    JWSPayloadPresence::Attached,
-                    JWSPayloadEncoding::Base64,
-                    signer_bytes,
-                )
-                .expect("pass");
-
-                // Directly verify the JWS
-                use signature_dyn::SignerT;
-                let verifier_bytes = signer_bytes
-                    .get_verifier_bytes()
-                    .expect("pass")
-                    .into_owned();
-                jws.verify(&verifier_bytes, None).expect("pass");
-
-                let jws_signing_time = now_utc_milliseconds();
-                println!("jws_string: {}", jws);
-
-                // Type-forget the JWS, so that it has to go through the whole code path from String.
-                let jws_string = jws.into_string();
-
-                let jws = JWS::try_from(jws_string).expect("pass");
-
-                // Verify the JWS using the full resolver.
-                let (did_document, did_document_metadata) = resolve_did_and_verify_jws(
-                    &jws,
-                    &mut mock_resolver_full,
-                    did_webplus_core::KeyPurpose::Authentication,
-                    DIDResolutionOptions::all_metadata(false),
-                    None,
-                )
-                .expect("pass");
-
-                // Also resolve using mock_resolver_thin.
-                let (did_document_2, did_document_metadata_2) = resolve_did_and_verify_jws(
-                    &jws,
-                    &mut mock_resolver_thin,
-                    did_webplus_core::KeyPurpose::Authentication,
-                    DIDResolutionOptions::all_metadata(false),
-                    None,
-                )
-                .expect("pass");
-
-                assert_eq!(did_document, did_document_2);
-                assert_eq!(did_document_metadata, did_document_metadata_2);
-                assert!(did_document_metadata.creation_metadata_o.is_some());
-                assert!(did_document_metadata.latest_update_metadata_o.is_some());
-                assert!(did_document_metadata.deactivated_o.is_some());
-
-                assert!(did_document.valid_from <= jws_signing_time);
-                match did_document_metadata.next_update_metadata_o.as_ref() {
-                    Some(next_update) => {
-                        assert!(jws_signing_time < next_update.next_update_time_milliseconds());
-                    }
-                    None => {
-                        // Nothing to check, this DID document is the latest.
-                    }
+                    .unwrap()
+                    .microledger()
+                    .view();
+                for did_document in alice_did_microledger_view
+                    .select_did_documents(None, None)
+                    .1
+                {
+                    println!("{}", did_document.serialize_canonically().unwrap());
                 }
-            }
-
-            // Do some resolutions.
-            println!("-- Let's do some DID resolutions ---------------------------------");
-            let mut mock_resolver_full = MockResolverFull::new(
-                "MockVerifiedCache's MockResolverFull".to_string(),
-                // No VDG, only VDRs.
-                None,
-                mock_vdr_lam.clone(),
-            );
-            {
-                let (did_document, did_document_metadata) = mock_verified_cache
-                    .resolve_did_document(
-                        &alice_did,
-                        None,
-                        None,
-                        DIDResolutionOptions::all_metadata(false),
-                        &mut mock_resolver_full,
-                    )
-                    .expect("pass");
-                // This Cow::into_owned is necessary here to release the mutable borrow of mock_verified_cache.
-                let did_document = did_document.into_owned();
-                println!(
-                    "LATEST (which is root) did_document: {}",
-                    serde_json::to_string_pretty(&did_document).expect("pass")
-                );
-                println!(
-                    "and its did_document_metadata: {}",
-                    serde_json::to_string_pretty(&did_document_metadata).expect("pass")
-                );
-
-                // Do a resolution against specific query params
-                if false {
-                    {
-                        let (did_document_query, did_document_metadata_query) = mock_verified_cache
-                            .resolve_did_document(
-                                &alice_did,
-                                Some(0),
-                                None,
-                                DIDResolutionOptions::all_metadata(false),
-                                &mut mock_resolver_full,
-                            )
-                            .expect("pass");
-                        assert_eq!(*did_document_query, did_document);
-                        assert_eq!(did_document_metadata_query, did_document_metadata);
-                    }
-                    {
-                        let (did_document_query, did_document_metadata_query) = mock_verified_cache
-                            .resolve_did_document(
-                                &alice_did,
-                                None,
-                                Some(did_document.self_hash.deref()),
-                                DIDResolutionOptions::all_metadata(false),
-                                &mut mock_resolver_full,
-                            )
-                            .expect("pass");
-                        assert_eq!(*did_document_query, did_document);
-                        assert_eq!(did_document_metadata_query, did_document_metadata);
-                    }
-                    {
-                        let (did_document_query, did_document_metadata_query) =
-            // Both query params
-            mock_verified_cache
-                .resolve_did_document(&alice_did, Some(0), Some(did_document.self_hash.deref()), DIDResolutionOptions::all_metadata(false), &mut mock_resolver_full)
-                .expect("pass");
-                        assert_eq!(*did_document_query, did_document);
-                        assert_eq!(did_document_metadata_query, did_document_metadata);
-                    }
-                }
-            }
-
-            println!("----------------------------------------------------");
-            println!("-- Wallet updates its DID (first update) -----------");
-            println!("----------------------------------------------------");
-            alice_wallet.update_did(&alice_did).expect("pass");
-
-            // Do some resolutions.
-            println!("-- Let's do some more resolutions ---------------------------------");
-            {
-                println!("-- First, we'll resolve the root DID document -----------------");
-                let (did_document, did_document_metadata) = mock_verified_cache
-                    .resolve_did_document(
-                        &alice_did,
-                        Some(0),
-                        None,
-                        DIDResolutionOptions::all_metadata(false),
-                        &mut mock_resolver_full,
-                    )
-                    .expect("pass");
-                println!(
-                    "ROOT did_document: {}",
-                    serde_json::to_string_pretty(&did_document).expect("pass")
-                );
-                println!(
-                    "and its did_document_metadata: {}",
-                    serde_json::to_string_pretty(&did_document_metadata).expect("pass")
-                );
-
-                println!("-- Now, we'll resolve the latest DID document -----------------");
-                let (did_document, did_document_metadata) = mock_verified_cache
-                    .resolve_did_document(
-                        &alice_did,
-                        None,
-                        None,
-                        DIDResolutionOptions::all_metadata(false),
-                        &mut mock_resolver_full,
-                    )
-                    .expect("pass");
-                println!(
-                    "LATEST did_document: {}",
-                    serde_json::to_string_pretty(&did_document).expect("pass")
-                );
-                println!(
-                    "and its did_document_metadata: {}",
-                    serde_json::to_string_pretty(&did_document_metadata).expect("pass")
-                );
-
-                println!("-- Finally, we'll resolve the latest DID document again -------");
-                let (did_document, did_document_metadata) = mock_verified_cache
-                    .resolve_did_document(
-                        &alice_did,
-                        None,
-                        None,
-                        DIDResolutionOptions::all_metadata(false),
-                        &mut mock_resolver_full,
-                    )
-                    .expect("pass");
-                // This Cow::into_owned is necessary here to release the mutable borrow of mock_verified_cache.
-                let did_document = did_document.into_owned();
-                println!(
-                    "LATEST did_document: {}",
-                    serde_json::to_string_pretty(&did_document).expect("pass")
-                );
-                println!(
-                    "and its did_document_metadata: {}",
-                    serde_json::to_string_pretty(&did_document_metadata).expect("pass")
-                );
-
-                // Do a resolution against specific query params
-                if false {
-                    {
-                        let (did_document_query, did_document_metadata_query) = mock_verified_cache
-                            .resolve_did_document(
-                                &alice_did,
-                                Some(did_document.version_id),
-                                None,
-                                DIDResolutionOptions::all_metadata(false),
-                                &mut mock_resolver_full,
-                            )
-                            .expect("pass");
-                        assert_eq!(*did_document_query, did_document);
-                        assert_eq!(did_document_metadata_query, did_document_metadata);
-                    }
-                    {
-                        let (did_document_query, did_document_metadata_query) = mock_verified_cache
-                            .resolve_did_document(
-                                &alice_did,
-                                None,
-                                Some(did_document.self_hash.deref()),
-                                DIDResolutionOptions::all_metadata(false),
-                                &mut mock_resolver_full,
-                            )
-                            .expect("pass");
-                        assert_eq!(*did_document_query, did_document);
-                        assert_eq!(did_document_metadata_query, did_document_metadata);
-                    }
-                    {
-                        let (did_document_query, did_document_metadata_query) =
-            // Both query params
-            mock_verified_cache
-                .resolve_did_document(&alice_did, Some(did_document.version_id), Some(did_document.self_hash.deref()), DIDResolutionOptions::all_metadata(false), &mut mock_resolver_full)
-                .expect("pass");
-                        assert_eq!(*did_document_query, did_document);
-                        assert_eq!(did_document_metadata_query, did_document_metadata);
-                    }
-                }
+                println!("-- END of JSONL-formatted microledger ------------------")
             }
         }
     }

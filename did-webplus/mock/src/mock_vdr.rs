@@ -9,6 +9,7 @@ use crate::{Microledger, MicroledgerMutView, MicroledgerView, VDS};
 pub struct MockVDR {
     pub hostname: String,
     pub did_port_o: Option<u16>,
+    pub did_path_o: Option<String>,
     microledger_m: std::collections::HashMap<DID, Microledger>,
     /// Optional simulated network latency duration.  If present, then all VDR operations will sleep
     /// for this duration before beginning their work.
@@ -16,14 +17,16 @@ pub struct MockVDR {
 }
 
 impl MockVDR {
-    pub fn new_with_hostname(
+    pub fn new_with(
         hostname: String,
         did_port_o: Option<u16>,
+        did_path_o: Option<String>,
         simulated_latency_o: Option<std::time::Duration>,
     ) -> Self {
         Self {
             hostname,
             did_port_o,
+            did_path_o,
             microledger_m: std::collections::HashMap::new(),
             simulated_latency_o,
         }
@@ -34,19 +37,39 @@ impl MockVDR {
         root_did_document: DIDDocument,
     ) -> Result<DID, Error> {
         println!(
-            "VDR (hostname: {:?}) servicing CREATE DID request from {:?} for\n    DID: {}",
-            self.hostname, user_agent, root_did_document.did
+            "MockVDR (hostname: {:?}, did_port_o: {:?}, did_path_o: {:?}) servicing CREATE DID request from {:?} for\n    DID: {}",
+            self.hostname, self.did_port_o, self.did_path_o, user_agent, root_did_document.did
         );
         self.simulate_latency_if_necessary();
 
         if root_did_document.did.hostname() != self.hostname.as_str() {
             return Err(Error::Malformed(
-                "DID hostname doesn't match that of VDR".into(),
+                format!(
+                    "DID hostname ({:?}) doesn't match that of MockVDR ({:?})",
+                    root_did_document.did.hostname(),
+                    self.hostname,
+                )
+                .into(),
             ));
         }
         if root_did_document.did.port_o() != self.did_port_o {
             return Err(Error::Malformed(
-                "DID port doesn't match that of VDR".into(),
+                format!(
+                    "DID port ({:?}) doesn't match that of MockVDR ({:?})",
+                    root_did_document.did.port_o(),
+                    self.did_port_o,
+                )
+                .into(),
+            ));
+        }
+        if root_did_document.did.path_o() != self.did_path_o.as_deref() {
+            return Err(Error::Malformed(
+                format!(
+                    "DID path ({:?}) doesn't match that of MockVDR ({:?})",
+                    root_did_document.did.path_o(),
+                    self.did_path_o,
+                )
+                .into(),
             ));
         }
 
@@ -65,19 +88,39 @@ impl MockVDR {
         new_did_document: DIDDocument,
     ) -> Result<(), Error> {
         println!(
-            "VDR (hostname: {:?}, did_port_o: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
-            self.hostname, self.did_port_o, user_agent, new_did_document.did
+            "MockVDR (hostname: {:?}, did_port_o: {:?}, did_path_o: {:?}) servicing UPDATE DID request from {:?} for\n    DID: {}",
+            self.hostname, self.did_port_o, self.did_path_o, user_agent, new_did_document.did
         );
         self.simulate_latency_if_necessary();
 
         if new_did_document.did.hostname() != self.hostname.as_str() {
             return Err(Error::Malformed(
-                "DID hostname doesn't match that of VDR".into(),
+                format!(
+                    "DID hostname ({:?}) doesn't match that of MockVDR ({:?})",
+                    new_did_document.did.hostname(),
+                    self.hostname,
+                )
+                .into(),
             ));
         }
         if new_did_document.did.port_o() != self.did_port_o {
             return Err(Error::Malformed(
-                "DID port doesn't match that of VDR".into(),
+                format!(
+                    "DID port ({:?}) doesn't match that of MockVDR ({:?})",
+                    new_did_document.did.port_o(),
+                    self.did_port_o,
+                )
+                .into(),
+            ));
+        }
+        if new_did_document.did.path_o() != self.did_path_o.as_deref() {
+            return Err(Error::Malformed(
+                format!(
+                    "DID path ({:?}) doesn't match that of MockVDR ({:?})",
+                    new_did_document.did.path_o(),
+                    self.did_path_o,
+                )
+                .into(),
             ));
         }
         let microledger = self
@@ -108,7 +151,7 @@ impl VDS for MockVDR {
         version_id_end_o: Option<u32>,
     ) -> Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>, Error> {
         println!(
-            "VDR({:?})::fetch_did_documents\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}",
+            "MockVDR({:?})::fetch_did_documents\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_begin_o: {:?}\n    version_id_end_o: {:?}",
             self.hostname, requester_user_agent, did, version_id_begin_o, version_id_end_o
         );
         self.simulate_latency_if_necessary();
@@ -130,7 +173,7 @@ impl VDS for MockVDR {
         did_resolution_options: did_webplus_core::DIDResolutionOptions,
     ) -> Result<(Cow<'s, DIDDocument>, DIDDocumentMetadata), Error> {
         println!(
-            "VDR({:?})::resolve\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
+            "MockVDR({:?})::resolve\n    requester_user_agent: {:?}\n    DID: {}\n    version_id_o: {:?}\n    self_hash_o: {:?}",
             self.hostname, requester_user_agent, did, version_id_o, self_hash_o
         );
         self.simulate_latency_if_necessary();

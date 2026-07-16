@@ -32,6 +32,7 @@ impl MockWallet {
         did_hostname: String,
         did_port_o: Option<u16>,
         did_path_o: Option<String>,
+        key_type: signature_dyn::KeyType,
         mb_hash_function: &selfhash::MBHashFunction,
     ) -> Result<DID, Error> {
         let controlled_did = ControlledDID::create(
@@ -39,6 +40,7 @@ impl MockWallet {
             did_port_o,
             did_path_o,
             mb_hash_function,
+            key_type,
             self.vdr_client_a.as_ref(),
         )?;
         let did = controlled_did.did().to_owned();
@@ -49,10 +51,19 @@ impl MockWallet {
         self.controlled_did_m.insert(did.clone(), controlled_did);
         Ok(did)
     }
-    pub fn update_did(&mut self, did: &DIDStr) -> Result<(), Error> {
+    pub fn update_did(
+        &mut self,
+        did: &DIDStr,
+        key_type: signature_dyn::KeyType,
+    ) -> Result<(), Error> {
         let vdr_client_a = self.vdr_client_a.clone();
         let controlled_did = self.controlled_did_mut(did)?;
-        controlled_did.update(vdr_client_a.as_ref())
+        controlled_did.update(key_type, vdr_client_a.as_ref())
+    }
+    pub fn deactivate_did(&mut self, did: &DIDStr) -> Result<(), Error> {
+        let vdr_client_a = self.vdr_client_a.clone();
+        let controlled_did = self.controlled_did_mut(did)?;
+        controlled_did.deactivate(vdr_client_a.as_ref())
     }
     pub fn controlled_did(&self, did: &DIDStr) -> Result<&ControlledDID, Error> {
         self.controlled_did_m

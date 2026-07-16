@@ -41,6 +41,14 @@ url = "2.5.4"
 ctor = "0.4.1"
 did-webplus-mock = { path = "../mock" }
 dotenvy = "0.15.7"
+signature-dyn = { workspace = true, features = [
+    "ed25519-dalek",
+    "ed448-goldilocks",
+    "k256",
+    "p256",
+    "p384",
+    "p521",
+] }
 test-util = { path = "../../test-util" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

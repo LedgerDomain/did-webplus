@@ -12,6 +12,15 @@ pub struct PublicKeySet<V: Clone + std::fmt::Debug> {
 }
 
 impl<V: Clone + std::fmt::Debug> PublicKeySet<V> {
+    pub fn empty() -> Self {
+        Self {
+            authentication_v: Vec::new(),
+            assertion_method_v: Vec::new(),
+            key_agreement_v: Vec::new(),
+            capability_invocation_v: Vec::new(),
+            capability_delegation_v: Vec::new(),
+        }
+    }
     pub fn public_keys_for_purpose(&self, key_purpose: KeyPurpose) -> &[V] {
         match key_purpose {
             KeyPurpose::Authentication => &self.authentication_v,
@@ -20,7 +29,9 @@ impl<V: Clone + std::fmt::Debug> PublicKeySet<V> {
             KeyPurpose::CapabilityInvocation => &self.capability_invocation_v,
             KeyPurpose::CapabilityDelegation => &self.capability_delegation_v,
             KeyPurpose::UpdateDIDDocument => {
-                panic!("programmer error: UpdateDIDDocument is not a valid KeyPurpose for a verification method");
+                panic!(
+                    "programmer error: UpdateDIDDocument is not a valid KeyPurpose for a verification method"
+                );
             }
         }
     }

@@ -132,6 +132,7 @@ impl TryFrom<&PublicKeyParamsOKP> for mbx::MBPubKey {
     }
 }
 
+#[cfg(feature = "ed25519-dalek")]
 impl TryFrom<&ed25519_dalek::VerifyingKey> for PublicKeyParamsOKP {
     type Error = Error;
     fn try_from(verifying_key: &ed25519_dalek::VerifyingKey) -> Result<Self, Self::Error> {
@@ -145,6 +146,7 @@ impl TryFrom<&ed25519_dalek::VerifyingKey> for PublicKeyParamsOKP {
     }
 }
 
+#[cfg(feature = "ed448-goldilocks")]
 impl TryFrom<&ed448_goldilocks::VerifyingKey> for PublicKeyParamsOKP {
     type Error = Error;
     fn try_from(verifying_key: &ed448_goldilocks::VerifyingKey) -> Result<Self, Self::Error> {

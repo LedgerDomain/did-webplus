@@ -19,10 +19,15 @@ impl From<&mbx::MBPubKeyStr> for PublicKeyParams {
     fn from(pub_key: &mbx::MBPubKeyStr) -> Self {
         let decoded = pub_key.decoded().unwrap();
         match decoded.codec() {
-            ssi_multicodec::ED25519_PUB => PublicKeyParamsOKP::try_from(pub_key)
-                .expect("programmer error")
-                .into(),
-            ssi_multicodec::SECP256K1_PUB => PublicKeyParamsEC::try_from(pub_key)
+            ssi_multicodec::ED25519_PUB | ssi_multicodec::ED448_PUB => {
+                PublicKeyParamsOKP::try_from(pub_key)
+                    .expect("programmer error")
+                    .into()
+            }
+            ssi_multicodec::SECP256K1_PUB
+            | ssi_multicodec::P256_PUB
+            | ssi_multicodec::P384_PUB
+            | ssi_multicodec::P521_PUB => PublicKeyParamsEC::try_from(pub_key)
                 .expect("programmer error")
                 .into(),
             _ => panic!("programmer error: unsupported codec"),

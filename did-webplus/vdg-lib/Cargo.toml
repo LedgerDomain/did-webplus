@@ -42,6 +42,14 @@ dotenvy = "0.15.7"
 mbx = { workspace = true }
 reqwest = { version = "0.12.5", features = ["json"] }
 selfhash = { workspace = true, features = ["all-hash-functions", "mbx"] }
+signature-dyn = { workspace = true, features = [
+    "ed25519-dalek",
+    "ed448-goldilocks",
+    "k256",
+    "p256",
+    "p384",
+    "p521",
+] }
 test-util = { path = "../../test-util" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

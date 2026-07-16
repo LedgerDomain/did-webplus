@@ -11,10 +11,9 @@ derive_more = { version = "0.99.17", default-features = false, features = [
     "from",
     "into",
 ] }
-did-webplus-core = { path = "../core", features = ["ed25519-dalek"] }
-ed25519-dalek = { workspace = true, features = ["rand_core"] }
+did-webplus-core = { path = "../core" }
 log = "0.4.21"
-mbx = { workspace = true, features = ["ed25519-dalek"] }
+mbx = { workspace = true }
 rand = "0.8"
 selfhash = { workspace = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -22,16 +21,43 @@ serde_json = { version = "1", default-features = false }
 serde_with = { version = "3.3.0", default-features = false, features = [
     "macros",
 ] }
-signature-dyn = { workspace = true, features = ["ed25519-dalek", "random"] }
+signature-dyn = { workspace = true, features = ["random"] }
 thiserror = { version = "1.0.60", default-features = false }
 time = { version = "0.3", features = ["serde", "serde-well-known", "macros"] }
 
 [dev-dependencies]
 ctor = "0.4.1"
+did-webplus-core = { path = "../core", features = [
+    "ed25519-dalek",
+    "ed448-goldilocks",
+    "k256",
+    "p256",
+    "p384",
+    "p521",
+] }
 did-webplus-jws = { path = "../jws" }
+ed25519-dalek = { workspace = true, features = ["rand_core"] }
 env_logger = "0.11.3"
+mbx = { workspace = true, features = [
+    "codec-str",
+    "ed25519-dalek",
+    "ed448-goldilocks",
+    "k256",
+    "p256",
+    "p384",
+    "p521",
+] }
 serde_json = { version = "1", default-features = false }
 serial_test = { version = "2", default-features = false }
+signature-dyn = { workspace = true, features = [
+    "ed25519-dalek",
+    "ed448-goldilocks",
+    "k256",
+    "p256",
+    "p384",
+    "p521",
+    "random",
+] }
 # This is probably temporary.
 ssi-jwk = { version = "0.3.2", default-features = false, features = [
     "ed25519",

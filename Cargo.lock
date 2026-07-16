@@ -1840,6 +1840,7 @@ dependencies = [
  "reqwest 0.12.24",
  "selfhash",
  "serde_json",
+ "signature-dyn",
  "test-util",
  "tokio",
  "tracing",
@@ -1868,6 +1869,7 @@ dependencies = [
  "reqwest 0.12.24",
  "selfhash",
  "serde_json",
+ "signature-dyn",
  "sqlx",
  "storage-traits",
  "test-util",
@@ -1894,6 +1896,7 @@ dependencies = [
  "mbx",
  "reqwest 0.12.24",
  "selfhash",
+ "signature-dyn",
  "test-util",
  "tokio",
  "tracing",
@@ -1922,6 +1925,7 @@ dependencies = [
  "serde-inline-default",
  "serde_json",
  "serde_json_canonicalizer 0.3.1",
+ "signature-dyn",
  "sqlx",
  "storage-traits",
  "test-util",
@@ -4014,8 +4018,8 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "mbx"
-version = "0.5.0"
-source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.5.0#8f5dc2c43dd02f6ac50a3b373fb50b4788a6d462"
+version = "0.6.0"
+source = "git+https://github.com/LedgerDomain/mbx?rev=mbx-v0.6.0#47419010c44b2eb974fa95a2bf92d25652cf0edd"
 dependencies = [
  "blake3",
  "ed25519-dalek 3.0.0-rc.0",
@@ -5415,8 +5419,8 @@ checksum = "16c2f82143577edb4921b71ede051dac62ca3c16084e918bf7b40c96ae10eb33"
 
 [[package]]
 name = "selfhash"
-version = "0.8.0"
-source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.8.0#0e0f1044278adedcab9ee47ac49cff777e16bee6"
+version = "0.9.0"
+source = "git+https://github.com/LedgerDomain/selfhash?rev=selfhash-v0.9.0#f897b34c679354317f705fc1ae59cc76d91bab8d"
 dependencies = [
  "base64 0.21.7",
  "blake3",
@@ -5782,8 +5786,8 @@ dependencies = [
 
 [[package]]
 name = "signature-dyn"
-version = "0.5.0"
-source = "git+https://github.com/LedgerDomain/signature-dyn?rev=signature-dyn-v0.5.0#086e78ed4118614278f88a7b10e40bf7cb5c5d1b"
+version = "0.6.1"
+source = "git+https://github.com/LedgerDomain/signature-dyn?rev=signature-dyn-v0.6.1#727214b3f55350b5fd2b4e7b00953e2952cc5a7c"
 dependencies = [
  "async-trait",
  "ed25519-dalek 3.0.0-rc.0",
