@@ -1,0 +1,5 @@
+{
+  "did": "did:webplus:localhost:uHiBIsqh1UabNmZurCXLMQQdraK6l5YHwpJc6JN7hJdN04A",
+  "expected": "reject",
+  "description": "versionId gap (0,1,3); doc at position 2 has versionId 3, correct chain hash and valid proof"
+}

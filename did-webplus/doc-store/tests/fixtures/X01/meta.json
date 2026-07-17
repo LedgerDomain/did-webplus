@@ -1,0 +1,5 @@
+{
+  "did": "did:webplus:localhost:uHiBc3KkEYSoYV_djr2875PiS63Vcl6phi36pYOdP9l-fNg",
+  "expected": "accept",
+  "description": "valid microledger, validFrom with explicit '.000' millisecond fraction (RFC 3339-valid, JCS-canonical bytes)"
+}

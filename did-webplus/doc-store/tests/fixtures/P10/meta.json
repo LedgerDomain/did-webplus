@@ -1,0 +1,5 @@
+{
+  "did": "did:webplus:localhost:uHiBIsqh1UabNmZurCXLMQQdraK6l5YHwpJc6JN7hJdN04A",
+  "expected": "accept-prefix",
+  "description": "truncated microledger: only v0,v1 of the 3-doc baseline served"
+}

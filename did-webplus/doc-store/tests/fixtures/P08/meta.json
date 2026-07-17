@@ -1,0 +1,5 @@
+{
+  "did": "did:webplus:localhost:uHiCzWDD0IAJkxbhIitt2PUVOaSEpPe30eYMmIyZhwV8TKA",
+  "expected": "reject",
+  "description": "root document with versionId 1 (self-consistent otherwise; DID derived from its self-hash)"
+}

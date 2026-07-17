@@ -1,0 +1,5 @@
+{
+  "did": "did:webplus:localhost:uHiBIsqh1UabNmZurCXLMQQdraK6l5YHwpJc6JN7hJdN04A",
+  "expected": "reject",
+  "description": "tombstoned DID (v2 updateRules {}), then a further update v3 signed by the old key"
+}

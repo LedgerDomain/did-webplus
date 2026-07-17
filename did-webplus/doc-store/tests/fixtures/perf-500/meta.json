@@ -1,0 +1,6 @@
+{
+  "did": "did:webplus:localhost:uHiBkdZ0HrOBtn5ILh1QISMMzuSNubKKkZZf8lo3xujHxUQ",
+  "expected": "accept",
+  "description": "performance ledger: 500 documents, rotation-only updates",
+  "n": 500
+}

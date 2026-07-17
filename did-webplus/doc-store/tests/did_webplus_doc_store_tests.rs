@@ -123,9 +123,7 @@ fn invalid_microledger_with_mutated_middle_proof(
     (invalid_did_document_v, invalid_did_document_jcs_v)
 }
 
-async fn test_doc_store_validate_and_add_did_docs_impl(
-    did_doc_storage_a: Arc<dyn DIDDocStorage>,
-) {
+async fn test_doc_store_validate_and_add_did_docs_impl(did_doc_storage_a: Arc<dyn DIDDocStorage>) {
     let did_doc_store = DIDDocStore::new(did_doc_storage_a);
 
     let (valid_did_document_v, valid_did_document_jcs_v) =
@@ -167,6 +165,83 @@ async fn test_doc_store_validate_and_add_did_docs_impl(
         "expected Err(InvalidDIDDocument), got: {:?}",
         result
     );
+
+    // Conformance test vectors: each fixture's meta.json specifies whether validation of the
+    // microledger in its did-documents.jsonl is expected to succeed or fail.  All fixtures are
+    // checked before failing, so that a single failure doesn't hide the others.
+    assert_eq!(FIXTURE_NAME_V.len(), DID_DOCUMENTS_JSONL_V.len());
+    assert_eq!(FIXTURE_NAME_V.len(), META_JSON_V.len());
+    let mut failure_v: Vec<String> = Vec::new();
+    for ((&fixture_name, &did_documents_jsonl), &meta_json) in FIXTURE_NAME_V
+        .iter()
+        .zip(DID_DOCUMENTS_JSONL_V.iter())
+        .zip(META_JSON_V.iter())
+    {
+        let fixture_meta: FixtureMeta =
+            serde_json::from_str(meta_json).expect("fixture meta.json should be valid JSON");
+        let expect_accept = match fixture_meta.expected.as_str() {
+            "accept" | "accept-prefix" => true,
+            "reject" => false,
+            other => panic!(
+                "fixture {}: unknown \"expected\" value {:?} in meta.json",
+                fixture_name, other
+            ),
+        };
+
+        let did_document_jcs_v: Vec<&str> = did_documents_jsonl.lines().collect();
+        // A parse failure counts as rejection of the microledger.
+        let did_document_vr: Result<Vec<DIDDocument>, _> = did_document_jcs_v
+            .iter()
+            .map(|&did_document_jcs| did_webplus_doc_store::parse_did_document(did_document_jcs))
+            .collect();
+        let did_document_v = match did_document_vr {
+            Ok(did_document_v) => did_document_v,
+            Err(e) => {
+                if expect_accept {
+                    failure_v.push(format!(
+                        "fixture {} ({}): expected accept, but a DID document failed to parse: {}",
+                        fixture_name, fixture_meta.description, e
+                    ));
+                }
+                continue;
+            }
+        };
+        assert_eq!(
+            did_document_v
+                .first()
+                .expect("nonempty microledger")
+                .did
+                .as_str(),
+            fixture_meta.did,
+            "fixture {}: DID in did-documents.jsonl doesn't match \"did\" in meta.json",
+            fixture_name
+        );
+
+        let result = did_doc_store
+            .validate_and_add_did_docs(None, &did_document_jcs_v, &did_document_v, None)
+            .await;
+        match (expect_accept, result) {
+            (true, Err(e)) => {
+                failure_v.push(format!(
+                    "fixture {} ({}): expected accept, got: {:?}",
+                    fixture_name, fixture_meta.description, e
+                ));
+            }
+            (false, Ok(())) => {
+                failure_v.push(format!(
+                    "fixture {} ({}): expected reject, but validation succeeded",
+                    fixture_name, fixture_meta.description
+                ));
+            }
+            _ => {}
+        }
+    }
+    assert!(
+        failure_v.is_empty(),
+        "{} conformance fixture(s) failed:\n{}",
+        failure_v.len(),
+        failure_v.join("\n")
+    );
 }
 
 #[tokio::test]
@@ -193,3 +268,97 @@ async fn test_doc_store_validate_and_add_did_docs_with_storage_sqlite() {
         .expect("pass");
     test_doc_store_validate_and_add_did_docs_impl(Arc::new(did_doc_storage)).await;
 }
+
+/// Parsed form of a fixture's meta.json, which specifies the DID of the fixture's microledger,
+/// the expected validation outcome ("accept", "accept-prefix", or "reject"), and a
+/// human-readable description of what the fixture exercises.
+#[derive(Debug, serde::Deserialize)]
+struct FixtureMeta {
+    did: String,
+    expected: String,
+    description: String,
+}
+
+/// Names of the conformance test vector fixtures, in correspondence with the elements of
+/// DID_DOCUMENTS_JSONL_V and META_JSON_V.  Each name is a subdirectory of tests/fixtures.
+const FIXTURE_NAME_V: &[&str] = &[
+    "P01", "P02", "P03", "P04", "P05", "P06", "P07", "P08", "P09", "P10", "P11",
+    // "X01",
+    "perf-1", "perf-10", "perf-100", "perf-500",
+];
+
+/// Test vectors from Sumit Vekariya created during testing of
+/// Zkred TS implementation of did:webplus vs this implementation.
+/// See https://github.com/sumitvekariya/did-webvh-webplus-conformance
+const DID_DOCUMENTS_JSONL_V: &[&str] = &[
+    // P01
+    include_str!("fixtures/P01/did-documents.jsonl"),
+    // P02
+    include_str!("fixtures/P02/did-documents.jsonl"),
+    // P03
+    include_str!("fixtures/P03/did-documents.jsonl"),
+    // P04
+    include_str!("fixtures/P04/did-documents.jsonl"),
+    // P05
+    include_str!("fixtures/P05/did-documents.jsonl"),
+    // P06
+    include_str!("fixtures/P06/did-documents.jsonl"),
+    // P07
+    include_str!("fixtures/P07/did-documents.jsonl"),
+    // P08
+    include_str!("fixtures/P08/did-documents.jsonl"),
+    // P09
+    include_str!("fixtures/P09/did-documents.jsonl"),
+    // P10
+    include_str!("fixtures/P10/did-documents.jsonl"),
+    // P11
+    include_str!("fixtures/P11/did-documents.jsonl"),
+    // // X01
+    // include_str!("fixtures/X01/did-documents.jsonl"),
+    // perf-1
+    include_str!("fixtures/perf-1/did-documents.jsonl"),
+    // perf-10
+    include_str!("fixtures/perf-10/did-documents.jsonl"),
+    // perf-100
+    include_str!("fixtures/perf-100/did-documents.jsonl"),
+    // perf-500
+    include_str!("fixtures/perf-500/did-documents.jsonl"),
+];
+
+/// The meta.json file for each fixture, in correspondence with the elements of
+/// DID_DOCUMENTS_JSONL_V.  Each specifies the DID, the expected validation outcome
+/// ("accept", "accept-prefix", or "reject"), and a human-readable description.
+const META_JSON_V: &[&str] = &[
+    // P01
+    include_str!("fixtures/P01/meta.json"),
+    // P02
+    include_str!("fixtures/P02/meta.json"),
+    // P03
+    include_str!("fixtures/P03/meta.json"),
+    // P04
+    include_str!("fixtures/P04/meta.json"),
+    // P05
+    include_str!("fixtures/P05/meta.json"),
+    // P06
+    include_str!("fixtures/P06/meta.json"),
+    // P07
+    include_str!("fixtures/P07/meta.json"),
+    // P08
+    include_str!("fixtures/P08/meta.json"),
+    // P09
+    include_str!("fixtures/P09/meta.json"),
+    // P10
+    include_str!("fixtures/P10/meta.json"),
+    // P11
+    include_str!("fixtures/P11/meta.json"),
+    // // X01
+    // include_str!("fixtures/X01/meta.json"),
+    // perf-1
+    include_str!("fixtures/perf-1/meta.json"),
+    // perf-10
+    include_str!("fixtures/perf-10/meta.json"),
+    // perf-100
+    include_str!("fixtures/perf-100/meta.json"),
+    // perf-500
+    include_str!("fixtures/perf-500/meta.json"),
+];
