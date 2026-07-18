@@ -68,7 +68,12 @@ serde_with = { version = "3.3.0", default-features = false, features = [
 signature-dyn = { workspace = true, features = ["ssi-multicodec"] }
 ssi-multicodec = "0.2.0"
 thiserror = { version = "1.0.60", default-features = false }
-time = { version = "0.3", features = ["macros", "serde", "serde-well-known"] }
+time = { version = "0.3", features = [
+    "formatting",
+    "macros",
+    "serde",
+    "serde-well-known",
+] }
 tracing = "0.1.37"
 verifier-resolver = { path = "../../verifier-resolver" }
 

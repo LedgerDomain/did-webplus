@@ -63,13 +63,13 @@ pub trait MicroledgerView<'v> {
         _did_resolution_options: did_webplus_core::DIDResolutionOptions,
     ) -> did_webplus_core::DIDDocumentMetadata {
         let creation_metadata =
-            did_webplus_core::CreationMetadata::new(self.root_did_document().valid_from);
+            did_webplus_core::CreationMetadata::new(self.root_did_document().valid_from().unwrap());
 
         let next_update_metadata_o = if let Ok(next_did_document) =
             self.did_document_for_version_id(did_document.version_id + 1)
         {
             Some(did_webplus_core::NextUpdateMetadata::new(
-                next_did_document.valid_from,
+                next_did_document.valid_from().unwrap(),
                 next_did_document.version_id,
             ))
         } else {
@@ -77,7 +77,7 @@ pub trait MicroledgerView<'v> {
         };
 
         let latest_update_metadata = did_webplus_core::LatestUpdateMetadata::new(
-            self.latest_did_document().valid_from,
+            self.latest_did_document().valid_from().unwrap(),
             self.latest_did_document().version_id,
         );
 

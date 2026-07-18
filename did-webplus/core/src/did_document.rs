@@ -40,12 +40,12 @@ pub struct DIDDocument {
     #[serde(rename = "proofs")]
     #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::new")]
     pub proof_v: Vec<String>,
-    /// This defines the timestamp at which this DID document becomes valid.  Note that in order to
-    /// be interoperable with other implementations (specifically javascript-based ones), this MUST have
-    /// precision no greater than milliseconds.
+    /// This specifies the RFC-3339-formatted timestamp at which this DID document becomes valid.
+    /// Note that in order to be interoperable with other implementations (specifically javascript-based
+    /// ones), this MUST have precision no greater than milliseconds.
     #[serde(rename = "validFrom")]
-    #[serde(with = "time::serde::rfc3339")]
-    pub valid_from: time::OffsetDateTime,
+    // #[serde(with = "time::serde::rfc3339")]
+    pub valid_from_string: String,
     /// This should be exactly 1 greater than the previous DID document's version_id.
     #[serde(rename = "versionId")]
     pub version_id: u32,
@@ -90,7 +90,7 @@ impl DIDDocument {
             proof_v: vec![],
             prev_did_document_self_hash_o: None,
             version_id,
-            valid_from,
+            valid_from_string: valid_from.format(&time::format_description::well_known::Rfc3339)?,
             public_key_material: PublicKeyMaterial::new(&did_fully_qualified, public_key_set)?,
         })
     }
@@ -132,7 +132,7 @@ impl DIDDocument {
             proof_v: vec![],
             prev_did_document_self_hash_o: Some(prev_did_document_self_hash),
             version_id,
-            valid_from,
+            valid_from_string: valid_from.format(&time::format_description::well_known::Rfc3339)?,
             public_key_material: PublicKeyMaterial::new(&did_fully_qualified, public_key_set)?,
         })
     }
@@ -156,6 +156,39 @@ impl DIDDocument {
     }
     pub fn is_deactivated(&self) -> bool {
         self.update_rules == RootLevelUpdateRules::UpdatesDisallowed(UpdatesDisallowed {})
+    }
+    /// The timestamp must be a RFC-3339-formatted string with 'T' and 'Z' characters, e.g. 2026-07-17T12:34:56Z
+    /// and must have precision no greater than milliseconds.
+    pub fn valid_from(&self) -> Result<time::OffsetDateTime> {
+        if !self.valid_from_string.contains('T') || !self.valid_from_string.contains('Z') {
+            return Err(Error::Malformed(
+                format!(
+                    "DID document's validFrom field value ({}) must be a RFC-3339-formatted string with 'T' and 'Z' characters, e.g. 2026-07-17T12:34:56Z",
+                    self.valid_from_string
+                )
+                .into(),
+            ));
+        }
+        let valid_from = time::OffsetDateTime::parse(
+            &self.valid_from_string,
+            &time::format_description::well_known::Rfc3339,
+        )?;
+        if valid_from.nanosecond() % 1_000_000 != 0 {
+            return Err(Error::Malformed(
+                format!(
+                    "DID document's validFrom field value ({}) must have precision no greater than milliseconds",
+                    self.valid_from_string
+                )
+                .into(),
+            ));
+        }
+        if valid_from < time::OffsetDateTime::UNIX_EPOCH {
+            return Err(Error::Malformed(format!(
+                "DID document's validFrom field value ({}) must not be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
+                self.valid_from_string
+            ).into()));
+        }
+        Ok(valid_from)
     }
     /// This method is what you should use if you want to canonically serialize this DID document (to a String).
     /// See also serialize_canonically_to_writer.
@@ -231,21 +264,9 @@ impl DIDDocument {
             ).into()));
         }
 
-        // Check that self.valid_from is not before the UNIX epoch.
-        if self.valid_from < time::OffsetDateTime::UNIX_EPOCH {
-            return Err(Error::Malformed(format!(
-                "DID document's valid_from ({}) must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
-                self.valid_from
-            ).into()));
-        }
-
-        // Check that valid_from has precision no greater than milliseconds.
-        if self.valid_from.nanosecond() % 1_000_000 != 0 {
-            return Err(Error::Malformed(format!(
-                "DID document's valid_from ({}) must have precision no greater than milliseconds",
-                self.valid_from
-            ).into()));
-        }
+        // Parse the valid_from field value into a time::OffsetDateTime.  This also does the formatting validation:
+        // RFC-3339 with 'T' and 'Z' characters, has precision no greater than milliseconds, and is not before the UNIX epoch.
+        let _valid_from = self.valid_from()?;
 
         // Check initial version_id.
         if self.version_id != 0 {
@@ -300,27 +321,17 @@ impl DIDDocument {
             ).into()));
         }
 
-        // Check that self.valid_from is not before the UNIX epoch.
-        if self.valid_from < time::OffsetDateTime::UNIX_EPOCH {
-            return Err(Error::Malformed(format!(
-                "DID document's valid_from ({}) must be before the UNIX epoch (i.e. 1970-01-01T00:00:00Z)",
-                self.valid_from
-            ).into()));
-        }
-
-        // Check that valid_from has precision no greater than milliseconds.
-        if self.valid_from.nanosecond() % 1_000_000 != 0 {
-            return Err(Error::Malformed(format!(
-                "DID document's valid_from ({}) must have precision no greater than milliseconds",
-                self.valid_from
-            ).into()));
-        }
+        // Parse self.valid_from_string and expected_prev_did_document.valid_from_string into a time::OffsetDateTime.
+        // This also does the formatting validation: RFC-3339 with 'T' and 'Z' characters, has precision no greater
+        // than milliseconds, and is not before the UNIX epoch.
+        let valid_from = self.valid_from()?;
+        let expected_prev_did_document_valid_from = expected_prev_did_document.valid_from()?;
 
         // Check monotonicity of version_time.
-        if self.valid_from <= expected_prev_did_document.valid_from {
+        if valid_from <= expected_prev_did_document_valid_from {
             return Err(Error::Malformed(format!(
                 "Non-root DID document must have version_time (which was {}) > prev_did_document.version_time (which was {})",
-                self.valid_from, expected_prev_did_document.valid_from
+                self.valid_from_string, expected_prev_did_document.valid_from_string
             ).into()));
         }
         // Check strict succession of version_id.

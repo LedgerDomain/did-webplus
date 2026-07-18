@@ -30,6 +30,12 @@ pub enum Error {
     Serialization(Cow<'static, str>),
     #[error("Signing error: {0}")]
     SigningError(Cow<'static, str>),
+    #[error("Time error: {0}")]
+    TimeError(time::Error),
+    #[error("Time format error: {0}")]
+    TimeFormatError(time::error::Format),
+    #[error("Time parse error: {0}")]
+    TimeParseError(time::error::Parse),
     #[error("Unrecognized: {0}")]
     Unrecognized(Cow<'static, str>),
     #[error("Unsupported: {0}")]
@@ -63,5 +69,23 @@ impl From<selfhash::Error> for Error {
 impl From<signature_dyn::Error> for Error {
     fn from(e: signature_dyn::Error) -> Self {
         Self::SignatureError(e)
+    }
+}
+
+impl From<time::Error> for Error {
+    fn from(e: time::Error) -> Self {
+        Self::TimeError(e)
+    }
+}
+
+impl From<time::error::Format> for Error {
+    fn from(e: time::error::Format) -> Self {
+        Self::TimeFormatError(e)
+    }
+}
+
+impl From<time::error::Parse> for Error {
+    fn from(e: time::error::Parse) -> Self {
+        Self::TimeParseError(e)
     }
 }

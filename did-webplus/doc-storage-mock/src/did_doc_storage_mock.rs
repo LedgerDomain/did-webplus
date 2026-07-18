@@ -33,7 +33,7 @@ impl DIDDocStorageMockState {
             self_hash: did_document.self_hash.to_string(),
             did: did_document.did.to_string(),
             version_id: did_document.version_id as i64,
-            valid_from: did_document.valid_from,
+            valid_from: did_document.valid_from().unwrap(),
             did_documents_jsonl_octet_length: previous_did_documents_jsonl_octet_length
                 + did_document_jcs.len() as i64
                 + 1,

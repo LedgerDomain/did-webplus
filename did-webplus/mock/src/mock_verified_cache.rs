@@ -281,7 +281,7 @@ impl<'v> MicroledgerMutView<'v> for MockVerifiedCacheMicroledgerMutView<'v> {
             .did_document(did_document_primary_key);
         let did_document_self_hash = did_document.self_hash.clone();
         let did_document_version_id = did_document.version_id;
-        let did_document_valid_from = did_document.valid_from;
+        let did_document_valid_from = did_document.valid_from().unwrap();
         // Insert into self-hash table.
         let self_hash_primary_key =
             SelfHashPrimaryKey::from(self.mock_verified_cache.self_hash_v.len() as u32);
@@ -423,7 +423,7 @@ impl MockVerifiedCache {
                 did_document.did.clone(),
                 did_document.self_hash.clone(),
                 did_document.version_id,
-                did_document.valid_from,
+                did_document.valid_from().unwrap(),
             )
         };
 

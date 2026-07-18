@@ -29,7 +29,7 @@ impl Microledger {
         assert!(!root_did_document.self_hash.is_placeholder());
         let self_hash = &root_did_document.self_hash;
         let version_id = root_did_document.version_id;
-        let valid_from = root_did_document.valid_from;
+        let valid_from = root_did_document.valid_from().unwrap();
 
         let mut self_hash_version_id_m = HashMap::new();
         self_hash_version_id_m.insert(self_hash.clone(), version_id);
@@ -66,7 +66,7 @@ impl Microledger {
                 assert!(!root_did_document.self_hash.is_placeholder());
                 let self_hash = &root_did_document.self_hash;
                 let version_id = root_did_document.version_id;
-                let valid_from = root_did_document.valid_from;
+                let valid_from = root_did_document.valid_from().unwrap();
 
                 self_hash_version_id_m.insert(self_hash.clone(), version_id);
                 valid_from_version_id_m.insert(valid_from, version_id);
@@ -79,7 +79,7 @@ impl Microledger {
                 assert!(!non_root_did_document.self_hash.is_placeholder());
                 let self_hash = &non_root_did_document.self_hash;
                 let version_id = non_root_did_document.version_id;
-                let valid_from = non_root_did_document.valid_from;
+                let valid_from = non_root_did_document.valid_from().unwrap();
 
                 self_hash_version_id_m.insert(self_hash.clone(), version_id);
                 valid_from_version_id_m.insert(valid_from, version_id);
@@ -190,7 +190,7 @@ impl<'m> MicroledgerMutView<'m> for &'m mut Microledger {
         new_did_document.verify_non_root_nonrecursive(self.view().latest_did_document())?;
         let self_hash = &new_did_document.self_hash;
         let version_id = new_did_document.version_id;
-        let valid_from = new_did_document.valid_from;
+        let valid_from = new_did_document.valid_from().unwrap();
 
         self.self_hash_version_id_m
             .insert(self_hash.clone(), version_id);

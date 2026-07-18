@@ -36,6 +36,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             !did_document.self_hash.is_placeholder(),
             "programmer error: self_hash is expected to be present on a valid DID document"
         );
+        let valid_from = did_document
+            .valid_from()
+            .map_err(|e| Error::InvalidDIDDocument(e.into()))?;
         // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
         // and that means that the DID document is verifiably already present in the database.
         let query = sqlx::query!(
@@ -62,7 +65,7 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             "#,
             did_document.did.as_str(),
             did_document.version_id as i64,
-            did_document.valid_from,
+            valid_from,
             did_document.self_hash.as_str(),
             did_document_jcs,
         );
@@ -105,7 +108,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStoragePostgres {
             );
             let did_str = did_document.did.as_str();
             let version_id = did_document.version_id as i64;
-            let valid_from = did_document.valid_from;
+            let valid_from = did_document
+                .valid_from()
+                .map_err(|e| Error::InvalidDIDDocument(e.into()))?;
             let self_hash_str = did_document.self_hash.as_str();
             // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
             // and that means that the DID document is verifiably already present in the database.

@@ -81,7 +81,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
         );
         let did_str = did_document.did.as_str();
         let version_id = did_document.version_id as i64;
-        let valid_from = did_document.valid_from;
+        let valid_from = did_document
+            .valid_from()
+            .map_err(|e| Error::InvalidDIDDocument(e.into()))?;
         let self_hash_str = did_document.self_hash.as_str();
         // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
         // and that means that the DID document is verifiably already present in the database.
@@ -152,7 +154,9 @@ impl did_webplus_doc_store::DIDDocStorage for DIDDocStorageSQLite {
             );
             let did_str = did_document.did.as_str();
             let version_id = did_document.version_id as i64;
-            let valid_from = did_document.valid_from;
+            let valid_from = did_document
+                .valid_from()
+                .map_err(|e| Error::InvalidDIDDocument(e.into()))?;
             let self_hash_str = did_document.self_hash.as_str();
             // Regarding "ON CONFLICT DO NOTHING", a conflict will only happen when the self_hash already exists,
             // and that means that the DID document is verifiably already present in the database.

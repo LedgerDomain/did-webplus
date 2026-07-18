@@ -574,7 +574,7 @@ fn test_did_operations() {
                     assert!(did_document_metadata.latest_update_metadata_o.is_some());
                     assert!(did_document_metadata.deactivated_o.is_some());
 
-                    assert!(did_document.valid_from <= jws_signing_time);
+                    assert!(did_document.valid_from().unwrap() <= jws_signing_time);
                     match did_document_metadata.next_update_metadata_o.as_ref() {
                         Some(next_update) => {
                             assert!(jws_signing_time < next_update.next_update_time_milliseconds());

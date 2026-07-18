@@ -295,7 +295,7 @@ impl WalletStorageMockState {
             self_hash: did_document.self_hash.clone(),
             did: did_document.did.clone(),
             version_id: did_document.version_id,
-            valid_from: did_document.valid_from,
+            valid_from: did_document.valid_from().unwrap(),
             did_documents_jsonl_octet_length: latest_did_documents_jsonl_octet_length
                 + did_document_jcs.len() as u64
                 + 1,
