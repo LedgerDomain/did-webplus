@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-cli"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1443,7 +1443,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-cli-lib"
-version = "0.1.0"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -1854,7 +1854,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-vdg"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1877,7 +1877,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-vdg-lib"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -1911,7 +1911,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-vdr"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -1932,7 +1932,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-vdr-lib"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",
