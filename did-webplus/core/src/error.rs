@@ -4,30 +4,32 @@ use std::borrow::Cow;
 pub enum Error {
     #[error("Already exists: {0}")]
     AlreadyExists(Cow<'static, str>),
+    #[error("Generic error: {0}")]
+    Generic(Cow<'static, str>),
     #[error("Invalid: {0}")]
     Invalid(Cow<'static, str>),
-    #[error("Invalid DID microledger: {0}")]
-    InvalidDIDMicroledger(Cow<'static, str>),
     #[error("Invalid did:webplus create operation: {0}")]
     InvalidDIDCreateOperation(Cow<'static, str>),
+    #[error("Invalid DID microledger: {0}")]
+    InvalidDIDMicroledger(Cow<'static, str>),
     #[error("Invalid did:webplus update operation: {0}")]
     InvalidDIDUpdateOperation(Cow<'static, str>),
     #[error("Malformed: {0}")]
     Malformed(Cow<'static, str>),
     #[error("Malformed {0} method: {1}")]
     MalformedKeyId(Cow<'static, str>, Cow<'static, str>),
-    #[error("Not found: {0}")]
-    NotFound(Cow<'static, str>),
-    #[error("Generic error: {0}")]
-    Generic(Cow<'static, str>),
     #[error("MBC error: {0}")]
     MBCError(mbx::Error),
+    #[error("Not found: {0}")]
+    NotFound(Cow<'static, str>),
+    #[error("Proof(s) error: {0}")]
+    ProofsError(Cow<'static, str>),
     #[error("Self-hash error: {0}")]
     SelfHashError(selfhash::Error),
-    #[error("Signature error: {0}")]
-    SignatureError(signature_dyn::Error),
     #[error("Serialization error: {0}")]
     Serialization(Cow<'static, str>),
+    #[error("Signature error: {0}")]
+    SignatureError(signature_dyn::Error),
     #[error("Signing error: {0}")]
     SigningError(Cow<'static, str>),
     #[error("Time error: {0}")]

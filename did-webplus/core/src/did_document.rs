@@ -414,17 +414,17 @@ impl DIDDocument {
     // Note that the allow attributes on valid_proof_data_vo is necessary if the below feature flags are not enabled.
     fn verify_proofs(
         &self,
-        #[allow(unused_mut, unused_variables)] mut valid_proof_data_vo: Option<
-            &mut Vec<ValidProofData>,
-        >,
+        // #[allow(unused_mut, unused_variables)]
+        mut valid_proof_data_vo: Option<&mut Vec<ValidProofData>>,
     ) -> Result<()> {
         // Form the detached payload bytes.  This is done by removing all the proofs from the DID document,
         // setting all the self-hash slots to the placeholder hash value, and then serializing the DID document.
         // This allow attribute is necessary if the below feature flags are not enabled.
-        #[allow(unused_variables)]
+        // #[allow(unused_variables)]
         let detached_payload_bytes = self.bytes_to_sign()?;
+        let mut invalid_proof_index_v = Vec::new();
 
-        for proof in self.proof_v.iter() {
+        for (proof_index, proof) in self.proof_v.iter().enumerate() {
             let jws = did_webplus_jws::JWS::try_from(proof.as_str())
                 .map_err(|_| Error::Malformed("Failed to parse proof as JWS".into()))?;
             let pub_key: mbx::MBPubKey = jws.header().kid.as_str().try_into().map_err(|e| {
@@ -433,16 +433,39 @@ impl DIDDocument {
                 )
             })?;
             let verifier_bytes = signature_dyn::VerifierBytes::try_from(&pub_key)?;
-            if let Ok(()) = jws.verify(
+            match jws.verify(
                 &verifier_bytes,
                 Some(&mut detached_payload_bytes.as_slice()),
             ) {
-                if let Some(valid_proof_data_vo) = valid_proof_data_vo.as_mut() {
-                    valid_proof_data_vo.push(ValidProofData::from_pub_key(pub_key));
+                Ok(()) => {
+                    if let Some(valid_proof_data_vo) = valid_proof_data_vo.as_mut() {
+                        valid_proof_data_vo.push(ValidProofData::from_pub_key(pub_key));
+                    }
+                }
+                Err(e) => {
+                    tracing::debug!(
+                        "DID document with selfHash {} had invalid proof with index {}; error was {}",
+                        self.self_hash,
+                        proof_index,
+                        e
+                    );
+                    invalid_proof_index_v.push(proof_index)
                 }
             }
         }
-        Ok(())
+        if invalid_proof_index_v.is_empty() {
+            // If there were no invalid proofs, return with success.
+            Ok(())
+        } else {
+            // Otherwise, there were invalid proofs, so return with error.
+            Err(Error::ProofsError(
+                format!(
+                    "DID document had at least one invalid proof.  Invalid proof indices: {:?}",
+                    invalid_proof_index_v
+                )
+                .into(),
+            ))
+        }
     }
     /// Returns the bytes that should be signed to produce a proof.  In particular, this is the JCS-serialized
     /// JSON of the DID document, omitting the proofs, with the self-hash slots set to the placeholder hash value.
