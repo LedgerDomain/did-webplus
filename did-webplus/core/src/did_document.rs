@@ -236,7 +236,7 @@ impl DIDDocument {
             if expected_prev_did_document_o.is_some() {
                 return Err(Error::Malformed(
                     format!(
-                        "Root DID document (selfHash: {:?}) cannot have a previous DID document.",
+                        "Root DID document (selfHash: {}) cannot have a previous DID document.",
                         self.self_hash
                     )
                     .into(),
@@ -247,7 +247,7 @@ impl DIDDocument {
             if expected_prev_did_document_o.is_none() {
                 return Err(Error::Malformed(
                     format!(
-                        "Non-root DID document (selfHash: {:?}, versionId: {}) must have a previous DID document.",
+                        "Non-root DID document (selfHash: {}, versionId: {}) must have a previous DID document.",
                         self.self_hash, self.version_id
                     )
                     .into(),
@@ -259,7 +259,7 @@ impl DIDDocument {
     pub fn verify_root_nonrecursive(&self) -> Result<&mbx::MBHash> {
         if !self.is_root_did_document() {
             return Err(Error::Malformed(format!(
-                "Expected a root DID document, but this is a non-root DID document (selfHash: {:?}).",
+                "Expected a root DID document, but this is a non-root DID document (selfHash: {}).",
                 self.self_hash
             ).into()));
         }
@@ -271,7 +271,7 @@ impl DIDDocument {
         // Check initial version_id.
         if self.version_id != 0 {
             return Err(Error::Malformed(format!(
-                "Root DID document (selfHash: {:?}) must have version_id == 0, but it had version_id: {}",
+                "Root DID document (selfHash: {}) must have version_id == 0, but it had version_id: {}",
                 self.self_hash, self.version_id
             ).into()));
         }
@@ -289,7 +289,7 @@ impl DIDDocument {
     ) -> Result<&mbx::MBHash> {
         if self.is_root_did_document() {
             return Err(Error::Malformed(format!(
-                "Expected a non-root DID document, but this is a root DID document (selfHash: {:?}).",
+                "Expected a non-root DID document, but this is a root DID document (selfHash: {}).",
                 self.self_hash
             ).into()));
         }

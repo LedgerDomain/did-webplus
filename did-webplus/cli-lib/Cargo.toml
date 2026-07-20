@@ -1,6 +1,6 @@
 [package]
 name = "did-webplus-cli-lib"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2024"
 rust-version = "1.86"

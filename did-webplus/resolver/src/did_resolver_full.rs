@@ -529,6 +529,10 @@ impl DIDResolverFull {
             .as_ref()
             .map(|record| record.did_documents_jsonl_octet_length)
             .unwrap_or(0) as u64;
+        // This known_did_documents_jsonl_octet_length includes a trailing newline.  In order to allow for
+        // did-documents.jsonl files that don't have a trailing newline, we need to subtract 1 from this value.
+        known_did_documents_jsonl_octet_length =
+            known_did_documents_jsonl_octet_length.saturating_sub(1);
 
         // Fetch the latest updates from the VDR.
         let did_documents_jsonl_update = fetch_did_documents_jsonl_update(
@@ -538,8 +542,15 @@ impl DIDResolverFull {
             known_did_documents_jsonl_octet_length,
         )
         .await?;
+        // Because we subtracted 1 when computing known_did_documents_jsonl_octet_length, the update may
+        // begin with a newline.  If so, we need to remove it.
+        let did_documents_jsonl_update_str = if did_documents_jsonl_update.starts_with('\n') {
+            did_documents_jsonl_update.strip_prefix('\n').unwrap()
+        } else {
+            did_documents_jsonl_update.as_str()
+        };
         // Trim whitespace off the end (typically a newline)
-        let did_documents_jsonl_update_str = did_documents_jsonl_update.trim_end();
+        let did_documents_jsonl_update_str = did_documents_jsonl_update_str.trim_end();
         tracing::trace!("got did-documents.jsonl update");
 
         #[cfg(not(target_arch = "wasm32"))]

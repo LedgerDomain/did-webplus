@@ -69,7 +69,7 @@ impl DIDDocRecord {
         }
 
         if self.did_documents_jsonl_octet_length < self.did_document_jcs.len() as i64 + 1 {
-            return Err(Error::RecordCorruption(format!("Inconsistent: DID doc record did_documents_jsonl_octet_length {} is less than did_document_jcs.len() + 1 (which is {})", self.did_documents_jsonl_octet_length, self.did_document_jcs.len() + 1).into(), self.self_hash.to_string().into()));
+            return Err(Error::RecordCorruption(format!("Inconsistent: DID doc record did_documents_jsonl_octet_length {} is less than did_document_jcs.len() + 1 (which is {}); a trailing newline must be included in did_documents_jsonl_octet_length", self.did_documents_jsonl_octet_length, self.did_document_jcs.len() + 1).into(), self.self_hash.to_string().into()));
         }
 
         Ok(())
