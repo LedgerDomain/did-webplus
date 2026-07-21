@@ -17,11 +17,11 @@ clap = { version = "4.5.4", features = ["derive", "env"] }
 did-webplus-vdr-lib = { path = "../vdr-lib" }
 dotenvy = "0.15.7"
 tokio = { version = "1.41", features = ["full"] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"] }
 
 [dev-dependencies]
-ctor = "0.4.1"
+ctor = { workspace = true }
 did-webplus-core = { path = "../core" }
 did-webplus-mock = { path = "../mock" }
 mbx = { workspace = true }
@@ -35,6 +35,6 @@ signature-dyn = { workspace = true, features = [
     "p384",
     "p521",
 ] }
-test-util = { path = "../../test-util" }
+test-util = { workspace = true }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
-tracing = "0.1.37"
+tracing = { workspace = true }

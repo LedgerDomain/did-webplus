@@ -20,7 +20,7 @@ sqlx = { version = "0.8.2", default-features = false, optional = true }
 storage-traits = { path = "../../storage-traits" }
 thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 
 # NOTE: This is used for parallel validation of DID documents, and really speeds things up
 # when there are many DID updates to be validated. TODO: maybe put this behind a feature flag
@@ -29,7 +29,7 @@ rayon = "1.12"
 tokio = { version = "1.41", features = ["rt-multi-thread"] }
 
 [dev-dependencies]
-ctor = "0.4.1"
+ctor = { workspace = true }
 did-webplus-doc-storage-mock = { path = "../doc-storage-mock" }
 did-webplus-doc-storage-postgres = { path = "../doc-storage-postgres" }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
@@ -40,5 +40,5 @@ serial_test = { version = "2", default-features = false }
 signature-dyn = { workspace = true, features = ["ed25519-dalek", "random"] }
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite"] }
 storage-traits = { path = "../../storage-traits" }
-test-util = { path = "../../test-util" }
+test-util = { workspace = true }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }

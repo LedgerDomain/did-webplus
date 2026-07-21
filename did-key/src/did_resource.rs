@@ -1,4 +1,4 @@
-use crate::{DIDResourceStr, Error, DID};
+use crate::{DID, DIDResourceStr, Error};
 
 #[derive(Debug, Eq, Hash, PartialEq, pneutype::PneuString)]
 #[pneu_string(as_pneu_str = "as_did_resource_str", borrow = "DIDResourceStr")]

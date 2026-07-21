@@ -26,18 +26,20 @@ impl PrivKeyUsageSelect {
         ctx: &WalletStorageCtx,
     ) -> Result<PrivKeyUsageRecord> {
         if self.wallets_rowid != ctx.wallets_rowid {
-            panic!("ctx.wallets_rowid {} doesn't match priv_key_usages.wallets_rowid {}; this is a programmer error", ctx.wallets_rowid, self.wallets_rowid);
+            panic!(
+                "ctx.wallets_rowid {} doesn't match priv_key_usages.wallets_rowid {}; this is a programmer error",
+                ctx.wallets_rowid, self.wallets_rowid
+            );
         }
 
-        let pub_key = mbx::MBPubKey::try_from(
-            self.pub_key.as_str()
-        ).map_err(|e| {
+        let pub_key = mbx::MBPubKey::try_from(self.pub_key.as_str()).map_err(|e| {
             Error::RecordCorruption(
                 format!(
                     "priv_key_usages.pub_key column contains invalid MBPubKey {:?}; error was: {}",
-                    self.pub_key,
-                    e).into()
+                    self.pub_key, e
                 )
+                .into(),
+            )
         })?;
 
         let usage = PrivKeyUsage::try_from_priv_key_usage_type_and_spec(

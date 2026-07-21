@@ -1798,6 +1798,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "did-webplus-test-vector"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "did-webplus-test-vector-lib",
+ "dotenvy",
+]
+
+[[package]]
+name = "did-webplus-test-vector-lib"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.21.7",
+ "blake3",
+ "chacha20",
+ "clap",
+ "ctor",
+ "did-webplus-core",
+ "did-webplus-doc-storage-mock",
+ "did-webplus-doc-store",
+ "did-webplus-jws",
+ "did-webplus-mock",
+ "ed25519-dalek 3.0.0-rc.0",
+ "ed448-goldilocks",
+ "k256 0.14.0-rc.11",
+ "mbx",
+ "p256 0.14.0-rc.11",
+ "p384 0.14.0-rc.11",
+ "p521",
+ "rand_core 0.10.1",
+ "selfhash",
+ "serde",
+ "serde_json",
+ "serde_json_canonicalizer 0.3.1",
+ "signature-dyn",
+ "test-util",
+ "thiserror 1.0.69",
+ "time",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "did-webplus-urd"
 version = "0.1.4"
 dependencies = [

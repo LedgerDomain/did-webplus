@@ -81,10 +81,14 @@ pub async fn spawn_vdr(vdr_config: VDRConfig) -> anyhow::Result<tokio::task::Joi
 
         #[cfg(not(feature = "postgres"))]
         {
-            panic!("postgres database is only supported by VDR if the `postgres` feature was enabled when building it");
+            panic!(
+                "postgres database is only supported by VDR if the `postgres` feature was enabled when building it"
+            );
         }
     } else if vdr_config.database_url.starts_with("sqlite://") {
-        panic!("VDR should not be run with SQLite DB backend, as SQLite can't handle concurrent writes.  Use Postgres instead.");
+        panic!(
+            "VDR should not be run with SQLite DB backend, as SQLite can't handle concurrent writes.  Use Postgres instead."
+        );
         // #[cfg(feature = "sqlite")]
         // {
         //     use anyhow::Context;

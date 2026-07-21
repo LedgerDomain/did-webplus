@@ -1,4 +1,4 @@
-use crate::{into_js_value, Result, VJSONResolver};
+use crate::{Result, VJSONResolver, into_js_value};
 use std::sync::Arc;
 use wasm_bindgen::prelude::wasm_bindgen;
 

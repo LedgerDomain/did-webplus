@@ -1,9 +1,7 @@
 use crate::{
-    mock_resolver_internal::MockResolverInternal, MockVDG, MockVDR, MockVerifiedCache, Resolver,
+    MockVDG, MockVDR, MockVerifiedCache, Resolver, mock_resolver_internal::MockResolverInternal,
 };
-use did_webplus_core::{
-    DIDDocument, DIDDocumentMetadata, DIDStr, Error,
-};
+use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr, Error};
 use std::{
     borrow::Cow,
     collections::HashMap,

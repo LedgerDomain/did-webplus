@@ -1,4 +1,4 @@
-use did_webplus_core::{KeyPurpose, DID};
+use did_webplus_core::{DID, KeyPurpose};
 
 #[derive(Clone, Debug, Default)]
 pub struct LocallyControlledVerificationMethodFilter {

@@ -1,0 +1,16 @@
+[package]
+name = "did-webplus-test-vector"
+version = "0.1.0"
+authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
+edition = "2024"
+description = "CLI for generating did:webplus test-vector microledgers"
+
+[[bin]]
+name = "did-webplus-test-vector"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.94"
+clap = { version = "4.5.4", features = ["derive", "env"] }
+did-webplus-test-vector-lib = { path = "../test-vector-lib" }
+dotenvy = "0.15.7"

@@ -1,9 +1,9 @@
 use crate::{
-    error_invalid_vjson, error_record_corruption, now_utc_milliseconds, vjson_record::VJSONRecord,
-    Result, VJSONStorage,
+    Result, VJSONStorage, error_invalid_vjson, error_record_corruption, now_utc_milliseconds,
+    vjson_record::VJSONRecord,
 };
 use std::sync::Arc;
-use vjson_core::{VJSONResolver, Validate, DEFAULT_SCHEMA};
+use vjson_core::{DEFAULT_SCHEMA, VJSONResolver, Validate};
 
 #[derive(Clone, Copy, Debug)]
 pub enum AlreadyExistsPolicy {

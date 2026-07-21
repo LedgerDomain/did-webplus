@@ -33,10 +33,10 @@ sqlx = { version = "0.8.2", features = ["sqlite", "runtime-tokio"] }
 tokio = "1.46"
 tower = "0.5.2"
 tower-http = { version = "0.6.0", features = ["full"] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 
 [dev-dependencies]
-ctor = "0.4.1"
+ctor = { workspace = true }
 did-webplus-software-wallet = { path = "../software-wallet" }
 did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
 did-webplus-wallet = { path = "../wallet" }
@@ -46,6 +46,6 @@ mbx = { workspace = true }
 percent-encoding = "2.3.1"
 selfhash = { workspace = true, features = ["mbx"] }
 storage-traits = { path = "../../storage-traits" }
-test-util = { path = "../../test-util" }
+test-util = { workspace = true }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

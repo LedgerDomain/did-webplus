@@ -1,6 +1,6 @@
 use crate::{
-    error_invalid_vjson, self_hashable_json_from, validate_against_json_schema, DirectDependencies,
-    Error, Result, VJSONResolver, VJSONSchema,
+    DirectDependencies, Error, Result, VJSONResolver, VJSONSchema, error_invalid_vjson,
+    self_hashable_json_from, validate_against_json_schema,
 };
 use selfhash::{HashFunctionT, SelfHashableT};
 
@@ -58,7 +58,9 @@ impl Validate for serde_json::Value {
                 .verify_self_hashes()
                 .map_err(error_invalid_vjson)?
                 .to_owned();
-            tracing::trace!("    validate_and_return_self_hash; Input VJSON's self-hashes were successfully verified.");
+            tracing::trace!(
+                "    validate_and_return_self_hash; Input VJSON's self-hashes were successfully verified."
+            );
 
             // The "proofs" field should be an array of JWS strings over the self-hash digest of the JSON
             // without its "proofs" field.
@@ -103,7 +105,11 @@ impl Validate for serde_json::Value {
                 for (proof_index, proof) in proof_v.iter().enumerate() {
                     let jws = did_webplus_jws::JWS::try_from(proof.as_str())
                         .map_err(|e| Error::Malformed(e.to_string().into()))?;
-                    tracing::info!("    validate_and_return_self_hash; Verifying {}th proof with JWS header: {:?}", proof_index, jws.header());
+                    tracing::info!(
+                        "    validate_and_return_self_hash; Verifying {}th proof with JWS header: {:?}",
+                        proof_index,
+                        jws.header()
+                    );
 
                     // Determine the verifier (i.e. public key) to use to verify the JWS.
                     let verifier_b = verifier_resolver.resolve(&jws.header().kid).await.map_err(|e| Error::InvalidVJSON(format!("JWS header \"kid\" field was not a valid verifier; error was: {}", e).into()))?;
@@ -114,7 +120,10 @@ impl Validate for serde_json::Value {
                     )
                     .map_err(error_invalid_vjson)?;
                     valid_proof_count += 1;
-                    tracing::trace!("    validate_and_return_self_hash; Proof with JWS header {:?} was verified", jws.header());
+                    tracing::trace!(
+                        "    validate_and_return_self_hash; Proof with JWS header {:?} was verified",
+                        jws.header()
+                    );
                 }
             }
 

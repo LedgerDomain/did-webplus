@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use crate::{error_invalid_vjson, Error, Result};
+use crate::{Error, Result, error_invalid_vjson};
 use selfhash::SelfHashableT;
 
 #[derive(Clone, Debug)]

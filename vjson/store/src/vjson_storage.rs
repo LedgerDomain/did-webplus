@@ -1,4 +1,4 @@
-use crate::{vjson_record::VJSONRecord, AlreadyExistsPolicy, Result};
+use crate::{AlreadyExistsPolicy, Result, vjson_record::VJSONRecord};
 
 #[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]

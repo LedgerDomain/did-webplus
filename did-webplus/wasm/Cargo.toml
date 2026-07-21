@@ -55,7 +55,7 @@ ssi-claims = { version = "0.4.0", features = ["webplus"] }
 ssi-jws = "0.3.1"
 storage-traits = { path = "../../storage-traits" }
 time = { version = "0.3", features = ["wasm-bindgen"] }
-tracing = { version = "0.1.37", features = ["log"] }
+tracing = { workspace = true, features = ["log"] }
 url = "2.5.4"
 uuid = "1.9.1"
 verifier-resolver = { path = "../../verifier-resolver" }

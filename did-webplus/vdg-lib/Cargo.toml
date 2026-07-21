@@ -39,10 +39,10 @@ time = "0.3"
 tokio = "1.41"
 tower = "0.5.2"
 tower-http = { version = "0.6.0", features = ["full"] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 
 [dev-dependencies]
-ctor = "0.4.1"
+ctor = { workspace = true }
 did-webplus-mock = { path = "../mock" }
 did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
 dotenvy = "0.15.7"
@@ -57,7 +57,7 @@ signature-dyn = { workspace = true, features = [
     "p384",
     "p521",
 ] }
-test-util = { path = "../../test-util" }
+test-util = { workspace = true }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 url = "2.5.4"

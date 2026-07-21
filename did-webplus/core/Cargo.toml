@@ -74,11 +74,11 @@ time = { version = "0.3", features = [
     "serde",
     "serde-well-known",
 ] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 verifier-resolver = { path = "../../verifier-resolver" }
 
 [dev-dependencies]
-ctor = "0.4.1"
+ctor = { workspace = true }
 did-key = { path = "../../did-key", features = [
     "ed25519-dalek",
     "verifier-resolver",
@@ -98,7 +98,7 @@ ssi-jwk = { version = "0.3.2", features = [
     "secp384r1",
 ] }
 ssi-jws = { version = "0.3.1", features = ["ed25519"] }
-test-util = { path = "../../test-util" }
+test-util = { workspace = true }
 url = "2.5.4"
 
 # # NOTE: These are for the test_ssi_jwk_interop_* tests, which have passed, and don't need to be continually run.

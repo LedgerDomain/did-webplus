@@ -1,7 +1,5 @@
 use crate::{Resolver, VDS};
-use did_webplus_core::{
-    DIDDocument, DIDDocumentMetadata, DIDStr,
-};
+use did_webplus_core::{DIDDocument, DIDDocumentMetadata, DIDStr};
 use std::borrow::Cow;
 
 /// For use in the implementation of MockResolverFull and MockVDG (both things have a MockVerifiedCache).
@@ -16,7 +14,8 @@ impl<'r> Resolver for MockResolverInternal<'r> {
         did: &DIDStr,
         version_id_begin_o: Option<u32>,
         version_id_end_o: Option<u32>,
-    ) -> did_webplus_core::Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>> {
+    ) -> did_webplus_core::Result<Box<dyn std::iter::Iterator<Item = Cow<'s, DIDDocument>> + 's>>
+    {
         self.vds
             .get_did_documents(self.user_agent, did, version_id_begin_o, version_id_end_o)
     }

@@ -29,8 +29,8 @@ thiserror = "1.0.60"
 time = { version = "0.3", features = ["serde"] }
 
 [dev-dependencies]
-ctor = "0.4.1"
+ctor = { workspace = true }
 dotenvy = "0.15.7"
-test-util = { path = "../../test-util" }
+test-util = { workspace = true }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

@@ -46,7 +46,10 @@ impl<W: Wallet> WalletBasedSigner<W> {
                 locally_controlled_verification_method_filter,
             )
             .await?;
-        let verifier_bytes = async_signer_b.async_get_verifier_bytes().await?.into_owned();
+        let verifier_bytes = async_signer_b
+            .async_get_verifier_bytes()
+            .await?
+            .into_owned();
         Ok(Self {
             wallet,
             key_purpose,
@@ -93,7 +96,9 @@ impl<W: Wallet> signature_dyn::AsyncSignerT for WalletBasedSigner<W> {
             )
             .await
             .map_err(|e| e.to_string())?;
-        Ok(async_signer_b.async_try_sign_message(message_byte_v).await?)
+        Ok(async_signer_b
+            .async_try_sign_message(message_byte_v)
+            .await?)
     }
 }
 

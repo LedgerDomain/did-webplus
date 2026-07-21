@@ -9,5 +9,5 @@ anyhow = "1.0.94"
 async-trait = { workspace = true }
 signature-dyn = { workspace = true }
 thiserror = "1.0.60"
-tracing = "0.1.37"
+tracing = { workspace = true }
 url = "2.5.4"

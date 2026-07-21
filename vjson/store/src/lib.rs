@@ -5,8 +5,8 @@ mod vjson_store;
 
 pub use crate::{
     error::{
-        error_already_exists, error_internal_error, error_invalid_vjson, error_malformed,
-        error_not_found, error_record_corruption, error_storage_error, Error,
+        Error, error_already_exists, error_internal_error, error_invalid_vjson, error_malformed,
+        error_not_found, error_record_corruption, error_storage_error,
     },
     vjson_record::VJSONRecord,
     vjson_storage::VJSONStorage,

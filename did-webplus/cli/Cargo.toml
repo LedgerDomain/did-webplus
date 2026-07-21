@@ -46,7 +46,7 @@ sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite"] }
 ssi-multicodec = "0.2.0"
 storage-traits = { path = "../../storage-traits" }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
-tracing = "0.1.37"
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 url = "2.5.4"
 uuid = { version = "1.9.1", features = ["v4"] }

@@ -30,7 +30,12 @@ impl pneutype::Validate for DIDResourceStr {
                 e
             )
         })?;
-        anyhow::ensure!(did.multibase() == fragment, "Malformed DIDResource {:?}; expected fragment to be identical to method-specific identifier {:?}", data, did.multibase());
+        anyhow::ensure!(
+            did.multibase() == fragment,
+            "Malformed DIDResource {:?}; expected fragment to be identical to method-specific identifier {:?}",
+            data,
+            did.multibase()
+        );
         Ok(())
     }
 }

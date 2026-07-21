@@ -22,11 +22,11 @@ serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
 signature-dyn = { workspace = true }
 thiserror = "1.0.60"
-tracing = "0.1.37"
+tracing = { workspace = true }
 verifier-resolver = { path = "../../verifier-resolver" }
 
 [dev-dependencies]
-ctor = "0.4.1"
+ctor = { workspace = true }
 env_logger = "0.11.3"
 rand = "0.8"
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }

@@ -57,7 +57,7 @@ serde_json = "1.0.107"
 serde_json_canonicalizer = "0.3.0"
 signature-dyn = { workspace = true, features = ["pkcs8", "random"] }
 storage-traits = { path = "../../storage-traits" }
-tracing = "0.1.37"
+tracing = { workspace = true }
 verifier-resolver = { path = "../../verifier-resolver" }
 vjson-core = { path = "../../vjson/core" }
 vjson-store = { path = "../../vjson/store" }
@@ -65,7 +65,7 @@ zeroize = "1.7.0"
 
 [dev-dependencies]
 anyhow = { version = "1.0.94", features = ["backtrace"] }
-ctor = "0.4.1"
+ctor = { workspace = true }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
 did-webplus-doc-store = { path = "../doc-store", features = ["sqlx"] }
 did-webplus-software-wallet = { path = "../software-wallet" }
@@ -74,7 +74,7 @@ did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 dotenvy = "0.15.7"
 sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls"] }
 storage-traits = { path = "../../storage-traits" }
-test-util = { path = "../../test-util" }
+test-util = { workspace = true }
 tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 vjson-storage-sqlite = { path = "../../vjson/storage-sqlite" }

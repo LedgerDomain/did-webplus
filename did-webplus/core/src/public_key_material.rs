@@ -28,6 +28,10 @@ impl PublicKeyMaterial {
         public_key_set: PublicKeySet<&'a mbx::MBPubKey>,
     ) -> Result<Self> {
         let mut verification_method_m: HashMap<mbx::MBPubKey, VerificationMethod> = HashMap::new();
+        // Preserve first-seen insertion order.  HashMap::into_values is not deterministic
+        // (RandomState), and unstable `verificationMethod` order changes the DID document
+        // self-hash — which breaks deterministic test-vector generation.
+        let mut verification_method_v: Vec<VerificationMethod> = Vec::new();
 
         let mut authentication_relative_key_resource_v = Vec::new();
         let mut assertion_method_relative_key_resource_v = Vec::new();
@@ -55,6 +59,7 @@ impl PublicKeyMaterial {
                                 &key_id_fragment,
                                 pub_key,
                             );
+                            verification_method_v.push(verification_method.clone());
                             let key_id_fragment = vacant.insert(verification_method).id.fragment();
                             relative_key_resource_v
                                 .push(RelativeKeyResource::from_fragment(&key_id_fragment));
@@ -83,8 +88,6 @@ impl PublicKeyMaterial {
             &public_key_set.capability_delegation_v,
             &mut capability_delegation_relative_key_resource_v,
         );
-
-        let verification_method_v = verification_method_m.into_values().collect();
 
         Ok(Self {
             verification_method_v,

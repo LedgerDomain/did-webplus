@@ -9,5 +9,5 @@ async-trait = { workspace = true }
 mbx = { workspace = true }
 selfhash = { workspace = true }
 storage-traits = { path = "../../storage-traits" }
-tracing = "0.1.37"
+tracing = { workspace = true }
 vjson-store = { path = "../store" }

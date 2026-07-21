@@ -23,9 +23,9 @@ pneutype = { workspace = true }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 signature-dyn = { workspace = true }
 ssi-multicodec = "0.2.0"
-tracing = "0.1.37"
+tracing = { workspace = true }
 verifier-resolver = { path = "../verifier-resolver", optional = true }
 
 [dev-dependencies]
-ctor = "0.4.1"
-test-util = { path = "../test-util" }
+ctor = { workspace = true }
+test-util = { workspace = true }

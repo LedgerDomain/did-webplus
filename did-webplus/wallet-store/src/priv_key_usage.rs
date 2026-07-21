@@ -1,5 +1,5 @@
 use crate::{PrivKeyUsageType, Result};
-use did_webplus_core::{DIDFullyQualified, DIDKeyResourceFullyQualified, DID};
+use did_webplus_core::{DID, DIDFullyQualified, DIDKeyResourceFullyQualified};
 
 /// Specific usages for a private key, along with type-specific data that does NOT include signature data.
 // TODO: Figure out if the other pub key in a key exchange is a risk to store.

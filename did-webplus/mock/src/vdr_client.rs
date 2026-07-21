@@ -1,4 +1,4 @@
-use did_webplus_core::{DIDDocument, Error, DID};
+use did_webplus_core::{DID, DIDDocument, Error};
 
 /// This trait represents the client side of the interaction with the VDR.
 // TODO: Maybe make a method for retrieving the parameters that the client should use to
