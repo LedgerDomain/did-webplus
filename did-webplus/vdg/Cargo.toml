@@ -1,6 +1,6 @@
 [package]
 name = "did-webplus-vdg"
-version = "0.1.2"
+version = "0.1.3"
 authors = [
     "Ben Nichols <ben.nichols@ledgerdomain.com>",
     "Victor Dods <victor.dods@ledgerdomain.com>",
