@@ -81,7 +81,14 @@ async fn every_catalog_vector_matches_reference_implementation() {
 
         if vector.category == "resolution" {
             if let Some(failure) = check_resolution_vector(&vector).await {
+                tracing::debug!(
+                    "  test vector {} failed; failure was: {}",
+                    vector.name,
+                    failure
+                );
                 failure_v.push(failure);
+            } else {
+                tracing::debug!("  test vector {} passed", vector.name);
             }
             continue;
         }
@@ -89,16 +96,30 @@ async fn every_catalog_vector_matches_reference_implementation() {
         let (accepted, rejection_o) = accepted_did_document_count(&vector).await;
         let expected = vector.expected.valid_did_document_count as usize;
         if accepted != expected {
-            failure_v.push(format!(
+            let failure = format!(
                 "{}: expected acceptance of exactly {expected} documents, accepted {accepted}; {}",
                 vector.name,
                 rejection_o.as_deref().unwrap_or("no rejection occurred")
-            ));
+            );
+            tracing::debug!(
+                "  test vector {} failed; failure was: {}",
+                vector.name,
+                failure
+            );
+            failure_v.push(failure);
         } else if expected < vector.jsonl_line_v.len() && rejection_o.is_none() {
-            failure_v.push(format!(
+            let failure = format!(
                 "{}: expected rejection at document {expected}, but no rejection occurred",
                 vector.name
-            ));
+            );
+            tracing::debug!(
+                "  test vector {} failed; failure was: {}",
+                vector.name,
+                failure
+            );
+            failure_v.push(failure);
+        } else {
+            tracing::debug!("  test vector {} passed", vector.name);
         }
     }
 
@@ -132,7 +153,10 @@ async fn check_resolution_vector(vector: &TestVector) -> Option<String> {
     let content_did = match did_webplus_doc_store::parse_did_document(&vector.jsonl_line_v[0]) {
         Ok(document) => document.did,
         Err(error) => {
-            return Some(format!("{}: failed to parse root document: {error}", vector.name));
+            return Some(format!(
+                "{}: failed to parse root document: {error}",
+                vector.name
+            ));
         }
     };
     if content_did == vector.did {

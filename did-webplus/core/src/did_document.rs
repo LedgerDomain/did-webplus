@@ -362,14 +362,23 @@ impl DIDDocument {
         use selfhash::HashRefT;
         assert!(!self.self_hash.deref().is_placeholder());
 
-        tracing::trace!(?self.self_hash, "verified self-hashes");
+        tracing::trace!(?self.self_hash, ?self.version_id, "verified self-hashes");
 
+        tracing::trace!(?self.self_hash, ?self.version_id, "verifying {} proofs", self.proof_v.len());
         if let Some(expected_prev_did_document) = expected_prev_did_document_o {
+            tracing::trace!(?self.self_hash, ?self.version_id, "expected_prev_did_document.self_hash = {}", expected_prev_did_document.self_hash);
+
             // If this is a non-root DIDDocument, verify all proofs, storing the key IDs of the valid proofs.
             let mut valid_proof_data_v = Vec::with_capacity(self.proof_v.len());
             self.verify_proofs(Some(&mut valid_proof_data_v))?;
 
-            tracing::trace!(?valid_proof_data_v, "verified proofs");
+            tracing::trace!(
+                ?self.self_hash,
+                ?self.version_id,
+                ?valid_proof_data_v,
+                "verified proofs; valid_proof_data_v.len() = {}",
+                valid_proof_data_v.len()
+            );
 
             // Verify the update rules using the valid proof data.
             use crate::VerifyRulesT;
@@ -377,16 +386,31 @@ impl DIDDocument {
                 .update_rules
                 .verify_rules(&valid_proof_data_v)?;
 
-            tracing::trace!(?valid_proof_data_v, "verified update rules");
+            tracing::trace!(
+                ?self.self_hash,
+                ?self.version_id,
+                ?valid_proof_data_v,
+                "verified update rules for non-root DID document"
+            );
         } else {
+            tracing::trace!(?self.self_hash, ?self.version_id, "verifying proofs for root DID document");
+
             // Even though the root DID document doesn't require any proofs, we will verify them anyway,
             // since it would not make sense to produce a root DID document with invalid proofs.
             self.verify_proofs(None)?;
 
-            tracing::trace!("verified proofs for root DID document");
+            tracing::trace!(
+                ?self.self_hash,
+                ?self.version_id,
+                "verified proofs for root DID document"
+            );
         }
 
-        tracing::trace!("verified self-hashes and update rules");
+        tracing::trace!(
+            ?self.self_hash,
+            ?self.version_id,
+            "verify_self_hashes_and_update_rules succeeded for DID document",
+        );
 
         Ok(())
     }
@@ -414,7 +438,6 @@ impl DIDDocument {
     // Note that the allow attributes on valid_proof_data_vo is necessary if the below feature flags are not enabled.
     fn verify_proofs(
         &self,
-        // #[allow(unused_mut, unused_variables)]
         mut valid_proof_data_vo: Option<&mut Vec<ValidProofData>>,
     ) -> Result<()> {
         // Form the detached payload bytes.  This is done by removing all the proofs from the DID document,
@@ -422,49 +445,68 @@ impl DIDDocument {
         // This allow attribute is necessary if the below feature flags are not enabled.
         // #[allow(unused_variables)]
         let detached_payload_bytes = self.bytes_to_sign()?;
-        let mut invalid_proof_index_v = Vec::new();
+        tracing::trace!(?self.self_hash, ?self.version_id, "detached_payload_bytes.len() = {}", detached_payload_bytes.len());
 
-        for (proof_index, proof) in self.proof_v.iter().enumerate() {
-            let jws = did_webplus_jws::JWS::try_from(proof.as_str())
-                .map_err(|_| Error::Malformed("Failed to parse proof as JWS".into()))?;
+        let verify_proof = |proof: &str| -> Result<ValidProofData> {
+            let jws = did_webplus_jws::JWS::try_from(proof).map_err(|e| {
+                Error::Malformed(
+                    format!("Failed to parse proof as JWS: {}; error was {}", proof, e).into(),
+                )
+            })?;
             let pub_key: mbx::MBPubKey = jws.header().kid.as_str().try_into().map_err(|e| {
                 Error::Malformed(
                     format!("Failed to parse JWS header \"kid\" field as base64url-encoded multicodec-encoded public key: {}", e).into(),
                 )
             })?;
-            let verifier_bytes = signature_dyn::VerifierBytes::try_from(&pub_key)?;
-            match jws.verify(
+            let verifier_bytes = signature_dyn::VerifierBytes::try_from(&pub_key).map_err(|e| {
+                Error::Malformed(
+                    format!("Failed to convert public key to verifier bytes: {}", e).into(),
+                )
+            })?;
+            jws.verify(
                 &verifier_bytes,
                 Some(&mut detached_payload_bytes.as_slice()),
-            ) {
-                Ok(()) => {
-                    if let Some(valid_proof_data_vo) = valid_proof_data_vo.as_mut() {
-                        valid_proof_data_vo.push(ValidProofData::from_pub_key(pub_key));
+            )
+            .map_err(|e| {
+                Error::Malformed(format!("Failed to verify proof; error was {}", e).into())
+            })?;
+            Ok(ValidProofData::from_pub_key(pub_key))
+        };
+
+        let mut invalid_proof_index_v = Vec::new();
+        for (proof_index, proof) in self.proof_v.iter().enumerate() {
+            match verify_proof(proof.as_str()) {
+                Ok(valid_proof_data) => {
+                    tracing::trace!(?self.self_hash, ?self.version_id, "proof with index {} successfully verified", proof_index);
+                    if let Some(valid_proof_data_vo) = valid_proof_data_vo.as_deref_mut() {
+                        valid_proof_data_vo.push(valid_proof_data);
                     }
                 }
                 Err(e) => {
-                    tracing::debug!(
-                        "DID document with selfHash {} had invalid proof with index {}; error was {}",
-                        self.self_hash,
-                        proof_index,
-                        e
-                    );
-                    invalid_proof_index_v.push(proof_index)
+                    tracing::debug!(?self.self_hash, ?self.version_id, "error while verifying proof with index {}: {}", proof_index, e);
+                    invalid_proof_index_v.push(proof_index);
                 }
             }
         }
         if invalid_proof_index_v.is_empty() {
             // If there were no invalid proofs, return with success.
+            tracing::debug!(
+                "verify_proofs is returning with success for DID document with selfHash {}",
+                self.self_hash
+            );
             Ok(())
         } else {
             // Otherwise, there were invalid proofs, so return with error.
-            Err(Error::ProofsError(
-                format!(
-                    "DID document had at least one invalid proof.  Invalid proof indices: {:?}",
-                    invalid_proof_index_v
-                )
-                .into(),
-            ))
+            let error_string = format!(
+                "DID document had at least one invalid proof.  Invalid proof indices: {:?}",
+                invalid_proof_index_v
+            );
+            tracing::debug!(
+                ?error_string,
+                "verify_proofs is returning with error for DID document with selfHash {}",
+                self.self_hash
+            );
+            Err(Error::ProofsError(error_string.into()))
         }
     }
     /// Returns the bytes that should be signed to produce a proof.  In particular, this is the JCS-serialized
