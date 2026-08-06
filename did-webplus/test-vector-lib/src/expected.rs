@@ -5,9 +5,10 @@ use crate::ErrorCode;
 /// - [`Self::did_document_count`] is the number of DID document lines in the vector.
 /// - [`Self::valid_did_document_count`] is how many leading documents must validate:
 ///   equals `did_document_count` when the whole history is valid, and `0` when
-///   the root itself is invalid.
+///   the root itself is invalid (or the jsonl is empty).
 /// - Optional [`Self::error_code_o`] / [`Self::error_version_id_o`] describe the
-///   first failing document when the vector is not fully valid.
+///   first failing document when the vector is not fully valid. Empty jsonl has
+///   an error code but no `error_version_id`.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct Expected {
     /// Total number of DID documents (jsonl lines) in the vector.
@@ -49,8 +50,21 @@ impl Expected {
         }
     }
 
+    /// Expectation for an empty `did-documents.jsonl` (no root; resolution must fail).
+    pub fn reject_empty(error_code: ErrorCode) -> Self {
+        Self {
+            did_document_count: 0,
+            valid_did_document_count: 0,
+            error_code_o: Some(error_code),
+            error_version_id_o: None,
+        }
+    }
+
     /// `true` when every document in the vector is expected to validate.
+    ///
+    /// An empty jsonl with an advisory error code is not fully valid even though
+    /// the accept counts are both zero.
     pub fn is_fully_valid(&self) -> bool {
-        self.valid_did_document_count == self.did_document_count
+        self.error_code_o.is_none() && self.valid_did_document_count == self.did_document_count
     }
 }

@@ -57,6 +57,9 @@ pub enum ErrorCode {
     VersionIdNotIncremented,
     /// A jsonl line is not valid JSON / is otherwise malformed.
     MalformedJsonlLine,
+    /// `did-documents.jsonl` has zero lines, so there is no root DID document to
+    /// bind the DID's root self-hash; resolution must fail.
+    EmptyJsonl,
     /// Root document unexpectedly includes `prevDIDDocumentSelfHash`.
     RootPrevDidDocumentSelfHashPresent,
     /// A required DID-document field is missing.
@@ -109,6 +112,7 @@ impl ErrorCode {
             ErrorCode::ValidFromNotStrictlyIncreasing => "valid-from-not-strictly-increasing",
             ErrorCode::VersionIdNotIncremented => "version-id-not-incremented",
             ErrorCode::MalformedJsonlLine => "malformed-jsonl-line",
+            ErrorCode::EmptyJsonl => "empty-jsonl",
             ErrorCode::RootPrevDidDocumentSelfHashPresent => {
                 "root-prev-did-document-self-hash-present"
             }
@@ -160,6 +164,7 @@ impl std::str::FromStr for ErrorCode {
             "valid-from-not-strictly-increasing" => Ok(ErrorCode::ValidFromNotStrictlyIncreasing),
             "version-id-not-incremented" => Ok(ErrorCode::VersionIdNotIncremented),
             "malformed-jsonl-line" => Ok(ErrorCode::MalformedJsonlLine),
+            "empty-jsonl" => Ok(ErrorCode::EmptyJsonl),
             "root-prev-did-document-self-hash-present" => {
                 Ok(ErrorCode::RootPrevDidDocumentSelfHashPresent)
             }

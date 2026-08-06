@@ -43,15 +43,18 @@ fn vector(
 }
 
 /// Empty `did-documents.jsonl` body; DID identity still comes from a generated root.
+///
+/// Resolution must fail: with no root document there is nothing to bind the DID's
+/// root self-hash.
 fn empty_file(params: TestVectorParams, rng: DeterministicRng) -> anyhow::Result<TestVector> {
     let builder = MicroledgerBuilder::create(params.clone(), rng)?;
     Ok(vector(
         "jsonl-empty-file",
-        "Empty did-documents.jsonl (zero lines) for a generated DID identity.",
+        "Empty did-documents.jsonl (zero lines) for a generated DID identity; resolution must fail.",
         params,
         builder.did().clone(),
         Vec::new(),
-        Expected::fully_valid(0),
+        Expected::reject_empty(ErrorCode::EmptyJsonl),
     ))
 }
 
@@ -163,8 +166,8 @@ pub(crate) fn definitions() -> &'static [VectorDefinition] {
     const DEFINITIONS: &[VectorDefinition] = &[
         VectorDefinition {
             name: "jsonl-empty-file",
-            description: "Empty did-documents.jsonl (zero lines) for a generated DID identity.",
-            positive: true,
+            description: "Empty did-documents.jsonl (zero lines) for a generated DID identity; resolution must fail.",
+            positive: false,
             factory: empty_file,
         },
         VectorDefinition {
