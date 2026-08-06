@@ -1655,8 +1655,6 @@ dependencies = [
  "did-webplus-doc-storage-sqlite",
  "did-webplus-doc-store",
  "did-webplus-software-wallet",
- "did-webplus-vdg-lib",
- "did-webplus-vdr-lib",
  "did-webplus-wallet",
  "did-webplus-wallet-storage-sqlite",
  "did-webplus-wallet-store",
@@ -6997,12 +6995,15 @@ dependencies = [
 name = "test-util"
 version = "0.1.0"
 dependencies = [
+ "did-webplus-vdg-lib",
+ "did-webplus-vdr-lib",
  "dotenvy",
  "lazy_static",
  "reqwest 0.12.24",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

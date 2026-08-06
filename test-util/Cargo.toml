@@ -5,9 +5,16 @@ authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2024"
 
 [dependencies]
+did-webplus-vdg-lib = { path = "../did-webplus/vdg-lib", features = [
+    "postgres",
+] }
+did-webplus-vdr-lib = { path = "../did-webplus/vdr-lib", features = [
+    "postgres",
+] }
 dotenvy = "0.15.7"
 lazy_static = "1.4.0"
 reqwest = "0.12.5"
 tokio = "1.41.0"
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+url = "2.5.4"

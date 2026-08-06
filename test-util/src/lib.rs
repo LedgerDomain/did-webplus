@@ -4,6 +4,61 @@ lazy_static::lazy_static! {
     pub static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
 }
 
+/// Spins up a VDG with the given listen port and database URL, and returns
+/// the VDG host, VDG base URL, and the join handle for the VDG task.
+pub async fn spin_up_vdg(
+    listen_port: u16,
+    database_url: String,
+) -> (String, url::Url, tokio::task::JoinHandle<()>) {
+    let vdg_config = did_webplus_vdg_lib::VDGConfig {
+        listen_port,
+        database_url,
+        database_max_connections: 10,
+        http_headers_for: Default::default(),
+        http_scheme_override: Default::default(),
+        test_authz_api_key_vo: None,
+    };
+    let vdg_host = format!("localhost:{}", listen_port);
+    let vdg_base_url = url::Url::parse(&format!("http://{}", vdg_host)).expect("pass");
+    let vdg_h = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
+        .await
+        .expect("pass");
+    (vdg_host, vdg_base_url, vdg_h)
+}
+
+/// Spins up a VDR with the given listen port, database URL, and VDG base URL,
+/// and returns the VDR URL and the join handle for the VDR task.
+pub async fn spin_up_vdr(
+    listen_port: u16,
+    database_url: String,
+    vdg_base_url_o: Option<url::Url>,
+) -> (url::Url, tokio::task::JoinHandle<()>) {
+    let vdg_base_url_v = if let Some(vdg_base_url) = vdg_base_url_o {
+        vec![vdg_base_url]
+    } else {
+        Vec::new()
+    };
+    let vdr_config = did_webplus_vdr_lib::VDRConfig {
+        did_hostname: "localhost".to_string(),
+        did_port_o: Some(listen_port),
+        listen_port,
+        database_url,
+        database_max_connections: 10,
+        vdg_base_url_v,
+        http_scheme_override: Default::default(),
+        test_authz_api_key_vo: None,
+    };
+    let vdr_url = url::Url::parse(&format!(
+        "http://{}:{}",
+        vdr_config.did_hostname, vdr_config.listen_port
+    ))
+    .expect("pass");
+    let vdr_h = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
+        .await
+        .expect("pass");
+    (vdr_url, vdr_h)
+}
+
 pub async fn service_is_up(service_health_endpoint_url: &str) -> bool {
     match REQWEST_CLIENT.get(service_health_endpoint_url).send().await {
         Ok(health_response) => health_response.status() == reqwest::StatusCode::OK,

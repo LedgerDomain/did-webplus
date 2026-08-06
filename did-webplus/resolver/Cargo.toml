@@ -28,8 +28,6 @@ verifier-resolver = { path = "../../verifier-resolver" }
 ctor = { workspace = true }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
 did-webplus-software-wallet = { path = "../software-wallet" }
-did-webplus-vdg-lib = { path = "../vdg-lib", features = ["postgres"] }
-did-webplus-vdr-lib = { path = "../vdr-lib", features = ["postgres"] }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }

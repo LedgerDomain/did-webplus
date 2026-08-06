@@ -6,167 +6,6 @@ fn overall_init() {
     test_util::ctor_overall_init();
 }
 
-// TODO: Maybe this stuff belongs in test-util
-#[derive(Clone, Debug)]
-struct ServicesConfig {
-    vdg_listen_port_o: Option<u16>,
-    vdg_database_url_o: Option<String>,
-    vdg_gets_updates_from_vdr_o: Option<bool>,
-    vdr_listen_port: u16,
-    vdr_database_url: String,
-}
-
-impl ServicesConfig {
-    fn with_vdg_and_vdr(
-        vdg_listen_port: u16,
-        vdg_database_url: String,
-        vdg_gets_updates_from_vdr: bool,
-        vdr_listen_port: u16,
-        vdr_database_url: String,
-    ) -> Self {
-        Self {
-            vdg_listen_port_o: Some(vdg_listen_port),
-            vdg_database_url_o: Some(vdg_database_url),
-            vdg_gets_updates_from_vdr_o: Some(vdg_gets_updates_from_vdr),
-            vdr_listen_port,
-            vdr_database_url,
-        }
-    }
-    fn with_vdr(vdr_listen_port: u16, vdr_database_url: String) -> Self {
-        Self {
-            vdg_listen_port_o: None,
-            vdg_database_url_o: None,
-            vdg_gets_updates_from_vdr_o: None,
-            vdr_listen_port,
-            vdr_database_url,
-        }
-    }
-}
-
-// TODO: Maybe this stuff belongs in test-util
-struct Services {
-    #[allow(dead_code)]
-    services_config: ServicesConfig,
-    vdg_handle_o: Option<tokio::task::JoinHandle<()>>,
-    vdg_host_o: Option<String>,
-    vdr_handle: tokio::task::JoinHandle<()>,
-    vdr_url: url::Url,
-}
-
-impl Services {
-    async fn spin_up(services_config: ServicesConfig) -> Self {
-        assert_eq!(
-            services_config.vdg_listen_port_o.is_some(),
-            services_config.vdg_database_url_o.is_some()
-        );
-        assert_eq!(
-            services_config.vdg_listen_port_o.is_some(),
-            services_config.vdg_gets_updates_from_vdr_o.is_some()
-        );
-        let spin_up_vdg = services_config.vdg_listen_port_o.is_some();
-
-        // Delete any existing database files so that we're starting from a consistent, blank start every time.
-        // The postgres equivalent of this would be to "drop schema public cascade;" and "create schema public;"
-        // TODO: postgres drop schema
-
-        let (vdg_handle_o, vdg_host_o, vdg_base_url_o, vdg_gets_updates_from_vdr_o) = if spin_up_vdg
-        {
-            let vdg_listen_port = services_config.vdg_listen_port_o.unwrap();
-            let vdg_database_url = services_config.vdg_database_url_o.clone().unwrap();
-            let vdg_gets_updates_from_vdr = services_config.vdg_gets_updates_from_vdr_o.unwrap();
-
-            let vdg_config = did_webplus_vdg_lib::VDGConfig {
-                listen_port: vdg_listen_port,
-                database_url: vdg_database_url,
-                database_max_connections: 10,
-                http_headers_for: Default::default(),
-                http_scheme_override: Default::default(),
-                test_authz_api_key_vo: None,
-            };
-            let vdg_handle = did_webplus_vdg_lib::spawn_vdg(vdg_config.clone())
-                .await
-                .expect("pass");
-            let vdg_host = format!("localhost:{}", vdg_config.listen_port);
-            let vdg_base_url = url::Url::parse(&format!("http://{}", vdg_host)).expect("pass");
-
-            (
-                Some(vdg_handle),
-                Some(vdg_host),
-                Some(vdg_base_url),
-                Some(vdg_gets_updates_from_vdr),
-            )
-        } else {
-            (None, None, None, None)
-        };
-
-        assert_eq!(
-            vdg_base_url_o.is_some(),
-            vdg_gets_updates_from_vdr_o.is_some()
-        );
-        let vdg_base_url_v = if let (Some(vdg_base_url), Some(vdg_gets_updates_from_vdr)) =
-            (vdg_base_url_o.as_ref(), vdg_gets_updates_from_vdr_o)
-        {
-            if vdg_gets_updates_from_vdr {
-                vec![vdg_base_url.clone()]
-            } else {
-                Vec::new()
-            }
-        } else {
-            Vec::new()
-        };
-        let vdr_config = did_webplus_vdr_lib::VDRConfig {
-            did_hostname: "localhost".to_string(),
-            did_port_o: Some(services_config.vdr_listen_port),
-            listen_port: services_config.vdr_listen_port,
-            database_url: services_config.vdr_database_url.clone(),
-            database_max_connections: 10,
-            vdg_base_url_v,
-            http_scheme_override: Default::default(),
-            test_authz_api_key_vo: None,
-        };
-        let vdr_handle = did_webplus_vdr_lib::spawn_vdr(vdr_config.clone())
-            .await
-            .expect("pass");
-        let vdr_url =
-            url::Url::parse(&format!("http://localhost:{}", vdr_config.listen_port)).expect("pass");
-
-        if spin_up_vdg {
-            let vdg_base_url = vdg_base_url_o.unwrap();
-            test_util::wait_until_service_is_up(
-                "VDG",
-                vdg_base_url.join("health").expect("pass").as_str(),
-            )
-            .await;
-            tracing::info!("VDG is up");
-        }
-        test_util::wait_until_service_is_up("VDR", vdr_url.join("health").expect("pass").as_str())
-            .await;
-        tracing::info!("VDR is up");
-
-        Services {
-            services_config,
-            vdg_handle_o,
-            vdg_host_o,
-            vdr_handle,
-            vdr_url,
-        }
-    }
-    fn vdg_host(&self) -> &str {
-        self.vdg_host_o
-            .as_deref()
-            .expect("no VDG was spun up in this configuration")
-    }
-    fn abort(self) {
-        tracing::info!("Shutting down VDR");
-        self.vdr_handle.abort();
-        if let Some(vdg_handle) = self.vdg_handle_o {
-            tracing::info!("Shutting down VDG");
-            vdg_handle.abort();
-        }
-    }
-    // TODO: Shutdown and retrieve and surface errors?
-}
-
 async fn create_in_memory_software_wallet() -> (
     Arc<did_webplus_wallet_storage_sqlite::WalletStorageSQLite>,
     did_webplus_software_wallet::SoftwareWallet,
@@ -195,14 +34,15 @@ async fn create_in_memory_software_wallet() -> (
 /// Integration and performance test for DIDResolverFull operating against a VDR and a VDG.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_did_resolver() {
-    let services_config = ServicesConfig::with_vdg_and_vdr(
-        50001,
-        "postgres:///test_did_resolver_vdg".to_string(),
-        true,
+    let (vdg_host, vdg_base_url, vdg_h) =
+        test_util::spin_up_vdg(50001, "postgres:///test_did_resolver_vdg".to_string()).await;
+    let (vdr_url, vdr_h) = test_util::spin_up_vdr(
         50000,
         "postgres:///test_did_resolver_vdr".to_string(),
-    );
-    let services = Services::spin_up(services_config).await;
+        // VDR sends updates to VDG.
+        Some(vdg_base_url.clone()),
+    )
+    .await;
 
     //
     // Now that the VDR is up, create a DID and verify that it can be resolved.
@@ -217,7 +57,7 @@ async fn test_did_resolver() {
     let mut controlled_did = software_wallet
         .create_did(
             did_webplus_wallet::CreateDIDParameters {
-                vdr_did_create_endpoint: services.vdr_url.as_str(),
+                vdr_did_create_endpoint: vdr_url.as_str(),
                 mb_hash_function_for_did: &mb_hash_function,
                 mb_hash_function_for_update_key_o: Some(&mb_hash_function),
             },
@@ -231,7 +71,7 @@ async fn test_did_resolver() {
     // Create DIDResolverFull for having a VDG host and not.
     let did_resolver_full_m = {
         let mut did_resolver_full_m = HashMap::with_capacity(2);
-        for vdg_host_o in [None, Some(services.vdg_host().to_string())] {
+        for vdg_host_o in [None, Some(vdg_host.as_str())] {
             let did_doc_storage =
                 did_webplus_doc_storage_sqlite::DIDDocStorageSQLite::open_url_and_run_migrations(
                     "sqlite://:memory:",
@@ -240,12 +80,9 @@ async fn test_did_resolver() {
                 .await
                 .expect("pass");
             let did_doc_store = did_webplus_doc_store::DIDDocStore::new(Arc::new(did_doc_storage));
-            let did_resolver_full = did_webplus_resolver::DIDResolverFull::new(
-                did_doc_store,
-                vdg_host_o.as_deref(),
-                None,
-            )
-            .unwrap();
+            let did_resolver_full =
+                did_webplus_resolver::DIDResolverFull::new(did_doc_store, vdg_host_o, None)
+                    .unwrap();
             did_resolver_full_m.insert(vdg_host_o, did_resolver_full);
         }
         did_resolver_full_m
@@ -297,7 +134,7 @@ async fn test_did_resolver() {
         #[cfg(not(target_arch = "wasm32"))]
         let mut timing_result_v = Vec::with_capacity(4);
 
-        for vdg_host_o in [None, Some(services.vdg_host().to_string())] {
+        for vdg_host_o in [None, Some(vdg_host.as_str())] {
             let did_resolver_full = did_resolver_full_m.get(&vdg_host_o).expect("pass");
             tracing::trace!(
                 "resolving DID using DIDResolverFull with vdg_host_o: {:?}",
@@ -337,8 +174,7 @@ async fn test_did_resolver() {
         // Now to test DIDResolverThin:
         {
             let did_resolver_thin =
-                did_webplus_resolver::DIDResolverThin::new(services.vdg_host(), None)
-                    .expect("pass");
+                did_webplus_resolver::DIDResolverThin::new(vdg_host.as_str(), None).expect("pass");
 
             // Start the timer
             #[cfg(not(target_arch = "wasm32"))]
@@ -380,7 +216,8 @@ async fn test_did_resolver() {
     // Tests are done, so shut down.
     //
 
-    services.abort();
+    vdr_h.abort();
+    vdg_h.abort();
 }
 
 async fn create_did_resolver_full(
@@ -402,7 +239,7 @@ async fn create_did_resolver_thin(vdg_host: &str) -> did_webplus_resolver::DIDRe
 }
 
 async fn test_did_resolver_impl(
-    services: &Services,
+    vdr_url: &url::Url,
     did_resolver: &dyn did_webplus_resolver::DIDResolver,
 ) {
     // Create an in-memory SoftwareWallet.
@@ -414,7 +251,7 @@ async fn test_did_resolver_impl(
     let controlled_did_0 = software_wallet
         .create_did(
             did_webplus_wallet::CreateDIDParameters {
-                vdr_did_create_endpoint: services.vdr_url.as_str(),
+                vdr_did_create_endpoint: vdr_url.as_str(),
                 mb_hash_function_for_did: &mb_hash_function,
                 mb_hash_function_for_update_key_o: Some(&mb_hash_function),
             },
@@ -995,16 +832,17 @@ async fn test_did_resolver_impl(
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_did_resolver_full_vdr_only() {
-    let services_config = ServicesConfig::with_vdr(
+    let (vdr_url, vdr_h) = test_util::spin_up_vdr(
         50010,
         "postgres:///test_vdr_for_did_resolver_full_vdr_only".to_string(),
-    );
-    let services = Services::spin_up(services_config).await;
+        None,
+    )
+    .await;
 
     let did_resolver_full = create_did_resolver_full(None).await;
-    test_did_resolver_impl(&services, &did_resolver_full).await;
+    test_did_resolver_impl(&vdr_url, &did_resolver_full).await;
 
-    services.abort();
+    vdr_h.abort();
 }
 
 // TODO: Write a test for DIDResolverFull with a VDG -- this will have different resolution
@@ -1012,17 +850,22 @@ async fn test_did_resolver_full_vdr_only() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_did_resolver_thin() {
-    let services_config = ServicesConfig::with_vdg_and_vdr(
+    let (vdg_host, _vdg_base_url, vdg_h) = test_util::spin_up_vdg(
         50031,
         "postgres:///test_vdg_for_did_resolver_thin".to_string(),
-        false,
+    )
+    .await;
+    let (vdr_url, vdr_h) = test_util::spin_up_vdr(
         50030,
         "postgres:///test_vdr_for_did_resolver_thin".to_string(),
-    );
-    let services = Services::spin_up(services_config).await;
+        // VDR doesn't send updates to VDG.
+        None,
+    )
+    .await;
 
-    let did_resolver_thin = create_did_resolver_thin(services.vdg_host()).await;
-    test_did_resolver_impl(&services, &did_resolver_thin).await;
+    let did_resolver_thin = create_did_resolver_thin(vdg_host.as_str()).await;
+    test_did_resolver_impl(&vdr_url, &did_resolver_thin).await;
 
-    services.abort();
+    vdg_h.abort();
+    vdr_h.abort();
 }
