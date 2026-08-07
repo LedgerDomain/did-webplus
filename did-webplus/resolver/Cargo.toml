@@ -28,6 +28,7 @@ verifier-resolver = { path = "../../verifier-resolver" }
 ctor = { workspace = true }
 did-webplus-doc-storage-sqlite = { path = "../doc-storage-sqlite" }
 did-webplus-software-wallet = { path = "../software-wallet" }
+did-webplus-test-vector-lib = { path = "../test-vector-lib" }
 did-webplus-wallet = { path = "../wallet" }
 did-webplus-wallet-storage-sqlite = { path = "../wallet-storage-sqlite" }
 did-webplus-wallet-store = { path = "../wallet-store", features = ["sqlx"] }

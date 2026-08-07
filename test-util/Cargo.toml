@@ -5,6 +5,9 @@ authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2024"
 
 [dependencies]
+did-webplus-test-vector-lib = { path = "../did-webplus/test-vector-lib", features = [
+    "server",
+] }
 did-webplus-vdg-lib = { path = "../did-webplus/vdg-lib", features = [
     "postgres",
 ] }

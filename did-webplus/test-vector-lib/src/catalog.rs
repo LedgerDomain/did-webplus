@@ -257,7 +257,9 @@ impl Catalog {
         )?);
 
         if fuzz_lite_count > 0 {
-            on_progress(&format!("generating {fuzz_lite_count} fuzz-lite vector(s)..."));
+            on_progress(&format!(
+                "generating {fuzz_lite_count} fuzz-lite vector(s)..."
+            ));
             vector_v.extend(Self::generate_fuzz_lite(params, seed, fuzz_lite_count)?);
         }
 
@@ -328,7 +330,7 @@ mod tests {
     #[test]
     fn list_matches_definition_metadata_and_name_helpers() {
         let seed = "list-seed";
-        let fuzz_lite_count = 4;
+        let fuzz_lite_count = crate::DEFAULT_FUZZ_LITE_COUNT;
         let stress_config = StressConfig {
             version_count_v: vec![3, 7],
             ..StressConfig::default()
@@ -339,14 +341,19 @@ mod tests {
             stress_config: stress_config.clone(),
         });
 
-        let conformance_n = Catalog::conformance_definitions().len();
-        let coverage_n = Catalog::coverage_matrix_definitions().len();
-        let jsonl_n = Catalog::jsonl_structural_definitions().len();
-        let resolution_n = Catalog::resolution_definitions().len();
-        let stress_n = Catalog::stress_vector_names(&stress_config).len();
+        let conformance_count = Catalog::conformance_definitions().len();
+        let coverage_count = Catalog::coverage_matrix_definitions().len();
+        let jsonl_count = Catalog::jsonl_structural_definitions().len();
+        let resolution_count = Catalog::resolution_definitions().len();
+        let stress_count = Catalog::stress_vector_names(&stress_config).len();
         assert_eq!(
             descriptor_v.len(),
-            conformance_n + coverage_n + jsonl_n + resolution_n + stress_n + fuzz_lite_count as usize
+            conformance_count
+                + coverage_count
+                + jsonl_count
+                + resolution_count
+                + stress_count
+                + fuzz_lite_count as usize
         );
 
         let mut index = 0;
@@ -391,7 +398,7 @@ mod tests {
             assert!(descriptor.positive);
             assert!(!descriptor.description.is_empty());
         }
-        index += stress_n;
+        index += stress_count;
 
         let fuzz_name_v = Catalog::fuzz_lite_vector_names(seed, fuzz_lite_count);
         for (offset, name) in fuzz_name_v.iter().enumerate() {

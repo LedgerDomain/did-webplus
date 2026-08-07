@@ -12,5 +12,10 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.94"
 clap = { version = "4.5.4", features = ["derive", "env"] }
-did-webplus-test-vector-lib = { path = "../test-vector-lib" }
+did-webplus-test-vector-lib = { path = "../test-vector-lib", features = [
+    "clap",
+    "server",
+] }
 dotenvy = "0.15.7"
+tokio = { version = "1.41", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }

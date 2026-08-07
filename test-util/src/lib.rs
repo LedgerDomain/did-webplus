@@ -4,6 +4,10 @@ lazy_static::lazy_static! {
     pub static ref REQWEST_CLIENT: reqwest::Client = reqwest::Client::new();
 }
 
+pub use did_webplus_test_vector_lib::{
+    DEFAULT_SEED, StressConfig, TestVectorServerConfig,
+};
+
 /// Spins up a VDG with the given listen port and database URL, and returns
 /// the VDG host, VDG base URL, and the join handle for the VDG task.
 pub async fn spin_up_vdg(
@@ -24,6 +28,21 @@ pub async fn spin_up_vdg(
         .await
         .expect("pass");
     (vdg_host, vdg_base_url, vdg_h)
+}
+
+/// Spins up the test-vector HTTP server with the given config, waits until
+/// `/health` is OK, and returns the base URL and join handle.
+pub async fn spin_up_test_vector_server(
+    config: did_webplus_test_vector_lib::TestVectorServerConfig,
+) -> (url::Url, tokio::task::JoinHandle<()>) {
+    let base_url = url::Url::parse(&format!("http://{}:{}", config.host, config.listen_port))
+        .expect("pass");
+    let join_handle = did_webplus_test_vector_lib::spawn_test_vector_server(config)
+        .await
+        .expect("pass");
+    let health_url = base_url.join("health").expect("pass");
+    wait_until_service_is_up("test-vector-server", health_url.as_str()).await;
+    (base_url, join_handle)
 }
 
 /// Spins up a VDR with the given listen port, database URL, and VDG base URL,

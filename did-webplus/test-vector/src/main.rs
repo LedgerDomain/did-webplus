@@ -2,7 +2,7 @@
 //!
 //! Design, schemas, determinism, and harness consumption are documented in the
 //! library crate (`did-webplus-test-vector-lib`); this binary only parses flags
-//! and calls [`Catalog`] / [`TestVectorWriter`].
+//! and calls [`Catalog`] / [`TestVectorWriter`] / [`spawn_test_vector_server`].
 //!
 //! Environment variables use the `DID_WEBPLUS_TEST_VECTOR_*` prefix (via clap `env`).
 
@@ -10,12 +10,10 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 use did_webplus_test_vector_lib::{
-    Catalog, CatalogDescriptor, CatalogListRequest, DEFAULT_SEED, StressConfig, TestVectorParams,
-    TestVectorWriter,
+    Catalog, CatalogDescriptor, CatalogListRequest, DEFAULT_FUZZ_LITE_COUNT, DEFAULT_SEED,
+    StressConfig, TestVectorParams, TestVectorServerConfig, TestVectorWriter,
+    spawn_test_vector_server,
 };
-
-/// Default number of fuzz-lite vectors included by `generate`.
-const DEFAULT_FUZZ_LITE_COUNT: u32 = 128;
 
 /// did:webplus test vector generator.
 ///
@@ -37,6 +35,8 @@ enum Command {
     Generate(GenerateArgs),
     /// Rebuild `index.json` from on-disk `test-vector.json` metadata under `--target-dir`.
     RebuildIndex(RebuildIndexArgs),
+    /// Generate the catalog into memory and serve it over HTTP.
+    Serve(TestVectorServerConfig),
 }
 
 /// Arguments shared by generation (host identity and stress overrides).
@@ -160,7 +160,8 @@ impl SharedArgs {
     }
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     // Ignore errors: there may not be a .env file (e.g. in CI or a docker image).
     let _ = dotenvy::dotenv();
 
@@ -168,6 +169,7 @@ fn main() -> anyhow::Result<()> {
     match root.command {
         Command::Generate(args) => run_generate(args),
         Command::RebuildIndex(args) => run_rebuild_index(args),
+        Command::Serve(config) => run_serve(config).await,
     }
 }
 
@@ -240,6 +242,26 @@ fn run_rebuild_index(args: RebuildIndexArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn run_serve(config: TestVectorServerConfig) -> anyhow::Result<()> {
+    // Minimal logging so serve progress is visible without requiring callers to
+    // configure RUST_LOG (mirrors VDR/VDG binaries which init tracing themselves).
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with_target(false)
+        .try_init();
+
+    eprintln!(
+        "serving test-vector catalog on http://{}:{}/ (DID host={}, DID port={})",
+        config.host, config.listen_port, config.host, config.listen_port
+    );
+    let join_handle = spawn_test_vector_server(config).await?;
+    join_handle.await?;
+    Ok(())
+}
+
 fn parse_did_path(did_path_o: Option<&str>) -> Vec<String> {
     match did_path_o {
         None => Vec::new(),
@@ -287,7 +309,7 @@ mod tests {
 
     #[test]
     fn dry_run_list_includes_requested_fuzz_lite_count() {
-        let fuzz_lite_count = 4;
+        let fuzz_lite_count = DEFAULT_FUZZ_LITE_COUNT;
         let descriptor_v = Catalog::list(&CatalogListRequest {
             fuzz_lite_count,
             seed: DEFAULT_SEED.to_owned(),

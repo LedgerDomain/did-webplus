@@ -869,3 +869,137 @@ async fn test_did_resolver_thin() {
     vdg_h.abort();
     vdr_h.abort();
 }
+
+/// Black-box resolver compliance against the in-memory test-vector HTTP server.
+///
+/// `resolve(did)` must succeed iff the vector is in `groups.positive` (equivalently
+/// `expected.valid`). Do not assert exact accept-prefix counts via resolve — that is
+/// what library self_check covers.
+async fn assert_resolver_against_test_vector_catalog(
+    tvs_base_url: &url::Url,
+    did_resolver: &dyn did_webplus_resolver::DIDResolver,
+) {
+    let index_url = tvs_base_url.join("index.json").expect("pass");
+    let index_response = test_util::REQWEST_CLIENT
+        .get(index_url)
+        .send()
+        .await
+        .expect("fetch index.json")
+        .error_for_status()
+        .expect("index.json status");
+    let index_text = index_response.text().await.expect("index.json text");
+    let index_json: serde_json::Value =
+        serde_json::from_str(&index_text).expect("parse index.json");
+
+    let vector_m = index_json
+        .get("vectors")
+        .and_then(|v| v.as_object())
+        .expect("vectors object");
+    let positive_s: std::collections::HashSet<&str> = index_json
+        .pointer("/groups/positive")
+        .and_then(|v| v.as_array())
+        .expect("groups.positive")
+        .iter()
+        .map(|v| v.as_str().expect("positive name"))
+        .collect();
+
+    use did_webplus_core::DID;
+    use std::str::FromStr;
+
+    for (name, location) in vector_m {
+        let did_str = location
+            .get("did")
+            .and_then(|v| v.as_str())
+            .unwrap_or_else(|| panic!("vector {name} missing did"));
+        let path = location
+            .get("path")
+            .and_then(|v| v.as_str())
+            .unwrap_or_else(|| panic!("vector {name} missing path"));
+        let did = DID::from_str(did_str).unwrap_or_else(|e| panic!("parse DID for {name}: {e}"));
+        let expect_ok = positive_s.contains(name.as_str());
+
+        let resolve_r = did_resolver
+            .resolve_did_document_string(
+                &did,
+                did_webplus_core::DIDResolutionOptions::no_metadata(false),
+            )
+            .await;
+
+        if expect_ok {
+            let (did_document_body, _meta, _res_meta) = resolve_r.unwrap_or_else(|e| {
+                panic!("expected resolve success for positive vector {name} ({did}): {e}")
+            });
+            let jsonl_url = tvs_base_url
+                .join(&format!("{path}/did-documents.jsonl"))
+                .expect("jsonl url");
+            let jsonl = test_util::REQWEST_CLIENT
+                .get(jsonl_url)
+                .send()
+                .await
+                .expect("fetch jsonl")
+                .error_for_status()
+                .expect("jsonl status")
+                .text()
+                .await
+                .expect("jsonl text");
+            let latest_line = jsonl
+                .lines()
+                .rev()
+                .find(|line| !line.is_empty())
+                .unwrap_or_else(|| panic!("positive vector {name} has no JSONL lines"));
+            assert_eq!(
+                did_document_body, latest_line,
+                "resolved body must equal latest JSONL line for {name}"
+            );
+        } else {
+            assert!(
+                resolve_r.is_err(),
+                "expected resolve failure for negative vector {name} ({did})"
+            );
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_did_resolver_full_against_test_vectors() {
+    let config = test_util::TestVectorServerConfig {
+        host: "localhost".to_owned(),
+        listen_port: 50100,
+        did_path_o: None,
+        seed: test_util::DEFAULT_SEED.to_owned(),
+        fuzz_lite_count: did_webplus_test_vector_lib::DEFAULT_FUZZ_LITE_COUNT,
+        stress_version_vo: None,
+        stress_config_o: Some(test_util::StressConfig::for_tests()),
+    };
+    let (tvs_base_url, tvs_h) = test_util::spin_up_test_vector_server(config).await;
+
+    let did_resolver_full = create_did_resolver_full(None).await;
+    assert_resolver_against_test_vector_catalog(&tvs_base_url, &did_resolver_full).await;
+
+    tvs_h.abort();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_did_resolver_thin_against_test_vectors() {
+    let config = test_util::TestVectorServerConfig {
+        host: "localhost".to_owned(),
+        listen_port: 50110,
+        did_path_o: None,
+        seed: test_util::DEFAULT_SEED.to_owned(),
+        fuzz_lite_count: did_webplus_test_vector_lib::DEFAULT_FUZZ_LITE_COUNT,
+        stress_version_vo: None,
+        stress_config_o: Some(test_util::StressConfig::for_tests()),
+    };
+    let (tvs_base_url, tvs_h) = test_util::spin_up_test_vector_server(config).await;
+    let (vdg_host, _vdg_base_url, vdg_h) = test_util::spin_up_vdg(
+        50111,
+        "postgres:///test_did_resolver_thin_against_test_vectors_vdg".to_string(),
+    )
+    .await;
+
+    let did_resolver_thin = create_did_resolver_thin(vdg_host.as_str()).await;
+    assert_resolver_against_test_vector_catalog(&tvs_base_url, &did_resolver_thin).await;
+
+    vdg_h.abort();
+    tvs_h.abort();
+}

@@ -1,8 +1,12 @@
 # did-webplus-test-vector
 
-CLI and supporting library for generating a deterministic, statically servable catalog of `did:webplus` test-vector microledgers.
+CLI and supporting library for generating a deterministic catalog of `did:webplus`
+test-vector microledgers — either written to disk for static serving (`generate`)
+or served in-memory over HTTP (`serve`).
 
-Each vector has its own DID, on-disk directory, JSONL microledger (`did-documents.jsonl`), and machine-readable expectation metadata (`test-vector.json`). Harnesses discover vectors via `index.json` at the `--target-dir` root (derived discovery; metadata remains authoritative).
+Each vector has its own DID, JSONL microledger (`did-documents.jsonl`), and
+machine-readable expectation metadata (`test-vector.json`). Harnesses discover
+vectors via `index.json` (derived discovery; metadata remains authoritative).
 
 Generation logic and full design docs live in [`did-webplus-test-vector-lib`](../test-vector-lib) (crate-level module docs in `src/lib.rs`). This crate is a thin clap binary over that library.
 
@@ -39,7 +43,7 @@ Environment variables use the `DID_WEBPLUS_TEST_VECTOR_*` prefix (clap `env`). A
 
 ## CLI usage
 
-Subcommands: `generate` and `rebuild-index`.
+Subcommands: `generate`, `rebuild-index`, and `serve`.
 
 ### Shared `generate` options
 
@@ -97,6 +101,30 @@ did-webplus-test-vector rebuild-index --target-dir ./out
 | Flag | Env | Default | Meaning |
 |------|-----|---------|---------|
 | `--target-dir <DIR>` | `DID_WEBPLUS_TEST_VECTOR_TARGET_DIR` | `.` | Root to scan |
+
+### `serve`
+
+Eagerly generate the catalog into memory and serve the V1 URL layout over HTTP (axum; also [`spawn_test_vector_server`](../test-vector-lib) behind the lib `server` feature). Listen port = DID port (same as VDR). Size caps: `StressConfig` + `--fuzz-lite-count`. Streaming / non-materialized stress is deferred.
+
+```bash
+did-webplus-test-vector serve \
+  --host localhost \
+  --listen-port 3000 \
+  --seed did-webplus-test-vector-v1
+```
+
+| Flag | Env | Default | Meaning |
+|------|-----|---------|---------|
+| `--host <HOST>` | `DID_WEBPLUS_TEST_VECTOR_HOST` | `localhost` | DID hostname |
+| `--listen-port <PORT>` | `DID_WEBPLUS_TEST_VECTOR_LISTEN_PORT` | `3000` | TCP listen port and DID port |
+| `--did-path <p1:p2>` | `DID_WEBPLUS_TEST_VECTOR_DID_PATH` | *(none)* | Colon-separated DID path prefix in URLs |
+| `--seed <STRING>` | `DID_WEBPLUS_TEST_VECTOR_SEED` | `did-webplus-test-vector-v1` | Global seed |
+| `--fuzz-lite-count <N>` | `DID_WEBPLUS_TEST_VECTOR_FUZZ_LITE_COUNT` | `128` | Fuzz-lite count (`0` skips) |
+| `--stress-versions <N,…>` | `DID_WEBPLUS_TEST_VECTOR_STRESS_VERSIONS` | *(catalog default)* | Override stress version-count tiers |
+
+Endpoints: `GET /health`, `GET /index.json`, `GET /{path}/did-documents.jsonl` (Range: 206; 416 with `bytes */N` when up to date), `GET /{path}/test-vector.json`.
+
+Prefer `serve` for a live resolution origin (resolver tests); prefer `generate` + a static file server for on-disk trees. Black-box resolver harnesses: `resolve(did)` succeeds iff `expected.valid` / `groups.positive` (not line-by-line `validDidDocumentCount` — that is library self-check).
 
 ## Directory layout and serving
 
@@ -305,30 +333,8 @@ Stable kebab-case strings (`ErrorCode` in the library). Codes mirror validation 
 - Timestamps start from a fixed base (`2025-01-01T00:00:00Z`) with deterministic increments.
 - Re-running `generate` with the same seed and params yields the same DIDs and file contents for the same vector names.
 
-## V2 specification sketch (deferred)
-
-V1 materializes vectors to disk. A future V2 service would generate and stream them on demand, reusing `did-webplus-test-vector-lib`.
-
-### Shape
-
-- Axum service (mirroring `vdr-lib` layout) serving paths such as:
-
-  `GET /{path...}/{root-self-hash}/did-documents.jsonl`
-
-- Vector identity encoded in DID path components, e.g.
-  `/tv/<vector-name>/<params>/<derived-root-self-hash>/...`
-- Generation keyed entirely by `(seed, name, params)` — the same determinism V1 already provides — so any DID can be regenerated without storage.
-- Procedural `test-vector.json` and `index.json`.
-- Streaming JSONL (documents produced incrementally) and HTTP `Range` support so unbounded / DoS-stress version counts need not be fully materialized.
-
-### Open items
-
-- How the root self-hash is discovered before the client names it (likely an index endpoint mapping name → DID).
-- Rate-limiting and size caps for the service itself.
-- Encoding of size parameters for stress vectors in the path vs query string.
-
 ## Related crates
 
-- [`did-webplus-test-vector-lib`](../test-vector-lib) — generation, catalogs, writer, metadata types; **authoritative design docs**
+- [`did-webplus-test-vector-lib`](../test-vector-lib) — generation, catalogs, writer, optional HTTP server, metadata types; **authoritative design docs**
 - [`did-webplus-core`](../core) — DID document APIs used by the builder
 - [`did-webplus-doc-store`](../doc-store) — reference validation used in library self-check tests

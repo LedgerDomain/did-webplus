@@ -5,9 +5,9 @@ use did_webplus_doc_storage_mock::DIDDocStorageMock;
 use did_webplus_doc_store::DIDDocStore;
 use did_webplus_mock::MicroledgerView;
 use did_webplus_test_vector_lib::{
-    Catalog, DEFAULT_SEED, DeterministicRng, ErrorCode, Expected, MicroledgerBuilder,
-    RawDidDocument, StressConfig, StructuredMutation, TestVector, TestVectorMetadata,
-    TestVectorParams,
+    Catalog, DEFAULT_FUZZ_LITE_COUNT, DEFAULT_SEED, DeterministicRng, ErrorCode, Expected,
+    MicroledgerBuilder, RawDidDocument, StressConfig, StructuredMutation, TestVector,
+    TestVectorMetadata, TestVectorParams,
 };
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -15,8 +15,6 @@ use did_webplus_test_vector_lib::{
 fn overall_init() {
     test_util::ctor_overall_init();
 }
-
-const FUZZ_LITE_COUNT: u32 = 16;
 
 fn generate_catalog(seed: &str) -> anyhow::Result<Vec<TestVector>> {
     let params = TestVectorParams::baseline("example.com");
@@ -32,7 +30,11 @@ fn generate_catalog(seed: &str) -> anyhow::Result<Vec<TestVector>> {
         seed,
         &StressConfig::for_tests(),
     )?);
-    vector_v.extend(Catalog::generate_fuzz_lite(&params, seed, FUZZ_LITE_COUNT)?);
+    vector_v.extend(Catalog::generate_fuzz_lite(
+        &params,
+        seed,
+        DEFAULT_FUZZ_LITE_COUNT,
+    )?);
     Ok(vector_v)
 }
 
@@ -323,8 +325,8 @@ fn generate_structured_mutation_vector(
 #[test]
 fn fuzz_lite_names_and_generator_seed_round_trip() {
     let params = TestVectorParams::baseline("example.com");
-    let expected_name_v = Catalog::fuzz_lite_vector_names(DEFAULT_SEED, FUZZ_LITE_COUNT);
-    let vector_v = Catalog::generate_fuzz_lite(&params, DEFAULT_SEED, FUZZ_LITE_COUNT)
+    let expected_name_v = Catalog::fuzz_lite_vector_names(DEFAULT_SEED, DEFAULT_FUZZ_LITE_COUNT);
+    let vector_v = Catalog::generate_fuzz_lite(&params, DEFAULT_SEED, DEFAULT_FUZZ_LITE_COUNT)
         .expect("fuzz-lite generation");
     assert_eq!(vector_v.len(), expected_name_v.len());
     for (vector, expected_name) in vector_v.iter().zip(expected_name_v.iter()) {

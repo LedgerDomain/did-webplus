@@ -1,9 +1,12 @@
 //! Deterministic generation of did:webplus test-vector microledgers.
 //!
 //! This crate holds the catalog factories, metadata/index schemas, and filesystem
-//! writer used by the `did-webplus-test-vector` CLI and (later) by a V2 web service.
-//! Callers own I/O policy: the library returns [`TestVector`] values and can write a
-//! statically servable tree via [`TestVectorWriter`].
+//! writer used by the `did-webplus-test-vector` CLI. With the `server` feature it also
+//! provides an axum HTTP service ([`spawn_test_vector_server`]) that eagerly generates
+//! the catalog into memory and serves `index.json`, `did-documents.jsonl` (with HTTP
+//! `Range`), and `test-vector.json`. Callers own I/O policy: the library returns
+//! [`TestVector`] values, can write a statically servable tree via [`TestVectorWriter`],
+//! or can serve the same layout over HTTP.
 //!
 //! # Purpose
 //!
@@ -169,16 +172,31 @@
 //!   `--dry-run` uses [`Catalog::list`]; `--fuzz-lite-count` sizes fuzz-lite
 //!   (`0` skips); writes via [`TestVectorWriter::write_all`].
 //! - `rebuild-index` — [`TestVectorWriter::rebuild_indexes_under`].
+//! - `serve` — [`spawn_test_vector_server`] (requires the `server` feature): eager
+//!   in-memory catalog + HTTP origin matching the V1 URL layout.
 //!
 //! Design detail lives here; the binary docs stay thin and point at this module.
 //!
-//! # V2 service sketch (deferred)
+//! # V2 HTTP service (`server` feature)
 //!
-//! A future HTTP service would generate and stream vectors on demand from the same
-//! `(seed, name, params)` determinism, with procedural metadata/index and optional
-//! streaming JSONL / `Range` for large stress histories. Open items include
-//! root-self-hash discovery before the client names it, rate limits, and encoding
-//! of stress size parameters.
+//! [`spawn_test_vector_server`] binds an axum service that eagerly materializes the
+//! catalog (same generators as V1) into [`TestVectorServerAppState`] and serves:
+//!
+//! - `GET /health`
+//! - `GET /index.json` (or `/{did-path}/index.json` when `--did-path` is set)
+//! - `GET /{…}/did-documents.jsonl` with HTTP `Range` (206 / 416 `bytes */N`)
+//! - `GET /{…}/test-vector.json`
+//!
+//! Size caps are existing [`StressConfig`] knobs and `fuzz_lite_count`. True
+//! streaming generation without materializing stress bodies remains deferred.
+//!
+//! ## Harness note: black-box resolve vs incremental self-check
+//!
+//! Library self-check tests assert line-by-line `validDidDocumentCount`.
+//! Resolvers fetch the whole JSONL and validate all-or-nothing. Black-box
+//! resolver compliance should treat `resolve(did)` as success iff
+//! `expected.valid` (equivalently `groups.positive`), not assert exact
+//! accept-prefix counts via resolve.
 
 mod base_choice;
 mod catalog;
@@ -202,6 +220,15 @@ mod test_vector_index;
 mod test_vector_metadata;
 mod test_vector_params;
 mod test_vector_writer;
+
+#[cfg(feature = "server")]
+mod spawn_test_vector_server;
+#[cfg(feature = "server")]
+mod test_vector_server_app_state;
+#[cfg(feature = "server")]
+mod test_vector_server_config;
+#[cfg(feature = "server")]
+mod test_vector_server_routes;
 
 pub use crate::{
     base_choice::BaseChoice,
@@ -230,6 +257,13 @@ pub use crate::{
     },
 };
 
+#[cfg(feature = "server")]
+pub use crate::{
+    spawn_test_vector_server::spawn_test_vector_server,
+    test_vector_server_app_state::{TestVectorServerAppState, TestVectorServerVectorBodies},
+    test_vector_server_config::TestVectorServerConfig,
+};
+
 /// Package name, suitable for embedding in generated `test-vector.json` metadata.
 pub const CRATE_NAME: &str = env!("CARGO_PKG_NAME");
 
@@ -241,3 +275,6 @@ pub const CRATE_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Shared by the CLI (`--seed` default) and library self-check tests so both
 /// exercise the same deterministic catalog.
 pub const DEFAULT_SEED: &str = "did-webplus-test-vector-v1";
+
+/// Default global number of fuzz-lite vectors.
+pub const DEFAULT_FUZZ_LITE_COUNT: u32 = 128;
