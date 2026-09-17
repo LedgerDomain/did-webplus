@@ -103,11 +103,15 @@ fn invalid_microledger_with_mutated_middle_proof(
     let mut invalid_did_document_v = valid_did_document_v.to_vec();
     {
         let middle = &mut invalid_did_document_v[1];
+        let proof_v = middle
+            .proof_vo
+            .as_mut()
+            .expect("middle (update) DID document must have a proof");
         assert!(
-            !middle.proof_v.is_empty(),
+            !proof_v.is_empty(),
             "middle (update) DID document must have a proof"
         );
-        middle.proof_v[0] = mutate_detached_jws_signature(&middle.proof_v[0]);
+        proof_v[0] = mutate_detached_jws_signature(&proof_v[0]);
 
         use selfhash::{HashFunctionT, HashRefT, SelfHashableT};
         let mb_hash_function = middle.self_hash.hash_function();

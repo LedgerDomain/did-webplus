@@ -31,6 +31,8 @@ enum Mutation {
     ValidFromHundredMilliseconds,
     /// Accept no-fraction timestamp spelling (positive twin).
     ValidFromNoFraction,
+    /// Accept `"proofs":[]` on a root (positive twin of omitted proofs).
+    ProofsEmptyArray,
     Structured(StructuredMutation),
 }
 
@@ -109,6 +111,10 @@ fn apply_mutation(
         }
         Mutation::ValidFromNoFraction => {
             raw.replace("/validFrom", serde_json::json!("2025-01-01T00:00:00Z"))?;
+            Ok(true)
+        }
+        Mutation::ProofsEmptyArray => {
+            raw.insert_member("proofs", serde_json::json!([]))?;
             Ok(true)
         }
         Mutation::Structured(structured) => structured.apply(raw, params),
@@ -672,6 +678,46 @@ baseline_factory!(
     Some(ErrorCode::RootPrevDidDocumentSelfHashPresent)
 );
 baseline_factory!(
+    root_prev_null,
+    "root-prev-self-hash-null",
+    "Reject a root whose prevDIDDocumentSelfHash is JSON null.",
+    Baseline::Root,
+    Mutation::Structured(StructuredMutation::RootPrevHashNull),
+    Some(ErrorCode::PrevDidDocumentSelfHashNull)
+);
+baseline_factory!(
+    root_proofs_null,
+    "root-proofs-null",
+    "Reject a root whose proofs field is JSON null.",
+    Baseline::Root,
+    Mutation::Structured(StructuredMutation::RootProofsNull),
+    Some(ErrorCode::ProofsNull)
+);
+baseline_factory!(
+    root_prev_wrong_type,
+    "root-prev-self-hash-wrong-type",
+    "Reject a root whose prevDIDDocumentSelfHash is a JSON number.",
+    Baseline::Root,
+    Mutation::Structured(StructuredMutation::RootPrevHashWrongType),
+    Some(ErrorCode::MalformedPrevDidDocumentSelfHash)
+);
+baseline_factory!(
+    root_proofs_wrong_type,
+    "root-proofs-wrong-type",
+    "Reject a root whose proofs field is a JSON object.",
+    Baseline::Root,
+    Mutation::Structured(StructuredMutation::RootProofsWrongType),
+    Some(ErrorCode::MalformedProofs)
+);
+baseline_factory!(
+    root_proofs_empty_array,
+    "root-proofs-empty-array",
+    "Accept a root whose proofs field is an empty array.",
+    Baseline::Root,
+    Mutation::ProofsEmptyArray,
+    None
+);
+baseline_factory!(
     nonroot_id,
     "non-root-id-mismatch",
     "Reject a non-root id differing from the root.",
@@ -686,6 +732,54 @@ baseline_factory!(
     Baseline::Update,
     Mutation::Structured(StructuredMutation::NonRootPrevHashMismatch),
     Some(ErrorCode::PrevDidDocumentSelfHashMismatch)
+);
+baseline_factory!(
+    nonroot_prev_null,
+    "non-root-prev-self-hash-null",
+    "Reject a non-root whose prevDIDDocumentSelfHash is JSON null.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::NonRootPrevHashNull),
+    Some(ErrorCode::PrevDidDocumentSelfHashNull)
+);
+baseline_factory!(
+    nonroot_prev_omitted,
+    "non-root-prev-self-hash-omitted",
+    "Reject a non-root that omits prevDIDDocumentSelfHash.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::NonRootPrevHashOmitted),
+    Some(ErrorCode::NonRootPrevDidDocumentSelfHashMissing)
+);
+baseline_factory!(
+    nonroot_prev_not_mbhash,
+    "non-root-prev-self-hash-not-mbhash",
+    "Reject a non-root whose prevDIDDocumentSelfHash is not a valid MBHash.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::NonRootPrevHashNotMbHash),
+    Some(ErrorCode::MalformedPrevDidDocumentSelfHash)
+);
+baseline_factory!(
+    nonroot_proofs_null,
+    "non-root-proofs-null",
+    "Reject a non-root whose proofs field is JSON null.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::NonRootProofsNull),
+    Some(ErrorCode::ProofsNull)
+);
+baseline_factory!(
+    nonroot_proofs_empty_array,
+    "non-root-proofs-empty-array",
+    "Reject an update whose proofs field is an empty array.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::NonRootProofsEmptyArray),
+    Some(ErrorCode::UpdateRulesNotSatisfied)
+);
+baseline_factory!(
+    proofs_array_contains_null,
+    "proofs-array-contains-null",
+    "Reject a proofs array that contains JSON null.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::ProofsArrayContainsNull),
+    Some(ErrorCode::MalformedProofs)
 );
 baseline_factory!(
     nonroot_time_equal,
@@ -897,7 +991,7 @@ rule_factory!(
 rule_factory!(
     missing_proofs,
     "proofs-missing",
-    "Reject an update with no proofs.",
+    "Reject an update that omits the proofs field.",
     RuleCase::MissingProofs
 );
 rule_factory!(
@@ -1120,6 +1214,36 @@ pub(crate) fn definitions() -> &'static [VectorDefinition] {
             factory: root_prev,
         },
         VectorDefinition {
+            name: "root-prev-self-hash-null",
+            description: "Reject a root whose prevDIDDocumentSelfHash is JSON null.",
+            positive: false,
+            factory: root_prev_null,
+        },
+        VectorDefinition {
+            name: "root-proofs-null",
+            description: "Reject a root whose proofs field is JSON null.",
+            positive: false,
+            factory: root_proofs_null,
+        },
+        VectorDefinition {
+            name: "root-prev-self-hash-wrong-type",
+            description: "Reject a root whose prevDIDDocumentSelfHash is a JSON number.",
+            positive: false,
+            factory: root_prev_wrong_type,
+        },
+        VectorDefinition {
+            name: "root-proofs-wrong-type",
+            description: "Reject a root whose proofs field is a JSON object.",
+            positive: false,
+            factory: root_proofs_wrong_type,
+        },
+        VectorDefinition {
+            name: "root-proofs-empty-array",
+            description: "Accept a root whose proofs field is an empty array.",
+            positive: true,
+            factory: root_proofs_empty_array,
+        },
+        VectorDefinition {
             name: "non-root-id-mismatch",
             description: "Reject a non-root id differing from the root.",
             positive: false,
@@ -1130,6 +1254,42 @@ pub(crate) fn definitions() -> &'static [VectorDefinition] {
             description: "Reject an incorrect previous-document self-hash.",
             positive: false,
             factory: nonroot_prev,
+        },
+        VectorDefinition {
+            name: "non-root-prev-self-hash-null",
+            description: "Reject a non-root whose prevDIDDocumentSelfHash is JSON null.",
+            positive: false,
+            factory: nonroot_prev_null,
+        },
+        VectorDefinition {
+            name: "non-root-prev-self-hash-omitted",
+            description: "Reject a non-root that omits prevDIDDocumentSelfHash.",
+            positive: false,
+            factory: nonroot_prev_omitted,
+        },
+        VectorDefinition {
+            name: "non-root-prev-self-hash-not-mbhash",
+            description: "Reject a non-root whose prevDIDDocumentSelfHash is not a valid MBHash.",
+            positive: false,
+            factory: nonroot_prev_not_mbhash,
+        },
+        VectorDefinition {
+            name: "non-root-proofs-null",
+            description: "Reject a non-root whose proofs field is JSON null.",
+            positive: false,
+            factory: nonroot_proofs_null,
+        },
+        VectorDefinition {
+            name: "non-root-proofs-empty-array",
+            description: "Reject an update whose proofs field is an empty array.",
+            positive: false,
+            factory: nonroot_proofs_empty_array,
+        },
+        VectorDefinition {
+            name: "proofs-array-contains-null",
+            description: "Reject a proofs array that contains JSON null.",
+            positive: false,
+            factory: proofs_array_contains_null,
         },
         VectorDefinition {
             name: "non-root-valid-from-equal",
@@ -1307,7 +1467,7 @@ pub(crate) fn definitions() -> &'static [VectorDefinition] {
         },
         VectorDefinition {
             name: "proofs-missing",
-            description: "Reject an update with no proofs.",
+            description: "Reject an update that omits the proofs field.",
             positive: false,
             factory: missing_proofs,
         },

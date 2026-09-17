@@ -74,10 +74,30 @@ pub enum StructuredMutation {
     RootVersionNonzero,
     /// Root unexpectedly includes `prevDIDDocumentSelfHash`.
     RootPrevHashPresent,
+    /// Root `prevDIDDocumentSelfHash` is JSON `null`.
+    RootPrevHashNull,
+    /// Root `proofs` is JSON `null`.
+    RootProofsNull,
+    /// Root `prevDIDDocumentSelfHash` has a non-string JSON type.
+    RootPrevHashWrongType,
+    /// Root `proofs` has a non-array JSON type.
+    RootProofsWrongType,
     /// Non-root `id` differs from the root DID.
     NonRootIdMismatch,
     /// Non-root `prevDIDDocumentSelfHash` is wrong.
     NonRootPrevHashMismatch,
+    /// Non-root `prevDIDDocumentSelfHash` is JSON `null`.
+    NonRootPrevHashNull,
+    /// Non-root omits `prevDIDDocumentSelfHash`.
+    NonRootPrevHashOmitted,
+    /// Non-root `prevDIDDocumentSelfHash` is a string that is not a valid MBHash.
+    NonRootPrevHashNotMbHash,
+    /// Non-root `proofs` is JSON `null`.
+    NonRootProofsNull,
+    /// Non-root `proofs` is an empty array.
+    NonRootProofsEmptyArray,
+    /// `proofs` is an array that contains JSON `null`.
+    ProofsArrayContainsNull,
     /// Non-root `validFrom` equal to the previous document.
     NonRootValidFromEqual,
     /// Non-root `validFrom` earlier than the previous document.
@@ -124,8 +144,18 @@ impl StructuredMutation {
         StructuredMutation::InconsistentSelfHashSlots,
         StructuredMutation::RootVersionNonzero,
         StructuredMutation::RootPrevHashPresent,
+        StructuredMutation::RootPrevHashNull,
+        StructuredMutation::RootProofsNull,
+        StructuredMutation::RootPrevHashWrongType,
+        StructuredMutation::RootProofsWrongType,
         StructuredMutation::NonRootIdMismatch,
         StructuredMutation::NonRootPrevHashMismatch,
+        StructuredMutation::NonRootPrevHashNull,
+        StructuredMutation::NonRootPrevHashOmitted,
+        StructuredMutation::NonRootPrevHashNotMbHash,
+        StructuredMutation::NonRootProofsNull,
+        StructuredMutation::NonRootProofsEmptyArray,
+        StructuredMutation::ProofsArrayContainsNull,
         StructuredMutation::NonRootValidFromEqual,
         StructuredMutation::NonRootValidFromEarlier,
         StructuredMutation::NonRootVersionGap,
@@ -166,8 +196,18 @@ impl StructuredMutation {
             StructuredMutation::InconsistentSelfHashSlots => "inconsistent-self-hash-slots",
             StructuredMutation::RootVersionNonzero => "root-version-id-nonzero",
             StructuredMutation::RootPrevHashPresent => "root-prev-self-hash-present",
+            StructuredMutation::RootPrevHashNull => "root-prev-self-hash-null",
+            StructuredMutation::RootProofsNull => "root-proofs-null",
+            StructuredMutation::RootPrevHashWrongType => "root-prev-self-hash-wrong-type",
+            StructuredMutation::RootProofsWrongType => "root-proofs-wrong-type",
             StructuredMutation::NonRootIdMismatch => "non-root-id-mismatch",
             StructuredMutation::NonRootPrevHashMismatch => "non-root-prev-self-hash-mismatch",
+            StructuredMutation::NonRootPrevHashNull => "non-root-prev-self-hash-null",
+            StructuredMutation::NonRootPrevHashOmitted => "non-root-prev-self-hash-omitted",
+            StructuredMutation::NonRootPrevHashNotMbHash => "non-root-prev-self-hash-not-mbhash",
+            StructuredMutation::NonRootProofsNull => "non-root-proofs-null",
+            StructuredMutation::NonRootProofsEmptyArray => "non-root-proofs-empty-array",
+            StructuredMutation::ProofsArrayContainsNull => "proofs-array-contains-null",
             StructuredMutation::NonRootValidFromEqual => "non-root-valid-from-equal",
             StructuredMutation::NonRootValidFromEarlier => "non-root-valid-from-earlier",
             StructuredMutation::NonRootVersionGap => "non-root-version-id-gap",
@@ -214,6 +254,22 @@ impl StructuredMutation {
             StructuredMutation::RootPrevHashPresent => {
                 ErrorCode::RootPrevDidDocumentSelfHashPresent
             }
+            StructuredMutation::RootPrevHashNull | StructuredMutation::NonRootPrevHashNull => {
+                ErrorCode::PrevDidDocumentSelfHashNull
+            }
+            StructuredMutation::RootProofsNull | StructuredMutation::NonRootProofsNull => {
+                ErrorCode::ProofsNull
+            }
+            StructuredMutation::NonRootProofsEmptyArray => ErrorCode::UpdateRulesNotSatisfied,
+            StructuredMutation::RootPrevHashWrongType
+            | StructuredMutation::NonRootPrevHashNotMbHash => {
+                ErrorCode::MalformedPrevDidDocumentSelfHash
+            }
+            StructuredMutation::RootProofsWrongType
+            | StructuredMutation::ProofsArrayContainsNull => ErrorCode::MalformedProofs,
+            StructuredMutation::NonRootPrevHashOmitted => {
+                ErrorCode::NonRootPrevDidDocumentSelfHashMissing
+            }
             StructuredMutation::NonRootIdMismatch => ErrorCode::NonRootIdMismatch,
             StructuredMutation::NonRootPrevHashMismatch => {
                 ErrorCode::PrevDidDocumentSelfHashMismatch
@@ -234,6 +290,12 @@ impl StructuredMutation {
         match self {
             StructuredMutation::NonRootIdMismatch
             | StructuredMutation::NonRootPrevHashMismatch
+            | StructuredMutation::NonRootPrevHashNull
+            | StructuredMutation::NonRootPrevHashOmitted
+            | StructuredMutation::NonRootPrevHashNotMbHash
+            | StructuredMutation::NonRootProofsNull
+            | StructuredMutation::NonRootProofsEmptyArray
+            | StructuredMutation::ProofsArrayContainsNull
             | StructuredMutation::NonRootValidFromEqual
             | StructuredMutation::NonRootValidFromEarlier
             | StructuredMutation::NonRootVersionGap
@@ -407,13 +469,23 @@ impl StructuredMutation {
                 raw.replace("/versionId", serde_json::json!(1))?;
             }
             StructuredMutation::RootPrevHashPresent => {
-                raw.mutate(|value| {
-                    value.as_object_mut().unwrap().insert(
-                        "prevDIDDocumentSelfHash".to_owned(),
-                        serde_json::json!(placeholder),
-                    );
-                    Ok(())
-                })?;
+                raw.insert_member("prevDIDDocumentSelfHash", serde_json::json!(placeholder))?;
+            }
+            StructuredMutation::RootPrevHashNull => {
+                raw.insert_member("prevDIDDocumentSelfHash", serde_json::Value::Null)?;
+                return Ok(false);
+            }
+            StructuredMutation::RootProofsNull => {
+                raw.insert_member("proofs", serde_json::Value::Null)?;
+                return Ok(false);
+            }
+            StructuredMutation::RootPrevHashWrongType => {
+                raw.insert_member("prevDIDDocumentSelfHash", serde_json::json!(0))?;
+                return Ok(false);
+            }
+            StructuredMutation::RootProofsWrongType => {
+                raw.insert_member("proofs", serde_json::json!({}))?;
+                return Ok(false);
             }
             StructuredMutation::NonRootIdMismatch => {
                 mutate_string(raw, "/id", |id| {
@@ -424,6 +496,32 @@ impl StructuredMutation {
             }
             StructuredMutation::NonRootPrevHashMismatch => {
                 raw.replace("/prevDIDDocumentSelfHash", serde_json::json!(placeholder))?;
+            }
+            StructuredMutation::NonRootPrevHashNull => {
+                raw.replace("/prevDIDDocumentSelfHash", serde_json::Value::Null)?;
+                return Ok(false);
+            }
+            StructuredMutation::NonRootPrevHashOmitted => {
+                raw.remove("/prevDIDDocumentSelfHash")?;
+                return Ok(false);
+            }
+            StructuredMutation::NonRootPrevHashNotMbHash => {
+                raw.replace(
+                    "/prevDIDDocumentSelfHash",
+                    serde_json::json!("not-an-mbhash"),
+                )?;
+                return Ok(false);
+            }
+            StructuredMutation::NonRootProofsNull => {
+                raw.replace("/proofs", serde_json::Value::Null)?;
+                return Ok(false);
+            }
+            StructuredMutation::NonRootProofsEmptyArray => {
+                raw.replace("/proofs", serde_json::json!([]))?;
+            }
+            StructuredMutation::ProofsArrayContainsNull => {
+                raw.replace("/proofs", serde_json::json!([null]))?;
+                return Ok(false);
             }
             StructuredMutation::NonRootValidFromEqual => {
                 raw.replace("/validFrom", serde_json::json!("2025-01-01T00:00:00Z"))?;

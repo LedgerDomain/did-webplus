@@ -73,6 +73,16 @@ impl RawDidDocument {
         Ok(self)
     }
 
+    /// Insert or replace a top-level object member.
+    pub fn insert_member(
+        &mut self,
+        key: &str,
+        value: serde_json::Value,
+    ) -> anyhow::Result<&mut Self> {
+        self.object_mut()?.insert(key.to_owned(), value);
+        Ok(self)
+    }
+
     /// Replace the value at an existing RFC 6901 JSON Pointer.
     pub fn replace(
         &mut self,
@@ -383,7 +393,7 @@ mod tests {
 
         let reparsed: DIDDocument = serde_json::from_value(raw.value().clone()).unwrap();
         reparsed.verify_root_nonrecursive().unwrap();
-        assert_eq!(reparsed.proof_v.len(), 1);
+        assert_eq!(reparsed.proofs().len(), 1);
     }
 
     #[test]

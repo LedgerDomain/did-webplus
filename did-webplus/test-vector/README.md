@@ -314,6 +314,11 @@ Stable kebab-case strings (`ErrorCode` in the library). Codes mirror validation 
 | `update-after-deactivation` | Update after DID deactivation (tombstone) |
 | `root-version-id-nonzero` | Root has `versionId != 0` |
 | `root-prev-did-document-self-hash-present` | Root unexpectedly includes `prevDIDDocumentSelfHash` |
+| `prev-did-document-self-hash-null` | `prevDIDDocumentSelfHash` is JSON `null` |
+| `malformed-prev-did-document-self-hash` | `prevDIDDocumentSelfHash` is present but is not a valid MBHash |
+| `non-root-prev-did-document-self-hash-missing` | Non-root omits required `prevDIDDocumentSelfHash` |
+| `proofs-null` | `proofs` is JSON `null` |
+| `malformed-proofs` | `proofs` is present but is not an array of strings |
 | `non-root-id-mismatch` | Non-root `id` does not match expected DID |
 | `prev-did-document-self-hash-mismatch` | Wrong `prevDIDDocumentSelfHash` |
 | `valid-from-not-strictly-increasing` | Non-root `validFrom` not strictly greater |

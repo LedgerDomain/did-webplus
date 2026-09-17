@@ -28,23 +28,28 @@ pub struct DIDDocument {
     #[serde(rename = "selfHash")]
     pub self_hash: mbx::MBHash,
     /// This should be the self-hash of the previous DID document.  This relationship is what forms
-    /// the microledger.
+    /// the microledger.  The field must be omitted or a valid MBHash; JSON `null` is not allowed.
+    /// The custom deserializer is used to ensure that JSON `null` is rejected.
     #[serde(rename = "prevDIDDocumentSelfHash")]
+    #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "deserialize_omissible_mbhash")]
     pub prev_did_document_self_hash_o: Option<mbx::MBHash>,
     /// This defines the update authorization rules for this DID while this DID document is current.
     #[serde(rename = "updateRules")]
     pub update_rules: RootLevelUpdateRules,
-    /// This is a list of the proofs that will be used to verify the authorization rules to update this DID
-    /// while this DID document is current.
+    /// Proofs used to authorize the update that produced this DID document.  The field must be
+    /// omitted or a JSON array of proof strings (the array may be empty); JSON `null` is not allowed.
+    /// The custom deserializer is used to ensure that JSON `null` is rejected.
     #[serde(rename = "proofs")]
-    #[serde(skip_serializing_if = "Vec::is_empty", default = "Vec::new")]
-    pub proof_v: Vec<String>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(deserialize_with = "deserialize_omissible_not_null")]
+    pub proof_vo: Option<Vec<String>>,
     /// This specifies the RFC-3339-formatted timestamp at which this DID document becomes valid.
     /// Note that in order to be interoperable with other implementations (specifically javascript-based
     /// ones), this MUST have precision no greater than milliseconds.
     #[serde(rename = "validFrom")]
-    // #[serde(with = "time::serde::rfc3339")]
     pub valid_from_string: String,
     /// This should be exactly 1 greater than the previous DID document's version_id.
     #[serde(rename = "versionId")]
@@ -87,7 +92,7 @@ impl DIDDocument {
             did: did.clone(),
             self_hash: self_hash_placeholder,
             update_rules,
-            proof_v: vec![],
+            proof_vo: None,
             prev_did_document_self_hash_o: None,
             version_id,
             valid_from_string: valid_from.format(&time::format_description::well_known::Rfc3339)?,
@@ -129,7 +134,7 @@ impl DIDDocument {
             did: did.clone(),
             self_hash: self_hash_placeholder,
             update_rules,
-            proof_v: vec![],
+            proof_vo: None,
             prev_did_document_self_hash_o: Some(prev_did_document_self_hash),
             version_id,
             valid_from_string: valid_from.format(&time::format_description::well_known::Rfc3339)?,
@@ -140,7 +145,15 @@ impl DIDDocument {
         // TODO: Check that the proof is valid and that it matches any criteria in the update rules.
         // Or should any proofs be allowed?  They could be used for purposes outside the did:webplus spec.
         // Maybe this is only a debug check.
-        self.proof_v.push(proof);
+        self.proof_vo.get_or_insert_with(Vec::new).push(proof);
+    }
+    /// Proof strings present in this document.  An omitted `proofs` field and an empty array both
+    /// yield an empty slice; they remain distinct on the wire because only a present array serializes.
+    pub fn proofs(&self) -> &[String] {
+        match self.proof_vo.as_ref() {
+            Some(proof_v) => proof_v.as_slice(),
+            None => &[],
+        }
     }
     pub fn finalize(&mut self, prev_did_document_o: Option<&DIDDocument>) -> Result<&mbx::MBHash> {
         use selfhash::HashRefT;
@@ -364,12 +377,12 @@ impl DIDDocument {
 
         tracing::trace!(?self.self_hash, ?self.version_id, "verified self-hashes");
 
-        tracing::trace!(?self.self_hash, ?self.version_id, "verifying {} proofs", self.proof_v.len());
+        tracing::trace!(?self.self_hash, ?self.version_id, "verifying {} proofs", self.proofs().len());
         if let Some(expected_prev_did_document) = expected_prev_did_document_o {
             tracing::trace!(?self.self_hash, ?self.version_id, "expected_prev_did_document.self_hash = {}", expected_prev_did_document.self_hash);
 
             // If this is a non-root DIDDocument, verify all proofs, storing the key IDs of the valid proofs.
-            let mut valid_proof_data_v = Vec::with_capacity(self.proof_v.len());
+            let mut valid_proof_data_v = Vec::with_capacity(self.proofs().len());
             self.verify_proofs(Some(&mut valid_proof_data_v))?;
 
             tracing::trace!(
@@ -474,7 +487,7 @@ impl DIDDocument {
         };
 
         let mut invalid_proof_index_v = Vec::new();
-        for (proof_index, proof) in self.proof_v.iter().enumerate() {
+        for (proof_index, proof) in self.proofs().iter().enumerate() {
             match verify_proof(proof.as_str()) {
                 Ok(valid_proof_data) => {
                     tracing::trace!(?self.self_hash, ?self.version_id, "proof with index {} successfully verified", proof_index);
@@ -513,7 +526,7 @@ impl DIDDocument {
     /// JSON of the DID document, omitting the proofs, with the self-hash slots set to the placeholder hash value.
     fn bytes_to_sign(&self) -> Result<Vec<u8>> {
         let mut self_clone = self.clone();
-        self_clone.proof_v.clear();
+        self_clone.proof_vo = None;
         // NOTE: All this could really be replaced with self.write_digest_data once that method accepts std::io::Write.
         use selfhash::HashRefT;
         let mb_hash_function = self.self_hash.hash_function();
@@ -575,5 +588,89 @@ impl selfhash::SelfHashableT<mbx::MBHashStr> for DIDDocument {
             self.self_hash = hash.to_owned();
         }
         Ok(())
+    }
+}
+
+/// Deserialize `Option<mbx::MBHash>` so a missing field is `None` (via `#[serde(default)]`),
+/// a present valid MBHash is `Some`, and JSON `null` or a non-MBHash value is rejected.
+fn deserialize_omissible_mbhash<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<mbx::MBHash>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    let value = String::deserialize(deserializer)?;
+    mbx::MBHash::try_from(value.as_str())
+        .map(Some)
+        .map_err(serde::de::Error::custom)
+}
+
+/// Deserialize `Option<T>` so a missing field is `None` (via `#[serde(default)]`), a present
+/// value is `Some(T)`, and JSON `null` is rejected because `T` itself does not accept null.
+fn deserialize_omissible_not_null<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+#[cfg(test)]
+mod tests {
+    #[derive(Debug, serde::Deserialize, PartialEq, serde::Serialize)]
+    struct Probe {
+        #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(deserialize_with = "super::deserialize_omissible_not_null")]
+        field_o: Option<String>,
+        #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(deserialize_with = "super::deserialize_omissible_not_null")]
+        list_o: Option<Vec<String>>,
+    }
+
+    #[test]
+    fn omissible_field_omitted_deserializes_as_none() {
+        let probe: Probe = serde_json::from_str("{}").unwrap();
+        assert_eq!(probe.field_o, None);
+        assert_eq!(probe.list_o, None);
+        assert_eq!(serde_json::to_string(&probe).unwrap(), "{}");
+    }
+
+    #[test]
+    fn omissible_field_null_is_rejected() {
+        assert!(serde_json::from_str::<Probe>(r#"{"field_o":null}"#).is_err());
+        assert!(serde_json::from_str::<Probe>(r#"{"list_o":null}"#).is_err());
+    }
+
+    #[test]
+    fn omissible_empty_array_round_trips() {
+        let probe: Probe = serde_json::from_str(r#"{"list_o":[]}"#).unwrap();
+        assert_eq!(probe.list_o, Some(Vec::new()));
+        assert_eq!(serde_json::to_string(&probe).unwrap(), r#"{"list_o":[]}"#);
+    }
+
+    #[test]
+    fn omissible_array_containing_null_is_rejected() {
+        assert!(serde_json::from_str::<Probe>(r#"{"list_o":[null]}"#).is_err());
+    }
+
+    #[derive(Debug, serde::Deserialize)]
+    struct HashProbe {
+        #[serde(default)]
+        #[serde(deserialize_with = "super::deserialize_omissible_mbhash")]
+        field_o: Option<mbx::MBHash>,
+    }
+
+    #[test]
+    fn omissible_mbhash_null_and_invalid_string_are_rejected() {
+        assert!(serde_json::from_str::<HashProbe>(r#"{"field_o":null}"#).is_err());
+        assert!(serde_json::from_str::<HashProbe>(r#"{"field_o":"not-an-mbhash"}"#).is_err());
+        assert!(serde_json::from_str::<HashProbe>(r#"{"field_o":0}"#).is_err());
+        let omitted: HashProbe = serde_json::from_str("{}").unwrap();
+        assert!(omitted.field_o.is_none());
     }
 }

@@ -66,6 +66,16 @@ pub enum ErrorCode {
     EmptyJsonl,
     /// Root document unexpectedly includes `prevDIDDocumentSelfHash`.
     RootPrevDidDocumentSelfHashPresent,
+    /// `prevDIDDocumentSelfHash` is JSON `null`.
+    PrevDidDocumentSelfHashNull,
+    /// `prevDIDDocumentSelfHash` is present but is not a valid MBHash.
+    MalformedPrevDidDocumentSelfHash,
+    /// Non-root document omits required `prevDIDDocumentSelfHash`.
+    NonRootPrevDidDocumentSelfHashMissing,
+    /// `proofs` is JSON `null`.
+    ProofsNull,
+    /// `proofs` is present but is not an array of strings.
+    MalformedProofs,
     /// A required DID-document field is missing.
     MissingRequiredField,
     /// `versionId` has an invalid type or value shape.
@@ -122,6 +132,13 @@ impl ErrorCode {
             ErrorCode::RootPrevDidDocumentSelfHashPresent => {
                 "root-prev-did-document-self-hash-present"
             }
+            ErrorCode::PrevDidDocumentSelfHashNull => "prev-did-document-self-hash-null",
+            ErrorCode::MalformedPrevDidDocumentSelfHash => "malformed-prev-did-document-self-hash",
+            ErrorCode::NonRootPrevDidDocumentSelfHashMissing => {
+                "non-root-prev-did-document-self-hash-missing"
+            }
+            ErrorCode::ProofsNull => "proofs-null",
+            ErrorCode::MalformedProofs => "malformed-proofs",
             ErrorCode::MissingRequiredField => "missing-required-field",
             ErrorCode::MalformedVersionId => "malformed-version-id",
             ErrorCode::MalformedId => "malformed-id",
@@ -176,6 +193,15 @@ impl std::str::FromStr for ErrorCode {
             "root-prev-did-document-self-hash-present" => {
                 Ok(ErrorCode::RootPrevDidDocumentSelfHashPresent)
             }
+            "prev-did-document-self-hash-null" => Ok(ErrorCode::PrevDidDocumentSelfHashNull),
+            "malformed-prev-did-document-self-hash" => {
+                Ok(ErrorCode::MalformedPrevDidDocumentSelfHash)
+            }
+            "non-root-prev-did-document-self-hash-missing" => {
+                Ok(ErrorCode::NonRootPrevDidDocumentSelfHashMissing)
+            }
+            "proofs-null" => Ok(ErrorCode::ProofsNull),
+            "malformed-proofs" => Ok(ErrorCode::MalformedProofs),
             "missing-required-field" => Ok(ErrorCode::MissingRequiredField),
             "malformed-version-id" => Ok(ErrorCode::MalformedVersionId),
             "malformed-id" => Ok(ErrorCode::MalformedId),
