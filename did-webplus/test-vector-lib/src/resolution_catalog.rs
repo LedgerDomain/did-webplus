@@ -114,7 +114,10 @@ fn root_self_hash_mismatch(
 }
 
 /// Resolution path has an extra component relative to the content DID.
-fn path_url_has_extra(params: TestVectorParams, rng: DeterministicRng) -> anyhow::Result<TestVector> {
+fn path_url_has_extra(
+    params: TestVectorParams,
+    rng: DeterministicRng,
+) -> anyhow::Result<TestVector> {
     let builder = MicroledgerBuilder::create_with_updates(params.clone(), rng, 1)?;
     let content_did = builder.did().clone();
     let jsonl_line_v = builder.canonical_jsonl_lines()?;
@@ -379,10 +382,7 @@ mod tests {
             DeterministicRng::for_vector("resolution-unit", "path-url"),
         )
         .unwrap();
-        assert_eq!(
-            content_did(&url_extra).path_o().as_deref(),
-            Some("tv:demo")
-        );
+        assert_eq!(content_did(&url_extra).path_o().as_deref(), Some("tv:demo"));
         assert_eq!(url_extra.did.path_o().as_deref(), Some("tv:demo:extra"));
 
         let content_extra = path_content_has_extra(

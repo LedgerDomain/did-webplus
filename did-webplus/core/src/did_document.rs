@@ -541,7 +541,9 @@ impl selfhash::SelfHashableT<mbx::MBHashStr> for DIDDocument {
             Some(self.self_hash.deref())
         };
         // Depending on if this is a root DID document or a non-root DID document, there are different
-        // self-hash slots to return.
+        // self-hash slots to return.  Non-root slots include each verification-method `id` and `kid`
+        // query selfHash; digest verification overwrites those positions, so slot agreement is
+        // what binds the published URL strings.
         if self.is_root_did_document() {
             Ok(Box::new(
                 std::iter::once(Some(self.did.root_self_hash()))
@@ -549,7 +551,12 @@ impl selfhash::SelfHashableT<mbx::MBHashStr> for DIDDocument {
                     .chain(self.public_key_material.root_did_document_self_hash_oi()),
             ))
         } else {
-            Ok(Box::new(std::iter::once(self_hash_o)))
+            Ok(Box::new(
+                std::iter::once(self_hash_o).chain(
+                    self.public_key_material
+                        .non_root_did_document_self_hash_oi(),
+                ),
+            ))
         }
     }
     fn set_self_hash_slots_to(&mut self, hash: &mbx::MBHashStr) -> selfhash::Result<()> {

@@ -83,6 +83,7 @@ impl VerificationMethod {
         let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> =
             Box::new(
                 std::iter::once(Some(self.id.root_self_hash()))
+                    .chain(std::iter::once(Some(self.id.query_self_hash())))
                     .chain(std::iter::once(Some(self.controller.root_self_hash()))),
             );
         if let Some(kid) = self.public_key_jwk.kid_o.as_ref() {
@@ -110,7 +111,7 @@ impl VerificationMethod {
         &'b self,
     ) -> Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> {
         let mut iter_chain: Box<dyn std::iter::Iterator<Item = Option<&'b mbx::MBHashStr>> + 'a> =
-            Box::new(std::iter::empty());
+            Box::new(std::iter::once(Some(self.id.query_self_hash())));
         if let Some(kid) = self.public_key_jwk.kid_o.as_ref() {
             iter_chain = Box::new(iter_chain.chain(std::iter::once(Some(kid.query_self_hash()))));
         }

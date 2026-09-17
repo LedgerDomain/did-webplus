@@ -31,6 +31,10 @@ pub enum ErrorCode {
     VmIdControllerMismatch,
     /// Verification-method `publicKeyJwk` is missing required `kid`.
     VmMissingKid,
+    /// Verification-method `publicKeyJwk.kid` is present but does not match `id`.
+    VmKidMismatch,
+    /// Verification-method `publicKeyJwk.kid` is present but is not a fully-qualified DID URL.
+    VmKidNotFullyQualified,
     /// A purpose array references a verification-method fragment that does not exist.
     DanglingPurposeRef,
     /// Document `selfHash` does not match the computed self-hash.
@@ -99,6 +103,8 @@ impl ErrorCode {
             ErrorCode::VmIdMissingFragment => "vm-id-missing-fragment",
             ErrorCode::VmIdControllerMismatch => "vm-id-controller-mismatch",
             ErrorCode::VmMissingKid => "vm-missing-kid",
+            ErrorCode::VmKidMismatch => "vm-kid-mismatch",
+            ErrorCode::VmKidNotFullyQualified => "vm-kid-not-fully-qualified",
             ErrorCode::DanglingPurposeRef => "dangling-purpose-ref",
             ErrorCode::SelfHashMismatch => "self-hash-mismatch",
             ErrorCode::SelfHashSlotMismatch => "self-hash-slot-mismatch",
@@ -149,6 +155,8 @@ impl std::str::FromStr for ErrorCode {
             "vm-id-missing-fragment" => Ok(ErrorCode::VmIdMissingFragment),
             "vm-id-controller-mismatch" => Ok(ErrorCode::VmIdControllerMismatch),
             "vm-missing-kid" => Ok(ErrorCode::VmMissingKid),
+            "vm-kid-mismatch" => Ok(ErrorCode::VmKidMismatch),
+            "vm-kid-not-fully-qualified" => Ok(ErrorCode::VmKidNotFullyQualified),
             "dangling-purpose-ref" => Ok(ErrorCode::DanglingPurposeRef),
             "self-hash-mismatch" => Ok(ErrorCode::SelfHashMismatch),
             "self-hash-slot-mismatch" => Ok(ErrorCode::SelfHashSlotMismatch),

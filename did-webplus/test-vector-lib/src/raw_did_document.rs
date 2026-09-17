@@ -305,7 +305,9 @@ impl RawDidDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BaseChoice, DeterministicRng, MicroledgerBuilder, TestVectorParams};
+    use crate::{
+        BaseChoice, DeterministicRng, MicroledgerBuilder, StructuredMutation, TestVectorParams,
+    };
     use did_webplus_mock::MicroledgerView;
 
     #[test]
@@ -401,5 +403,27 @@ mod tests {
 
         let reparsed: DIDDocument = serde_json::from_value(raw.value().clone()).unwrap();
         reparsed.verify_non_root_nonrecursive(previous).unwrap();
+    }
+
+    #[test]
+    fn non_root_inconsistent_vm_query_self_hash_slots_fail_verification() {
+        let params = TestVectorParams::baseline("example.com");
+        let builder = MicroledgerBuilder::create_with_updates(
+            params.clone(),
+            DeterministicRng::for_vector("seed", "raw-non-root-slots"),
+            1,
+        )
+        .unwrap();
+        let previous = builder.microledger().view().root_did_document();
+        let latest = builder.microledger().view().latest_did_document();
+        let mut raw = RawDidDocument::from_did_document(latest).unwrap();
+        assert!(
+            !StructuredMutation::InconsistentSelfHashSlots
+                .apply(&mut raw, &params)
+                .unwrap()
+        );
+
+        let reparsed: DIDDocument = serde_json::from_value(raw.value().clone()).unwrap();
+        assert!(reparsed.verify_non_root_nonrecursive(previous).is_err());
     }
 }

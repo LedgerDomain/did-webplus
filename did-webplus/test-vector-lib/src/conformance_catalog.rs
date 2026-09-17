@@ -166,20 +166,20 @@ fn rule_vector(
         RuleCase::HashedKeyValid | RuleCase::HashedKeyUnauthorized => RootLevelUpdateRules::from(
             HashedUpdateKey::from_pub_key(&params.mb_hash_function(), pub_key_v[0].as_ref()),
         ),
-        RuleCase::AnyValid
-        | RuleCase::AnyUnauthorized
-        | RuleCase::AnyWithMixedProofs => RootLevelUpdateRules::from(Any {
-            any: vec![
-                UpdateKey {
-                    pub_key: pub_key_v[0].clone(),
-                }
-                .into(),
-                UpdateKey {
-                    pub_key: pub_key_v[1].clone(),
-                }
-                .into(),
-            ],
-        }),
+        RuleCase::AnyValid | RuleCase::AnyUnauthorized | RuleCase::AnyWithMixedProofs => {
+            RootLevelUpdateRules::from(Any {
+                any: vec![
+                    UpdateKey {
+                        pub_key: pub_key_v[0].clone(),
+                    }
+                    .into(),
+                    UpdateKey {
+                        pub_key: pub_key_v[1].clone(),
+                    }
+                    .into(),
+                ],
+            })
+        }
         RuleCase::AllValid | RuleCase::AllMissingProof => {
             RootLevelUpdateRules::from(All::new(vec![
                 UpdateKey {
@@ -265,9 +265,9 @@ fn rule_vector(
             RuleCase::AnyValid => &[1],
             // Authorizing proof first, then a second proof that will be corrupted.
             RuleCase::AnyWithMixedProofs => &[1, 0],
-            RuleCase::AllValid
-            | RuleCase::ExtraneousProofs
-            | RuleCase::KeyWithMixedProofs => &[0, 1],
+            RuleCase::AllValid | RuleCase::ExtraneousProofs | RuleCase::KeyWithMixedProofs => {
+                &[0, 1]
+            }
             RuleCase::KeyUnauthorized
             | RuleCase::HashedKeyUnauthorized
             | RuleCase::ThresholdBelow
@@ -568,6 +568,22 @@ baseline_factory!(
     Some(ErrorCode::VmIdSelfhashMismatch)
 );
 baseline_factory!(
+    vm_kid_hash_mismatch,
+    "vm-kid-self-hash-mismatch",
+    "Reject a VM kid with mismatched selfHash.",
+    Baseline::Root,
+    Mutation::Structured(StructuredMutation::VmKidSelfHashMismatch),
+    Some(ErrorCode::VmKidMismatch)
+);
+baseline_factory!(
+    vm_hash_mismatch_one_of_many,
+    "vm-id-self-hash-mismatch-one-of-many",
+    "Reject when only one of several VM ids has a mismatched selfHash.",
+    Baseline::Root,
+    Mutation::Structured(StructuredMutation::VmSelfHashMismatchOneOfMany),
+    Some(ErrorCode::VmIdSelfhashMismatch)
+);
+baseline_factory!(
     vm_version_mismatch,
     "vm-id-version-id-mismatch",
     "Reject a VM id with mismatched versionId.",
@@ -598,6 +614,14 @@ baseline_factory!(
     Baseline::Root,
     Mutation::Structured(StructuredMutation::VmMissingKid),
     Some(ErrorCode::VmMissingKid)
+);
+baseline_factory!(
+    vm_kid_not_fully_qualified,
+    "vm-kid-not-fully-qualified",
+    "Reject a VM kid that is not a fully-qualified DID URL.",
+    Baseline::Root,
+    Mutation::Structured(StructuredMutation::VmKidNotFullyQualified),
+    Some(ErrorCode::VmKidNotFullyQualified)
 );
 baseline_factory!(
     purpose_dangling_authentication_ref,
@@ -702,6 +726,86 @@ baseline_factory!(
     Baseline::SecondUpdate,
     Mutation::Structured(StructuredMutation::NonRootVersionDecrease),
     Some(ErrorCode::VersionIdNotIncremented)
+);
+baseline_factory!(
+    nonroot_vm_missing_self_hash,
+    "non-root-vm-id-missing-self-hash-param",
+    "Reject a non-root VM id missing selfHash.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmMissingSelfHash),
+    Some(ErrorCode::VmIdMissingQueryParams)
+);
+baseline_factory!(
+    nonroot_vm_missing_version,
+    "non-root-vm-id-missing-version-id-param",
+    "Reject a non-root VM id missing versionId.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmMissingVersionId),
+    Some(ErrorCode::VmIdMissingQueryParams)
+);
+baseline_factory!(
+    nonroot_vm_wrong_order,
+    "non-root-vm-id-query-param-order",
+    "Reject a non-root VM id whose query parameters are in the wrong order.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmWrongOrder),
+    Some(ErrorCode::VmIdQueryParamOrder)
+);
+baseline_factory!(
+    nonroot_vm_hash_mismatch,
+    "non-root-vm-id-self-hash-mismatch",
+    "Reject a non-root VM id whose selfHash query disagrees with the document.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmSelfHashMismatch),
+    Some(ErrorCode::VmIdSelfhashMismatch)
+);
+baseline_factory!(
+    nonroot_vm_kid_hash_mismatch,
+    "non-root-vm-kid-self-hash-mismatch",
+    "Reject a non-root VM kid whose selfHash query disagrees with the document.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmKidSelfHashMismatch),
+    Some(ErrorCode::VmKidMismatch)
+);
+baseline_factory!(
+    nonroot_vm_hash_mismatch_one_of_many,
+    "non-root-vm-id-self-hash-mismatch-one-of-many",
+    "Reject a non-root document when only one of several VM ids has a mismatched selfHash.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmSelfHashMismatchOneOfMany),
+    Some(ErrorCode::VmIdSelfhashMismatch)
+);
+baseline_factory!(
+    nonroot_inconsistent_slots,
+    "non-root-self-hash-inconsistent-slots",
+    "Reject a non-root document whose VM id and kid selfHash query slots disagree with the document.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::InconsistentSelfHashSlots),
+    Some(ErrorCode::SelfHashSlotMismatch)
+);
+baseline_factory!(
+    nonroot_vm_version_mismatch,
+    "non-root-vm-id-version-id-mismatch",
+    "Reject a non-root VM id with mismatched versionId.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmVersionIdMismatch),
+    Some(ErrorCode::VmIdVersionIdMismatch)
+);
+baseline_factory!(
+    nonroot_vm_missing_fragment,
+    "non-root-vm-id-missing-fragment",
+    "Reject a non-root VM id missing its fragment.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmMissingFragment),
+    Some(ErrorCode::VmIdMissingFragment)
+);
+baseline_factory!(
+    nonroot_vm_kid_not_fully_qualified,
+    "non-root-vm-kid-not-fully-qualified",
+    "Reject a non-root VM kid that is not a fully-qualified DID URL.",
+    Baseline::Update,
+    Mutation::Structured(StructuredMutation::VmKidNotFullyQualified),
+    Some(ErrorCode::VmKidNotFullyQualified)
 );
 baseline_factory!(
     proof_malformed_kid,
@@ -938,6 +1042,18 @@ pub(crate) fn definitions() -> &'static [VectorDefinition] {
             factory: vm_hash_mismatch,
         },
         VectorDefinition {
+            name: "vm-kid-self-hash-mismatch",
+            description: "Reject a VM kid with mismatched selfHash.",
+            positive: false,
+            factory: vm_kid_hash_mismatch,
+        },
+        VectorDefinition {
+            name: "vm-id-self-hash-mismatch-one-of-many",
+            description: "Reject when only one of several VM ids has a mismatched selfHash.",
+            positive: false,
+            factory: vm_hash_mismatch_one_of_many,
+        },
+        VectorDefinition {
             name: "vm-id-version-id-mismatch",
             description: "Reject a VM id with mismatched versionId.",
             positive: false,
@@ -960,6 +1076,12 @@ pub(crate) fn definitions() -> &'static [VectorDefinition] {
             description: "Reject a VM publicKeyJwk missing kid.",
             positive: false,
             factory: vm_missing_jwk_kid,
+        },
+        VectorDefinition {
+            name: "vm-kid-not-fully-qualified",
+            description: "Reject a VM kid that is not a fully-qualified DID URL.",
+            positive: false,
+            factory: vm_kid_not_fully_qualified,
         },
         VectorDefinition {
             name: "purpose-dangling-authentication-ref",
@@ -1040,6 +1162,66 @@ pub(crate) fn definitions() -> &'static [VectorDefinition] {
             factory: nonroot_decrease,
         },
         VectorDefinition {
+            name: "non-root-vm-id-missing-self-hash-param",
+            description: "Reject a non-root VM id missing selfHash.",
+            positive: false,
+            factory: nonroot_vm_missing_self_hash,
+        },
+        VectorDefinition {
+            name: "non-root-vm-id-missing-version-id-param",
+            description: "Reject a non-root VM id missing versionId.",
+            positive: false,
+            factory: nonroot_vm_missing_version,
+        },
+        VectorDefinition {
+            name: "non-root-vm-id-query-param-order",
+            description: "Reject a non-root VM id whose query parameters are in the wrong order.",
+            positive: false,
+            factory: nonroot_vm_wrong_order,
+        },
+        VectorDefinition {
+            name: "non-root-vm-id-self-hash-mismatch",
+            description: "Reject a non-root VM id whose selfHash query disagrees with the document.",
+            positive: false,
+            factory: nonroot_vm_hash_mismatch,
+        },
+        VectorDefinition {
+            name: "non-root-vm-kid-self-hash-mismatch",
+            description: "Reject a non-root VM kid whose selfHash query disagrees with the document.",
+            positive: false,
+            factory: nonroot_vm_kid_hash_mismatch,
+        },
+        VectorDefinition {
+            name: "non-root-vm-id-self-hash-mismatch-one-of-many",
+            description: "Reject a non-root document when only one of several VM ids has a mismatched selfHash.",
+            positive: false,
+            factory: nonroot_vm_hash_mismatch_one_of_many,
+        },
+        VectorDefinition {
+            name: "non-root-self-hash-inconsistent-slots",
+            description: "Reject a non-root document whose VM id and kid selfHash query slots disagree with the document.",
+            positive: false,
+            factory: nonroot_inconsistent_slots,
+        },
+        VectorDefinition {
+            name: "non-root-vm-id-version-id-mismatch",
+            description: "Reject a non-root VM id with mismatched versionId.",
+            positive: false,
+            factory: nonroot_vm_version_mismatch,
+        },
+        VectorDefinition {
+            name: "non-root-vm-id-missing-fragment",
+            description: "Reject a non-root VM id missing its fragment.",
+            positive: false,
+            factory: nonroot_vm_missing_fragment,
+        },
+        VectorDefinition {
+            name: "non-root-vm-kid-not-fully-qualified",
+            description: "Reject a non-root VM kid that is not a fully-qualified DID URL.",
+            positive: false,
+            factory: nonroot_vm_kid_not_fully_qualified,
+        },
+        VectorDefinition {
             name: "proof-malformed-kid",
             description: "Reject a proof whose kid is not a valid multicodec string.",
             positive: false,
@@ -1113,15 +1295,13 @@ pub(crate) fn definitions() -> &'static [VectorDefinition] {
         },
         VectorDefinition {
             name: "proofs-mixed-valid-invalid-key",
-            description:
-                "Reject a key-authorized update that also includes a cryptographically invalid proof.",
+            description: "Reject a key-authorized update that also includes a cryptographically invalid proof.",
             positive: false,
             factory: key_with_mixed_proofs,
         },
         VectorDefinition {
             name: "proofs-mixed-valid-invalid-any",
-            description:
-                "Reject an any-authorized update that also includes a cryptographically invalid proof.",
+            description: "Reject an any-authorized update that also includes a cryptographically invalid proof.",
             positive: false,
             factory: any_with_mixed_proofs,
         },

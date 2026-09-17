@@ -80,17 +80,19 @@ impl TestVectorIndex {
             } else {
                 NEGATIVE_GROUP_NAME
             };
-            if vector_m
-                .insert(
-                    record.name.clone(),
-                    TestVectorLocation {
-                        did: record.did,
-                        path: record.path,
-                    },
-                )
-                .is_some()
-            {
-                anyhow::bail!("duplicate test vector name {:?} in target tree", record.name);
+            if let Some(previous) = vector_m.insert(
+                record.name.clone(),
+                TestVectorLocation {
+                    did: record.did,
+                    path: record.path.clone(),
+                },
+            ) {
+                anyhow::bail!(
+                    "duplicate test vector name {:?} in target tree (paths {:?} and {:?})",
+                    record.name,
+                    previous.path,
+                    record.path
+                );
             }
             group_m
                 .entry(validity_group_name.to_owned())

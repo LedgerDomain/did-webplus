@@ -145,10 +145,11 @@
 //!
 //! **Rebuild-from-tree:** [`TestVectorWriter::write_all`] writes vectors then
 //! rebuilds `index.json` by scanning for `test-vector.json`
-//! (not "index = only this invocation"). [`TestVectorWriter::rebuild_indexes_under`]
-//! / [`TestVectorWriter::rebuild_index`] do the same (CLI `rebuild-index`). New
-//! vectors can be added and the index recreated without regenerating the whole
-//! dataset.
+//! (not "index = only this invocation"). If a rewritten name already exists at a
+//! different DID path, the old vector directory is removed first.
+//! [`TestVectorWriter::rebuild_indexes_under`] / [`TestVectorWriter::rebuild_index`]
+//! scan the tree as-is (CLI `rebuild-index`). New vectors can be added and the
+//! index recreated without regenerating the whole dataset.
 //!
 //! # How a harness should consume the catalog
 //!

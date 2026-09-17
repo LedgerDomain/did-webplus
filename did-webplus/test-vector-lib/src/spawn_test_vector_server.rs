@@ -31,8 +31,7 @@ pub async fn spawn_test_vector_server(
         .route("/health", axum::routing::get(|| async { "OK" }));
 
     // 0.0.0.0 so the service is reachable from docker / non-loopback clients.
-    let listener =
-        tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.listen_port)).await?;
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", config.listen_port)).await?;
     tracing::info!(
         "did-webplus test-vector server listening on port {}",
         config.listen_port

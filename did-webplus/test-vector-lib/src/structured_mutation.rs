@@ -48,6 +48,10 @@ pub enum StructuredMutation {
     VmWrongOrder,
     /// Verification-method `id` `selfHash` does not match the document.
     VmSelfHashMismatch,
+    /// Verification-method `publicKeyJwk.kid` `selfHash` does not match the document.
+    VmKidSelfHashMismatch,
+    /// Only one of several verification-method `id` `selfHash` queries is wrong.
+    VmSelfHashMismatchOneOfMany,
     /// Verification-method `id` `versionId` does not match the document.
     VmVersionIdMismatch,
     /// Verification-method `id` missing its fragment.
@@ -56,6 +60,8 @@ pub enum StructuredMutation {
     VmIdControllerMismatch,
     /// Verification-method `publicKeyJwk` is missing required `kid`.
     VmMissingKid,
+    /// Verification-method `publicKeyJwk.kid` is present but not a fully-qualified DID URL.
+    VmKidNotFullyQualified,
     /// Purpose array references a verification-method fragment that does not exist.
     DanglingPurposeRef,
     /// Document `selfHash` replaced without updating slots.
@@ -105,10 +111,13 @@ impl StructuredMutation {
         StructuredMutation::VmMissingVersionId,
         StructuredMutation::VmWrongOrder,
         StructuredMutation::VmSelfHashMismatch,
+        StructuredMutation::VmKidSelfHashMismatch,
+        StructuredMutation::VmSelfHashMismatchOneOfMany,
         StructuredMutation::VmVersionIdMismatch,
         StructuredMutation::VmMissingFragment,
         StructuredMutation::VmIdControllerMismatch,
         StructuredMutation::VmMissingKid,
+        StructuredMutation::VmKidNotFullyQualified,
         StructuredMutation::DanglingPurposeRef,
         StructuredMutation::WrongSelfHash,
         StructuredMutation::WrongRootDidSuffix,
@@ -142,10 +151,15 @@ impl StructuredMutation {
             StructuredMutation::VmMissingVersionId => "vm-id-missing-version-id",
             StructuredMutation::VmWrongOrder => "vm-id-query-param-order",
             StructuredMutation::VmSelfHashMismatch => "vm-id-self-hash-mismatch",
+            StructuredMutation::VmKidSelfHashMismatch => "vm-kid-self-hash-mismatch",
+            StructuredMutation::VmSelfHashMismatchOneOfMany => {
+                "vm-id-self-hash-mismatch-one-of-many"
+            }
             StructuredMutation::VmVersionIdMismatch => "vm-id-version-id-mismatch",
             StructuredMutation::VmMissingFragment => "vm-id-missing-fragment",
             StructuredMutation::VmIdControllerMismatch => "vm-id-controller-mismatch",
             StructuredMutation::VmMissingKid => "vm-missing-jwk-kid",
+            StructuredMutation::VmKidNotFullyQualified => "vm-kid-not-fully-qualified",
             StructuredMutation::DanglingPurposeRef => "purpose-dangling-authentication-ref",
             StructuredMutation::WrongSelfHash => "wrong-self-hash",
             StructuredMutation::WrongRootDidSuffix => "wrong-root-did-suffix",
@@ -176,17 +190,21 @@ impl StructuredMutation {
             StructuredMutation::MalformedId => ErrorCode::MalformedId,
             StructuredMutation::ValidFromMicroseconds => ErrorCode::ValidFromPrecisionExceeded,
             StructuredMutation::ValidFromPreEpoch => ErrorCode::ValidFromPreEpoch,
-            StructuredMutation::ValidFromLowercase
-            | StructuredMutation::ValidFromUnparseable => ErrorCode::ValidFromInvalidFormat,
+            StructuredMutation::ValidFromLowercase | StructuredMutation::ValidFromUnparseable => {
+                ErrorCode::ValidFromInvalidFormat
+            }
             StructuredMutation::VmMissingSelfHash | StructuredMutation::VmMissingVersionId => {
                 ErrorCode::VmIdMissingQueryParams
             }
             StructuredMutation::VmWrongOrder => ErrorCode::VmIdQueryParamOrder,
-            StructuredMutation::VmSelfHashMismatch => ErrorCode::VmIdSelfhashMismatch,
+            StructuredMutation::VmSelfHashMismatch
+            | StructuredMutation::VmSelfHashMismatchOneOfMany => ErrorCode::VmIdSelfhashMismatch,
+            StructuredMutation::VmKidSelfHashMismatch => ErrorCode::VmKidMismatch,
             StructuredMutation::VmVersionIdMismatch => ErrorCode::VmIdVersionIdMismatch,
             StructuredMutation::VmMissingFragment => ErrorCode::VmIdMissingFragment,
             StructuredMutation::VmIdControllerMismatch => ErrorCode::VmIdControllerMismatch,
             StructuredMutation::VmMissingKid => ErrorCode::VmMissingKid,
+            StructuredMutation::VmKidNotFullyQualified => ErrorCode::VmKidNotFullyQualified,
             StructuredMutation::DanglingPurposeRef => ErrorCode::DanglingPurposeRef,
             StructuredMutation::WrongSelfHash | StructuredMutation::WrongRootDidSuffix => {
                 ErrorCode::SelfHashMismatch
@@ -322,6 +340,18 @@ impl StructuredMutation {
                 mutate_vm_id(raw, |id| replace_query_value(id, "selfHash", &placeholder))?;
                 return Ok(false);
             }
+            StructuredMutation::VmKidSelfHashMismatch => {
+                mutate_vm_kid(raw, |kid| {
+                    replace_query_value(kid, "selfHash", &placeholder)
+                })?;
+                return Ok(false);
+            }
+            StructuredMutation::VmSelfHashMismatchOneOfMany => {
+                mutate_vm_id_at(raw, 1, |id| {
+                    replace_query_value(id, "selfHash", &placeholder)
+                })?;
+                return Ok(false);
+            }
             StructuredMutation::VmVersionIdMismatch => {
                 mutate_vm_id(raw, |id| replace_query_value(id, "versionId", "99"))?;
                 return Ok(false);
@@ -348,6 +378,10 @@ impl StructuredMutation {
                 raw.remove("/verificationMethod/0/publicKeyJwk/kid")?;
                 return Ok(false);
             }
+            StructuredMutation::VmKidNotFullyQualified => {
+                mutate_vm_kid(raw, strip_query_params)?;
+                return Ok(false);
+            }
             StructuredMutation::DanglingPurposeRef => {
                 raw.replace("/authentication/0", serde_json::json!("#99999"))?;
                 return Ok(false);
@@ -364,7 +398,7 @@ impl StructuredMutation {
                 // Keep VM identity checks passing (kid == id, controller == doc id) while
                 // making query selfHash slots disagree with document.selfHash / DID suffix.
                 mutate_vm_id(raw, |id| replace_query_value(id, "selfHash", &placeholder))?;
-                mutate_string(raw, "/verificationMethod/0/publicKeyJwk/kid", |kid| {
+                mutate_vm_kid(raw, |kid| {
                     replace_query_value(kid, "selfHash", &placeholder)
                 })?;
                 return Ok(false);
@@ -458,7 +492,31 @@ fn mutate_vm_id(
     raw: &mut RawDidDocument,
     mutation: impl FnOnce(&mut String) -> anyhow::Result<()>,
 ) -> anyhow::Result<()> {
-    mutate_string(raw, "/verificationMethod/0/id", mutation)
+    mutate_vm_id_at(raw, 0, mutation)
+}
+
+fn mutate_vm_id_at(
+    raw: &mut RawDidDocument,
+    index: usize,
+    mutation: impl FnOnce(&mut String) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    mutate_string(raw, &format!("/verificationMethod/{index}/id"), mutation)
+}
+
+fn mutate_vm_kid(
+    raw: &mut RawDidDocument,
+    mutation: impl FnOnce(&mut String) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    mutate_string(raw, "/verificationMethod/0/publicKeyJwk/kid", mutation)
+}
+
+fn strip_query_params(id: &mut String) -> anyhow::Result<()> {
+    let query = id
+        .find('?')
+        .ok_or_else(|| anyhow::anyhow!("DID URL lacks query"))?;
+    let fragment = id.find('#').unwrap_or(id.len());
+    id.replace_range(query..fragment, "");
+    Ok(())
 }
 
 fn mutate_string(
@@ -524,7 +582,10 @@ fn rewrite_detached_jws_header_kid(jws: &mut String, new_kid: &str) -> anyhow::R
     header
         .as_object_mut()
         .ok_or_else(|| anyhow::anyhow!("JWS header is not a JSON object"))?
-        .insert("kid".to_owned(), serde_json::Value::String(new_kid.to_owned()));
+        .insert(
+            "kid".to_owned(),
+            serde_json::Value::String(new_kid.to_owned()),
+        );
     let new_header_b64 = engine.encode(serde_json::to_vec(&header)?);
     *jws = format!("{new_header_b64}.{payload}.{signature_b64}");
     Ok(())

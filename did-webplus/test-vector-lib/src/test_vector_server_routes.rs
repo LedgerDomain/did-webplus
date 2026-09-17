@@ -7,7 +7,7 @@ use axum::{
 };
 
 use crate::test_vector_server_app_state::{
-    is_did_documents_jsonl, is_test_vector_json, TestVectorServerAppState,
+    TestVectorServerAppState, is_did_documents_jsonl, is_test_vector_json,
 };
 
 /// Build the HTTP router for the test-vector server (without `/health` or middleware).
@@ -32,7 +32,10 @@ async fn get_index_json_root(
             app_state.index_json.as_ref(),
         ));
     }
-    Err((StatusCode::NOT_FOUND, "index.json not at server root".to_string()))
+    Err((
+        StatusCode::NOT_FOUND,
+        "index.json not at server root".to_string(),
+    ))
 }
 
 #[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(app_state))]
@@ -172,7 +175,12 @@ fn serve_did_documents_jsonl(
     let start = range_start as usize;
     let end_inclusive = len - 1;
     let suffix = std::str::from_utf8(&body_bytes[start..])
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "jsonl is not UTF-8".to_string()))?
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "jsonl is not UTF-8".to_string(),
+            )
+        })?
         .to_owned();
 
     response_headers.insert(

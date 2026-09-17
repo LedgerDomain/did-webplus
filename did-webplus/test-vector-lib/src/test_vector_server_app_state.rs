@@ -58,7 +58,8 @@ impl TestVectorServerAppState {
         )?;
 
         // Reuse writer path logic (no filesystem writes) for index-relative paths.
-        let path_writer = TestVectorWriter::new(".").with_base_path_components(path_component_v.clone());
+        let path_writer =
+            TestVectorWriter::new(".").with_base_path_components(path_component_v.clone());
 
         let mut record_v = Vec::with_capacity(vector_v.len());
         let mut vector_body_m = HashMap::with_capacity(vector_v.len());
@@ -89,7 +90,10 @@ impl TestVectorServerAppState {
                     test_vector_json,
                 },
             );
-            record_v.push(TestVectorIndexRecord::from_test_vector(vector, relative_path));
+            record_v.push(TestVectorIndexRecord::from_test_vector(
+                vector,
+                relative_path,
+            ));
         }
 
         let index = TestVectorIndex::build(record_v)?;

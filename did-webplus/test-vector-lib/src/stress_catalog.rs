@@ -415,9 +415,9 @@ fn long_did_path(
         "did_path_component_count must be at least 1"
     );
     // Append under the caller-supplied `--did-path` prefix (do not replace it).
-    params.path_component_v.extend(
-        (0..component_count).map(|index| format!("path{index:04}")),
-    );
+    params
+        .path_component_v
+        .extend((0..component_count).map(|index| format!("path{index:04}")));
     let builder = MicroledgerBuilder::create_with_updates(params.clone(), rng, 1)?;
     let did = builder.did().clone();
     let jsonl_line_v = builder.canonical_jsonl_lines()?;

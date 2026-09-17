@@ -58,7 +58,7 @@ Subcommands: `generate`, `rebuild-index`, and `serve`.
 
 ### `generate`
 
-Always writes **all** categories: conformance, coverage-matrix, jsonl-structural, resolution, stress, and fuzz-lite. Progress goes to stderr. After writing, `index.json` under `--target-dir` is **rebuilt from every on-disk `test-vector.json`** (pre-existing vectors remain in the index).
+Always writes **all** categories: conformance, coverage-matrix, jsonl-structural, resolution, stress, and fuzz-lite. Progress goes to stderr. After writing, `index.json` under `--target-dir` is **rebuilt from every on-disk `test-vector.json`**. Pre-existing vectors with other names remain in the index. If a generated name already exists at a different DID path, the old vector directory is removed.
 
 ```bash
 did-webplus-test-vector generate \
@@ -303,6 +303,8 @@ Stable kebab-case strings (`ErrorCode` in the library). Codes mirror validation 
 | `vm-id-missing-fragment` | Verification-method `id` missing fragment |
 | `vm-id-controller-mismatch` | Verification-method `id` controller (DID prefix) does not match the document `id` |
 | `vm-missing-kid` | Verification-method `publicKeyJwk` is missing required `kid` |
+| `vm-kid-mismatch` | Verification-method `publicKeyJwk.kid` is present but does not match `id` |
+| `vm-kid-not-fully-qualified` | Verification-method `publicKeyJwk.kid` is present but is not a fully-qualified DID URL |
 | `dangling-purpose-ref` | A purpose array references a verification-method fragment that does not exist |
 | `self-hash-mismatch` | Document `selfHash` does not match computed self-hash |
 | `self-hash-slot-mismatch` | Self-hash-bearing fields inconsistent |

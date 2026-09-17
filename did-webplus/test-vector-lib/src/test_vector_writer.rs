@@ -61,10 +61,7 @@ impl TestVectorWriter {
         mut self,
         base_path_component_v: impl IntoIterator<Item = impl Into<String>>,
     ) -> Self {
-        self.base_path_component_v = base_path_component_v
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        self.base_path_component_v = base_path_component_v.into_iter().map(Into::into).collect();
         self
     }
 
@@ -180,13 +177,58 @@ impl TestVectorWriter {
     /// Write every vector, then rebuild [`Self::target_dir`]'s `index.json` from disk.
     ///
     /// Rebuilding scans the complete tree, so vectors from earlier calls remain
-    /// discoverable when new vectors are added incrementally.
+    /// discoverable when new vectors are added incrementally. If this call rewrites
+    /// a name that already exists at a different DID path, the old vector directory
+    /// is removed so the tree cannot contain duplicate names.
     pub fn write_all(&self, vector_v: &[TestVector], seed: &str) -> anyhow::Result<()> {
+        let mut existing_record_v = Vec::new();
+        collect_metadata_under(&self.target_dir, &self.target_dir, &mut existing_record_v)?;
+
+        let mut replacement_path_m = std::collections::BTreeMap::<String, String>::new();
         for vector in vector_v {
+            let new_path = self.vector_relative_path(&vector.did)?;
             self.write_vector(vector, seed)?;
+            replacement_path_m.insert(vector.name.clone(), new_path);
         }
+
+        for record in existing_record_v {
+            let Some(new_path) = replacement_path_m.get(&record.name) else {
+                continue;
+            };
+            if &record.path != new_path {
+                self.remove_vector_directory(&record.path)?;
+            }
+        }
+
         self.rebuild_index()?;
         Ok(())
+    }
+
+    fn remove_vector_directory(&self, relative_path: &str) -> anyhow::Result<()> {
+        validate_relative_path(relative_path)?;
+        let mut dir = self.target_dir.clone();
+        for component in relative_path.split('/') {
+            dir.push(component);
+        }
+        anyhow::ensure!(
+            dir.strip_prefix(&self.target_dir).is_ok(),
+            "refusing to remove {}: not under {}",
+            dir.display(),
+            self.target_dir.display()
+        );
+        anyhow::ensure!(
+            dir.join(TEST_VECTOR_JSON_FILENAME).is_file(),
+            "refusing to remove {}: missing {}",
+            dir.display(),
+            TEST_VECTOR_JSON_FILENAME
+        );
+        std::fs::remove_dir_all(&dir).map_err(|error| {
+            anyhow::anyhow!(
+                "failed to remove stale vector directory {}: {}",
+                dir.display(),
+                error
+            )
+        })
     }
 
     /// Rebuild `index.json` under [`Self::target_dir`] by scanning for `test-vector.json`.
@@ -395,7 +437,10 @@ mod tests {
         assert_eq!(relative, vector.did.root_self_hash().as_str());
 
         let vector_dir = writer.vector_dir_path(&vector.did).expect("vector dir");
-        assert_eq!(vector_dir, target.join(vector.did.root_self_hash().as_str()));
+        assert_eq!(
+            vector_dir,
+            target.join(vector.did.root_self_hash().as_str())
+        );
         assert!(vector_dir.join(DID_DOCUMENTS_JSONL_FILENAME).is_file());
         assert!(vector_dir.join(TEST_VECTOR_JSON_FILENAME).is_file());
         // No hostname:port directory.
@@ -552,6 +597,42 @@ mod tests {
     }
 
     #[test]
+    fn write_all_replaces_same_name_at_a_new_did_path() {
+        let target = temp_target_dir("replace-name");
+        let writer = TestVectorWriter::new(&target);
+        let first = sample_vector(TestVectorParams::baseline("example.com"), "moved");
+        let second = sample_vector(TestVectorParams::baseline("other.example"), "moved");
+        assert_ne!(first.did, second.did);
+
+        writer
+            .write_all(std::slice::from_ref(&first), "writer-test-seed")
+            .expect("write first");
+        let first_dir = writer.vector_dir_path(&first.did).expect("first dir");
+        assert!(first_dir.join(TEST_VECTOR_JSON_FILENAME).is_file());
+
+        writer
+            .write_vector(&second, "writer-test-seed")
+            .expect("leave a duplicate name at a second path");
+        writer
+            .write_all(std::slice::from_ref(&second), "writer-test-seed")
+            .expect("replace duplicate name");
+
+        assert!(!first_dir.exists());
+        let second_dir = writer.vector_dir_path(&second.did).expect("second dir");
+        assert!(second_dir.join(TEST_VECTOR_JSON_FILENAME).is_file());
+
+        let index = read_index(&target);
+        assert_eq!(index.vector_m.len(), 1);
+        assert_eq!(index.vector_m["moved"].did, second.did.to_string());
+        assert_eq!(
+            index.vector_m["moved"].path,
+            writer.vector_relative_path(&second.did).unwrap()
+        );
+
+        let _ = std::fs::remove_dir_all(&target);
+    }
+
+    #[test]
     fn rebuild_indexes_under_matches_write_all_disk_scan() {
         let target = temp_target_dir("rebuild");
         let writer = TestVectorWriter::new(&target);
@@ -567,7 +648,9 @@ mod tests {
 
         std::fs::remove_file(target.join(INDEX_JSON_FILENAME)).expect("remove index");
 
-        let rebuilt = writer.rebuild_indexes_under().expect("rebuild_indexes_under");
+        let rebuilt = writer
+            .rebuild_indexes_under()
+            .expect("rebuild_indexes_under");
         assert_eq!(rebuilt, 1);
         assert_eq!(read_index(&target), index_before);
 
@@ -579,7 +662,8 @@ mod tests {
     fn rebuild_from_hand_built_tree_matches_write_all() {
         let seed = "writer-test-seed";
         let positive = sample_vector(TestVectorParams::baseline("example.com"), "hand-positive");
-        let mut negative = sample_vector(TestVectorParams::baseline("example.com"), "hand-negative");
+        let mut negative =
+            sample_vector(TestVectorParams::baseline("example.com"), "hand-negative");
         negative.category = "jsonl-structural".to_owned();
         negative.expected = Expected::reject_after(
             negative.expected.did_document_count,
@@ -596,12 +680,16 @@ mod tests {
 
         let hand_dir = temp_target_dir("hand-built");
         let hand_writer = TestVectorWriter::new(&hand_dir);
-        hand_writer.write_vector(&positive, seed).expect("write positive");
+        hand_writer
+            .write_vector(&positive, seed)
+            .expect("write positive");
         hand_writer
             .write_vector(&negative, seed)
             .expect("write negative");
         assert!(!hand_dir.join(INDEX_JSON_FILENAME).exists());
-        hand_writer.rebuild_index().expect("rebuild hand-built tree");
+        hand_writer
+            .rebuild_index()
+            .expect("rebuild hand-built tree");
         let rebuilt = read_index(&hand_dir);
 
         assert_eq!(rebuilt.format, crate::TEST_VECTOR_INDEX_FORMAT);
