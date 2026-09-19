@@ -1,19 +1,29 @@
 use axum::{
-    Router,
-    extract::{Path, State},
+    Json, Router,
+    extract::{Path, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post, put},
 };
 
-use crate::test_vector_server_app_state::{
-    TestVectorServerAppState, is_did_documents_jsonl, is_test_vector_json,
+use crate::{
+    RequestCountControlResponse, ServeCountControlRequest, ServeCountControlResponse,
+    test_vector_server_app_state::{
+        ServeCountError, TestVectorServerAppState, is_did_documents_jsonl,
+        is_resolution_scenario_json, is_test_vector_json,
+    },
 };
 
 /// Build the HTTP router for the test-vector server (without `/health` or middleware).
+///
+/// Includes catalog GETs and harness control endpoints outside the resolution namespace:
+/// `PUT /control/serve-count`, `GET /control/request-count`, `POST /control/reset`.
 pub fn get_routes(app_state: TestVectorServerAppState) -> Router {
     Router::new()
         .route("/index.json", get(get_index_json_root))
+        .route("/control/serve-count", put(put_serve_count))
+        .route("/control/request-count", get(get_request_count))
+        .route("/control/reset", post(post_reset))
         .route("/{*path}", get(get_catch_all))
         .with_state(app_state)
 }
@@ -36,6 +46,59 @@ async fn get_index_json_root(
         StatusCode::NOT_FOUND,
         "index.json not at server root".to_string(),
     ))
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+struct RequestCountQuery {
+    path: String,
+}
+
+#[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(app_state))]
+async fn put_serve_count(
+    State(app_state): State<TestVectorServerAppState>,
+    Json(request): Json<ServeCountControlRequest>,
+) -> Result<Json<ServeCountControlResponse>, (StatusCode, String)> {
+    let path = normalize_control_path(&request.path);
+    match app_state.set_serve_count(path, request.served_did_document_count) {
+        Ok((served_did_document_count, served_octet_length)) => {
+            Ok(Json(ServeCountControlResponse {
+                path: path.to_owned(),
+                served_did_document_count,
+                served_octet_length,
+            }))
+        }
+        Err(ServeCountError::UnknownPath) => Err((
+            StatusCode::NOT_FOUND,
+            format!("vector path not found: {path}"),
+        )),
+        Err(error @ ServeCountError::CountExceedsDocuments { .. }) => {
+            Err((StatusCode::BAD_REQUEST, error.to_string()))
+        }
+    }
+}
+
+#[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(app_state))]
+async fn get_request_count(
+    State(app_state): State<TestVectorServerAppState>,
+    Query(query): Query<RequestCountQuery>,
+) -> Result<Json<RequestCountControlResponse>, (StatusCode, String)> {
+    let path = normalize_control_path(&query.path);
+    let Some(request_count) = app_state.request_count(path) else {
+        return Err((
+            StatusCode::NOT_FOUND,
+            format!("vector path not found: {path}"),
+        ));
+    };
+    Ok(Json(RequestCountControlResponse {
+        path: path.to_owned(),
+        request_count,
+    }))
+}
+
+#[tracing::instrument(level = tracing::Level::INFO, skip(app_state))]
+async fn post_reset(State(app_state): State<TestVectorServerAppState>) -> StatusCode {
+    app_state.reset_all();
+    StatusCode::NO_CONTENT
 }
 
 #[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(app_state))]
@@ -63,7 +126,10 @@ async fn get_catch_all(
     };
 
     if is_did_documents_jsonl(filename) {
-        return serve_did_documents_jsonl(&bodies.jsonl, &header_map);
+        let Some(served_jsonl) = app_state.take_served_jsonl_for_request(request_dir) else {
+            return Err((StatusCode::NOT_FOUND, "vector not found".to_string()));
+        };
+        return serve_did_documents_jsonl(served_jsonl, &header_map);
     }
     if is_test_vector_json(filename) {
         return Ok(json_response(
@@ -72,8 +138,25 @@ async fn get_catch_all(
             &bodies.test_vector_json,
         ));
     }
+    if is_resolution_scenario_json(filename) {
+        let Some(scenario_json) = bodies.resolution_scenario_json_o.as_deref() else {
+            return Err((
+                StatusCode::NOT_FOUND,
+                "resolution-scenario.json not present for this vector".to_string(),
+            ));
+        };
+        return Ok(json_response(
+            StatusCode::OK,
+            "application/json",
+            scenario_json,
+        ));
+    }
 
     Err((StatusCode::NOT_FOUND, "unknown file".to_string()))
+}
+
+fn normalize_control_path(path: &str) -> &str {
+    path.strip_prefix('/').unwrap_or(path)
 }
 
 fn split_dir_and_filename(path: &str) -> Option<(&str, &str)> {
@@ -91,6 +174,8 @@ fn json_response(status: StatusCode, content_type: &'static str, body: &str) -> 
 }
 
 /// Serve `did-documents.jsonl` with optional HTTP `Range` support.
+///
+/// `jsonl` is the currently published prefix (possibly truncated by serve-count).
 ///
 /// Contract (resolver client):
 /// - No `Range` → 200 full body, `Content-Type: application/jsonl`
@@ -189,4 +274,141 @@ fn serve_did_documents_jsonl(
     );
 
     Ok((StatusCode::PARTIAL_CONTENT, response_headers, suffix).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::TestVectorServerVectorBodies;
+    use axum::body::Body;
+    use http_body_util::BodyExt;
+    use std::collections::HashMap;
+    use tower::ServiceExt;
+
+    fn test_app() -> Router {
+        let mut body_m = HashMap::new();
+        body_m.insert(
+            "vec".to_owned(),
+            TestVectorServerVectorBodies::new(
+                "line0\nline1\nline2\n".to_owned(),
+                "{\"name\":\"vec\"}\n".to_owned(),
+                Some("{\"format\":\"did-webplus-resolution-scenario/1\"}\n".to_owned()),
+            ),
+        );
+        let state = TestVectorServerAppState::from_parts(
+            "{\"format\":\"did-webplus-test-vector-index/2\"}\n",
+            "index.json",
+            body_m,
+        );
+        get_routes(state)
+    }
+
+    async fn response_body_string(response: Response) -> String {
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes();
+        String::from_utf8(bytes.to_vec()).expect("utf8")
+    }
+
+    #[tokio::test]
+    async fn control_serve_count_truncates_jsonl_and_counts_requests() {
+        let app = test_app();
+
+        let put_response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .method("PUT")
+                    .uri("/control/serve-count")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"path":"vec","servedDidDocumentCount":1}"#,
+                    ))
+                    .expect("request"),
+            )
+            .await
+            .expect("put");
+        assert_eq!(put_response.status(), StatusCode::OK);
+        let put_body = response_body_string(put_response).await;
+        let put_json: ServeCountControlResponse =
+            serde_json::from_str(&put_body).expect("parse put");
+        assert_eq!(put_json.served_did_document_count, 1);
+        assert_eq!(put_json.served_octet_length, 6);
+
+        let get_jsonl = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/vec/did-documents.jsonl")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("get jsonl");
+        assert_eq!(get_jsonl.status(), StatusCode::OK);
+        assert_eq!(response_body_string(get_jsonl).await, "line0\n");
+
+        let count_response = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/control/request-count?path=vec")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("count");
+        assert_eq!(count_response.status(), StatusCode::OK);
+        let count_body = response_body_string(count_response).await;
+        let count_json: RequestCountControlResponse =
+            serde_json::from_str(&count_body).expect("parse count");
+        assert_eq!(count_json.request_count, 1);
+
+        let scenario = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/vec/resolution-scenario.json")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("scenario");
+        assert_eq!(scenario.status(), StatusCode::OK);
+        assert!(
+            response_body_string(scenario)
+                .await
+                .contains("did-webplus-resolution-scenario/1")
+        );
+
+        let reset = app
+            .clone()
+            .oneshot(
+                axum::http::Request::builder()
+                    .method("POST")
+                    .uri("/control/reset")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("reset");
+        assert_eq!(reset.status(), StatusCode::NO_CONTENT);
+
+        let get_full = app
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/vec/did-documents.jsonl")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("get full");
+        assert_eq!(
+            response_body_string(get_full).await,
+            "line0\nline1\nline2\n"
+        );
+    }
 }

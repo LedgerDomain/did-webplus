@@ -1,4 +1,7 @@
-use crate::{DeterministicRng, StressConfig, TestVector, TestVectorParams};
+use crate::{
+    CatalogGeneration, DeterministicRng, RESOLUTION_SCENARIO_CATEGORY, ResolutionScenario,
+    ResolutionScenarioDefinition, StressConfig, TestVector, TestVectorParams,
+};
 
 /// A named deterministic test-vector factory.
 #[derive(Clone, Copy)]
@@ -43,9 +46,9 @@ pub struct CatalogDescriptor {
 
 /// Size and seed knobs for [`Catalog::list`].
 ///
-/// Always lists every category. `fuzz_lite_count` of `0` omits fuzz-lite names;
-/// `stress_config` and `seed` shape stress / fuzz-lite names only so dry-run and
-/// generation agree without running factories.
+/// Lists every category. `fuzz_lite_count` of `0` omits fuzz-lite names;
+/// `stress_config` and `seed` shape stress / fuzz-lite names only so dry-run
+/// and generation agree without running factories.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CatalogListRequest {
     /// Number of fuzz-lite vectors (`0` means none).
@@ -163,6 +166,23 @@ impl Catalog {
             .collect()
     }
 
+    /// Return every resolution-scenario definition in stable catalog order.
+    pub fn resolution_scenario_definitions() -> &'static [ResolutionScenarioDefinition] {
+        crate::resolution_scenario_catalog::definitions()
+    }
+
+    /// Generate the complete resolution-scenario catalog.
+    ///
+    /// Each definition receives an independently derived RNG. Returns the owning
+    /// [`TestVector`] (fully valid microledger body) paired with its
+    /// [`ResolutionScenario`] (oracle-filled step expectations).
+    pub fn generate_resolution_scenario(
+        params: &TestVectorParams,
+        global_seed: &str,
+    ) -> anyhow::Result<Vec<(TestVector, ResolutionScenario)>> {
+        crate::resolution_scenario_catalog::generate(params, global_seed)
+    }
+
     /// Stable stress-vector names for the given configurable bounds.
     pub fn stress_vector_names(config: &StressConfig) -> Vec<String> {
         crate::stress_catalog::vector_names(config)
@@ -220,58 +240,81 @@ impl Catalog {
         crate::fuzz_lite_catalog::vector_names(seed, count)
     }
 
-    /// Generate the full catalog (all categories; fuzz-lite size from `fuzz_lite_count`).
+    /// Generate the full catalog (fuzz-lite size controlled by `fuzz_lite_count`).
     ///
     /// Category order matches [`Self::list`]. Reports progress via `on_progress`
     /// before each category (and before each stress vector). `fuzz_lite_count` of
     /// `0` skips fuzz-lite.
+    ///
+    /// Returns [`CatalogGeneration`]: vectors plus resolution scenarios (keyed by
+    /// vector name) for [`crate::TestVectorWriter::write_all`].
     pub fn generate_with_progress(
         params: &TestVectorParams,
         seed: &str,
         stress: &StressConfig,
         fuzz_lite_count: u32,
         mut on_progress: impl FnMut(&str),
-    ) -> anyhow::Result<Vec<TestVector>> {
-        let mut vector_v = Vec::new();
+    ) -> anyhow::Result<CatalogGeneration> {
+        let mut generation = CatalogGeneration::new();
 
         on_progress("generating conformance vectors...");
-        vector_v.extend(Self::generate_conformance(params, seed)?);
+        generation
+            .vector_v
+            .extend(Self::generate_conformance(params, seed)?);
 
         on_progress("generating coverage-matrix vectors...");
-        vector_v.extend(Self::generate_coverage_matrix(params, seed)?);
+        generation
+            .vector_v
+            .extend(Self::generate_coverage_matrix(params, seed)?);
 
         on_progress("generating JSONL-structural vectors...");
-        vector_v.extend(Self::generate_jsonl_structural(params, seed)?);
+        generation
+            .vector_v
+            .extend(Self::generate_jsonl_structural(params, seed)?);
 
         on_progress("generating resolution-URL vectors...");
-        vector_v.extend(Self::generate_resolution(params, seed)?);
+        generation
+            .vector_v
+            .extend(Self::generate_resolution(params, seed)?);
+
+        on_progress("generating resolution-scenario vectors...");
+        for (vector, scenario) in Self::generate_resolution_scenario(params, seed)? {
+            generation
+                .resolution_scenario_m
+                .insert(vector.name.clone(), scenario);
+            generation.vector_v.push(vector);
+        }
 
         on_progress("generating stress vectors (this may take a while)...");
-        vector_v.extend(Self::generate_stress_with_progress(
-            params,
-            seed,
-            stress,
-            |name| {
-                on_progress(&format!("generating {name}..."));
-            },
-        )?);
+        generation
+            .vector_v
+            .extend(Self::generate_stress_with_progress(
+                params,
+                seed,
+                stress,
+                |name| {
+                    on_progress(&format!("generating {name}..."));
+                },
+            )?);
 
         if fuzz_lite_count > 0 {
             on_progress(&format!(
                 "generating {fuzz_lite_count} fuzz-lite vector(s)..."
             ));
-            vector_v.extend(Self::generate_fuzz_lite(params, seed, fuzz_lite_count)?);
+            generation
+                .vector_v
+                .extend(Self::generate_fuzz_lite(params, seed, fuzz_lite_count)?);
         }
 
-        Ok(vector_v)
+        Ok(generation)
     }
 
     /// List planned vectors without generating keys or microledgers.
     ///
-    /// Returns [`CatalogDescriptor`] rows for the full catalog in generation order
-    /// (conformance → coverage-matrix → jsonl-structural → resolution → stress →
-    /// fuzz-lite). Stress / fuzz-lite names come from config and seed only;
-    /// `fuzz_lite_count` of `0` omits fuzz-lite.
+    /// Returns [`CatalogDescriptor`] rows for the catalog in generation order
+    /// (conformance → coverage-matrix → jsonl-structural → resolution →
+    /// resolution-scenario → stress → fuzz-lite). Stress / fuzz-lite names come
+    /// from config and seed only; `fuzz_lite_count` of `0` omits fuzz-lite.
     pub fn list(request: &CatalogListRequest) -> Vec<CatalogDescriptor> {
         let mut descriptor_v = Vec::new();
 
@@ -305,6 +348,14 @@ impl Catalog {
                 category: "resolution".to_owned(),
                 description: definition.description.to_owned(),
                 positive: definition.positive,
+            });
+        }
+        for definition in Self::resolution_scenario_definitions() {
+            descriptor_v.push(CatalogDescriptor {
+                name: definition.name.to_owned(),
+                category: RESOLUTION_SCENARIO_CATEGORY.to_owned(),
+                description: definition.description.to_owned(),
+                positive: true,
             });
         }
         descriptor_v.extend(crate::stress_catalog::descriptors(&request.stress_config));
@@ -345,6 +396,7 @@ mod tests {
         let coverage_count = Catalog::coverage_matrix_definitions().len();
         let jsonl_count = Catalog::jsonl_structural_definitions().len();
         let resolution_count = Catalog::resolution_definitions().len();
+        let resolution_scenario_count = Catalog::resolution_scenario_definitions().len();
         let stress_count = Catalog::stress_vector_names(&stress_config).len();
         assert_eq!(
             descriptor_v.len(),
@@ -352,6 +404,7 @@ mod tests {
                 + coverage_count
                 + jsonl_count
                 + resolution_count
+                + resolution_scenario_count
                 + stress_count
                 + fuzz_lite_count as usize
         );
@@ -387,6 +440,14 @@ mod tests {
             assert_eq!(descriptor.category, "resolution");
             assert_eq!(descriptor.description, definition.description);
             assert_eq!(descriptor.positive, definition.positive);
+            index += 1;
+        }
+        for definition in Catalog::resolution_scenario_definitions() {
+            let descriptor = &descriptor_v[index];
+            assert_eq!(descriptor.name, definition.name);
+            assert_eq!(descriptor.category, RESOLUTION_SCENARIO_CATEGORY);
+            assert_eq!(descriptor.description, definition.description);
+            assert!(descriptor.positive);
             index += 1;
         }
 

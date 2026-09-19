@@ -1003,3 +1003,286 @@ async fn test_did_resolver_thin_against_test_vectors() {
     vdg_h.abort();
     tvs_h.abort();
 }
+
+/// Control-endpoint request-dir key for a vector.
+///
+/// Matches [`did_webplus_test_vector_lib::TestVectorServerAppState`] keys: the
+/// index `path` plus an optional `--did-path` URL prefix (`:` → `/`).
+fn test_vector_control_request_dir(did_path_o: Option<&str>, index_path: &str) -> String {
+    match did_path_o {
+        None | Some("") => index_path.to_owned(),
+        Some(did_path) => {
+            let prefix = did_path.replace(':', "/");
+            format!("{prefix}/{index_path}")
+        }
+    }
+}
+
+async fn tvs_control_reset(tvs_base_url: &url::Url) {
+    let url = tvs_base_url.join("control/reset").expect("reset url");
+    let response = test_util::REQWEST_CLIENT
+        .post(url)
+        .send()
+        .await
+        .expect("POST /control/reset");
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::NO_CONTENT,
+        "POST /control/reset status"
+    );
+}
+
+async fn tvs_control_set_serve_count(tvs_base_url: &url::Url, path: &str, count: u32) {
+    let url = tvs_base_url
+        .join("control/serve-count")
+        .expect("serve-count url");
+    let body = serde_json::json!({
+        "path": path,
+        "servedDidDocumentCount": count,
+    });
+    let response = test_util::REQWEST_CLIENT
+        .put(url)
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(body.to_string())
+        .send()
+        .await
+        .expect("PUT /control/serve-count");
+    let status = response.status();
+    let response_text = response.text().await.unwrap_or_default();
+    assert_eq!(
+        status,
+        reqwest::StatusCode::OK,
+        "PUT /control/serve-count for path {path}: {response_text}"
+    );
+}
+
+async fn tvs_control_request_count(tvs_base_url: &url::Url, path: &str) -> u64 {
+    let mut url = tvs_base_url
+        .join("control/request-count")
+        .expect("request-count url");
+    url.query_pairs_mut().append_pair("path", path);
+    let response = test_util::REQWEST_CLIENT
+        .get(url)
+        .send()
+        .await
+        .expect("GET /control/request-count")
+        .error_for_status()
+        .expect("request-count status");
+    let body_text = response.text().await.expect("request-count text");
+    let body: serde_json::Value =
+        serde_json::from_str(&body_text).expect("parse request-count json");
+    body.get("requestCount")
+        .and_then(|v| v.as_u64())
+        .unwrap_or_else(|| panic!("requestCount missing for path {path}: {body}"))
+}
+
+fn assert_resolution_metadata_booleans(
+    actual: &did_webplus_core::DIDResolutionMetadata,
+    expected: &did_webplus_core::DIDResolutionMetadata,
+    context: &str,
+) {
+    assert_eq!(
+        actual.fetched_updates_from_vdr, expected.fetched_updates_from_vdr,
+        "{context}: fetchedUpdatesFromVDR"
+    );
+    assert_eq!(
+        actual.did_document_resolved_locally, expected.did_document_resolved_locally,
+        "{context}: didDocumentResolvedLocally"
+    );
+    assert_eq!(
+        actual.did_document_metadata_resolved_locally,
+        expected.did_document_metadata_resolved_locally,
+        "{context}: didDocumentMetadataResolvedLocally"
+    );
+}
+
+/// Run every `resolution-scenario` catalog vector against a fresh
+/// [`DIDResolverFull`] (no VDG), asserting document identity, metadata JSON,
+/// resolution-metadata booleans, and exact VDR request counts.
+async fn assert_resolution_scenarios_against_did_resolver_full(
+    tvs_base_url: &url::Url,
+    did_path_o: Option<&str>,
+) {
+    let index_url = tvs_base_url.join("index.json").expect("index url");
+    let index_text = test_util::REQWEST_CLIENT
+        .get(index_url)
+        .send()
+        .await
+        .expect("fetch index.json")
+        .error_for_status()
+        .expect("index.json status")
+        .text()
+        .await
+        .expect("index.json text");
+    let index: did_webplus_test_vector_lib::TestVectorIndex =
+        serde_json::from_str(&index_text).expect("parse index.json");
+
+    let scenario_name_v = index
+        .group_m
+        .get(did_webplus_test_vector_lib::RESOLUTION_SCENARIO_CATEGORY)
+        .cloned()
+        .unwrap_or_default();
+    assert!(
+        !scenario_name_v.is_empty(),
+        "index.json groups.{} must be non-empty",
+        did_webplus_test_vector_lib::RESOLUTION_SCENARIO_CATEGORY
+    );
+
+    use did_webplus_resolver::DIDResolver;
+
+    for scenario_name in &scenario_name_v {
+        let location = index
+            .vector_m
+            .get(scenario_name)
+            .unwrap_or_else(|| panic!("vector {scenario_name} missing from index.vectors"));
+        let control_path = test_vector_control_request_dir(did_path_o, &location.path);
+        // Catalog GETs and control keys share the same request-dir (index path plus
+        // optional `--did-path` URL prefix).
+        let scenario_url = tvs_base_url
+            .join(&format!(
+                "{}/{}",
+                control_path.trim_end_matches('/'),
+                did_webplus_test_vector_lib::RESOLUTION_SCENARIO_JSON_FILENAME
+            ))
+            .unwrap_or_else(|e| panic!("scenario url for {scenario_name}: {e}"));
+
+        let scenario_text = test_util::REQWEST_CLIENT
+            .get(scenario_url)
+            .send()
+            .await
+            .unwrap_or_else(|e| panic!("fetch resolution-scenario.json for {scenario_name}: {e}"))
+            .error_for_status()
+            .unwrap_or_else(|e| {
+                panic!("resolution-scenario.json status for {scenario_name}: {e}")
+            })
+            .text()
+            .await
+            .unwrap_or_else(|e| {
+                panic!("resolution-scenario.json text for {scenario_name}: {e}")
+            });
+        let scenario: did_webplus_test_vector_lib::ResolutionScenario =
+            serde_json::from_str(&scenario_text).unwrap_or_else(|e| {
+                panic!("parse resolution-scenario.json for {scenario_name}: {e}")
+            });
+
+        assert_eq!(
+            scenario.format,
+            did_webplus_test_vector_lib::RESOLUTION_SCENARIO_FORMAT,
+            "scenario {scenario_name} format"
+        );
+        assert_eq!(
+            scenario.name, *scenario_name,
+            "scenario name must match index group entry"
+        );
+
+        let did_resolver = create_did_resolver_full(None).await;
+
+        for (step_index, step) in scenario.step_v.iter().enumerate() {
+            let context = format!("{scenario_name} step {step_index}");
+
+            // Reset zeroes jsonl counters and restores full serve-count; then set
+            // this step's served document count.
+            tvs_control_reset(tvs_base_url).await;
+            tvs_control_set_serve_count(
+                tvs_base_url,
+                &control_path,
+                step.served_did_document_count,
+            )
+            .await;
+
+            let resolve_r = did_resolver
+                .resolve_did_document(&step.did_query, step.resolution_options.clone())
+                .await;
+
+            let actual_request_count =
+                tvs_control_request_count(tvs_base_url, &control_path).await;
+            assert_eq!(
+                actual_request_count,
+                u64::from(step.expected.vdr_request_count),
+                "{context}: vdrRequestCount (control request-count)"
+            );
+
+            if step.expected.success {
+                let (did_document, did_document_metadata, did_resolution_metadata) = resolve_r
+                    .unwrap_or_else(|e| panic!("{context}: expected resolve success: {e}"));
+
+                let expected_version_id = step
+                    .expected
+                    .did_document_version_id_o
+                    .unwrap_or_else(|| panic!("{context}: expected didDocumentVersionId"));
+                let expected_self_hash = step
+                    .expected
+                    .did_document_self_hash_o
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("{context}: expected didDocumentSelfHash"));
+                assert_eq!(
+                    did_document.version_id, expected_version_id,
+                    "{context}: didDocumentVersionId"
+                );
+                assert_eq!(
+                    &did_document.self_hash, expected_self_hash,
+                    "{context}: didDocumentSelfHash"
+                );
+
+                let expected_document_metadata = step
+                    .expected
+                    .did_document_metadata_o
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("{context}: expected didDocumentMetadata"));
+                assert_eq!(
+                    serde_json::to_value(&did_document_metadata).expect("serialize actual metadata"),
+                    serde_json::to_value(expected_document_metadata)
+                        .expect("serialize expected metadata"),
+                    "{context}: didDocumentMetadata JSON"
+                );
+
+                assert!(
+                    did_resolution_metadata.error_o.is_none(),
+                    "{context}: success must not set resolution error"
+                );
+                assert_resolution_metadata_booleans(
+                    &did_resolution_metadata,
+                    &step.expected.did_resolution_metadata,
+                    &context,
+                );
+            } else {
+                let did_resolution_metadata = match resolve_r {
+                    Err(did_webplus_resolver::Error::DIDResolutionFailure2(meta))
+                    | Err(did_webplus_resolver::Error::DIDResolutionConflict(meta)) => meta,
+                    Err(other) => panic!(
+                        "{context}: expected DIDResolutionFailure2 or DIDResolutionConflict, got: {other:?}"
+                    ),
+                    Ok(_) => panic!("{context}: expected resolve failure"),
+                };
+                assert!(
+                    did_resolution_metadata.error_o.is_some(),
+                    "{context}: failure must set resolution error (message advisory)"
+                );
+                assert_resolution_metadata_booleans(
+                    &did_resolution_metadata,
+                    &step.expected.did_resolution_metadata,
+                    &context,
+                );
+            }
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_did_resolver_full_resolution_scenarios() {
+    let did_path_o = None;
+    let config = test_util::TestVectorServerConfig {
+        host: "localhost".to_owned(),
+        listen_port: 50120,
+        did_path_o: did_path_o.map(|s: &str| s.to_owned()),
+        seed: test_util::DEFAULT_SEED.to_owned(),
+        fuzz_lite_count: did_webplus_test_vector_lib::DEFAULT_FUZZ_LITE_COUNT,
+        stress_version_vo: None,
+        stress_config_o: Some(test_util::StressConfig::for_tests()),
+    };
+    let (tvs_base_url, tvs_h) = test_util::spin_up_test_vector_server(config).await;
+
+    assert_resolution_scenarios_against_did_resolver_full(&tvs_base_url, did_path_o).await;
+
+    tvs_h.abort();
+}

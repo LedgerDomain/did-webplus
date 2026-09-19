@@ -10,6 +10,10 @@ pub enum Error {
     DIDResolutionFailure(HTTPError),
     #[error("DID resolution failure; DIDResolutionMetadata: {0}")]
     DIDResolutionFailure2(did_webplus_core::DIDResolutionMetadata),
+    #[error("Conflicting DID query params: {0}")]
+    ConflictingDIDQueryParams(Cow<'static, str>),
+    #[error("DID resolution conflict; DIDResolutionMetadata: {0}")]
+    DIDResolutionConflict(did_webplus_core::DIDResolutionMetadata),
     #[error("Failed constraint: {0}")]
     FailedConstraint(Cow<'static, str>),
     #[error("Generic error: {0}")]

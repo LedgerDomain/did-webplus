@@ -4,22 +4,28 @@
 //! writer used by the `did-webplus-test-vector` CLI. With the `server` feature it also
 //! provides an axum HTTP service ([`spawn_test_vector_server`]) that eagerly generates
 //! the catalog into memory and serves `index.json`, `did-documents.jsonl` (with HTTP
-//! `Range`), and `test-vector.json`. Callers own I/O policy: the library returns
-//! [`TestVector`] values, can write a statically servable tree via [`TestVectorWriter`],
-//! or can serve the same layout over HTTP.
+//! `Range`), `test-vector.json`, and (for the resolution-scenario category)
+//! `resolution-scenario.json`, plus harness control endpoints. Callers own I/O policy:
+//! the library returns [`TestVector`] values, can write a statically servable tree via
+//! [`TestVectorWriter`], or can serve the same layout over HTTP.
 //!
 //! # Purpose
 //!
 //! Produce a reusable, deterministically regenerable catalog of microledgers that
-//! exercise DID-document validation, crypto/path coverage, JSONL edge cases, bounded
-//! stress, and seeded single-field mutations. Each vector has its own DID, a
-//! `did-documents.jsonl` body, and authoritative expectation metadata in
-//! `test-vector.json`. Harnesses discover vectors through a derived
-//! `index.json` at the target-dir root.
+//! exercise DID-document validation, crypto/path coverage, JSONL edge cases, stateful
+//! resolution / metadata / local-only scenarios, bounded stress, and seeded
+//! single-field mutations. Each vector has its own DID, a `did-documents.jsonl` body,
+//! and authoritative expectation metadata in `test-vector.json`. Resolution-scenario
+//! vectors also carry [`ResolutionScenario`] in `resolution-scenario.json`. Harnesses
+//! discover vectors through a derived `index.json` at the target-dir root.
+//!
+//! Harness-facing summary lives in the `did-webplus-test-vector` crate README; this
+//! module is the authoritative design document (schema, oracle, determinism,
+//! control-endpoint contract).
 //!
 //! # Determinism model
 //!
-//! ## Catalog vectors (conformance, coverage-matrix, jsonl-structural, stress)
+//! ## Catalog vectors (conformance, coverage-matrix, jsonl-structural, resolution-scenario, stress)
 //!
 //! A global CLI `--seed` string plus the stable vector **name** derive a per-vector
 //! [`DeterministicRng`]:
@@ -30,6 +36,16 @@
 //!
 //! Keys, timestamps, and thus the DID (root self-hash) are independent of catalog
 //! order: adding or reordering other vectors never changes an existing name's DID.
+//!
+//! Timestamps start from [`TIMESTAMP_BASE`] (`2025-01-01T00:00:00Z`) with
+//! [`TIMESTAMP_INCREMENT`] whole-second steps. Resolution-scenario microledgers
+//! additionally enable [`DeterministicRng::with_fractional_timestamps`], so each
+//! `validFrom` carries a deterministic non-zero millisecond component (`1..=999`)
+//! derived from the timestamp index. Expected
+//! [`did_webplus_core::DIDDocumentMetadata`] values therefore include concrete
+//! `*Milliseconds` fields and whole-seconds counterparts that are the floor of
+//! those millisecond timestamps — regenerable from the same seed, not relative
+//! placeholders.
 //!
 //! ## Fuzz-lite vectors
 //!
@@ -63,12 +79,13 @@
 //! | `coverage-matrix` | Key types × hash functions, both multibase bases, mixed-history and path variants |
 //! | `jsonl-structural` | Empty files, blank lines, CRLF, duplicate/trailing garbage, valid-prefix-then-invalid |
 //! | `resolution` | Valid microledgers whose [`TestVector::did`] / served path disagrees with the DID inside `did-documents.jsonl` (host, path, or root self-hash) |
+//! | `resolution-scenario` | Stateful resolution / metadata / local-only scenarios (`resolution-scenario.json` beside a fully valid body); see [`ResolutionScenario`] |
 //! | `stress` | Bounded large histories / documents / nesting / proofs / DID paths (sizes via [`StressConfig`]) |
 //! | `fuzz-lite` | Seeded structured single-field mutations with computed expectations |
 //!
 //! Cheap listing ([`Catalog::list`] / [`CatalogListRequest`]) returns
 //! name/category/description/positive for the full catalog without generating
-//! keys or microledgers (used by CLI `--dry-run`). Size knobs are only
+//! keys or microledgers (used by CLI `--dry-run`). Size knobs are
 //! `fuzz_lite_count` (`0` omits fuzz-lite) and stress config / seed.
 //!
 //! # On-disk layout and serving
@@ -85,6 +102,7 @@
 //!   <root-self-hash>/
 //!     did-documents.jsonl
 //!     test-vector.json             # authoritative expectations
+//!     [resolution-scenario.json]   # resolution-scenario category only
 //!   teams/identity/alice/<hash>/   # extra path components under --did-path
 //! ```
 //!
@@ -92,6 +110,11 @@
 //! URLs so `/{did-path}/...` reaches `--target-dir`) so clients can fetch
 //! `index.json`, `<path>/did-documents.jsonl`, and `<path>/test-vector.json`.
 //! Port presence in DIDs comes only from the CLI `--port` flag.
+//!
+//! **Static hosting caveat:** a static Range-capable catalog may ship
+//! `resolution-scenario.json` for discovery, but scenario *conformance* (mutating
+//! serve-count and asserting `vdrRequestCount`) requires the live HTTP service
+//! below — control endpoints cannot work on static hosting.
 //!
 //! # `test-vector.json` (authoritative)
 //!
@@ -106,6 +129,66 @@
 //!   for docs and harnesses; other implementations need not match codes exactly.
 //! - **`generator.seed`:** the original CLI `--seed` string (human-readable), not
 //!   the hex form embedded in fuzz-lite names.
+//!
+//! # `resolution-scenario.json` (authoritative for scenario harnesses)
+//!
+//! Format: [`RESOLUTION_SCENARIO_FORMAT`] (`did-webplus-resolution-scenario/1`).
+//! See [`ResolutionScenario`], [`ResolutionStep`], [`ExpectedResolutionOutcome`].
+//!
+//! Schema sketch:
+//!
+//! ```json
+//! {
+//!   "format": "did-webplus-resolution-scenario/1",
+//!   "name": "<catalog-name>",
+//!   "description": "...",
+//!   "specRef": ["..."],
+//!   "did": "<did>",
+//!   "steps": [
+//!     {
+//!       "servedDidDocumentCount": 3,
+//!       "didQuery": "<did-url>",
+//!       "resolutionOptions": {
+//!         "requestCreate": false,
+//!         "requestNext": false,
+//!         "requestLatest": false,
+//!         "requestDeactivated": false,
+//!         "localResolutionOnly": false
+//!       },
+//!       "expected": {
+//!         "success": true,
+//!         "didDocumentVersionId": 2,
+//!         "didDocumentSelfHash": "uEiB...",
+//!         "didDocumentMetadata": { "...": "..." },
+//!         "didResolutionMetadata": {
+//!           "contentType": "application/did+json",
+//!           "fetchedUpdatesFromVDR": true,
+//!           "didDocumentResolvedLocally": false,
+//!           "didDocumentMetadataResolvedLocally": true
+//!         },
+//!         "vdrRequestCount": 1
+//!       }
+//!     }
+//!   ]
+//! }
+//! ```
+//!
+//! **Preconditions:** empty DID doc store per scenario; store persists across
+//! ordered steps; `servedDidDocumentCount` is monotonically non-decreasing.
+//!
+//! **Normative expectations:** per-step success/failure; on success, document
+//! identity and byte-exact `didDocumentMetadata`; exact resolution-metadata
+//! booleans; exact `vdrRequestCount` (`0` = local-only, `1` = single Range fetch).
+//! On failure, `didResolutionMetadata.error` present-only (message advisory).
+//!
+//! # Resolution-semantics oracle
+//!
+//! [`ResolutionSemantics`] is a pure model of full-resolver locality, metadata
+//! population, and resolution-metadata booleans. The scenario catalog fills
+//! [`ExpectedResolutionOutcome`] via this oracle so expectations stay consistent
+//! with the draft normative rules documented on that type. Unit tests pin the
+//! oracle; the resolver integration harness pins the Rust implementation against
+//! the published scenario vectors.
 //!
 //! # `index.json` v2 (derived discovery)
 //!
@@ -125,6 +208,7 @@
 //!     "coverage-matrix": ["..."],
 //!     "jsonl-structural": ["..."],
 //!     "resolution": ["..."],
+//!     "resolution-scenario": ["..."],
 //!     "stress": ["..."],
 //!     "fuzz-lite": ["..."]
 //!   }
@@ -134,6 +218,11 @@
 //! `path` is target-dir-relative, `/`-separated, and names the directory containing
 //! `did-documents.jsonl` and `test-vector.json` (no `..`). The configured `--did-path`
 //! prefix is already represented by `target_dir` and is not repeated in `path`.
+//! Resolution-scenario vectors are body-positive (also listed under `positive`);
+//! the `resolution-scenario` group distinguishes them for scenario harnesses.
+//! Plain black-box `resolve(did)`-latest harnesses may treat them as ordinary
+//! positive vectors; full scenario conformance requires a scenario runner plus
+//! the live control API.
 //!
 //! **Invariants** (enforced by [`TestVectorIndex::build`]):
 //!
@@ -164,6 +253,11 @@
 //!    serving host + `path` (i.e. `vectors[name].did`) equals the DID inside
 //!    `did-documents.jsonl`. Those bodies are fully valid alone; rejection is
 //!    relative to the resolution URL (see VDR create/update checks).
+//! 7. For `resolution-scenario` vectors: fetch `resolution-scenario.json`; for
+//!    each step against a fresh-then-persistent store, set serve-count via the
+//!    control API, resolve with the step's options, and assert normative
+//!    expectations including `vdrRequestCount` (requires live `serve`, not
+//!    static hosting).
 //!
 //! # CLI relationship
 //!
@@ -171,10 +265,12 @@
 //!
 //! - `generate` — full catalog via [`Catalog::generate_with_progress`];
 //!   `--dry-run` uses [`Catalog::list`]; `--fuzz-lite-count` sizes fuzz-lite
-//!   (`0` skips); writes via [`TestVectorWriter::write_all`].
+//!   (`0` skips); writes via [`TestVectorWriter::write_all`] (including
+//!   `resolution-scenario.json`).
 //! - `rebuild-index` — [`TestVectorWriter::rebuild_indexes_under`].
 //! - `serve` — [`spawn_test_vector_server`] (requires the `server` feature): eager
-//!   in-memory catalog + HTTP origin matching the V1 URL layout.
+//!   in-memory catalog + HTTP origin matching the V1 URL layout, plus control
+//!   endpoints for scenario harnesses.
 //!
 //! Design detail lives here; the binary docs stay thin and point at this module.
 //!
@@ -185,8 +281,28 @@
 //!
 //! - `GET /health`
 //! - `GET /index.json` (or `/{did-path}/index.json` when `--did-path` is set)
-//! - `GET /{…}/did-documents.jsonl` with HTTP `Range` (206 / 416 `bytes */N`)
+//! - `GET /{…}/did-documents.jsonl` with HTTP `Range` (206 / 416 `bytes */N`);
+//!   body length follows the current per-vector serve-count (default: all lines)
 //! - `GET /{…}/test-vector.json`
+//! - `GET /{…}/resolution-scenario.json` (resolution-scenario vectors only)
+//!
+//! ## Control-endpoint contract
+//!
+//! Harness-only routes outside the DID resolution namespace. Paths are vector
+//! directory request paths (no leading `/`, no filename), matching
+//! [`TestVectorIndexRecord`] / `index.json` `path` values and the URL directory
+//! used to fetch `did-documents.jsonl`.
+//!
+//! | Method | Path | Body / query | Success |
+//! |--------|------|--------------|---------|
+//! | `PUT` | `/control/serve-count` | [`ServeCountControlRequest`] (`path`, `servedDidDocumentCount`) | [`ServeCountControlResponse`] (`path`, `servedDidDocumentCount`, `servedOctetLength`) |
+//! | `GET` | `/control/request-count` | `?path=…` | [`RequestCountControlResponse`] (`path`, `requestCount`) |
+//! | `POST` | `/control/reset` | (none) | `204 No Content` — restore every vector to full serve-count and zero jsonl GET counters |
+//!
+//! Per-step harness order: `POST /control/reset`, then `PUT /control/serve-count`
+//! for the step's count, then resolve, then `GET /control/request-count` and
+//! assert equals `expected.vdrRequestCount`. Unknown paths → `404`;
+//! `servedDidDocumentCount` above the vector's document count → `400`.
 //!
 //! Size caps are existing [`StressConfig`] knobs and `fuzz_lite_count`. True
 //! streaming generation without materializing stress bodies remains deferred.
@@ -201,18 +317,26 @@
 
 mod base_choice;
 mod catalog;
+mod catalog_generation;
 mod conformance_catalog;
 mod coverage_matrix_catalog;
 mod deterministic_rng;
 mod error_code;
 mod expected;
+mod expected_resolution_outcome;
 mod fuzz_lite_catalog;
 mod hash_function_choice;
 mod jsonl_structural_catalog;
 mod key_type_choice;
+mod known_did_document_version;
 mod microledger_builder;
 mod raw_did_document;
 mod resolution_catalog;
+mod resolution_scenario;
+mod resolution_scenario_catalog;
+mod resolution_semantics;
+mod resolution_step;
+mod resolver_state;
 mod stress_catalog;
 mod stress_config;
 mod structured_mutation;
@@ -223,6 +347,12 @@ mod test_vector_params;
 mod test_vector_writer;
 
 #[cfg(feature = "server")]
+mod request_count_control_response;
+#[cfg(feature = "server")]
+mod serve_count_control_request;
+#[cfg(feature = "server")]
+mod serve_count_control_response;
+#[cfg(feature = "server")]
 mod spawn_test_vector_server;
 #[cfg(feature = "server")]
 mod test_vector_server_app_state;
@@ -230,17 +360,29 @@ mod test_vector_server_app_state;
 mod test_vector_server_config;
 #[cfg(feature = "server")]
 mod test_vector_server_routes;
+#[cfg(feature = "server")]
+mod test_vector_server_vector_runtime;
 
 pub use crate::{
     base_choice::BaseChoice,
     catalog::{Catalog, CatalogDescriptor, CatalogListRequest, VectorDefinition},
+    catalog_generation::CatalogGeneration,
     deterministic_rng::{DeterministicRng, TIMESTAMP_BASE, TIMESTAMP_INCREMENT},
     error_code::ErrorCode,
     expected::Expected,
+    expected_resolution_outcome::ExpectedResolutionOutcome,
     hash_function_choice::HashFunctionChoice,
     key_type_choice::KeyTypeChoice,
+    known_did_document_version::KnownDidDocumentVersion,
     microledger_builder::MicroledgerBuilder,
     raw_did_document::RawDidDocument,
+    resolution_scenario::{
+        RESOLUTION_SCENARIO_CATEGORY, RESOLUTION_SCENARIO_FORMAT, ResolutionScenario,
+    },
+    resolution_scenario_catalog::ResolutionScenarioDefinition,
+    resolution_semantics::{ResolutionSemantics, ResolutionStepPrediction},
+    resolution_step::ResolutionStep,
+    resolver_state::ResolverState,
     stress_config::StressConfig,
     structured_mutation::{MutationTarget, StructuredMutation},
     test_vector::TestVector,
@@ -253,16 +395,22 @@ pub use crate::{
     },
     test_vector_params::TestVectorParams,
     test_vector_writer::{
-        DID_DOCUMENTS_JSONL_FILENAME, INDEX_JSON_FILENAME, TEST_VECTOR_JSON_FILENAME,
-        TestVectorWriter,
+        DID_DOCUMENTS_JSONL_FILENAME, INDEX_JSON_FILENAME, RESOLUTION_SCENARIO_JSON_FILENAME,
+        TEST_VECTOR_JSON_FILENAME, TestVectorWriter,
     },
 };
 
 #[cfg(feature = "server")]
 pub use crate::{
+    request_count_control_response::RequestCountControlResponse,
+    serve_count_control_request::ServeCountControlRequest,
+    serve_count_control_response::ServeCountControlResponse,
     spawn_test_vector_server::spawn_test_vector_server,
-    test_vector_server_app_state::{TestVectorServerAppState, TestVectorServerVectorBodies},
+    test_vector_server_app_state::{
+        ServeCountError, TestVectorServerAppState, TestVectorServerVectorBodies,
+    },
     test_vector_server_config::TestVectorServerConfig,
+    test_vector_server_vector_runtime::TestVectorServerVectorRuntime,
 };
 
 /// Package name, suitable for embedding in generated `test-vector.json` metadata.

@@ -1826,6 +1826,7 @@ dependencies = [
  "did-webplus-mock",
  "ed25519-dalek 3.0.0-rc.0",
  "ed448-goldilocks",
+ "http-body-util",
  "k256 0.14.0-rc.11",
  "mbx",
  "p256 0.14.0-rc.11",

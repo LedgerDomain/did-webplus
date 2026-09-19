@@ -122,14 +122,33 @@ impl DIDResolverFull {
                     ?query_version_id_o,
                     "attempting to retrieve requested DID document from local DB with query params"
                 );
-                requested_did_doc_record_o = self
+                requested_did_doc_record_o = match self
                     .get_did_doc_record_with_self_hash_or_version_id(
                         None,
                         did,
                         query_self_hash_o,
                         query_version_id_o,
                     )
-                    .await?;
+                    .await
+                {
+                    Ok(record_o) => record_o,
+                    Err(Error::ConflictingDIDQueryParams(message)) => {
+                        // Match oracle early-conflict: no VDR fetch yet; document not
+                        // resolved; metadata locality from assembly so far.
+                        let did_document_metadata_resolved_locally = (!root_did_document_needed
+                            || root_did_doc_record_o.is_some())
+                            && (!next_did_document_o_needed || next_did_doc_record_oo.is_some())
+                            && (!latest_did_document_needed || latest_did_doc_record_o.is_some());
+                        return Err(Error::DIDResolutionConflict(DIDResolutionMetadata {
+                            content_type: "application/did+json".to_string(),
+                            error_o: Some(message.into_owned()),
+                            fetched_updates_from_vdr: false,
+                            did_document_resolved_locally: false,
+                            did_document_metadata_resolved_locally,
+                        }));
+                    }
+                    Err(error) => return Err(error),
+                };
                 tracing::trace!(
                     ?requested_did_doc_record_o,
                     "requested DID document local DB result"
@@ -323,23 +342,36 @@ impl DIDResolverFull {
                         ?query_version_id_o,
                         "attempting to retrieve requested DID document from local DB with query params after VDR fetch"
                     );
-                    let requested_did_doc_record = self
+                    let requested_did_doc_record = match self
                         .get_did_doc_record_with_self_hash_or_version_id(
                             None,
                             did,
                             query_self_hash_o,
                             query_version_id_o,
                         )
-                        .await?
-                        .ok_or_else(|| {
-                            Error::DIDResolutionFailure2(DIDResolutionMetadata {
+                        .await
+                    {
+                        Ok(Some(record)) => record,
+                        Ok(None) => {
+                            return Err(Error::DIDResolutionFailure2(DIDResolutionMetadata {
                                 content_type: "application/did+json".to_string(),
                                 error_o: Some(format!("DID resolution for {} failed", did)),
                                 fetched_updates_from_vdr,
                                 did_document_resolved_locally,
                                 did_document_metadata_resolved_locally,
-                            })
-                        })?;
+                            }));
+                        }
+                        Err(Error::ConflictingDIDQueryParams(message)) => {
+                            return Err(Error::DIDResolutionConflict(DIDResolutionMetadata {
+                                content_type: "application/did+json".to_string(),
+                                error_o: Some(message.into_owned()),
+                                fetched_updates_from_vdr,
+                                did_document_resolved_locally,
+                                did_document_metadata_resolved_locally,
+                            }));
+                        }
+                        Err(error) => return Err(error),
+                    };
                     tracing::trace!(
                         ?requested_did_doc_record,
                         "requested DID document after VDR fetch"
@@ -639,7 +671,7 @@ impl DIDResolverFull {
                             // versionId values is not necessarily fraudulent, as it doesn't
                             // constitute proof that a signature was generated against a forked DID.
                             // Perhaps there could be a way to report a forked DID.
-                            return Err(Error::FailedConstraint(format!(
+                            return Err(Error::ConflictingDIDQueryParams(format!(
                             "DID document with versionId {} has selfHash {} which does not match requested selfHash {}",
                             version_id,
                             did_doc_record.self_hash,

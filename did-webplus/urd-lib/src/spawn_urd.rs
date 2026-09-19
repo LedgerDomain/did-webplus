@@ -109,6 +109,15 @@ async fn resolve_did(
                 StatusCode::NOT_FOUND,
                 serde_json::to_string(&did_resolution_metadata).unwrap(),
             ),
+            did_webplus_resolver::Error::ConflictingDIDQueryParams(description) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
+            }
+            did_webplus_resolver::Error::DIDResolutionConflict(did_resolution_metadata) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                did_resolution_metadata
+                    .error_o
+                    .unwrap_or_else(|| "conflicting DID query params".to_string()),
+            ),
             did_webplus_resolver::Error::FailedConstraint(description) => {
                 (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
             }

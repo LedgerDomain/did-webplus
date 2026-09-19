@@ -1,10 +1,14 @@
 use std::{
+    collections::BTreeMap,
     io::Write,
     path::{Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::{TestVector, TestVectorIndex, TestVectorIndexRecord, TestVectorMetadata};
+use crate::{
+    RESOLUTION_SCENARIO_CATEGORY, ResolutionScenario, TestVector, TestVectorIndex,
+    TestVectorIndexRecord, TestVectorMetadata,
+};
 
 static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -13,6 +17,9 @@ pub const DID_DOCUMENTS_JSONL_FILENAME: &str = "did-documents.jsonl";
 
 /// Filename for per-vector expectation metadata.
 pub const TEST_VECTOR_JSON_FILENAME: &str = "test-vector.json";
+
+/// Filename for stateful resolution-scenario expectations (resolution-scenario category).
+pub const RESOLUTION_SCENARIO_JSON_FILENAME: &str = "resolution-scenario.json";
 
 /// Filename for the catalog discovery index at the target-dir root.
 pub const INDEX_JSON_FILENAME: &str = "index.json";
@@ -28,6 +35,7 @@ pub const INDEX_JSON_FILENAME: &str = "index.json";
 ///   [<extra-path...>/]<root-self-hash>/
 ///     did-documents.jsonl
 ///     test-vector.json
+///     [resolution-scenario.json]   # resolution-scenario category only
 /// ```
 ///
 /// [`Self::base_path_component_v`] is the `--did-path` prefix that `target_dir` already
@@ -36,7 +44,8 @@ pub const INDEX_JSON_FILENAME: &str = "index.json";
 /// (e.g. from `did-multi-path-components` or `stress-long-did-path`) become nested dirs.
 ///
 /// `index.json` is **derived**: [`Self::write_all`] and [`Self::rebuild_index`] scan
-/// `target_dir` for `test-vector.json` and emit [`TestVectorIndex`] v2.
+/// `target_dir` for `test-vector.json` and emit [`TestVectorIndex`] v2. Resolution-scenario
+/// vectors are body-positive and also appear in the `resolution-scenario` category group.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TestVectorWriter {
     target_dir: PathBuf,
@@ -101,6 +110,8 @@ impl TestVectorWriter {
     ///
     /// Returns the absolute path of the vector directory that was written. Does not
     /// update `index.json`; use [`Self::write_all`] or [`Self::write_index`] for that.
+    /// Does not write `resolution-scenario.json`; use
+    /// [`Self::write_resolution_scenario`] (or [`Self::write_all`] with a scenario map).
     pub fn write_vector(&self, vector: &TestVector, seed: &str) -> anyhow::Result<PathBuf> {
         let metadata = TestVectorMetadata::from_test_vector(vector, seed);
         metadata.validate_fuzz_lite_seed()?;
@@ -126,6 +137,38 @@ impl TestVectorWriter {
         })?;
 
         Ok(dir)
+    }
+
+    /// Write `resolution-scenario.json` beside an already-written vector directory.
+    ///
+    /// The scenario's [`ResolutionScenario::did`] must match `did`. Returns the absolute
+    /// path of the scenario file. Does not update `index.json`.
+    pub fn write_resolution_scenario(
+        &self,
+        did: &did_webplus_core::DID,
+        scenario: &ResolutionScenario,
+    ) -> anyhow::Result<PathBuf> {
+        anyhow::ensure!(
+            &scenario.did == did,
+            "resolution scenario {:?} DID {} does not match vector DID {}",
+            scenario.name,
+            scenario.did,
+            did
+        );
+        let dir = self.vector_dir_path(did)?;
+        std::fs::create_dir_all(&dir).map_err(|error| {
+            anyhow::anyhow!(
+                "failed to create vector directory {}: {}",
+                dir.display(),
+                error
+            )
+        })?;
+        let scenario_json = serde_json::to_string_pretty(scenario)?;
+        let scenario_path = dir.join(RESOLUTION_SCENARIO_JSON_FILENAME);
+        std::fs::write(&scenario_path, format!("{scenario_json}\n")).map_err(|error| {
+            anyhow::anyhow!("failed to write {}: {}", scenario_path.display(), error)
+        })?;
+        Ok(scenario_path)
     }
 
     /// Atomically write `index.json` under `index_dir`, creating the directory if needed.
@@ -174,21 +217,59 @@ impl TestVectorWriter {
         Ok(())
     }
 
-    /// Write every vector, then rebuild [`Self::target_dir`]'s `index.json` from disk.
+    /// Write every vector (and any paired resolution scenarios), then rebuild
+    /// [`Self::target_dir`]'s `index.json` from disk.
+    ///
+    /// For each vector whose category is [`RESOLUTION_SCENARIO_CATEGORY`],
+    /// `resolution_scenario_m` must contain an entry keyed by [`TestVector::name`];
+    /// that entry is written as `resolution-scenario.json`. Extra map entries for
+    /// other categories are an error.
     ///
     /// Rebuilding scans the complete tree, so vectors from earlier calls remain
     /// discoverable when new vectors are added incrementally. If this call rewrites
     /// a name that already exists at a different DID path, the old vector directory
     /// is removed so the tree cannot contain duplicate names.
-    pub fn write_all(&self, vector_v: &[TestVector], seed: &str) -> anyhow::Result<()> {
+    pub fn write_all(
+        &self,
+        vector_v: &[TestVector],
+        seed: &str,
+        resolution_scenario_m: &BTreeMap<String, ResolutionScenario>,
+    ) -> anyhow::Result<()> {
         let mut existing_record_v = Vec::new();
         collect_metadata_under(&self.target_dir, &self.target_dir, &mut existing_record_v)?;
 
-        let mut replacement_path_m = std::collections::BTreeMap::<String, String>::new();
+        let mut replacement_path_m = BTreeMap::<String, String>::new();
+        let mut consumed_scenario_name_s = std::collections::BTreeSet::new();
         for vector in vector_v {
             let new_path = self.vector_relative_path(&vector.did)?;
             self.write_vector(vector, seed)?;
             replacement_path_m.insert(vector.name.clone(), new_path);
+
+            let scenario_o = resolution_scenario_m.get(&vector.name);
+            if vector.category == RESOLUTION_SCENARIO_CATEGORY {
+                let scenario = scenario_o.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "resolution-scenario vector {:?} is missing from resolution_scenario_m",
+                        vector.name
+                    )
+                })?;
+                self.write_resolution_scenario(&vector.did, scenario)?;
+                consumed_scenario_name_s.insert(vector.name.clone());
+            } else if scenario_o.is_some() {
+                anyhow::bail!(
+                    "resolution scenario provided for non-resolution-scenario vector {:?} (category {:?})",
+                    vector.name,
+                    vector.category
+                );
+            }
+        }
+
+        for name in resolution_scenario_m.keys() {
+            anyhow::ensure!(
+                consumed_scenario_name_s.contains(name),
+                "resolution_scenario_m has entry {:?} with no matching vector in this write",
+                name
+            );
         }
 
         for record in existing_record_v {
@@ -429,7 +510,11 @@ mod tests {
         let writer = TestVectorWriter::new(&target)
             .with_base_path_components(["tv".to_owned(), "demo".to_owned()]);
         writer
-            .write_all(std::slice::from_ref(&vector), "writer-test-seed")
+            .write_all(
+                std::slice::from_ref(&vector),
+                "writer-test-seed",
+                &BTreeMap::new(),
+            )
             .expect("write_all");
 
         // Base --did-path is stripped: only the root self-hash remains under target-dir.
@@ -492,7 +577,7 @@ mod tests {
         let writer = TestVectorWriter::new(&target)
             .with_base_path_components(["tv".to_owned(), "demo".to_owned()]);
         writer
-            .write_all(std::slice::from_ref(&vector), "seed")
+            .write_all(std::slice::from_ref(&vector), "seed", &BTreeMap::new())
             .expect("write_all");
 
         let relative = writer.vector_relative_path(&vector.did).expect("relative");
@@ -521,7 +606,7 @@ mod tests {
         let no_port = sample_vector(TestVectorParams::baseline("example.com"), "no-port");
 
         TestVectorWriter::new(&target)
-            .write_all(&[no_port.clone(), with_port.clone()], "seed")
+            .write_all(&[no_port.clone(), with_port.clone()], "seed", &BTreeMap::new())
             .expect("write_all");
 
         assert!(target.join(INDEX_JSON_FILENAME).is_file());
@@ -560,14 +645,22 @@ mod tests {
         let second = sample_vector(TestVectorParams::baseline("example.com"), "second");
 
         writer
-            .write_all(std::slice::from_ref(&first), "writer-test-seed")
+            .write_all(
+                std::slice::from_ref(&first),
+                "writer-test-seed",
+                &BTreeMap::new(),
+            )
             .expect("write first");
         let index_after_first = read_index(&target);
         assert_eq!(index_after_first.vector_m.len(), 1);
         assert!(index_after_first.vector_m.contains_key("first"));
 
         writer
-            .write_all(std::slice::from_ref(&second), "writer-test-seed")
+            .write_all(
+                std::slice::from_ref(&second),
+                "writer-test-seed",
+                &BTreeMap::new(),
+            )
             .expect("write second subset");
         let index_after_second = read_index(&target);
         assert_eq!(index_after_second.vector_m.len(), 2);
@@ -605,7 +698,11 @@ mod tests {
         assert_ne!(first.did, second.did);
 
         writer
-            .write_all(std::slice::from_ref(&first), "writer-test-seed")
+            .write_all(
+                std::slice::from_ref(&first),
+                "writer-test-seed",
+                &BTreeMap::new(),
+            )
             .expect("write first");
         let first_dir = writer.vector_dir_path(&first.did).expect("first dir");
         assert!(first_dir.join(TEST_VECTOR_JSON_FILENAME).is_file());
@@ -614,7 +711,11 @@ mod tests {
             .write_vector(&second, "writer-test-seed")
             .expect("leave a duplicate name at a second path");
         writer
-            .write_all(std::slice::from_ref(&second), "writer-test-seed")
+            .write_all(
+                std::slice::from_ref(&second),
+                "writer-test-seed",
+                &BTreeMap::new(),
+            )
             .expect("replace duplicate name");
 
         assert!(!first_dir.exists());
@@ -642,7 +743,7 @@ mod tests {
         let b = sample_vector(beta_params, "beta-vec");
 
         writer
-            .write_all(&[a.clone(), b.clone()], "writer-test-seed")
+            .write_all(&[a.clone(), b.clone()], "writer-test-seed", &BTreeMap::new())
             .expect("write_all");
         let index_before = read_index(&target);
 
@@ -674,7 +775,11 @@ mod tests {
 
         let write_all_dir = temp_target_dir("hand-write-all");
         TestVectorWriter::new(&write_all_dir)
-            .write_all(&[positive.clone(), negative.clone()], seed)
+            .write_all(
+                &[positive.clone(), negative.clone()],
+                seed,
+                &BTreeMap::new(),
+            )
             .expect("write_all");
         let expected = read_index(&write_all_dir);
 
@@ -719,5 +824,120 @@ mod tests {
         assert!(validate_relative_path("/a").is_err());
         assert!(validate_relative_path("a//b").is_err());
         assert!(validate_relative_path("tv/demo/hash").is_ok());
+    }
+
+    #[test]
+    fn write_all_writes_resolution_scenario_and_index_group() {
+        use crate::{
+            Catalog, ExpectedResolutionOutcome, RESOLUTION_SCENARIO_FORMAT, ResolutionScenario,
+            ResolutionStep,
+        };
+        use did_webplus_core::{DIDResolutionMetadata, DIDResolutionOptions};
+
+        let target = temp_target_dir("resolution-scenario");
+        let params = TestVectorParams::baseline("example.com");
+        let pair_v = Catalog::generate_resolution_scenario(&params, "writer-scenario-seed")
+            .expect("generate resolution scenarios");
+        let (vector, scenario) = pair_v
+            .into_iter()
+            .find(|(vector, _)| vector.name == "cold-plain-did-no-metadata")
+            .expect("cold-plain-did-no-metadata");
+
+        let mut resolution_scenario_m = BTreeMap::new();
+        resolution_scenario_m.insert(vector.name.clone(), scenario.clone());
+
+        let writer = TestVectorWriter::new(&target);
+        writer
+            .write_all(
+                std::slice::from_ref(&vector),
+                "writer-scenario-seed",
+                &resolution_scenario_m,
+            )
+            .expect("write_all");
+
+        let vector_dir = writer.vector_dir_path(&vector.did).expect("vector dir");
+        assert!(vector_dir.join(DID_DOCUMENTS_JSONL_FILENAME).is_file());
+        assert!(vector_dir.join(TEST_VECTOR_JSON_FILENAME).is_file());
+        let scenario_path = vector_dir.join(RESOLUTION_SCENARIO_JSON_FILENAME);
+        assert!(scenario_path.is_file());
+
+        let on_disk: ResolutionScenario =
+            serde_json::from_str(&std::fs::read_to_string(&scenario_path).expect("read scenario"))
+                .expect("parse scenario");
+        assert_eq!(on_disk, scenario);
+        assert_eq!(on_disk.format, RESOLUTION_SCENARIO_FORMAT);
+
+        let index = read_index(&target);
+        assert_eq!(index.group_m["positive"], ["cold-plain-did-no-metadata"]);
+        assert_eq!(
+            index.group_m[RESOLUTION_SCENARIO_CATEGORY],
+            ["cold-plain-did-no-metadata"]
+        );
+        assert!(!index.group_m.contains_key("negative"));
+
+        // Sanity: write_resolution_scenario alone also round-trips a hand-built scenario.
+        let hand = ResolutionScenario::new(
+            "hand",
+            "hand-built",
+            vec!["#did-resolution-metadata".to_owned()],
+            vector.did.clone(),
+            vec![ResolutionStep {
+                served_did_document_count: 1,
+                did_query: vector.did.to_string(),
+                resolution_options: DIDResolutionOptions::no_metadata(false),
+                expected: ExpectedResolutionOutcome::failure(
+                    DIDResolutionMetadata {
+                        content_type: "application/did+json".to_string(),
+                        error_o: Some("advisory".to_string()),
+                        fetched_updates_from_vdr: false,
+                        did_document_resolved_locally: false,
+                        did_document_metadata_resolved_locally: true,
+                    },
+                    0,
+                ),
+            }],
+        );
+        writer
+            .write_resolution_scenario(&vector.did, &hand)
+            .expect("overwrite scenario");
+        let rewritten: ResolutionScenario =
+            serde_json::from_str(&std::fs::read_to_string(&scenario_path).expect("read"))
+                .expect("parse");
+        assert_eq!(rewritten, hand);
+
+        let _ = std::fs::remove_dir_all(&target);
+    }
+
+    #[test]
+    fn write_all_rejects_missing_or_extra_resolution_scenario() {
+        let target = temp_target_dir("scenario-mismatch");
+        let params = TestVectorParams::baseline("example.com");
+        let mut vector = sample_vector(params, "needs-scenario");
+        vector.category = RESOLUTION_SCENARIO_CATEGORY.to_owned();
+
+        let writer = TestVectorWriter::new(&target);
+        let missing_r = writer.write_all(
+            std::slice::from_ref(&vector),
+            "seed",
+            &BTreeMap::new(),
+        );
+        assert!(missing_r.is_err());
+
+        let ordinary = sample_vector(TestVectorParams::baseline("example.com"), "ordinary");
+        let mut orphan_m = BTreeMap::new();
+        orphan_m.insert(
+            "ordinary".to_owned(),
+            crate::ResolutionScenario::new(
+                "ordinary",
+                "should not pair with conformance",
+                vec![],
+                ordinary.did.clone(),
+                vec![],
+            ),
+        );
+        let extra_r = writer.write_all(std::slice::from_ref(&ordinary), "seed", &orphan_m);
+        assert!(extra_r.is_err());
+
+        let _ = std::fs::remove_dir_all(&target);
     }
 }

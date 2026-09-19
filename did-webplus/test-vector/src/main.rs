@@ -181,7 +181,7 @@ fn run_generate(args: GenerateArgs) -> anyhow::Result<()> {
     }
 
     eprintln!("generating test-vector catalog...");
-    let vector_v = Catalog::generate_with_progress(
+    let generation = Catalog::generate_with_progress(
         &shared.params(),
         &shared.seed,
         &shared.stress_config(),
@@ -190,9 +190,13 @@ fn run_generate(args: GenerateArgs) -> anyhow::Result<()> {
             eprintln!("  {message}");
         },
     )?;
-    let count = vector_v.len();
+    let count = generation.vector_v.len();
     eprintln!("writing {count} test vector(s)...");
-    shared.writer().write_all(&vector_v, &shared.seed)?;
+    shared.writer().write_all(
+        &generation.vector_v,
+        &shared.seed,
+        &generation.resolution_scenario_m,
+    )?;
     eprintln!(
         "wrote {count} test vector(s) under {}",
         shared.target_dir.display()
@@ -322,5 +326,16 @@ mod tests {
                 .count(),
             fuzz_lite_count as usize
         );
+    }
+
+    #[test]
+    fn dry_run_list_includes_resolution_scenario() {
+        let descriptor_v = Catalog::list(&CatalogListRequest {
+            fuzz_lite_count: 0,
+            seed: DEFAULT_SEED.to_owned(),
+            stress_config: StressConfig::default(),
+        });
+        assert!(descriptor_v.iter().any(|descriptor| descriptor.category
+            == did_webplus_test_vector_lib::RESOLUTION_SCENARIO_CATEGORY));
     }
 }

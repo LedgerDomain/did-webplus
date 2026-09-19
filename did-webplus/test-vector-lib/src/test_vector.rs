@@ -7,7 +7,8 @@ use crate::{Expected, TestVectorParams};
 pub struct TestVector {
     /// Stable catalog name (also used to derive the per-vector RNG seed).
     pub name: String,
-    /// Catalog category (e.g. `conformance`, `coverage-matrix`, `jsonl-structural`, `stress`, `fuzz-lite`).
+    /// Catalog category (e.g. `conformance`, `coverage-matrix`, `jsonl-structural`,
+    /// `resolution`, `resolution-scenario`, `stress`, `fuzz-lite`).
     pub category: String,
     /// Human-readable description of what this vector exercises.
     pub description: String,

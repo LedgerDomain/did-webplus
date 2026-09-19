@@ -18,6 +18,7 @@ Produce reusable test vectors that exercise:
 - **Coverage matrix** — key types × hash functions, both multibase bases, mixed-history and path variants
 - **JSONL structural** — empty files, blank lines, CRLF, duplicate/trailing garbage lines, valid-prefix-then-invalid
 - **Resolution** — valid microledgers whose resolution DID / served path disagrees with the DID inside `did-documents.jsonl` (host, port, path, or root self-hash)
+- **Resolution scenario** — stateful multi-step resolution / DID-document-metadata / DID-resolution-metadata / local-only conformance (`resolution-scenario.json` beside a fully valid body)
 - **Stress** — bounded large histories / documents / nesting / proofs / DID paths (sizes CLI-configurable)
 - **Fuzz-lite** — seeded structured single-field mutations with computed expectations (count via `--fuzz-lite-count`; `0` skips)
 
@@ -58,7 +59,7 @@ Subcommands: `generate`, `rebuild-index`, and `serve`.
 
 ### `generate`
 
-Always writes **all** categories: conformance, coverage-matrix, jsonl-structural, resolution, stress, and fuzz-lite. Progress goes to stderr. After writing, `index.json` under `--target-dir` is **rebuilt from every on-disk `test-vector.json`**. Pre-existing vectors with other names remain in the index. If a generated name already exists at a different DID path, the old vector directory is removed.
+Always writes **all** categories: conformance, coverage-matrix, jsonl-structural, resolution, resolution-scenario, stress, and fuzz-lite (`--fuzz-lite-count 0` skips fuzz-lite). Progress goes to stderr. After writing, `index.json` under `--target-dir` is **rebuilt from every on-disk `test-vector.json`**. Pre-existing vectors with other names remain in the index. If a generated name already exists at a different DID path, the old vector directory is removed.
 
 ```bash
 did-webplus-test-vector generate \
@@ -122,9 +123,21 @@ did-webplus-test-vector serve \
 | `--fuzz-lite-count <N>` | `DID_WEBPLUS_TEST_VECTOR_FUZZ_LITE_COUNT` | `128` | Fuzz-lite count (`0` skips) |
 | `--stress-versions <N,…>` | `DID_WEBPLUS_TEST_VECTOR_STRESS_VERSIONS` | *(catalog default)* | Override stress version-count tiers |
 
-Endpoints: `GET /health`, `GET /index.json`, `GET /{path}/did-documents.jsonl` (Range: 206; 416 with `bytes */N` when up to date), `GET /{path}/test-vector.json`.
+Endpoints:
 
-Prefer `serve` for a live resolution origin (resolver tests); prefer `generate` + a static file server for on-disk trees. Black-box resolver harnesses: `resolve(did)` succeeds iff `expected.valid` / `groups.positive` (not line-by-line `validDidDocumentCount` — that is library self-check).
+- `GET /health`
+- `GET /index.json`
+- `GET /{path}/did-documents.jsonl` (Range: 206; 416 with `bytes */N` when up to date; body length follows the current per-vector serve-count, default all lines)
+- `GET /{path}/test-vector.json`
+- `GET /{path}/resolution-scenario.json` (resolution-scenario vectors only)
+- Control (outside the DID resolution namespace):
+  - `PUT /control/serve-count` — set how many leading jsonl lines a vector serves
+  - `GET /control/request-count?path=...` — read jsonl GET count since last reset
+  - `POST /control/reset` — reset all serve-counts to full and zero all request counters
+
+Prefer `serve` for a live resolution origin (resolver tests and **resolution-scenario conformance**); prefer `generate` + a static file server for on-disk trees of the non-scenario categories. Black-box resolver harnesses: `resolve(did)` succeeds iff `expected.valid` / `groups.positive` (not line-by-line `validDidDocumentCount` — that is library self-check).
+
+**Static-hosting caveat:** a published static catalog (e.g. the `did-webplus-spec/test-vector` submodule) may include `resolution-scenario.json` files for discovery and reading, but scenario *conformance* requires the live `serve` server — serve-count mutation and request counting are impossible on static hosting. Interop suites should run `did-webplus-test-vector serve` (e.g. a `Dockerfile.test-vector-server` container) alongside any static catalog server.
 
 ## Directory layout and serving
 
@@ -149,6 +162,7 @@ Layout for a DID such as
 - Each vector directory contains:
   - `did-documents.jsonl` — one DID document per line (JCS or deliberately non-JCS for negatives)
   - `test-vector.json` — authoritative metadata and expectations
+  - `resolution-scenario.json` — present only for the `resolution-scenario` category (ordered resolution steps + expected outcomes)
 - `index.json` at `--target-dir` lists **all** vectors found under that tree. `generate` rebuilds it after writing; use `rebuild-index` after adding or editing vectors by hand.
 
 ### Static HTTP serving
@@ -164,10 +178,13 @@ Then:
 - `GET http://localhost:3000/index.json` lists vectors and groups
 - `GET http://localhost:3000/<path>/did-documents.jsonl` serves the microledger
 - `GET http://localhost:3000/<path>/test-vector.json` serves metadata
+- `GET http://localhost:3000/<path>/resolution-scenario.json` serves the scenario artifact when present
 
 `path` is the `path` field from `index.json` `vectors` (forward-slash path under `--target-dir`).
 
 A `did:webplus` DID resolver against this catalog: **positive** vectors must resolve successfully; **negative** vectors (including `resolution`) must fail.
+
+**Static hosting and resolution scenarios:** static Range-capable servers can host the generated tree, including `resolution-scenario.json` for discovery. Full scenario conformance (mutating how many documents the VDR serves mid-scenario, and asserting exact VDR request counts) requires the live `serve` command — see [Scenario harness requirements](#scenario-harness-requirements).
 
 #### A note on hostname and port for local hosting
 
@@ -201,6 +218,7 @@ This file is **derived discovery** data. Expectations live only in `test-vector.
     "coverage-matrix": ["..."],
     "jsonl-structural": ["..."],
     "resolution": ["..."],
+    "resolution-scenario": ["..."],
     "stress": ["..."],
     "fuzz-lite": ["..."]
   }
@@ -215,17 +233,21 @@ This file is **derived discovery** data. Expectations live only in `test-vector.
 
 Invariants: every group member exists in `vectors`; maps and name lists are sorted; duplicate names in the target tree are an error.
 
+**`resolution-scenario` group:** these vectors are body-positive — their JSONL fully validates — so they also appear in `groups.positive`. Group membership under `resolution-scenario` distinguishes them for scenario runners. Plain black-box `resolve(did)`-latest harnesses may treat them as ordinary positive vectors; full scenario conformance requires the [scenario harness](#scenario-harness-requirements).
+
 ### Harness consumption
 
 1. Fetch `index.json`.
 2. Select a group (`positive`, `negative`, or a category).
 3. Resolve each name via `vectors[name].path`.
-4. Fetch JSONL + `test-vector.json`.
-5. Apply expectations (next section). Treat error codes as advisory.
+4. Fetch JSONL + `test-vector.json` (and, for `resolution-scenario`, `resolution-scenario.json`).
+5. Apply expectations (next section, or [Scenario expectation semantics](#scenario-expectation-semantics)). Treat error codes / error message text as advisory.
 
 **Black-box resolver:** resolve `vectors[name].did` — expect success iff `expected.valid` (equivalently: name is in `groups.positive`).
 
 **Incremental validator:** for non-`resolution` vectors, assert the accept/reject prefix from `expected.validDidDocumentCount` (see below). For `resolution`, the JSONL body must fully validate on its own, but binding it to `vectors[name].did` / the served path must fail (`document.id` must equal that DID).
+
+**Resolution-scenario runner:** see [Scenario harness requirements](#scenario-harness-requirements). Do not rely on static hosting alone for conformance.
 
 ## `test-vector.json` schema
 
@@ -261,7 +283,7 @@ Format string: `did-webplus-test-vector/1`.
 | `format` | Schema / format version |
 | `did` | DID for this vector (for `resolution`, the **resolution** DID / served path identity; the JSONL body may use a different DID) |
 | `name` | Catalog (or fuzz-lite) name |
-| `category` | `conformance`, `coverage-matrix`, `jsonl-structural`, `resolution`, `stress`, or `fuzz-lite` |
+| `category` | `conformance`, `coverage-matrix`, `jsonl-structural`, `resolution`, `resolution-scenario`, `stress`, or `fuzz-lite` |
 | `description` | Human-readable summary |
 | `specRef` | Spec section references |
 | `didDocumentCount` | Number of DID-document lines in the JSONL |
@@ -285,6 +307,210 @@ For non-`resolution` vectors (incremental ingest of the JSONL):
 For **`resolution`** vectors: the JSONL is a fully valid microledger, but `did` is a mismatched resolution / served-path identity. Metadata still has `validDidDocumentCount: 0` and `valid: false` — that means “reject relative to `did`,” **not** “JSONL fails at document 0.” Body-only checks must accept the whole file; identity checks / `resolve(did)` must fail.
 
 **Advisory:** `errorCode` and `errorVersionId`. Other implementations need not match codes; the accept/reject outcomes above define conformance.
+
+## `resolution-scenario.json` schema (v1)
+
+Format string: `did-webplus-resolution-scenario/1`.
+
+Written beside `did-documents.jsonl` / `test-vector.json` for vectors in the
+`resolution-scenario` category. A conforming full resolver starts with an **empty**
+DID document store and executes `steps` in order, retaining store state across steps.
+
+```json
+{
+  "format": "did-webplus-resolution-scenario/1",
+  "name": "cold-plain-did-no-metadata",
+  "description": "Cold resolve of a plain DID with no metadata requested.",
+  "specRef": ["#did-resolution-metadata"],
+  "did": "did:webplus:example.com%3A3000:tv:demo:uHiB...",
+  "steps": [
+    {
+      "servedDidDocumentCount": 3,
+      "didQuery": "did:webplus:example.com%3A3000:tv:demo:uHiB...",
+      "resolutionOptions": {
+        "requestCreate": false,
+        "requestNext": false,
+        "requestLatest": false,
+        "requestDeactivated": false,
+        "localResolutionOnly": false
+      },
+      "expected": {
+        "success": true,
+        "didDocumentVersionId": 2,
+        "didDocumentSelfHash": "uEiB...",
+        "didDocumentMetadata": {},
+        "didResolutionMetadata": {
+          "contentType": "application/did+json",
+          "fetchedUpdatesFromVDR": true,
+          "didDocumentResolvedLocally": false,
+          "didDocumentMetadataResolvedLocally": true
+        },
+        "vdrRequestCount": 1
+      }
+    },
+    {
+      "servedDidDocumentCount": 3,
+      "didQuery": "did:webplus:example.com%3A3000:tv:demo:uHiB...?versionId=1",
+      "resolutionOptions": {
+        "requestCreate": true,
+        "requestNext": false,
+        "requestLatest": false,
+        "requestDeactivated": false,
+        "localResolutionOnly": false
+      },
+      "expected": {
+        "success": true,
+        "didDocumentVersionId": 1,
+        "didDocumentSelfHash": "uEiB...",
+        "didDocumentMetadata": {
+          "created": "2025-01-01T00:00:00Z",
+          "createdMilliseconds": "2025-01-01T00:00:00.001Z"
+        },
+        "didResolutionMetadata": {
+          "contentType": "application/did+json",
+          "fetchedUpdatesFromVDR": false,
+          "didDocumentResolvedLocally": true,
+          "didDocumentMetadataResolvedLocally": true
+        },
+        "vdrRequestCount": 0
+      }
+    }
+  ]
+}
+```
+
+On failure (`success: false`), omit `didDocumentVersionId` / `didDocumentSelfHash` /
+`didDocumentMetadata`; `didResolutionMetadata.error` MUST be present (message advisory).
+
+| Field | Meaning |
+|-------|---------|
+| `format` | Schema / format version (`did-webplus-resolution-scenario/1`) |
+| `name` | Catalog name (matches the owning test vector) |
+| `description` | Human-readable summary |
+| `specRef` | Spec section references |
+| `did` | DID identity of the owning microledger |
+| `steps` | Ordered resolution steps (see below) |
+
+### Step fields
+
+| Field | Meaning |
+|-------|---------|
+| `servedDidDocumentCount` | How many leading `did-documents.jsonl` lines the VDR serves during this step; MUST be monotonically non-decreasing across steps |
+| `didQuery` | DID URL to resolve (may include `selfHash` and/or `versionId` query params) |
+| `resolutionOptions` | Wire-exact DID Resolution Options (see below) |
+| `expected` | Expected outcome for a conforming full resolver |
+
+### `resolutionOptions` (wire field names)
+
+| Field | Meaning |
+|-------|---------|
+| `requestCreate` | Populate creation metadata (`created` / `createdMilliseconds`) |
+| `requestNext` | Populate next-update metadata |
+| `requestLatest` | Populate latest-update metadata |
+| `requestDeactivated` | Populate `deactivated` |
+| `localResolutionOnly` | If `true`, resolver MUST make zero network requests; fail with resolution metadata when needed data is not local |
+| `accept` | Optional; ignored by did:webplus (document returned as stored JCS) |
+
+### `expected` fields
+
+| Field | Meaning |
+|-------|---------|
+| `success` | `true` if resolution must succeed; `false` if it must fail |
+| `didDocumentVersionId` | Resolved document `versionId` (present iff `success`) |
+| `didDocumentSelfHash` | Resolved document `selfHash` (present iff `success`) |
+| `didDocumentMetadata` | Exact DID document metadata JSON, including `*Milliseconds` timestamp fields when requested (present iff `success`) |
+| `didResolutionMetadata` | Exact resolution-metadata object; the three booleans are normative; on error, `error` present-only |
+| `vdrRequestCount` | Exact HTTP GETs to this DID's `did-documents.jsonl` during the step (`0` = local-only / no VDR contact; `1` = single Range fetch) |
+
+## Scenario expectation semantics
+
+**Preconditions:**
+
+1. Fresh empty DID document store **per scenario**.
+2. Store persists across steps within a scenario.
+3. Steps execute in the order listed in `steps`.
+4. Before each step, the harness sets the VDR serve-count to `servedDidDocumentCount` and resets (or diffs) the jsonl request counter for that vector path.
+
+**Normative (conformance):**
+
+- Per-step `success` / failure
+- On success: resolved document identity (`didDocumentVersionId`, `didDocumentSelfHash`)
+- On success: byte-exact `didDocumentMetadata` values (including `created` / `createdMilliseconds`, `nextUpdate` / `nextUpdateMilliseconds` / `nextVersionId`, `updated` / `updatedMilliseconds` / `versionId`, `deactivated` as applicable). Whole-seconds fields MUST equal the floor of their `*Milliseconds` counterparts (`created` ← `createdMilliseconds`, etc.).
+- Exact resolution-metadata booleans: `fetchedUpdatesFromVDR`, `didDocumentResolvedLocally`, `didDocumentMetadataResolvedLocally` (determined before any VDR fetch; `didDocumentMetadataResolvedLocally` is vacuously `true` when no metadata was requested)
+- Exact `vdrRequestCount` (`0` proves local-only / locality; `1` proves single-range-fetch)
+- On failure: `didResolutionMetadata.error` is present
+
+**Advisory:**
+
+- Error message / `error` string text need not match across implementations
+- `contentType` is typically `"application/did+json"` but is not the primary conformance signal
+
+Generation is deterministic (fixed timestamp base + whole-second increments; resolution scenarios add deterministic non-zero millisecond components to `validFrom`), so expected metadata timestamps are concrete literals, not relative placeholders.
+
+## Scenario harness requirements
+
+A conforming external scenario runner (e.g. interop suites consuming this catalog) needs:
+
+1. **Resolver with per-step options and a persistent local store** across steps within a scenario (fresh empty store at scenario start). The Rust CLI `did-webplus-cli resolve` is the reference driver: it accepts `DIDResolutionOptionsArgs` (`--creation` / `-C`, `--next` / `-N`, `--latest` / `-L`, `--deactivated` / `-D`, `--local-resolution-only` / `-l`), doc-store path args, and emits JSON for the DID document plus both metadata objects.
+2. **Live test-vector server** (`did-webplus-test-vector serve`) as the VDR / catalog origin — not static hosting alone.
+3. **Control API** to truncate the served microledger and count jsonl GETs (see below).
+
+### Control API examples
+
+Paths are the `path` field from `index.json` (no leading `/`, no filename).
+
+Set serve-count (serve the first `N` jsonl lines):
+
+```bash
+curl -sS -X PUT http://localhost:3000/control/serve-count \
+  -H 'content-type: application/json' \
+  -d '{"path":"uHiB...","servedDidDocumentCount":1}'
+```
+
+Example response:
+
+```json
+{
+  "path": "uHiB...",
+  "servedDidDocumentCount": 1,
+  "servedOctetLength": 1234
+}
+```
+
+Read request count (jsonl GETs since last reset):
+
+```bash
+curl -sS 'http://localhost:3000/control/request-count?path=uHiB...'
+```
+
+Example response:
+
+```json
+{
+  "path": "uHiB...",
+  "requestCount": 1
+}
+```
+
+Reset all serve-counts to full and zero all request counters (`204 No Content`):
+
+```bash
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST http://localhost:3000/control/reset
+```
+
+Per-step loop outline (matches the Rust resolver integration harness):
+
+1. `POST /control/reset` (zeroes jsonl counters and restores full serve-count).
+2. `PUT /control/serve-count` with this step's `servedDidDocumentCount`.
+3. Resolve `didQuery` with `resolutionOptions` against the persistent store.
+4. Assert normative fields of `expected`.
+5. `GET /control/request-count?path=...` and assert equals `expected.vdrRequestCount`.
+
+Fetch the scenario artifact via `GET /{path}/resolution-scenario.json`.
+
+### Static-hosting caveat (interop)
+
+The published static catalog (e.g. `did-webplus-spec/test-vector`, consumed by harnesses such as `poc-did-webplus-py/interop`) may ship `resolution-scenario.json` for discovery, but **scenario conformance requires the live `serve` server**. Serve-count mutation and request counting cannot work on a static Range server. Recommend adding a `did-webplus-test-vector serve` container (a `Dockerfile.test-vector-server` already exists in `poc-did-webplus-py`) alongside the static catalog server.
 
 ## Error-code taxonomy
 
