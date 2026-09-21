@@ -1,6 +1,6 @@
 [package]
 name = "did-webplus-wasm"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
     "Ben Nichols <ben.nichols@ledgerdomain.com>",
     "Victor Dods <victor.dods@ledgerdomain.com>",
