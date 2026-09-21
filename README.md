@@ -42,3 +42,8 @@ Some of the log output will be error messages that are expected during the cours
 ## License
 
 [MIT](LICENSE)
+
+## Other Implementations
+
+-   The first TypeScript-native and first community-produced implementation, licensed under the [Apache 2.0](https://github.com/Zkred/did-methods/blob/main/LICENSE), by [Sumit Vekariya](https://github.com/sumitvekariya) under [Zkred](https://github.com/Zkred):
+-   [`did:webplus` DID resolver (Full and Thin) and controller](https://github.com/Zkred/did-methods/); published on npm as https://www.npmjs.com/package/@zkred/did-webplus
