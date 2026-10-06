@@ -1,6 +1,6 @@
 [package]
 name = "did-webplus-wallet-storage-mock"
-version = "0.1.1"
+version.workspace = true
 authors = ["Victor Dods <victor.dods@ledgerdomain.com>"]
 edition = "2024"
 
