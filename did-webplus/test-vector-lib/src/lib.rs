@@ -362,6 +362,10 @@ mod test_vector_server_config;
 mod test_vector_server_routes;
 #[cfg(feature = "server")]
 mod test_vector_server_vector_runtime;
+#[cfg(feature = "server")]
+mod vdr_failure_control_request;
+#[cfg(feature = "server")]
+mod vdr_failure_control_response;
 
 pub use crate::{
     base_choice::BaseChoice,
@@ -411,6 +415,8 @@ pub use crate::{
     },
     test_vector_server_config::TestVectorServerConfig,
     test_vector_server_vector_runtime::TestVectorServerVectorRuntime,
+    vdr_failure_control_request::VDRFailureControlRequest,
+    vdr_failure_control_response::VDRFailureControlResponse,
 };
 
 /// Package name, suitable for embedding in generated `test-vector.json` metadata.

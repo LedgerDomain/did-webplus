@@ -1056,6 +1056,30 @@ async fn tvs_control_set_serve_count(tvs_base_url: &url::Url, path: &str, count:
     );
 }
 
+async fn tvs_control_set_vdr_failure(tvs_base_url: &url::Url, path: &str, fail: bool) {
+    let url = tvs_base_url
+        .join("control/vdr-failure")
+        .expect("vdr-failure url");
+    let body = serde_json::json!({
+        "path": path,
+        "fail": fail,
+    });
+    let response = test_util::REQWEST_CLIENT
+        .put(url)
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(body.to_string())
+        .send()
+        .await
+        .expect("PUT /control/vdr-failure");
+    let status = response.status();
+    let response_text = response.text().await.unwrap_or_default();
+    assert_eq!(
+        status,
+        reqwest::StatusCode::OK,
+        "PUT /control/vdr-failure for path {path}: {response_text}"
+    );
+}
+
 async fn tvs_control_request_count(tvs_base_url: &url::Url, path: &str) -> u64 {
     let mut url = tvs_base_url
         .join("control/request-count")
@@ -1189,6 +1213,9 @@ async fn assert_resolution_scenarios_against_did_resolver_full(
                 step.served_did_document_count,
             )
             .await;
+            if step.vdr_fails {
+                tvs_control_set_vdr_failure(tvs_base_url, &control_path, true).await;
+            }
 
             let resolve_r = did_resolver
                 .resolve_did_document(&step.did_query, step.resolution_options.clone())

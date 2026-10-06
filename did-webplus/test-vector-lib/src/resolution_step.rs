@@ -23,6 +23,13 @@ pub struct ResolutionStep {
     /// (`requestCreate`, `requestNext`, `requestLatest`, `requestDeactivated`,
     /// `localResolutionOnly`).
     pub resolution_options: did_webplus_core::DIDResolutionOptions,
+    /// When `true`, the VDR returns an HTTP failure for this DID's
+    /// `did-documents.jsonl` GETs (harness sets `/control/vdr-failure`).
+    ///
+    /// Omitted when `false` so existing scenario JSON stays valid without a
+    /// format bump.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub vdr_fails: bool,
     /// Expected resolution outcome for a conforming full resolver.
     pub expected: ExpectedResolutionOutcome,
 }

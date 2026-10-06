@@ -55,42 +55,60 @@ impl DIDResolve {
             .get_did_resolution_options();
 
         // Do the processing
-        let (did_document_string, did_document_metadata, did_resolution_metadata) =
-            did_webplus_cli_lib::did_resolve_string(
-                &self.did_query,
-                did_resolver_b.as_ref(),
-                did_resolution_options,
-            )
-            .await?;
+        match did_resolver_b
+            .resolve_did_document_string(&self.did_query, did_resolution_options)
+            .await
+        {
+            Ok((did_document_string, did_document_metadata, did_resolution_metadata)) => {
+                #[derive(serde::Serialize)]
+                #[serde(rename_all = "camelCase")]
+                struct DIDResolveOutput {
+                    did_document: String,
+                    did_document_metadata: did_webplus_core::DIDDocumentMetadata,
+                    did_resolution_metadata: did_webplus_core::DIDResolutionMetadata,
+                }
+                let output = DIDResolveOutput {
+                    did_document: did_document_string.clone(),
+                    did_document_metadata,
+                    did_resolution_metadata,
+                };
 
-        #[derive(serde::Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct DIDResolveOutput {
-            did_document: String,
-            did_document_metadata: did_webplus_core::DIDDocumentMetadata,
-            did_resolution_metadata: did_webplus_core::DIDResolutionMetadata,
+                if self.json {
+                    serde_json::to_writer_pretty(&mut std::io::stdout(), &output)?;
+                    self.newline_args
+                        .print_newline_if_necessary(&mut std::io::stdout())?;
+                } else {
+                    // Print the DID document, DID document metadata, and DID resolution metadata as JSON to stderr.
+                    serde_json::to_writer_pretty(&mut std::io::stderr(), &output)?;
+                    std::io::stderr().write_all(b"\n")?;
+
+                    // Print the DID document string, then optional newline.
+                    std::io::stdout().write_all(did_document_string.as_bytes())?;
+                    self.newline_args
+                        .print_newline_if_necessary(&mut std::io::stdout())?;
+                }
+
+                Ok(())
+            }
+            Err(did_webplus_resolver::Error::DIDResolutionFailure2(did_resolution_metadata))
+            | Err(did_webplus_resolver::Error::DIDResolutionConflict(did_resolution_metadata)) => {
+                // Same failure shape as URD application/did-resolution: null document, empty metadata.
+                let failure_output = serde_json::json!({
+                    "didDocument": null,
+                    "didDocumentMetadata": {},
+                    "didResolutionMetadata": did_resolution_metadata,
+                });
+                if self.json {
+                    serde_json::to_writer_pretty(&mut std::io::stdout(), &failure_output)?;
+                    self.newline_args
+                        .print_newline_if_necessary(&mut std::io::stdout())?;
+                } else {
+                    serde_json::to_writer_pretty(&mut std::io::stderr(), &failure_output)?;
+                    std::io::stderr().write_all(b"\n")?;
+                }
+                std::process::exit(1);
+            }
+            Err(other) => Err(other.into()),
         }
-        let output = DIDResolveOutput {
-            did_document: did_document_string.clone(),
-            did_document_metadata,
-            did_resolution_metadata,
-        };
-
-        if self.json {
-            serde_json::to_writer_pretty(&mut std::io::stdout(), &output)?;
-            self.newline_args
-                .print_newline_if_necessary(&mut std::io::stdout())?;
-        } else {
-            // Print the DID document, DID document metadata, and DID resolution metadata as JSON to stderr.
-            serde_json::to_writer_pretty(&mut std::io::stderr(), &output)?;
-            std::io::stderr().write_all(b"\n")?;
-
-            // Print the DID document string, then optional newline.
-            std::io::stdout().write_all(did_document_string.as_bytes())?;
-            self.newline_args
-                .print_newline_if_necessary(&mut std::io::stdout())?;
-        }
-
-        Ok(())
     }
 }

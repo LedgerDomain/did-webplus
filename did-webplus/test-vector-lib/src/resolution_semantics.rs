@@ -8,8 +8,9 @@
 //! `did-webplus/resolver/src/did_resolver_full.rs` ([`DIDResolverFull`] behavior).
 
 use did_webplus_core::{
-    CreationMetadata, DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions,
-    DIDURIComponents, LatestUpdateMetadata, NextUpdateMetadata,
+    CreationMetadata, DIDDocumentMetadata, DIDResolutionError, DIDResolutionMetadata,
+    DIDResolutionOptions, DIDURIComponents, LatestUpdateMetadata, NextUpdateMetadata,
+    ResolvedDocumentMetadata,
 };
 
 use crate::{ExpectedResolutionOutcome, KnownDidDocumentVersion, ResolverState};
@@ -95,6 +96,26 @@ impl ResolutionSemantics {
         did_query: &str,
         resolution_options: &DIDResolutionOptions,
     ) -> anyhow::Result<ResolutionStepPrediction> {
+        Self::expected_outcome_with_vdr_fails(
+            microledger_doc_v,
+            resolver_state,
+            served_did_document_count,
+            did_query,
+            resolution_options,
+            false,
+        )
+    }
+
+    /// Like [`Self::expected_outcome`], but when `vdr_fails` is true a needed VDR
+    /// fetch fails with `#VDR_FETCH_FAILED` while keeping pre-fetch booleans.
+    pub fn expected_outcome_with_vdr_fails(
+        microledger_doc_v: &[KnownDidDocumentVersion],
+        resolver_state: ResolverState,
+        served_did_document_count: u32,
+        did_query: &str,
+        resolution_options: &DIDResolutionOptions,
+        vdr_fails: bool,
+    ) -> anyhow::Result<ResolutionStepPrediction> {
         Self::validate_microledger(microledger_doc_v)?;
         if served_did_document_count as usize > microledger_doc_v.len() {
             anyhow::bail!(
@@ -151,10 +172,10 @@ impl ResolutionSemantics {
                     return Ok(ResolutionStepPrediction {
                         expected: ExpectedResolutionOutcome::failure(
                             Self::resolution_metadata(
-                                Some(format!(
+                                Some(DIDResolutionError::invalid_did_url(format!(
                                     "conflicting versionId {} and selfHash query params",
                                     version_id
-                                )),
+                                ))),
                                 false,
                                 false,
                                 Self::metadata_resolved_locally(
@@ -190,7 +211,10 @@ impl ResolutionSemantics {
 
         if next_needed && requested_o.is_some() && next_oo.is_none() {
             let requested = requested_o.unwrap();
-            let next_version_id = requested.version_id.checked_add(1).expect("version_id overflow");
+            let next_version_id = requested
+                .version_id
+                .checked_add(1)
+                .expect("version_id overflow");
             if let Some(next_doc) = Self::doc_at(microledger_doc_v, known_count, next_version_id) {
                 next_oo = Some(Some(next_doc));
             }
@@ -229,14 +253,38 @@ impl ResolutionSemantics {
             || (next_needed && next_oo.is_none())
             || (latest_needed && latest_o.is_none());
 
+        // Known absence: a query miss against a deactivated latest can never appear later.
+        if fetch_needed
+            && requested_o.is_none()
+            && has_query
+            && Self::latest_known(microledger_doc_v, known_count)
+                .is_some_and(|latest| latest.deactivated)
+        {
+            return Ok(ResolutionStepPrediction {
+                expected: ExpectedResolutionOutcome::failure(
+                    Self::resolution_metadata(
+                        Some(DIDResolutionError::not_found(format!(
+                            "DID resolution for {} failed",
+                            did_query
+                        ))),
+                        false,
+                        did_document_resolved_locally,
+                        did_document_metadata_resolved_locally,
+                    ),
+                    0,
+                ),
+                resolver_state_after: resolver_state,
+            });
+        }
+
         if fetch_needed && resolution_options.local_resolution_only {
             return Ok(ResolutionStepPrediction {
                 expected: ExpectedResolutionOutcome::failure(
                     Self::resolution_metadata(
-                        Some(format!(
+                        Some(DIDResolutionError::local_resolution_not_possible(format!(
                             "local-only DID resolution for {} was not able to complete",
                             did_query
-                        )),
+                        ))),
                         false,
                         did_document_resolved_locally,
                         did_document_metadata_resolved_locally,
@@ -255,6 +303,23 @@ impl ResolutionSemantics {
             // At most one Range GET; store expands to what the VDR serves.
             fetched_updates_from_vdr = true;
             vdr_request_count = 1;
+            if vdr_fails {
+                return Ok(ResolutionStepPrediction {
+                    expected: ExpectedResolutionOutcome::failure(
+                        Self::resolution_metadata(
+                            Some(DIDResolutionError::vdr_fetch_failed(format!(
+                                "VDR fetch failed for {}",
+                                did_query
+                            ))),
+                            fetched_updates_from_vdr,
+                            did_document_resolved_locally,
+                            did_document_metadata_resolved_locally,
+                        ),
+                        vdr_request_count,
+                    ),
+                    resolver_state_after: resolver_state,
+                });
+            }
             resolver_state_after = ResolverState {
                 known_version_count: served_did_document_count,
             };
@@ -266,10 +331,10 @@ impl ResolutionSemantics {
                     return Ok(ResolutionStepPrediction {
                         expected: ExpectedResolutionOutcome::failure(
                             Self::resolution_metadata(
-                                Some(format!(
+                                Some(DIDResolutionError::not_found(format!(
                                     "DID resolution for {} failed (root DID document resolution failed)",
                                     did_query
-                                )),
+                                ))),
                                 fetched_updates_from_vdr,
                                 did_document_resolved_locally,
                                 did_document_metadata_resolved_locally,
@@ -293,10 +358,10 @@ impl ResolutionSemantics {
                             return Ok(ResolutionStepPrediction {
                                 expected: ExpectedResolutionOutcome::failure(
                                     Self::resolution_metadata(
-                                        Some(format!(
+                                        Some(DIDResolutionError::invalid_did_url(format!(
                                             "conflicting versionId {} and selfHash query params",
                                             version_id
-                                        )),
+                                        ))),
                                         fetched_updates_from_vdr,
                                         did_document_resolved_locally,
                                         did_document_metadata_resolved_locally,
@@ -317,7 +382,10 @@ impl ResolutionSemantics {
                             return Ok(ResolutionStepPrediction {
                                 expected: ExpectedResolutionOutcome::failure(
                                     Self::resolution_metadata(
-                                        Some(format!("DID resolution for {} failed", did_query)),
+                                        Some(DIDResolutionError::not_found(format!(
+                                            "DID resolution for {} failed",
+                                            did_query
+                                        ))),
                                         fetched_updates_from_vdr,
                                         did_document_resolved_locally,
                                         did_document_metadata_resolved_locally,
@@ -328,8 +396,7 @@ impl ResolutionSemantics {
                             });
                         }
                     }
-                } else if let Some(latest_doc) =
-                    Self::latest_known(microledger_doc_v, known_after)
+                } else if let Some(latest_doc) = Self::latest_known(microledger_doc_v, known_after)
                 {
                     requested_o = Some(latest_doc);
                     latest_o = Some(latest_doc);
@@ -338,7 +405,10 @@ impl ResolutionSemantics {
                     return Ok(ResolutionStepPrediction {
                         expected: ExpectedResolutionOutcome::failure(
                             Self::resolution_metadata(
-                                Some(format!("DID resolution for {} failed", did_query)),
+                                Some(DIDResolutionError::not_found(format!(
+                                    "DID resolution for {} failed",
+                                    did_query
+                                ))),
                                 fetched_updates_from_vdr,
                                 did_document_resolved_locally,
                                 did_document_metadata_resolved_locally,
@@ -352,8 +422,10 @@ impl ResolutionSemantics {
 
             if next_needed && next_oo.is_none() {
                 let requested = requested_o.expect("requested must be present before next lookup");
-                let next_version_id =
-                    requested.version_id.checked_add(1).expect("version_id overflow");
+                let next_version_id = requested
+                    .version_id
+                    .checked_add(1)
+                    .expect("version_id overflow");
                 next_oo = Some(Self::doc_at(
                     microledger_doc_v,
                     known_after,
@@ -368,7 +440,10 @@ impl ResolutionSemantics {
                         return Ok(ResolutionStepPrediction {
                             expected: ExpectedResolutionOutcome::failure(
                                 Self::resolution_metadata(
-                                    Some(format!("DID resolution for {} failed", did_query)),
+                                    Some(DIDResolutionError::not_found(format!(
+                                        "DID resolution for {} failed",
+                                        did_query
+                                    ))),
                                     fetched_updates_from_vdr,
                                     did_document_resolved_locally,
                                     did_document_metadata_resolved_locally,
@@ -385,12 +460,8 @@ impl ResolutionSemantics {
         }
 
         let requested = requested_o.expect("successful path requires requested document");
-        let did_document_metadata = Self::assemble_metadata(
-            resolution_options,
-            root_o,
-            next_oo,
-            latest_o,
-        );
+        let did_document_metadata =
+            Self::assemble_metadata(resolution_options, requested, root_o, next_oo, latest_o);
 
         Ok(ResolutionStepPrediction {
             expected: ExpectedResolutionOutcome::success(
@@ -466,13 +537,34 @@ impl ResolutionSemantics {
                         None
                     }
                 });
-                Ok(found.map(QueryLookup::Found).unwrap_or(QueryLookup::Missing))
+                Ok(found
+                    .map(QueryLookup::Found)
+                    .unwrap_or(QueryLookup::Missing))
             }
             (self_hash_o, Some(version_id)) => {
                 let doc_o = Self::doc_at(microledger_doc_v, known_count, version_id);
-                if let (Some(self_hash), Some(doc)) = (self_hash_o, doc_o) {
-                    if doc.self_hash.as_str() != self_hash.as_str() {
-                        return Ok(QueryLookup::Conflict { version_id });
+                if let Some(self_hash) = self_hash_o {
+                    if let Some(doc) = doc_o {
+                        if doc.self_hash.as_str() != self_hash.as_str() {
+                            return Ok(QueryLookup::Conflict { version_id });
+                        }
+                    } else {
+                        // versionId miss: look up selfHash. A hit at a different
+                        // versionId is a conflict (no fetch).
+                        let self_hash_hit_o = (0..known_count).find_map(|known_version_id| {
+                            let doc =
+                                Self::doc_at(microledger_doc_v, known_count, known_version_id)?;
+                            if doc.self_hash.as_str() == self_hash.as_str() {
+                                Some(doc)
+                            } else {
+                                None
+                            }
+                        });
+                        if let Some(self_hash_hit) = self_hash_hit_o {
+                            if self_hash_hit.version_id != version_id {
+                                return Ok(QueryLookup::Conflict { version_id });
+                            }
+                        }
                     }
                 }
                 Ok(doc_o
@@ -499,13 +591,19 @@ impl ResolutionSemantics {
     }
 
     fn resolution_metadata(
-        error_o: Option<String>,
+        error_o: Option<DIDResolutionError>,
         fetched_updates_from_vdr: bool,
         did_document_resolved_locally: bool,
         did_document_metadata_resolved_locally: bool,
     ) -> DIDResolutionMetadata {
+        // contentType is present only on successful resolveRepresentation; absent on errors.
+        let content_type_o = if error_o.is_none() {
+            Some("application/did+json".to_string())
+        } else {
+            None
+        };
         DIDResolutionMetadata {
-            content_type: "application/did+json".to_string(),
+            content_type_o,
             error_o,
             fetched_updates_from_vdr,
             did_document_resolved_locally,
@@ -515,6 +613,7 @@ impl ResolutionSemantics {
 
     fn assemble_metadata(
         resolution_options: &DIDResolutionOptions,
+        requested: &KnownDidDocumentVersion,
         root_o: Option<&KnownDidDocumentVersion>,
         next_oo: Option<Option<&KnownDidDocumentVersion>>,
         latest_o: Option<&KnownDidDocumentVersion>,
@@ -543,14 +642,25 @@ impl ResolutionSemantics {
             None
         };
 
-        let deactivated_o = if resolution_options.request_deactivated {
-            let latest = latest_o.expect("deactivated metadata requires latest");
-            Some(latest.deactivated)
+        // deactivated: true when already known from data in hand; false only when requested.
+        let deactivated_o = if let Some(latest) = latest_o {
+            if latest.deactivated {
+                Some(true)
+            } else if resolution_options.request_deactivated {
+                Some(false)
+            } else {
+                None
+            }
         } else {
+            assert!(!resolution_options.request_deactivated);
             None
         };
 
         DIDDocumentMetadata {
+            resolved_document_metadata: ResolvedDocumentMetadata::new(
+                requested.valid_from,
+                requested.version_id,
+            ),
             creation_metadata_o,
             next_update_metadata_o,
             latest_update_metadata_o,
@@ -588,8 +698,7 @@ mod tests {
     fn doc(version_id: u32, hash_n: u8, deactivated: bool) -> KnownDidDocumentVersion {
         // Non-zero fractional milliseconds so metadata truncation
         // (`*Milliseconds` -> whole-seconds fields) is exercised.
-        let millisecond =
-            DeterministicRng::fractional_millisecond_for_index(version_id);
+        let millisecond = DeterministicRng::fractional_millisecond_for_index(version_id);
         KnownDidDocumentVersion {
             version_id,
             self_hash: hash(hash_n),
@@ -601,7 +710,12 @@ mod tests {
     }
 
     fn ledger_active() -> Vec<KnownDidDocumentVersion> {
-        vec![doc(0, 1, false), doc(1, 2, false), doc(2, 3, false), doc(3, 4, false)]
+        vec![
+            doc(0, 1, false),
+            doc(1, 2, false),
+            doc(2, 3, false),
+            doc(3, 4, false),
+        ]
     }
 
     fn ledger_deactivated() -> Vec<KnownDidDocumentVersion> {
@@ -637,19 +751,17 @@ mod tests {
     #[test]
     fn cold_plain_did_no_metadata_fetches() {
         let ledger = ledger_active();
-        let prediction = predict(
-            &ledger,
-            0,
-            4,
-            DID,
-            DIDResolutionOptions::no_metadata(false),
-        );
+        let prediction = predict(&ledger, 0, 4, DID, DIDResolutionOptions::no_metadata(false));
         let expected = &prediction.expected;
         assert!(expected.success);
         assert_eq!(expected.did_document_version_id_o, Some(3));
         assert_eq!(expected.vdr_request_count, 1);
         assert!(expected.did_resolution_metadata.fetched_updates_from_vdr);
-        assert!(!expected.did_resolution_metadata.did_document_resolved_locally);
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
         // Vacuous: no metadata requested.
         assert!(
             expected
@@ -680,7 +792,11 @@ mod tests {
         assert_eq!(expected.did_document_version_id_o, Some(1));
         assert_eq!(expected.vdr_request_count, 0);
         assert!(!expected.did_resolution_metadata.fetched_updates_from_vdr);
-        assert!(expected.did_resolution_metadata.did_document_resolved_locally);
+        assert!(
+            expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
         assert!(
             expected
                 .did_resolution_metadata
@@ -714,10 +830,7 @@ mod tests {
     #[test]
     fn warm_both_params_agree_resolves_locally() {
         let ledger = ledger_active();
-        let query = format!(
-            "{}?selfHash={}&versionId=1",
-            DID, ledger[1].self_hash
-        );
+        let query = format!("{}?selfHash={}&versionId=1", DID, ledger[1].self_hash);
         let prediction = predict(
             &ledger,
             4,
@@ -733,10 +846,7 @@ mod tests {
     #[test]
     fn conflicting_query_params_errors_without_fetch_when_local() {
         let ledger = ledger_active();
-        let query = format!(
-            "{}?selfHash={}&versionId=1",
-            DID, ledger[2].self_hash
-        );
+        let query = format!("{}?selfHash={}&versionId=1", DID, ledger[2].self_hash);
         let prediction = predict(
             &ledger,
             4,
@@ -746,27 +856,36 @@ mod tests {
         );
         assert!(!prediction.expected.success);
         assert_eq!(prediction.expected.vdr_request_count, 0);
-        assert!(!prediction.expected.did_resolution_metadata.fetched_updates_from_vdr);
-        assert!(prediction.expected.did_resolution_metadata.error_o.is_some());
+        assert!(
+            !prediction
+                .expected
+                .did_resolution_metadata
+                .fetched_updates_from_vdr
+        );
+        assert!(
+            prediction
+                .expected
+                .did_resolution_metadata
+                .error_o
+                .is_some()
+        );
         assert_eq!(prediction.resolver_state_after.known_version_count, 4);
     }
 
     #[test]
     fn plain_did_always_fetches_when_not_deactivated() {
         let ledger = ledger_active();
-        let prediction = predict(
-            &ledger,
-            4,
-            4,
-            DID,
-            DIDResolutionOptions::no_metadata(false),
-        );
+        let prediction = predict(&ledger, 4, 4, DID, DIDResolutionOptions::no_metadata(false));
         let expected = &prediction.expected;
         assert!(expected.success);
         assert_eq!(expected.did_document_version_id_o, Some(3));
         assert_eq!(expected.vdr_request_count, 1);
         assert!(expected.did_resolution_metadata.fetched_updates_from_vdr);
-        assert!(!expected.did_resolution_metadata.did_document_resolved_locally);
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
     }
 
     #[test]
@@ -778,14 +897,19 @@ mod tests {
         let expected = &prediction.expected;
         assert!(expected.success);
         assert_eq!(expected.vdr_request_count, 1);
-        assert!(!expected.did_resolution_metadata.did_document_resolved_locally);
-        assert!(!expected.did_resolution_metadata.did_document_metadata_resolved_locally);
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_metadata_resolved_locally
+        );
         let meta = expected.did_document_metadata_o.as_ref().unwrap();
         let creation = meta.creation_metadata_o.as_ref().unwrap();
-        assert_eq!(
-            creation.creation_time_milliseconds(),
-            ledger[0].valid_from
-        );
+        assert_eq!(creation.creation_time_milliseconds(), ledger[0].valid_from);
         assert_eq!(
             creation.creation_time(),
             truncated_to_seconds(ledger[0].valid_from)
@@ -807,7 +931,11 @@ mod tests {
         let expected = &prediction.expected;
         assert!(expected.success);
         assert_eq!(expected.vdr_request_count, 0);
-        assert!(expected.did_resolution_metadata.did_document_resolved_locally);
+        assert!(
+            expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
         assert!(
             expected
                 .did_resolution_metadata
@@ -850,8 +978,16 @@ mod tests {
         assert!(expected.success);
         assert_eq!(expected.vdr_request_count, 1);
         assert!(expected.did_resolution_metadata.fetched_updates_from_vdr);
-        assert!(expected.did_resolution_metadata.did_document_resolved_locally);
-        assert!(!expected.did_resolution_metadata.did_document_metadata_resolved_locally);
+        assert!(
+            expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_metadata_resolved_locally
+        );
         let meta = expected.did_document_metadata_o.as_ref().unwrap();
         assert!(meta.next_update_metadata_o.is_none());
     }
@@ -866,8 +1002,16 @@ mod tests {
         let expected = &prediction.expected;
         assert!(expected.success);
         assert_eq!(expected.vdr_request_count, 1);
-        assert!(expected.did_resolution_metadata.did_document_resolved_locally);
-        assert!(!expected.did_resolution_metadata.did_document_metadata_resolved_locally);
+        assert!(
+            expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_metadata_resolved_locally
+        );
         let meta = expected.did_document_metadata_o.as_ref().unwrap();
         let latest = meta.latest_update_metadata_o.as_ref().unwrap();
         assert_eq!(latest.latest_version_id(), "3");
@@ -908,18 +1052,16 @@ mod tests {
     #[test]
     fn deactivated_all_local_allows_local_only_plain_did() {
         let ledger = ledger_deactivated();
-        let prediction = predict(
-            &ledger,
-            4,
-            4,
-            DID,
-            DIDResolutionOptions::all_metadata(true),
-        );
+        let prediction = predict(&ledger, 4, 4, DID, DIDResolutionOptions::all_metadata(true));
         let expected = &prediction.expected;
         assert!(expected.success);
         assert_eq!(expected.vdr_request_count, 0);
         assert!(!expected.did_resolution_metadata.fetched_updates_from_vdr);
-        assert!(expected.did_resolution_metadata.did_document_resolved_locally);
+        assert!(
+            expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
         assert!(
             expected
                 .did_resolution_metadata
@@ -934,18 +1076,16 @@ mod tests {
     #[test]
     fn local_only_cold_errors() {
         let ledger = ledger_active();
-        let prediction = predict(
-            &ledger,
-            0,
-            4,
-            DID,
-            DIDResolutionOptions::no_metadata(true),
-        );
+        let prediction = predict(&ledger, 0, 4, DID, DIDResolutionOptions::no_metadata(true));
         let expected = &prediction.expected;
         assert!(!expected.success);
         assert_eq!(expected.vdr_request_count, 0);
         assert!(!expected.did_resolution_metadata.fetched_updates_from_vdr);
-        assert!(!expected.did_resolution_metadata.did_document_resolved_locally);
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
         assert!(
             expected
                 .did_resolution_metadata
@@ -972,17 +1112,15 @@ mod tests {
     #[test]
     fn local_only_warm_plain_did_errors() {
         let ledger = ledger_active();
-        let prediction = predict(
-            &ledger,
-            4,
-            4,
-            DID,
-            DIDResolutionOptions::no_metadata(true),
-        );
+        let prediction = predict(&ledger, 4, 4, DID, DIDResolutionOptions::no_metadata(true));
         let expected = &prediction.expected;
         assert!(!expected.success);
         assert_eq!(expected.vdr_request_count, 0);
-        assert!(!expected.did_resolution_metadata.did_document_resolved_locally);
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
         assert!(expected.did_resolution_metadata.error_o.is_some());
     }
 
@@ -996,20 +1134,22 @@ mod tests {
         let expected = &prediction.expected;
         assert!(!expected.success);
         assert_eq!(expected.vdr_request_count, 0);
-        assert!(expected.did_resolution_metadata.did_document_resolved_locally);
-        assert!(!expected.did_resolution_metadata.did_document_metadata_resolved_locally);
+        assert!(
+            expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_metadata_resolved_locally
+        );
     }
 
     #[test]
     fn incremental_range_fetch_expands_state() {
         let ledger = ledger_active();
-        let step1 = predict(
-            &ledger,
-            0,
-            1,
-            DID,
-            DIDResolutionOptions::no_metadata(false),
-        );
+        let step1 = predict(&ledger, 0, 1, DID, DIDResolutionOptions::no_metadata(false));
         assert!(step1.expected.success);
         assert_eq!(step1.expected.did_document_version_id_o, Some(0));
         assert_eq!(step1.expected.vdr_request_count, 1);
@@ -1043,8 +1183,138 @@ mod tests {
         assert!(!expected.success);
         assert_eq!(expected.vdr_request_count, 1);
         assert!(expected.did_resolution_metadata.fetched_updates_from_vdr);
-        assert!(!expected.did_resolution_metadata.did_document_resolved_locally);
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
         // Fetch still stores what was served.
         assert_eq!(prediction.resolver_state_after.known_version_count, 2);
+    }
+
+    #[test]
+    fn deactivated_success_emits_deactivated_true_without_request() {
+        let ledger = ledger_deactivated();
+        let prediction = predict(&ledger, 4, 4, DID, DIDResolutionOptions::no_metadata(false));
+        let expected = &prediction.expected;
+        assert!(expected.success);
+        assert_eq!(expected.vdr_request_count, 0);
+        assert_eq!(
+            expected
+                .did_document_metadata_o
+                .as_ref()
+                .unwrap()
+                .deactivated_o,
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn conflict_via_local_self_hash_when_version_id_missing() {
+        let ledger = ledger_active();
+        // versionId beyond known prefix; selfHash of a local document → conflict, no fetch.
+        let query = format!("{}?selfHash={}&versionId=99", DID, ledger[1].self_hash);
+        let prediction = predict(
+            &ledger,
+            4,
+            4,
+            &query,
+            DIDResolutionOptions::no_metadata(false),
+        );
+        assert!(!prediction.expected.success);
+        assert_eq!(prediction.expected.vdr_request_count, 0);
+        assert!(
+            !prediction
+                .expected
+                .did_resolution_metadata
+                .fetched_updates_from_vdr
+        );
+        assert_eq!(
+            prediction
+                .expected
+                .did_resolution_metadata
+                .error_o
+                .as_ref()
+                .unwrap()
+                .r#type(),
+            "https://www.w3.org/ns/did#INVALID_DID_URL"
+        );
+        assert_eq!(prediction.resolver_state_after.known_version_count, 4);
+    }
+
+    #[test]
+    fn known_absence_on_deactivated_does_not_fetch() {
+        let ledger = ledger_deactivated();
+        let query = format!("{}?versionId=99", DID);
+        let prediction = predict(
+            &ledger,
+            4,
+            4,
+            &query,
+            DIDResolutionOptions::no_metadata(false),
+        );
+        assert!(!prediction.expected.success);
+        assert_eq!(prediction.expected.vdr_request_count, 0);
+        assert!(
+            !prediction
+                .expected
+                .did_resolution_metadata
+                .fetched_updates_from_vdr
+        );
+        assert_eq!(
+            prediction
+                .expected
+                .did_resolution_metadata
+                .error_o
+                .as_ref()
+                .unwrap()
+                .r#type(),
+            "https://www.w3.org/ns/did#NOT_FOUND"
+        );
+    }
+
+    #[test]
+    fn fetch_failed_keeps_pre_fetch_booleans() {
+        let ledger = ledger_active();
+        let mut options = DIDResolutionOptions::no_metadata(false);
+        options.request_latest = true;
+        let query = format!("{}?versionId=1", DID);
+        let prediction = ResolutionSemantics::expected_outcome_with_vdr_fails(
+            &ledger,
+            ResolverState {
+                known_version_count: 4,
+            },
+            4,
+            &query,
+            &options,
+            true,
+        )
+        .expect("oracle");
+        let expected = &prediction.expected;
+        assert!(!expected.success);
+        assert_eq!(expected.vdr_request_count, 1);
+        assert!(expected.did_resolution_metadata.fetched_updates_from_vdr);
+        assert!(
+            expected
+                .did_resolution_metadata
+                .did_document_resolved_locally
+        );
+        assert!(
+            !expected
+                .did_resolution_metadata
+                .did_document_metadata_resolved_locally
+        );
+        assert_eq!(
+            expected
+                .did_resolution_metadata
+                .error_o
+                .as_ref()
+                .unwrap()
+                .r#type(),
+            "https://ledgerdomain.github.io/did-webplus-spec/#VDR_FETCH_FAILED"
+        );
+        // Failed fetch must not expand store state.
+        assert_eq!(prediction.resolver_state_after.known_version_count, 4);
+        assert!(expected.did_resolution_metadata.content_type_o.is_none());
     }
 }

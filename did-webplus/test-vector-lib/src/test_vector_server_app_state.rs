@@ -243,7 +243,22 @@ impl TestVectorServerAppState {
             .map(|runtime| runtime.jsonl_request_count())
     }
 
-    /// Reset serve-count (to full) and jsonl request counters for every vector.
+    /// Set whether jsonl GETs for `request_dir` fail with an HTTP error.
+    pub fn set_vdr_failure(&self, request_dir: &str, fail: bool) -> Result<(), ServeCountError> {
+        let runtime = self
+            .vector_runtime(request_dir)
+            .ok_or(ServeCountError::UnknownPath)?;
+        runtime.set_vdr_fails(fail);
+        Ok(())
+    }
+
+    /// Whether jsonl GETs for `request_dir` currently fail.
+    pub fn vdr_fails(&self, request_dir: &str) -> Option<bool> {
+        self.vector_runtime(request_dir)
+            .map(|runtime| runtime.vdr_fails())
+    }
+
+    /// Reset serve-count (to full), clear VDR failure, and zero jsonl request counters.
     pub fn reset_all(&self) {
         for runtime in self.vector_runtime_m.values() {
             runtime.reset();
@@ -251,13 +266,28 @@ impl TestVectorServerAppState {
     }
 
     /// Record a jsonl GET and return the served jsonl prefix for the current serve-count.
-    pub fn take_served_jsonl_for_request(&self, request_dir: &str) -> Option<&str> {
+    ///
+    /// Returns [`TakeServedJsonl::VDRFailure`] when VDR failure injection is active
+    /// (the request is still counted).
+    pub fn take_served_jsonl_for_request(&self, request_dir: &str) -> Option<TakeServedJsonl<'_>> {
         let bodies = self.vector_bodies(request_dir)?;
         let runtime = self.vector_runtime(request_dir)?;
         runtime.increment_jsonl_request_count();
+        if runtime.vdr_fails() {
+            return Some(TakeServedJsonl::VDRFailure);
+        }
         let count = runtime.served_did_document_count();
-        Some(bodies.served_jsonl(count))
+        Some(TakeServedJsonl::Body(bodies.served_jsonl(count)))
     }
+}
+
+/// Result of [`TestVectorServerAppState::take_served_jsonl_for_request`].
+#[derive(Debug)]
+pub enum TakeServedJsonl<'a> {
+    /// Served jsonl body prefix.
+    Body(&'a str),
+    /// VDR failure injection is active; caller should return an HTTP error.
+    VDRFailure,
 }
 
 /// Errors from [`TestVectorServerAppState::set_serve_count`].
@@ -344,18 +374,27 @@ mod tests {
         let state = TestVectorServerAppState::from_parts("{}\n", "index.json", body_m);
 
         assert_eq!(state.request_count("vec"), Some(0));
-        assert_eq!(state.take_served_jsonl_for_request("vec"), Some("a\nb\nc\n"));
+        assert!(matches!(
+            state.take_served_jsonl_for_request("vec"),
+            Some(TakeServedJsonl::Body("a\nb\nc\n"))
+        ));
         assert_eq!(state.request_count("vec"), Some(1));
 
         let (count, octet_len) = state.set_serve_count("vec", 1).expect("set");
         assert_eq!(count, 1);
         assert_eq!(octet_len, 2);
-        assert_eq!(state.take_served_jsonl_for_request("vec"), Some("a\n"));
+        assert!(matches!(
+            state.take_served_jsonl_for_request("vec"),
+            Some(TakeServedJsonl::Body("a\n"))
+        ));
         assert_eq!(state.request_count("vec"), Some(2));
 
         state.reset_all();
         assert_eq!(state.request_count("vec"), Some(0));
-        assert_eq!(state.take_served_jsonl_for_request("vec"), Some("a\nb\nc\n"));
+        assert!(matches!(
+            state.take_served_jsonl_for_request("vec"),
+            Some(TakeServedJsonl::Body("a\nb\nc\n"))
+        ));
     }
 
     #[test]

@@ -2,9 +2,9 @@
 
 use crate::{DIDResolver, Error, Result, fetch_did_documents_jsonl_update, verifier_resolver_impl};
 use did_webplus_core::{
-    CreationMetadata, DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions, DIDStr,
-    DIDURIComponents, DIDWithQueryStr, LatestUpdateMetadata, NextUpdateMetadata,
-    RootLevelUpdateRules, UpdatesDisallowed,
+    CreationMetadata, DIDDocumentMetadata, DIDResolutionError, DIDResolutionMetadata,
+    DIDResolutionOptions, DIDStr, DIDURIComponents, DIDWithQueryStr, LatestUpdateMetadata,
+    NextUpdateMetadata, ResolvedDocumentMetadata, RootLevelUpdateRules, UpdatesDisallowed,
 };
 use did_webplus_doc_store::{DIDDocRecord, parse_did_document};
 use std::sync::Arc;
@@ -58,24 +58,51 @@ impl DIDResolverFull {
 
         let mut query_self_hash_o = None;
         let mut query_version_id_o = None;
+        // Deferred until after root/next/latest local checks so metadata locality is complete.
+        let mut conflicting_query_params_message_o: Option<String> = None;
 
         // Determine which case we're handling; a DID with or without query params.
-        let did_uri_components = DIDURIComponents::try_from(did_query)
-            .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?;
+        let did_uri_components = DIDURIComponents::try_from(did_query).map_err(|err| {
+            Error::DIDResolutionFailure2(DIDResolutionMetadata::failure(
+                DIDResolutionError::invalid_did(err.to_string()),
+                false,
+                false,
+                false,
+            ))
+        })?;
         tracing::trace!("did_uri_components: {:?}", did_uri_components);
         if did_uri_components.has_fragment() {
-            return Err(Error::MalformedDIDQuery(
-                "DID query contains a fragment (this is not (yet?) supported)".into(),
+            return Err(Error::DIDResolutionFailure2(
+                DIDResolutionMetadata::failure(
+                    DIDResolutionError::invalid_did_url(
+                        "DID query contains a fragment (this is not (yet?) supported)",
+                    ),
+                    false,
+                    false,
+                    false,
+                ),
             ));
         }
         let did = if !did_uri_components.has_query() {
             tracing::trace!("got a plain DID to resolve, no query params: {}", did_query);
-            DIDStr::new_ref(did_query)
-                .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?
+            DIDStr::new_ref(did_query).map_err(|err| {
+                Error::DIDResolutionFailure2(DIDResolutionMetadata::failure(
+                    DIDResolutionError::invalid_did(err.to_string()),
+                    false,
+                    false,
+                    false,
+                ))
+            })?
         } else {
             tracing::trace!("got a DID with query params: {}", did_query);
-            let did_with_query = DIDWithQueryStr::new_ref(did_query)
-                .map_err(|err| Error::MalformedDIDQuery(err.to_string().into()))?;
+            let did_with_query = DIDWithQueryStr::new_ref(did_query).map_err(|err| {
+                Error::DIDResolutionFailure2(DIDResolutionMetadata::failure(
+                    DIDResolutionError::invalid_did_url(err.to_string()),
+                    false,
+                    false,
+                    false,
+                ))
+            })?;
             query_self_hash_o = did_with_query.query_self_hash_o();
             query_version_id_o = did_with_query.query_version_id_o();
             did_with_query.did()
@@ -133,19 +160,10 @@ impl DIDResolverFull {
                 {
                     Ok(record_o) => record_o,
                     Err(Error::ConflictingDIDQueryParams(message)) => {
-                        // Match oracle early-conflict: no VDR fetch yet; document not
-                        // resolved; metadata locality from assembly so far.
-                        let did_document_metadata_resolved_locally = (!root_did_document_needed
-                            || root_did_doc_record_o.is_some())
-                            && (!next_did_document_o_needed || next_did_doc_record_oo.is_some())
-                            && (!latest_did_document_needed || latest_did_doc_record_o.is_some());
-                        return Err(Error::DIDResolutionConflict(DIDResolutionMetadata {
-                            content_type: "application/did+json".to_string(),
-                            error_o: Some(message.into_owned()),
-                            fetched_updates_from_vdr: false,
-                            did_document_resolved_locally: false,
-                            did_document_metadata_resolved_locally,
-                        }));
+                        // Defer failure until after root/next/latest local checks so
+                        // didDocumentMetadataResolvedLocally reflects the full pre-fetch assembly.
+                        conflicting_query_params_message_o = Some(message.into_owned());
+                        None
                     }
                     Err(error) => return Err(error),
                 };
@@ -247,12 +265,16 @@ impl DIDResolverFull {
                 if latest_known_did_document.is_deactivated() {
                     tracing::trace!(
                         ?latest_known_did_document,
-                        "latest known DID document is deactivated, thus it's the latest, and the requested DID document is the latest known one, and there is no next DID document"
+                        "latest known DID document is deactivated, thus it's the latest, and there is no next DID document"
                     );
                     // If the latest known DID document is deactivated, then by construction it's the latest.
                     latest_did_doc_record_o = Some(latest_known_did_doc_record.clone());
-                    // And we know that the latest known DID document is the requested one.
-                    if requested_did_doc_record_o.is_none() {
+                    // For a plain DID only, the deactivated latest is also the requested document.
+                    // Query-param misses must not be filled from latest (known absence → NOT_FOUND).
+                    if requested_did_doc_record_o.is_none()
+                        && query_self_hash_o.is_none()
+                        && query_version_id_o.is_none()
+                    {
                         requested_did_doc_record_o = Some(latest_known_did_doc_record.clone());
                     }
                     // And we now positively know that there is no next DID document.
@@ -286,6 +308,17 @@ impl DIDResolverFull {
             ?did_document_metadata_resolved_locally
         );
 
+        if let Some(message) = conflicting_query_params_message_o {
+            return Err(Error::DIDResolutionConflict(
+                DIDResolutionMetadata::failure(
+                    DIDResolutionError::invalid_did_url(message),
+                    false,
+                    false,
+                    did_document_metadata_resolved_locally,
+                ),
+            ));
+        }
+
         // Determine if we need to fetch updates from the VDR in order to fulfill the request.
         let mut fetched_updates_from_vdr = false;
         if (root_did_document_needed && root_did_doc_record_o.is_none())
@@ -294,25 +327,87 @@ impl DIDResolverFull {
             || (latest_did_document_needed && latest_did_doc_record_o.is_none())
         {
             tracing::trace!("fetching updates from VDR is needed to fulfill the request");
+
+            // The requested document is not in the local store, and the DID URL
+            // names a specific version via selfHash and/or versionId.  If the
+            // latest document already stored for this DID is deactivated, that
+            // named version can never be published: deactivation is the final
+            // update, so a versionId past the tombstone or a selfHash that is
+            // not already stored does not exist.  A plain DID, or a query that
+            // names the deactivated document itself, is resolved above and does
+            // not reach this branch.  Fail with NOT_FOUND and do not fetch.
+            if requested_did_doc_record_o.is_none()
+                && (query_self_hash_o.is_some() || query_version_id_o.is_some())
+            {
+                let latest_for_absence_o = if latest_did_doc_record_o.is_some() {
+                    latest_did_doc_record_o.clone()
+                } else {
+                    self.did_doc_store
+                        .get_latest_known_did_doc_record(None, did)
+                        .await?
+                };
+                if let Some(latest_for_absence) = latest_for_absence_o.as_ref() {
+                    let latest_for_absence_document =
+                        parse_did_document(&latest_for_absence.did_document_jcs)?;
+                    if latest_for_absence_document.is_deactivated() {
+                        tracing::trace!(
+                            "requested selfHash or versionId is not stored locally, and the latest stored document is deactivated, so that version cannot exist; not fetching"
+                        );
+                        return Err(Error::DIDResolutionFailure2(
+                            DIDResolutionMetadata::failure(
+                                DIDResolutionError::not_found(format!(
+                                    "DID resolution for {} failed",
+                                    did
+                                )),
+                                false,
+                                did_document_resolved_locally,
+                                did_document_metadata_resolved_locally,
+                            ),
+                        ));
+                    }
+                }
+            }
+
             if did_resolution_options.local_resolution_only {
                 tracing::trace!(
                     "local-only DID resolution for {} was not able to complete",
                     did,
                 );
-                return Err(Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                    content_type: "application/did+json".to_string(),
-                    error_o: Some(format!(
-                        "local-only DID resolution for {} was not able to complete",
-                        did
-                    )),
-                    fetched_updates_from_vdr,
-                    did_document_resolved_locally,
-                    did_document_metadata_resolved_locally,
-                }));
+                return Err(Error::DIDResolutionFailure2(
+                    DIDResolutionMetadata::failure(
+                        DIDResolutionError::local_resolution_not_possible(format!(
+                            "local-only DID resolution for {} was not able to complete",
+                            did
+                        )),
+                        fetched_updates_from_vdr,
+                        did_document_resolved_locally,
+                        did_document_metadata_resolved_locally,
+                    ),
+                ));
             }
-            self.fetch_validate_and_store_did_updates_from_vdr(did)
-                .await?;
             fetched_updates_from_vdr = true;
+            if let Err(error) = self
+                .fetch_validate_and_store_did_updates_from_vdr(did)
+                .await
+            {
+                let resolution_error = match &error {
+                    Error::DIDResolutionFailure(http_error) => {
+                        DIDResolutionError::vdr_fetch_failed(http_error.to_string())
+                    }
+                    Error::DIDDocStoreError(did_webplus_doc_store::Error::InvalidDIDDocument(
+                        detail,
+                    )) => DIDResolutionError::invalid_did_document(detail.to_string()),
+                    _ => return Err(error),
+                };
+                return Err(Error::DIDResolutionFailure2(
+                    DIDResolutionMetadata::failure(
+                        resolution_error,
+                        fetched_updates_from_vdr,
+                        did_document_resolved_locally,
+                        did_document_metadata_resolved_locally,
+                    ),
+                ));
+            }
             tracing::trace!(?fetched_updates_from_vdr);
 
             // Now that updates have been fetched from the VDR, make sure that the needed data is present.
@@ -323,13 +418,15 @@ impl DIDResolverFull {
                     .get_did_doc_record_with_version_id(None, did, 0)
                     .await?
                     .ok_or_else(|| {
-                        Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                            content_type: "application/did+json".to_string(),
-                            error_o: Some(format!("DID resolution for {} failed (root DID document resolution failed)", did)),
+                        Error::DIDResolutionFailure2(DIDResolutionMetadata::failure(
+                            DIDResolutionError::not_found(format!(
+                                "DID resolution for {} failed (root DID document resolution failed)",
+                                did
+                            )),
                             fetched_updates_from_vdr,
                             did_document_resolved_locally,
                             did_document_metadata_resolved_locally,
-                        })
+                        ))
                     })?;
                 tracing::trace!(?root_did_doc_record, "root DID document local DB result");
                 root_did_doc_record_o = Some(root_did_doc_record);
@@ -353,22 +450,27 @@ impl DIDResolverFull {
                     {
                         Ok(Some(record)) => record,
                         Ok(None) => {
-                            return Err(Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                                content_type: "application/did+json".to_string(),
-                                error_o: Some(format!("DID resolution for {} failed", did)),
-                                fetched_updates_from_vdr,
-                                did_document_resolved_locally,
-                                did_document_metadata_resolved_locally,
-                            }));
+                            return Err(Error::DIDResolutionFailure2(
+                                DIDResolutionMetadata::failure(
+                                    DIDResolutionError::not_found(format!(
+                                        "DID resolution for {} failed",
+                                        did
+                                    )),
+                                    fetched_updates_from_vdr,
+                                    did_document_resolved_locally,
+                                    did_document_metadata_resolved_locally,
+                                ),
+                            ));
                         }
                         Err(Error::ConflictingDIDQueryParams(message)) => {
-                            return Err(Error::DIDResolutionConflict(DIDResolutionMetadata {
-                                content_type: "application/did+json".to_string(),
-                                error_o: Some(message.into_owned()),
-                                fetched_updates_from_vdr,
-                                did_document_resolved_locally,
-                                did_document_metadata_resolved_locally,
-                            }));
+                            return Err(Error::DIDResolutionConflict(
+                                DIDResolutionMetadata::failure(
+                                    DIDResolutionError::invalid_did_url(message.into_owned()),
+                                    fetched_updates_from_vdr,
+                                    did_document_resolved_locally,
+                                    did_document_metadata_resolved_locally,
+                                ),
+                            ));
                         }
                         Err(error) => return Err(error),
                     };
@@ -397,13 +499,15 @@ impl DIDResolverFull {
                         .get_latest_known_did_doc_record(None, did)
                         .await?
                         .ok_or_else(|| {
-                            Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                                content_type: "application/did+json".to_string(),
-                                error_o: Some(format!("DID resolution for {} failed", did)),
+                            Error::DIDResolutionFailure2(DIDResolutionMetadata::failure(
+                                DIDResolutionError::not_found(format!(
+                                    "DID resolution for {} failed",
+                                    did
+                                )),
                                 fetched_updates_from_vdr,
                                 did_document_resolved_locally,
                                 did_document_metadata_resolved_locally,
-                            })
+                            ))
                         })?;
                     tracing::trace!(
                         ?latest_did_doc_record,
@@ -438,13 +542,15 @@ impl DIDResolverFull {
                     .get_latest_known_did_doc_record(None, did)
                     .await?
                     .ok_or_else(|| {
-                        Error::DIDResolutionFailure2(DIDResolutionMetadata {
-                            content_type: "application/did+json".to_string(),
-                            error_o: Some(format!("DID resolution for {} failed", did)),
+                        Error::DIDResolutionFailure2(DIDResolutionMetadata::failure(
+                            DIDResolutionError::not_found(format!(
+                                "DID resolution for {} failed",
+                                did
+                            )),
                             fetched_updates_from_vdr,
                             did_document_resolved_locally,
                             did_document_metadata_resolved_locally,
-                        })
+                        ))
                     })?;
                 tracing::trace!(
                     ?latest_did_doc_record,
@@ -500,31 +606,44 @@ impl DIDResolverFull {
             };
             tracing::trace!(?latest_update_metadata_o);
 
-            let deactivated_o = if did_resolution_options.request_deactivated {
-                assert!(latest_did_doc_record_o.is_some());
-                let latest_did_doc_record = latest_did_doc_record_o.as_ref().unwrap();
-                let latest_did_document =
-                    parse_did_document(&latest_did_doc_record.did_document_jcs)?;
-                Some(latest_did_document.is_deactivated())
-            } else {
-                None
-            };
+            // deactivated: true when already known from data in hand; false only when requested.
+            let deactivated_o =
+                if let Some(latest_did_doc_record) = latest_did_doc_record_o.as_ref() {
+                    let latest_did_document =
+                        parse_did_document(&latest_did_doc_record.did_document_jcs)?;
+                    if latest_did_document.is_deactivated() {
+                        Some(true)
+                    } else if did_resolution_options.request_deactivated {
+                        Some(false)
+                    } else {
+                        None
+                    }
+                } else {
+                    assert!(!did_resolution_options.request_deactivated);
+                    None
+                };
             tracing::trace!(?deactivated_o);
 
+            let resolved_version_id = u32::try_from(requested_did_doc_record.version_id).expect(
+                "version_id overflow; this is so unlikely that it's almost certainly a programmer error",
+            );
             DIDDocumentMetadata {
+                resolved_document_metadata: ResolvedDocumentMetadata::new(
+                    requested_did_doc_record.valid_from,
+                    resolved_version_id,
+                ),
                 creation_metadata_o,
                 next_update_metadata_o,
                 latest_update_metadata_o,
                 deactivated_o,
             }
         };
-        let did_resolution_metadata = DIDResolutionMetadata {
-            content_type: "application/did+json".to_string(),
-            error_o: None,
+        // contentType is set only on the resolve_did_document_string success path.
+        let did_resolution_metadata = DIDResolutionMetadata::success(
             fetched_updates_from_vdr,
             did_document_resolved_locally,
             did_document_metadata_resolved_locally,
-        };
+        );
         tracing::trace!(?did_resolution_metadata);
 
         Ok((
@@ -678,6 +797,29 @@ impl DIDResolverFull {
                             self_hash_str,
                         ).into()));
                         }
+                    } else {
+                        // versionId miss: look up selfHash. A hit at a different versionId is a conflict.
+                        // Do not treat the selfHash hit as the requested document (primary filter missed).
+                        // Secondary lookup uses None: transaction was consumed by the versionId read;
+                        // call sites currently pass None, and this path only detects conflicts.
+                        if let Some(self_hash_record) = self
+                            .did_doc_store
+                            .get_did_doc_record_with_self_hash(None, &did, self_hash_str)
+                            .await?
+                        {
+                            let found_version_id = u32::try_from(self_hash_record.version_id).expect(
+                                "version_id overflow; this is so unlikely that it's almost certainly a programmer error",
+                            );
+                            if found_version_id != version_id {
+                                return Err(Error::ConflictingDIDQueryParams(format!(
+                                    "DID document with selfHash {} has versionId {} which does not match requested versionId {}",
+                                    self_hash_str,
+                                    found_version_id,
+                                    version_id,
+                                )
+                                .into()));
+                            }
+                        }
                     }
                 }
                 did_doc_record_o
@@ -715,19 +857,33 @@ impl DIDResolver for DIDResolverFull {
             did_resolution_options
         );
 
-        let (did_doc_record, did_document_metadata, did_resolution_metadata) = self
+        match self
             .resolve_did_doc_record(did_query, did_resolution_options)
-            .await?;
-
-        tracing::trace!(
-            "DIDResolverFull::resolve_did_document_string; successfully resolved DID document: {}",
-            did_doc_record.did_document_jcs
-        );
-        Ok((
-            did_doc_record.did_document_jcs,
-            did_document_metadata,
-            did_resolution_metadata,
-        ))
+            .await
+        {
+            Ok((did_doc_record, did_document_metadata, mut did_resolution_metadata)) => {
+                tracing::trace!(
+                    "DIDResolverFull::resolve_did_document_string; successfully resolved DID document: {}",
+                    did_doc_record.did_document_jcs
+                );
+                did_resolution_metadata.content_type_o = Some("application/did+json".to_string());
+                Ok((
+                    did_doc_record.did_document_jcs,
+                    did_document_metadata,
+                    did_resolution_metadata,
+                ))
+            }
+            Err(error @ Error::DIDResolutionFailure2(_))
+            | Err(error @ Error::DIDResolutionConflict(_)) => Err(error),
+            Err(error) => Err(Error::DIDResolutionFailure2(
+                DIDResolutionMetadata::failure(
+                    DIDResolutionError::internal_error(error.to_string()),
+                    false,
+                    false,
+                    false,
+                ),
+            )),
+        }
     }
     fn as_verifier_resolver(&self) -> &dyn verifier_resolver::VerifierResolver {
         self

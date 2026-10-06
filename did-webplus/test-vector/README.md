@@ -380,7 +380,9 @@ DID document store and executes `steps` in order, retaining store state across s
 ```
 
 On failure (`success: false`), omit `didDocumentVersionId` / `didDocumentSelfHash` /
-`didDocumentMetadata`; `didResolutionMetadata.error` MUST be present (message advisory).
+`didDocumentMetadata`; `didResolutionMetadata.error` MUST be present. The error is an
+RFC 9457 problem-details object: **`error.type` is normative** (W3C or method URI);
+`title` and `detail` are advisory and need not match across implementations.
 
 | Field | Meaning |
 |-------|---------|
@@ -398,6 +400,7 @@ On failure (`success: false`), omit `didDocumentVersionId` / `didDocumentSelfHas
 | `servedDidDocumentCount` | How many leading `did-documents.jsonl` lines the VDR serves during this step; MUST be monotonically non-decreasing across steps |
 | `didQuery` | DID URL to resolve (may include `selfHash` and/or `versionId` query params) |
 | `resolutionOptions` | Wire-exact DID Resolution Options (see below) |
+| `vdrFails` | Optional (default `false`); when `true`, the harness makes the VDR return an HTTP failure for this DID's jsonl GETs |
 | `expected` | Expected outcome for a conforming full resolver |
 
 ### `resolutionOptions` (wire field names)
@@ -406,8 +409,8 @@ On failure (`success: false`), omit `didDocumentVersionId` / `didDocumentSelfHas
 |-------|---------|
 | `requestCreate` | Populate creation metadata (`created` / `createdMilliseconds`) |
 | `requestNext` | Populate next-update metadata |
-| `requestLatest` | Populate latest-update metadata |
-| `requestDeactivated` | Populate `deactivated` |
+| `requestLatest` | Populate latest-update metadata (`latestUpdate` / `latestUpdateMilliseconds` / `latestVersionId`) |
+| `requestDeactivated` | Populate `deactivated: false` when the DID is not deactivated; `deactivated: true` is also present on success whenever the resolver already knows the DID is deactivated (even without this option) |
 | `localResolutionOnly` | If `true`, resolver MUST make zero network requests; fail with resolution metadata when needed data is not local |
 | `accept` | Optional; ignored by did:webplus (document returned as stored JCS) |
 
@@ -418,8 +421,8 @@ On failure (`success: false`), omit `didDocumentVersionId` / `didDocumentSelfHas
 | `success` | `true` if resolution must succeed; `false` if it must fail |
 | `didDocumentVersionId` | Resolved document `versionId` (present iff `success`) |
 | `didDocumentSelfHash` | Resolved document `selfHash` (present iff `success`) |
-| `didDocumentMetadata` | Exact DID document metadata JSON, including `*Milliseconds` timestamp fields when requested (present iff `success`) |
-| `didResolutionMetadata` | Exact resolution-metadata object; the three booleans are normative; on error, `error` present-only |
+| `didDocumentMetadata` | Exact DID document metadata JSON (present iff `success`). `versionId` / `updated` / `updatedMilliseconds` describe the **resolved** document; latest fields use the `latest*` names; `created*` / `next*` / `deactivated` follow the request options and deactivation rules above |
+| `didResolutionMetadata` | Exact resolution-metadata object; the three booleans are normative; on error, `error` present-only with normative `type`; `contentType` is present only on successful `resolveRepresentation` (`application/did+json`), absent on failures and on `resolve` |
 | `vdrRequestCount` | Exact HTTP GETs to this DID's `did-documents.jsonl` during the step (`0` = local-only / no VDR contact; `1` = single Range fetch) |
 
 ## Scenario expectation semantics
@@ -435,15 +438,15 @@ On failure (`success: false`), omit `didDocumentVersionId` / `didDocumentSelfHas
 
 - Per-step `success` / failure
 - On success: resolved document identity (`didDocumentVersionId`, `didDocumentSelfHash`)
-- On success: byte-exact `didDocumentMetadata` values (including `created` / `createdMilliseconds`, `nextUpdate` / `nextUpdateMilliseconds` / `nextVersionId`, `updated` / `updatedMilliseconds` / `versionId`, `deactivated` as applicable). Whole-seconds fields MUST equal the floor of their `*Milliseconds` counterparts (`created` ← `createdMilliseconds`, etc.).
+- On success: byte-exact `didDocumentMetadata` values (including `created` / `createdMilliseconds`, `nextUpdate` / `nextUpdateMilliseconds` / `nextVersionId`, `versionId` / `updated` / `updatedMilliseconds` for the resolved document, `latestUpdate` / `latestUpdateMilliseconds` / `latestVersionId` when requested, `deactivated` as applicable). Whole-seconds fields MUST equal the floor of their `*Milliseconds` counterparts (`created` ← `createdMilliseconds`, etc.).
 - Exact resolution-metadata booleans: `fetchedUpdatesFromVDR`, `didDocumentResolvedLocally`, `didDocumentMetadataResolvedLocally` (determined before any VDR fetch; `didDocumentMetadataResolvedLocally` is vacuously `true` when no metadata was requested)
 - Exact `vdrRequestCount` (`0` proves local-only / locality; `1` proves single-range-fetch)
-- On failure: `didResolutionMetadata.error` is present
+- On failure: `didResolutionMetadata.error` is present; **`error.type`** is the normative conformance signal
 
 **Advisory:**
 
-- Error message / `error` string text need not match across implementations
-- `contentType` is typically `"application/did+json"` but is not the primary conformance signal
+- Error `title` / `detail` text need not match across implementations
+- `contentType` is present only on successful `resolveRepresentation` (typically `"application/did+json"`); absent on failures and when using `resolve`
 
 Generation is deterministic (fixed timestamp base + whole-second increments; resolution scenarios add deterministic non-zero millisecond components to `validFrom`), so expected metadata timestamps are concrete literals, not relative placeholders.
 
@@ -459,52 +462,14 @@ A conforming external scenario runner (e.g. interop suites consuming this catalo
 
 Paths are the `path` field from `index.json` (no leading `/`, no filename).
 
-Set serve-count (serve the first `N` jsonl lines):
+| Method | Path | Body / query | Success |
+|--------|------|--------------|---------|
+| `PUT` | `/control/serve-count` | `{ "path", "servedDidDocumentCount" }` | `{ "path", "servedDidDocumentCount", "servedOctetLength" }` |
+| `PUT` | `/control/vdr-failure` | `{ "path", "fail" }` | `{ "path", "fail" }` — when `fail: true`, jsonl GETs return HTTP 503 (still counted) |
+| `GET` | `/control/request-count` | `?path=…` | `{ "path", "requestCount" }` |
+| `POST` | `/control/reset` | (none) | `204 No Content` — restore every vector to full serve-count, clear VDR failure, and zero jsonl GET counters |
 
-```bash
-curl -sS -X PUT http://localhost:3000/control/serve-count \
-  -H 'content-type: application/json' \
-  -d '{"path":"uHiB...","servedDidDocumentCount":1}'
-```
-
-Example response:
-
-```json
-{
-  "path": "uHiB...",
-  "servedDidDocumentCount": 1,
-  "servedOctetLength": 1234
-}
-```
-
-Read request count (jsonl GETs since last reset):
-
-```bash
-curl -sS 'http://localhost:3000/control/request-count?path=uHiB...'
-```
-
-Example response:
-
-```json
-{
-  "path": "uHiB...",
-  "requestCount": 1
-}
-```
-
-Reset all serve-counts to full and zero all request counters (`204 No Content`):
-
-```bash
-curl -sS -o /dev/null -w '%{http_code}\n' -X POST http://localhost:3000/control/reset
-```
-
-Per-step loop outline (matches the Rust resolver integration harness):
-
-1. `POST /control/reset` (zeroes jsonl counters and restores full serve-count).
-2. `PUT /control/serve-count` with this step's `servedDidDocumentCount`.
-3. Resolve `didQuery` with `resolutionOptions` against the persistent store.
-4. Assert normative fields of `expected`.
-5. `GET /control/request-count?path=...` and assert equals `expected.vdrRequestCount`.
+Per-step harness order: `POST /control/reset`, then `PUT /control/serve-count` with this step's `servedDidDocumentCount`, then (if `vdrFails`) `PUT /control/vdr-failure` with `fail: true`, then resolve, then `GET /control/request-count` and assert equals `expected.vdrRequestCount`.
 
 Fetch the scenario artifact via `GET /{path}/resolution-scenario.json`.
 

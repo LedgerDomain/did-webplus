@@ -78,9 +78,16 @@ mod tests {
             .expect("sample DID")
     }
 
-    fn sample_resolution_metadata(error_o: Option<String>) -> DIDResolutionMetadata {
+    fn sample_resolution_metadata(
+        error_o: Option<did_webplus_core::DIDResolutionError>,
+    ) -> DIDResolutionMetadata {
         DIDResolutionMetadata {
-            content_type: "application/did+json".to_string(),
+            // contentType present only on success (resolveRepresentation).
+            content_type_o: if error_o.is_none() {
+                Some("application/did+json".to_string())
+            } else {
+                None
+            },
             error_o,
             fetched_updates_from_vdr: true,
             did_document_resolved_locally: false,
@@ -99,8 +106,11 @@ mod tests {
                 served_did_document_count: 3,
                 did_query: sample_did().to_string(),
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
                 expected: ExpectedResolutionOutcome::failure(
-                    sample_resolution_metadata(Some("advisory message".to_string())),
+                    sample_resolution_metadata(Some(
+                        did_webplus_core::DIDResolutionError::internal_error("advisory message"),
+                    )),
                     1,
                 ),
             }],
@@ -128,6 +138,10 @@ mod tests {
             0,
             self_hash.clone(),
             did_webplus_core::DIDDocumentMetadata {
+                resolved_document_metadata: did_webplus_core::ResolvedDocumentMetadata::new(
+                    time::OffsetDateTime::UNIX_EPOCH,
+                    0,
+                ),
                 creation_metadata_o: None,
                 next_update_metadata_o: None,
                 latest_update_metadata_o: None,

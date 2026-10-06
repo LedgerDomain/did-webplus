@@ -85,6 +85,10 @@ pub trait MicroledgerView<'v> {
             == RootLevelUpdateRules::UpdatesDisallowed(UpdatesDisallowed {});
 
         did_webplus_core::DIDDocumentMetadata {
+            resolved_document_metadata: did_webplus_core::ResolvedDocumentMetadata::new(
+                did_document.valid_from().unwrap(),
+                did_document.version_id,
+            ),
             creation_metadata_o: Some(creation_metadata),
             next_update_metadata_o,
             latest_update_metadata_o: Some(latest_update_metadata),

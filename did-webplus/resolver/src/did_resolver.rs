@@ -25,9 +25,11 @@ pub trait DIDResolver: Send + Sync + verifier_resolver::VerifierResolver {
         did_query: &str,
         did_resolution_options: DIDResolutionOptions,
     ) -> Result<(DIDDocument, DIDDocumentMetadata, DIDResolutionMetadata)> {
-        let (did_document_string, did_document_metadata, did_resolution_metadata) = self
+        let (did_document_string, did_document_metadata, mut did_resolution_metadata) = self
             .resolve_did_document_string(did_query, did_resolution_options)
             .await?;
+        // resolve() must not present contentType (resolveRepresentation / string path does).
+        did_resolution_metadata.content_type_o = None;
         let did_document: DIDDocument = serde_json::from_str(&did_document_string)
             .map_err(|e| Error::MalformedDIDDocument(e.to_string().into()))?;
         Ok((did_document, did_document_metadata, did_resolution_metadata))

@@ -1,3 +1,5 @@
+use crate::DIDResolutionError;
+
 /// See <https://www.w3.org/TR/did-1.0/#did-resolution-metadata>.
 #[derive(Clone, Debug, serde::Deserialize, Eq, PartialEq, serde::Serialize)]
 pub struct DIDResolutionMetadata {
@@ -7,14 +9,17 @@ pub struct DIDResolutionMetadata {
     /// string that is the Media Type of the conformant representations. The caller of the
     /// resolveRepresentation function MUST use this value when determining how to parse and
     /// process the didDocumentStream returned by this function into the data model.
-    #[serde(rename = "contentType")]
-    pub content_type: String,
-    /// The error code from the resolution process. This property is REQUIRED when there is an
-    /// error in the resolution process. The value of this property MUST be a single keyword
-    /// ASCII string. The possible property values of this field SHOULD be registered in the
-    /// DID Specification Registries <https://www.w3.org/TR/did-spec-registries/>.
+    #[serde(
+        rename = "contentType",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub content_type_o: Option<String>,
+    /// REQUIRED when there is an error in the resolution process, and MUST NOT be present
+    /// otherwise. The value is an RFC 9457 problem-details object; `type` is the normative
+    /// conformance signal, while `title` and `detail` are advisory.
     #[serde(rename = "error", default, skip_serializing_if = "Option::is_none")]
-    pub error_o: Option<String>,
+    pub error_o: Option<DIDResolutionError>,
     /// This will be `true` if the resolution process involved attempting to fetch updates from the
     /// VDR for the DID, even if there were no new updates returned by the VDR.  Otherwise `false`.
     #[serde(rename = "fetchedUpdatesFromVDR")]
@@ -28,6 +33,36 @@ pub struct DIDResolutionMetadata {
     /// in the local DID document store.  Otherwise `false`.
     #[serde(rename = "didDocumentMetadataResolvedLocally")]
     pub did_document_metadata_resolved_locally: bool,
+}
+
+impl DIDResolutionMetadata {
+    pub fn success(
+        fetched_updates_from_vdr: bool,
+        did_document_resolved_locally: bool,
+        did_document_metadata_resolved_locally: bool,
+    ) -> Self {
+        Self {
+            content_type_o: None,
+            error_o: None,
+            fetched_updates_from_vdr,
+            did_document_resolved_locally,
+            did_document_metadata_resolved_locally,
+        }
+    }
+    pub fn failure(
+        error: DIDResolutionError,
+        fetched_updates_from_vdr: bool,
+        did_document_resolved_locally: bool,
+        did_document_metadata_resolved_locally: bool,
+    ) -> Self {
+        Self {
+            content_type_o: None,
+            error_o: Some(error),
+            fetched_updates_from_vdr,
+            did_document_resolved_locally,
+            did_document_metadata_resolved_locally,
+        }
+    }
 }
 
 impl std::fmt::Display for DIDResolutionMetadata {

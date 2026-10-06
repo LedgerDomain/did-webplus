@@ -885,10 +885,13 @@ mod tests {
                 served_did_document_count: 1,
                 did_query: vector.did.to_string(),
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
                 expected: ExpectedResolutionOutcome::failure(
                     DIDResolutionMetadata {
-                        content_type: "application/did+json".to_string(),
-                        error_o: Some("advisory".to_string()),
+                        content_type_o: None,
+                        error_o: Some(did_webplus_core::DIDResolutionError::internal_error(
+                            "advisory",
+                        )),
                         fetched_updates_from_vdr: false,
                         did_document_resolved_locally: false,
                         did_document_metadata_resolved_locally: true,

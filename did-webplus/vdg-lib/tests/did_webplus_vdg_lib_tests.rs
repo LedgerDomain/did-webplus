@@ -401,7 +401,8 @@ async fn test_vdg_wallet_operations_impl(
                     header_map.clone(),
                 )
                 .await;
-                assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
+                // Conflicting query params -> #INVALID_DID_URL -> HTTP 400 (DID Resolution CR).
+                assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
 
                 // Ask for a particular version that the VDG is known to have, but with a bad selfHash
                 // to see if it will return an error.

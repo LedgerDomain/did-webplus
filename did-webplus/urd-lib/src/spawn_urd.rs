@@ -4,7 +4,45 @@ use axum::{
     http::{HeaderMap, StatusCode, header},
     routing::get,
 };
+use did_webplus_core::{DIDResolutionError, DIDResolutionMetadata};
 use std::sync::Arc;
+
+/// Map a resolver error to HTTP status (DID Resolution CR table) and resolution metadata.
+fn resolution_error_to_metadata(
+    error: did_webplus_resolver::Error,
+) -> (StatusCode, DIDResolutionMetadata) {
+    let did_resolution_metadata = match error {
+        did_webplus_resolver::Error::DIDResolutionFailure2(did_resolution_metadata)
+        | did_webplus_resolver::Error::DIDResolutionConflict(did_resolution_metadata) => {
+            did_resolution_metadata
+        }
+        other => DIDResolutionMetadata {
+            content_type_o: None,
+            error_o: Some(DIDResolutionError::internal_error(other.to_string())),
+            fetched_updates_from_vdr: false,
+            did_document_resolved_locally: false,
+            did_document_metadata_resolved_locally: false,
+        },
+    };
+    let status_code = did_resolution_metadata
+        .error_o
+        .as_ref()
+        .map(|e| {
+            StatusCode::from_u16(e.http_status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+        })
+        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    (status_code, did_resolution_metadata)
+}
+
+/// Failure body for `Accept: application/did-resolution`.
+fn did_resolution_failure_body(did_resolution_metadata: &DIDResolutionMetadata) -> String {
+    serde_json::json!({
+        "didDocument": null,
+        "didDocumentMetadata": {},
+        "didResolutionMetadata": did_resolution_metadata,
+    })
+    .to_string()
+}
 
 /// Spawn a URD (Universal Resolver Driver).  This is just a DIDResolver running at a specific endpoint on an HTTP server.
 pub async fn spawn_urd(
@@ -94,85 +132,62 @@ async fn resolve_did(
         }
     };
 
-    let (did_document, did_document_metadata, did_resolution_metadata) = urd_app_state
+    let resolve_result_r = urd_app_state
         .did_resolver_a
         .resolve_did_document_string(&query, did_resolution_options)
-        .await
-        .map_err(|e| match e {
-            did_webplus_resolver::Error::DIDDocStoreError(error) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
-            }
-            did_webplus_resolver::Error::DIDResolutionFailure(http_error) => {
-                (http_error.status_code, http_error.description.into_owned())
-            }
-            did_webplus_resolver::Error::DIDResolutionFailure2(did_resolution_metadata) => (
-                StatusCode::NOT_FOUND,
-                serde_json::to_string(&did_resolution_metadata).unwrap(),
-            ),
-            did_webplus_resolver::Error::ConflictingDIDQueryParams(description) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
-            }
-            did_webplus_resolver::Error::DIDResolutionConflict(did_resolution_metadata) => (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                did_resolution_metadata
-                    .error_o
-                    .unwrap_or_else(|| "conflicting DID query params".to_string()),
-            ),
-            did_webplus_resolver::Error::FailedConstraint(description) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
-            }
-            did_webplus_resolver::Error::GenericError(description) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, description.into_owned())
-            }
-            did_webplus_resolver::Error::InvalidVerifier(description) => {
-                (StatusCode::BAD_REQUEST, description.into_owned())
-            }
-            did_webplus_resolver::Error::MalformedDIDDocument(description) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
-            }
-            did_webplus_resolver::Error::MalformedDIDQuery(description) => {
-                (StatusCode::BAD_REQUEST, description.into_owned())
-            }
-            did_webplus_resolver::Error::MalformedVDGHost(description) => {
-                (StatusCode::BAD_REQUEST, description.into_owned())
-            }
-            did_webplus_resolver::Error::StorageError(error) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
-            }
-        })?;
+        .await;
 
     let mut response_header_map = HeaderMap::new();
-    match accept_header_str_first {
-        "application/did" | "*/*" => {
-            response_header_map.insert("Content-Type", "application/did".parse().unwrap());
-            Ok((response_header_map, did_document))
-        }
-        "application/did-resolution" => {
-            response_header_map.insert(
-                "Content-Type",
-                "application/did-resolution".parse().unwrap(),
-            );
-            #[derive(serde::Serialize)]
-            #[serde(rename_all = "camelCase")]
-            struct DIDResolveOutput {
-                did_document: did_webplus_core::DIDDocument,
-                did_document_metadata: did_webplus_core::DIDDocumentMetadata,
-                did_resolution_metadata: did_webplus_core::DIDResolutionMetadata,
+    match resolve_result_r {
+        Ok((did_document, did_document_metadata, did_resolution_metadata)) => {
+            match accept_header_str_first {
+                "application/did" | "*/*" => {
+                    response_header_map.insert("Content-Type", "application/did".parse().unwrap());
+                    Ok((response_header_map, did_document))
+                }
+                "application/did-resolution" => {
+                    response_header_map.insert(
+                        "Content-Type",
+                        "application/did-resolution".parse().unwrap(),
+                    );
+                    #[derive(serde::Serialize)]
+                    #[serde(rename_all = "camelCase")]
+                    struct DIDResolveOutput {
+                        did_document: did_webplus_core::DIDDocument,
+                        did_document_metadata: did_webplus_core::DIDDocumentMetadata,
+                        did_resolution_metadata: did_webplus_core::DIDResolutionMetadata,
+                    }
+                    let output = DIDResolveOutput {
+                        did_document: serde_json::from_str(&did_document)
+                            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+                        did_document_metadata,
+                        did_resolution_metadata,
+                    };
+                    Ok((response_header_map, serde_json::to_string(&output).unwrap()))
+                }
+                accept_header_str => {
+                    // TODO: Implement support for "application/did-url-dereferencing"
+                    Err((
+                        StatusCode::NOT_ACCEPTABLE,
+                        format!("Accept header not supported: {}", accept_header_str),
+                    ))
+                }
             }
-            let output = DIDResolveOutput {
-                did_document: serde_json::from_str(&did_document)
-                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
-                did_document_metadata,
-                did_resolution_metadata,
-            };
-            Ok((response_header_map, serde_json::to_string(&output).unwrap()))
         }
-        accept_header_str => {
-            // TODO: Implement support for "application/did-url-dereferencing"
-            Err((
-                StatusCode::NOT_ACCEPTABLE,
-                format!("Accept header not supported: {}", accept_header_str),
-            ))
+        Err(error) => {
+            let (status_code, did_resolution_metadata) = resolution_error_to_metadata(error);
+            if accept_header_str_first == "application/did-resolution" {
+                Err((
+                    status_code,
+                    did_resolution_failure_body(&did_resolution_metadata),
+                ))
+            } else {
+                Err((
+                    status_code,
+                    serde_json::to_string(&did_resolution_metadata)
+                        .expect("serialize resolution metadata"),
+                ))
+            }
         }
     }
 }

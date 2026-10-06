@@ -55,6 +55,7 @@ struct StepInput {
     served_did_document_count: u32,
     did_query: String,
     resolution_options: DIDResolutionOptions,
+    vdr_fails: bool,
 }
 
 fn known_version_v(
@@ -110,17 +111,19 @@ fn fill_steps(
         }
         prev_served_o = Some(step_input.served_did_document_count);
 
-        let prediction = ResolutionSemantics::expected_outcome(
+        let prediction = ResolutionSemantics::expected_outcome_with_vdr_fails(
             microledger_doc_v,
             resolver_state,
             step_input.served_did_document_count,
             &step_input.did_query,
             &step_input.resolution_options,
+            step_input.vdr_fails,
         )?;
         step_v.push(ResolutionStep {
             served_did_document_count: step_input.served_did_document_count,
             did_query: step_input.did_query,
             resolution_options: step_input.resolution_options,
+            vdr_fails: step_input.vdr_fails,
             expected: prediction.expected,
         });
         resolver_state = prediction.resolver_state_after;
@@ -168,6 +171,7 @@ fn warm_plain_step(did: &did_webplus_core::DID, served: u32) -> StepInput {
         served_did_document_count: served,
         did_query: did.to_string(),
         resolution_options: DIDResolutionOptions::no_metadata(false),
+        vdr_fails: false,
     }
 }
 
@@ -187,6 +191,7 @@ fn cold_plain_did_no_metadata(
             served_did_document_count: served,
             did_query: did.to_string(),
             resolution_options: DIDResolutionOptions::no_metadata(false),
+            vdr_fails: false,
         }],
     )
 }
@@ -210,6 +215,7 @@ fn warm_version_id(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
             },
         ],
     )
@@ -236,6 +242,7 @@ fn warm_self_hash(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
             },
         ],
     )
@@ -262,6 +269,7 @@ fn warm_both_params(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
             },
         ],
     )
@@ -290,6 +298,7 @@ fn conflicting_query_params(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
             },
         ],
     )
@@ -313,6 +322,7 @@ fn plain_did_always_fetches(
                 served_did_document_count: served,
                 did_query: did.to_string(),
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
             },
         ],
     )
@@ -336,6 +346,7 @@ fn request_creation_cold(
             served_did_document_count: served,
             did_query: did.to_string(),
             resolution_options: options,
+            vdr_fails: false,
         }],
     )
 }
@@ -361,6 +372,7 @@ fn request_creation_warm(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: options,
+                vdr_fails: false,
             },
         ],
     )
@@ -387,6 +399,7 @@ fn request_next_with_local_next(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: options,
+                vdr_fails: false,
             },
         ],
     )
@@ -414,6 +427,7 @@ fn request_next_at_latest(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: options,
+                vdr_fails: false,
             },
         ],
     )
@@ -440,6 +454,7 @@ fn request_latest_forces_fetch(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: options,
+                vdr_fails: false,
             },
         ],
     )
@@ -466,6 +481,7 @@ fn request_deactivated_forces_fetch(
                 served_did_document_count: served,
                 did_query: query,
                 resolution_options: options,
+                vdr_fails: false,
             },
         ],
     )
@@ -489,6 +505,7 @@ fn deactivated_all_local(
                 served_did_document_count: served,
                 did_query: did.to_string(),
                 resolution_options: DIDResolutionOptions::all_metadata(true),
+                vdr_fails: false,
             },
         ],
     )
@@ -514,6 +531,7 @@ fn local_only_matrix(
                 served_did_document_count: served,
                 did_query: did.to_string(),
                 resolution_options: DIDResolutionOptions::no_metadata(true),
+                vdr_fails: false,
             },
             // Prime the store for subsequent warm local-only steps.
             warm_plain_step(&did, served),
@@ -521,16 +539,19 @@ fn local_only_matrix(
                 served_did_document_count: served,
                 did_query: version_query,
                 resolution_options: DIDResolutionOptions::no_metadata(true),
+                vdr_fails: false,
             },
             StepInput {
                 served_did_document_count: served,
                 did_query: did.to_string(),
                 resolution_options: DIDResolutionOptions::no_metadata(true),
+                vdr_fails: false,
             },
             StepInput {
                 served_did_document_count: served,
                 did_query: did.with_query_version_id(1).to_string(),
                 resolution_options: request_latest,
+                vdr_fails: false,
             },
         ],
     )
@@ -553,11 +574,13 @@ fn incremental_range_fetch(
                 served_did_document_count: 1,
                 did_query: did.to_string(),
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
             },
             StepInput {
                 served_did_document_count: served_all,
                 did_query: did.to_string(),
                 resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
             },
         ],
     )
@@ -579,7 +602,89 @@ fn version_beyond_served(
             served_did_document_count: 2,
             did_query: query,
             resolution_options: DIDResolutionOptions::no_metadata(false),
+            vdr_fails: false,
         }],
+    )
+}
+
+fn conflict_via_local_self_hash(
+    params: TestVectorParams,
+    rng: DeterministicRng,
+) -> anyhow::Result<(TestVector, ResolutionScenario)> {
+    let (builder, known_version_v) = build_active_ledger(params, rng)?;
+    let served = all_count(&known_version_v);
+    let did = builder.did().clone();
+    // versionId absent locally; selfHash of a known document → conflict, no fetch.
+    let query = format!(
+        "{}?selfHash={}&versionId=99",
+        did, known_version_v[1].self_hash
+    );
+    finish(
+        "conflict-via-local-self-hash",
+        "After a cold fetch, disagreeing versionId (missing) and local selfHash conflict without a VDR fetch.",
+        builder,
+        &known_version_v,
+        vec![
+            warm_plain_step(&did, served),
+            StepInput {
+                served_did_document_count: served,
+                did_query: query,
+                resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
+            },
+        ],
+    )
+}
+
+fn deactivated_known_absence(
+    params: TestVectorParams,
+    rng: DeterministicRng,
+) -> anyhow::Result<(TestVector, ResolutionScenario)> {
+    let (builder, known_version_v) = build_deactivated_ledger(params, rng)?;
+    let served = all_count(&known_version_v);
+    let did = builder.did().clone();
+    let query = did.with_query_version_id(99).to_string();
+    finish(
+        "deactivated-known-absence",
+        "After a deactivated tombstone is known, a missing versionId is known absence: NOT_FOUND without a VDR fetch.",
+        builder,
+        &known_version_v,
+        vec![
+            warm_plain_step(&did, served),
+            StepInput {
+                served_did_document_count: served,
+                did_query: query,
+                resolution_options: DIDResolutionOptions::no_metadata(false),
+                vdr_fails: false,
+            },
+        ],
+    )
+}
+
+fn fetch_failed_with_local_document(
+    params: TestVectorParams,
+    rng: DeterministicRng,
+) -> anyhow::Result<(TestVector, ResolutionScenario)> {
+    let (builder, known_version_v) = build_active_ledger(params, rng)?;
+    let served = all_count(&known_version_v);
+    let did = builder.did().clone();
+    let mut options = DIDResolutionOptions::no_metadata(false);
+    options.request_latest = true;
+    let query = did.with_query_version_id(1).to_string();
+    finish(
+        "fetch-failed-with-local-document",
+        "Warm local document with requestLatest: VDR fetch fails; pre-fetch booleans preserved; fetchedUpdatesFromVDR true.",
+        builder,
+        &known_version_v,
+        vec![
+            warm_plain_step(&did, served),
+            StepInput {
+                served_did_document_count: served,
+                did_query: query,
+                resolution_options: options,
+                vdr_fails: true,
+            },
+        ],
     )
 }
 
@@ -665,6 +770,21 @@ pub(crate) fn definitions() -> &'static [ResolutionScenarioDefinition] {
             name: "version-beyond-served",
             description: "Query for a versionId the VDR has not yet served: one fetch then error.",
             factory: version_beyond_served,
+        },
+        ResolutionScenarioDefinition {
+            name: "conflict-via-local-self-hash",
+            description: "After a cold fetch, disagreeing versionId (missing) and local selfHash conflict without a VDR fetch.",
+            factory: conflict_via_local_self_hash,
+        },
+        ResolutionScenarioDefinition {
+            name: "deactivated-known-absence",
+            description: "After a deactivated tombstone is known, a missing versionId is known absence: NOT_FOUND without a VDR fetch.",
+            factory: deactivated_known_absence,
+        },
+        ResolutionScenarioDefinition {
+            name: "fetch-failed-with-local-document",
+            description: "Warm local document with requestLatest: VDR fetch fails; pre-fetch booleans preserved; fetchedUpdatesFromVDR true.",
+            factory: fetch_failed_with_local_document,
         },
     ];
     DEFINITIONS

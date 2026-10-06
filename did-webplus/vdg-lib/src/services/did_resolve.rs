@@ -8,10 +8,63 @@ use axum::{
     },
     routing::{get, post},
 };
-use did_webplus_core::{DID, DIDDocumentMetadata, DIDResolutionMetadata, DIDResolutionOptions};
+use did_webplus_core::{
+    DID, DIDDocumentMetadata, DIDResolutionError, DIDResolutionMetadata, DIDResolutionOptions,
+};
 use did_webplus_resolver::DIDResolver;
 use time::{OffsetDateTime, format_description::well_known};
 use tokio::task;
+
+/// HTTP 400 body: resolution metadata with `#INVALID_OPTIONS` and all locality booleans false.
+fn invalid_options_response(detail: impl Into<String>) -> (StatusCode, String) {
+    let did_resolution_metadata = DIDResolutionMetadata {
+        content_type_o: None,
+        error_o: Some(DIDResolutionError::invalid_options(detail)),
+        fetched_updates_from_vdr: false,
+        did_document_resolved_locally: false,
+        did_document_metadata_resolved_locally: false,
+    };
+    (
+        StatusCode::BAD_REQUEST,
+        serde_json::to_string(&did_resolution_metadata).expect("serialize resolution metadata"),
+    )
+}
+
+/// Parse a boolean DID-resolution-options header (`true` / `false` only).
+fn parse_boolean_header(header_value: &HeaderValue) -> Result<bool, (StatusCode, String)> {
+    let header_str = header_value
+        .to_str()
+        .map_err(|_| invalid_options_response("boolean header value is not valid ASCII"))?;
+    header_str
+        .parse::<bool>()
+        .map_err(|_| invalid_options_response(format!("invalid boolean header value: {header_str}")))
+}
+
+/// Map a resolver error to HTTP status plus DID Resolution Metadata JSON body.
+fn resolution_error_response(error: did_webplus_resolver::Error) -> (StatusCode, String) {
+    let did_resolution_metadata = match error {
+        did_webplus_resolver::Error::DIDResolutionFailure2(did_resolution_metadata)
+        | did_webplus_resolver::Error::DIDResolutionConflict(did_resolution_metadata) => {
+            did_resolution_metadata
+        }
+        other => DIDResolutionMetadata {
+            content_type_o: None,
+            error_o: Some(DIDResolutionError::internal_error(other.to_string())),
+            fetched_updates_from_vdr: false,
+            did_document_resolved_locally: false,
+            did_document_metadata_resolved_locally: false,
+        },
+    };
+    let status_code = did_resolution_metadata
+        .error_o
+        .as_ref()
+        .map(|e| StatusCode::from_u16(e.http_status_code()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR))
+        .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    (
+        status_code,
+        serde_json::to_string(&did_resolution_metadata).expect("serialize resolution metadata"),
+    )
+}
 
 pub fn get_routes(vdg_app_state: VDGAppState) -> Router {
     Router::new()
@@ -200,48 +253,34 @@ async fn resolve_did_impl(
         let mut did_resolution_options = DIDResolutionOptions::default();
         if let Some(header_map) = header_map_o {
             if let Some(accept_header) = header_map.get(header::ACCEPT) {
-                did_resolution_options.accept_o = Some(accept_header.to_str().unwrap().to_string());
+                let accept_str = accept_header
+                    .to_str()
+                    .map_err(|_| invalid_options_response("Accept header value is not valid ASCII"))?;
+                did_resolution_options.accept_o = Some(accept_str.to_string());
             }
             if let Some(request_creation_header) = header_map.get("X-DID-Request-Creation-Metadata")
             {
                 did_resolution_options.request_creation =
-                    request_creation_header.to_str().unwrap().parse().map_err(
-                        |e: std::str::ParseBoolError| (StatusCode::BAD_REQUEST, e.to_string()),
-                    )?;
+                    parse_boolean_header(request_creation_header)?;
             }
             if let Some(request_next_header) = header_map.get("X-DID-Request-Next-Metadata") {
-                did_resolution_options.request_next =
-                    request_next_header.to_str().unwrap().parse().map_err(
-                        |e: std::str::ParseBoolError| (StatusCode::BAD_REQUEST, e.to_string()),
-                    )?;
+                did_resolution_options.request_next = parse_boolean_header(request_next_header)?;
             }
             if let Some(request_latest_header) = header_map.get("X-DID-Request-Latest-Metadata") {
                 did_resolution_options.request_latest =
-                    request_latest_header.to_str().unwrap().parse().map_err(
-                        |e: std::str::ParseBoolError| (StatusCode::BAD_REQUEST, e.to_string()),
-                    )?;
+                    parse_boolean_header(request_latest_header)?;
             }
             if let Some(request_deactivated_header) =
                 header_map.get("X-DID-Request-Deactivated-Metadata")
             {
-                did_resolution_options.request_deactivated = request_deactivated_header
-                    .to_str()
-                    .unwrap()
-                    .parse()
-                    .map_err(|e: std::str::ParseBoolError| {
-                        (StatusCode::BAD_REQUEST, e.to_string())
-                    })?;
+                did_resolution_options.request_deactivated =
+                    parse_boolean_header(request_deactivated_header)?;
             }
             if let Some(local_resolution_only_header) =
                 header_map.get("X-DID-Local-Resolution-Only")
             {
-                did_resolution_options.local_resolution_only = local_resolution_only_header
-                    .to_str()
-                    .unwrap()
-                    .parse()
-                    .map_err(|e: std::str::ParseBoolError| {
-                        (StatusCode::BAD_REQUEST, e.to_string())
-                    })?;
+                did_resolution_options.local_resolution_only =
+                    parse_boolean_header(local_resolution_only_header)?;
             }
         }
         tracing::debug!(
@@ -259,36 +298,15 @@ async fn resolve_did_impl(
             http_scheme_override: vdg_app_state.vdg_config.http_scheme_override.clone(),
         }),
     )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(resolution_error_response)?;
 
-    let (did_doc_record, did_document_metadata, did_resolution_metadata) = did_resolver_full
+    let (did_doc_record, did_document_metadata, mut did_resolution_metadata) = did_resolver_full
         .resolve_did_doc_record(&did_query, did_resolution_options)
         .await
-        .map_err(|e| match e {
-            did_webplus_resolver::Error::DIDResolutionFailure(http_error) => {
-                (http_error.status_code, http_error.description.into_owned())
-            }
-            did_webplus_resolver::Error::DIDResolutionFailure2(did_resolution_metadata) => (
-                StatusCode::NOT_FOUND,
-                serde_json::to_string(&did_resolution_metadata).unwrap(),
-            ),
-            did_webplus_resolver::Error::ConflictingDIDQueryParams(description) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
-            }
-            did_webplus_resolver::Error::DIDResolutionConflict(did_resolution_metadata) => (
-                StatusCode::UNPROCESSABLE_ENTITY,
-                did_resolution_metadata
-                    .error_o
-                    .unwrap_or_else(|| "conflicting DID query params".to_string()),
-            ),
-            did_webplus_resolver::Error::MalformedDIDQuery(description) => {
-                (StatusCode::BAD_REQUEST, description.into_owned())
-            }
-            did_webplus_resolver::Error::FailedConstraint(description) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, description.into_owned())
-            }
-            e => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-        })?;
+        .map_err(resolution_error_response)?;
+
+    // resolve_did_doc_record leaves contentType unset; VDG resolveRepresentation sets it here.
+    did_resolution_metadata.content_type_o = Some("application/did+json".to_string());
 
     Ok((
         headers_for_did_documents_jsonl(

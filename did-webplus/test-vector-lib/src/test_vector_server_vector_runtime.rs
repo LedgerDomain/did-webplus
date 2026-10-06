@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 /// Mutable per-vector VDR simulation state for the test-vector HTTP server.
 ///
@@ -11,6 +11,7 @@ pub struct TestVectorServerVectorRuntime {
     served_did_document_count: AtomicU32,
     jsonl_request_count: AtomicU64,
     default_served_did_document_count: u32,
+    vdr_fails: AtomicBool,
 }
 
 impl TestVectorServerVectorRuntime {
@@ -20,6 +21,7 @@ impl TestVectorServerVectorRuntime {
             served_did_document_count: AtomicU32::new(default_served_did_document_count),
             jsonl_request_count: AtomicU64::new(0),
             default_served_did_document_count,
+            vdr_fails: AtomicBool::new(false),
         }
     }
 
@@ -44,11 +46,22 @@ impl TestVectorServerVectorRuntime {
         self.jsonl_request_count.fetch_add(1, Ordering::SeqCst) + 1
     }
 
-    /// Restore full serve-count and zero the jsonl request counter.
+    /// Whether jsonl GETs for this vector currently fail with an HTTP error.
+    pub fn vdr_fails(&self) -> bool {
+        self.vdr_fails.load(Ordering::SeqCst)
+    }
+
+    /// Set whether jsonl GETs for this vector fail with an HTTP error.
+    pub fn set_vdr_fails(&self, fail: bool) {
+        self.vdr_fails.store(fail, Ordering::SeqCst);
+    }
+
+    /// Restore full serve-count, clear VDR failure, and zero the jsonl request counter.
     pub fn reset(&self) {
         self.served_did_document_count
             .store(self.default_served_did_document_count, Ordering::SeqCst);
         self.jsonl_request_count.store(0, Ordering::SeqCst);
+        self.vdr_fails.store(false, Ordering::SeqCst);
     }
 
     /// Full-document serve-count restored by [`Self::reset`].

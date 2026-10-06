@@ -8,8 +8,9 @@ use axum::{
 
 use crate::{
     RequestCountControlResponse, ServeCountControlRequest, ServeCountControlResponse,
+    VDRFailureControlRequest, VDRFailureControlResponse,
     test_vector_server_app_state::{
-        ServeCountError, TestVectorServerAppState, is_did_documents_jsonl,
+        ServeCountError, TakeServedJsonl, TestVectorServerAppState, is_did_documents_jsonl,
         is_resolution_scenario_json, is_test_vector_json,
     },
 };
@@ -17,11 +18,13 @@ use crate::{
 /// Build the HTTP router for the test-vector server (without `/health` or middleware).
 ///
 /// Includes catalog GETs and harness control endpoints outside the resolution namespace:
-/// `PUT /control/serve-count`, `GET /control/request-count`, `POST /control/reset`.
+/// `PUT /control/serve-count`, `PUT /control/vdr-failure`, `GET /control/request-count`,
+/// `POST /control/reset`.
 pub fn get_routes(app_state: TestVectorServerAppState) -> Router {
     Router::new()
         .route("/index.json", get(get_index_json_root))
         .route("/control/serve-count", put(put_serve_count))
+        .route("/control/vdr-failure", put(put_vdr_failure))
         .route("/control/request-count", get(get_request_count))
         .route("/control/reset", post(post_reset))
         .route("/{*path}", get(get_catch_all))
@@ -78,6 +81,25 @@ async fn put_serve_count(
 }
 
 #[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(app_state))]
+async fn put_vdr_failure(
+    State(app_state): State<TestVectorServerAppState>,
+    Json(request): Json<VDRFailureControlRequest>,
+) -> Result<Json<VDRFailureControlResponse>, (StatusCode, String)> {
+    let path = normalize_control_path(&request.path);
+    match app_state.set_vdr_failure(path, request.fail) {
+        Ok(()) => Ok(Json(VDRFailureControlResponse {
+            path: path.to_owned(),
+            fail: request.fail,
+        })),
+        Err(ServeCountError::UnknownPath) => Err((
+            StatusCode::NOT_FOUND,
+            format!("vector path not found: {path}"),
+        )),
+        Err(error) => Err((StatusCode::BAD_REQUEST, error.to_string())),
+    }
+}
+
+#[tracing::instrument(level = tracing::Level::INFO, err(Debug), skip(app_state))]
 async fn get_request_count(
     State(app_state): State<TestVectorServerAppState>,
     Query(query): Query<RequestCountQuery>,
@@ -126,10 +148,20 @@ async fn get_catch_all(
     };
 
     if is_did_documents_jsonl(filename) {
-        let Some(served_jsonl) = app_state.take_served_jsonl_for_request(request_dir) else {
+        let Some(served) = app_state.take_served_jsonl_for_request(request_dir) else {
             return Err((StatusCode::NOT_FOUND, "vector not found".to_string()));
         };
-        return serve_did_documents_jsonl(served_jsonl, &header_map);
+        match served {
+            TakeServedJsonl::VDRFailure => {
+                return Err((
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "VDR failure injection active".to_string(),
+                ));
+            }
+            TakeServedJsonl::Body(served_jsonl) => {
+                return serve_did_documents_jsonl(served_jsonl, &header_map);
+            }
+        }
     }
     if is_test_vector_json(filename) {
         return Ok(json_response(
@@ -324,9 +356,7 @@ mod tests {
                     .method("PUT")
                     .uri("/control/serve-count")
                     .header(header::CONTENT_TYPE, "application/json")
-                    .body(Body::from(
-                        r#"{"path":"vec","servedDidDocumentCount":1}"#,
-                    ))
+                    .body(Body::from(r#"{"path":"vec","servedDidDocumentCount":1}"#))
                     .expect("request"),
             )
             .await

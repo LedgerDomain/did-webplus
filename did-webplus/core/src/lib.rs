@@ -5,6 +5,7 @@ mod did_document;
 mod did_document_metadata;
 mod did_fully_qualified;
 mod did_fully_qualified_str;
+mod did_resolution_error;
 mod did_resolution_metadata;
 mod did_resolution_options;
 mod did_resource;
@@ -31,6 +32,7 @@ mod public_key_params_okp;
 mod public_key_set;
 mod relative_resource;
 mod relative_resource_str;
+mod resolved_document_metadata;
 mod update_rules;
 mod verification_method;
 
@@ -49,6 +51,7 @@ pub use crate::{
     did_document_metadata::DIDDocumentMetadata,
     did_fully_qualified::DIDFullyQualified,
     did_fully_qualified_str::DIDFullyQualifiedStr,
+    did_resolution_error::DIDResolutionError,
     did_resolution_metadata::DIDResolutionMetadata,
     did_resolution_options::DIDResolutionOptions,
     did_resource::DIDResource,
@@ -75,6 +78,7 @@ pub use crate::{
     public_key_set::PublicKeySet,
     relative_resource::{Fragment, RelativeResource},
     relative_resource_str::RelativeResourceStr,
+    resolved_document_metadata::ResolvedDocumentMetadata,
     update_rules::{
         All, Any, HashedUpdateKey, RootLevelUpdateRules, Threshold, UpdateKey, UpdateRules,
         UpdatesDisallowed, ValidProofData, VerifyRulesT, WeightedUpdateRules,

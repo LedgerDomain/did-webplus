@@ -2,8 +2,9 @@ use std::{ops::Deref, str::FromStr};
 
 use did_webplus_core::{
     CreationMetadata, DIDDocument, DIDDocumentMetadata, DIDKeyResourceFullyQualified,
-    HashedUpdateKey, LatestUpdateMetadata, NextUpdateMetadata, PublicKeySet, RootLevelUpdateRules,
-    UpdateKey, UpdatesDisallowed, now_utc_milliseconds,
+    HashedUpdateKey, LatestUpdateMetadata, NextUpdateMetadata, PublicKeySet,
+    ResolvedDocumentMetadata, RootLevelUpdateRules, UpdateKey, UpdatesDisallowed,
+    now_utc_milliseconds,
 };
 
 /// This will run once at load time (i.e. presumably before main function is called).
@@ -544,42 +545,44 @@ fn test_signature_generation_with_witness() {
 
 #[test]
 fn test_did_document_metadata_roundtrip() {
-    let creation_metadata_ov = vec![None, Some(CreationMetadata::new(now_utc_milliseconds()))];
-    let next_update_metadata_ov = vec![
-        None,
-        Some(NextUpdateMetadata::new(now_utc_milliseconds(), 1)),
+    let now = now_utc_milliseconds();
+    let resolved_document_metadata_v = vec![
+        ResolvedDocumentMetadata::new(now, 0),
+        ResolvedDocumentMetadata::new(now, 1),
     ];
-    let latest_update_metadata_ov = vec![
-        None,
-        Some(LatestUpdateMetadata::new(now_utc_milliseconds(), 2)),
-    ];
+    let creation_metadata_ov = vec![None, Some(CreationMetadata::new(now))];
+    let next_update_metadata_ov = vec![None, Some(NextUpdateMetadata::new(now, 1))];
+    let latest_update_metadata_ov = vec![None, Some(LatestUpdateMetadata::new(now, 2))];
     let deactivated_o = vec![None, Some(false), Some(true)];
 
-    for creation_metadata_o in creation_metadata_ov.iter() {
-        for next_update_metadata_o in next_update_metadata_ov.iter() {
-            for latest_update_metadata_o in latest_update_metadata_ov.iter() {
-                for deactivated_o in deactivated_o.iter() {
-                    let did_document_metadata = DIDDocumentMetadata {
-                        creation_metadata_o: creation_metadata_o.clone(),
-                        next_update_metadata_o: next_update_metadata_o.clone(),
-                        latest_update_metadata_o: latest_update_metadata_o.clone(),
-                        deactivated_o: deactivated_o.clone(),
-                    };
-                    tracing::debug!("--------------------------------");
-                    tracing::debug!("did_document_metadata: {:?}", did_document_metadata);
-                    let did_document_metadata_str =
-                        serde_json::to_string(&did_document_metadata).expect("pass");
-                    tracing::debug!(
-                        "did_document_metadata as json: {}",
-                        did_document_metadata_str
-                    );
-                    let deserialized_did_document_metadata: DIDDocumentMetadata =
-                        serde_json::from_str(&did_document_metadata_str).expect("pass");
-                    tracing::debug!(
-                        "deserialized_did_document_metadata: {:?}",
-                        deserialized_did_document_metadata
-                    );
-                    assert_eq!(deserialized_did_document_metadata, did_document_metadata);
+    for resolved_document_metadata in resolved_document_metadata_v.iter() {
+        for creation_metadata_o in creation_metadata_ov.iter() {
+            for next_update_metadata_o in next_update_metadata_ov.iter() {
+                for latest_update_metadata_o in latest_update_metadata_ov.iter() {
+                    for deactivated_o in deactivated_o.iter() {
+                        let did_document_metadata = DIDDocumentMetadata {
+                            resolved_document_metadata: resolved_document_metadata.clone(),
+                            creation_metadata_o: creation_metadata_o.clone(),
+                            next_update_metadata_o: next_update_metadata_o.clone(),
+                            latest_update_metadata_o: latest_update_metadata_o.clone(),
+                            deactivated_o: deactivated_o.clone(),
+                        };
+                        tracing::debug!("--------------------------------");
+                        tracing::debug!("did_document_metadata: {:?}", did_document_metadata);
+                        let did_document_metadata_str =
+                            serde_json::to_string(&did_document_metadata).expect("pass");
+                        tracing::debug!(
+                            "did_document_metadata as json: {}",
+                            did_document_metadata_str
+                        );
+                        let deserialized_did_document_metadata: DIDDocumentMetadata =
+                            serde_json::from_str(&did_document_metadata_str).expect("pass");
+                        tracing::debug!(
+                            "deserialized_did_document_metadata: {:?}",
+                            deserialized_did_document_metadata
+                        );
+                        assert_eq!(deserialized_did_document_metadata, did_document_metadata);
+                    }
                 }
             }
         }
