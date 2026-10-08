@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-cli"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1443,7 +1443,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-cli-lib"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1487,7 +1487,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-core"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -1527,7 +1527,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-doc-storage-mock"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "did-webplus-core",
@@ -1540,7 +1540,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-doc-storage-postgres"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "did-webplus-core",
@@ -1553,7 +1553,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-doc-storage-sqlite"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "did-webplus-core",
@@ -1568,7 +1568,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-doc-store"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1597,7 +1597,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-jws"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "base64 0.21.7",
  "clap",
@@ -1620,7 +1620,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-mock"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "ctor",
  "derive_more",
@@ -1645,7 +1645,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-resolver"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1682,7 +1682,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-software-wallet"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "blake3",
@@ -1719,7 +1719,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-software-wallet-indexeddb"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1756,7 +1756,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-ssi"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1798,7 +1798,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-test-vector"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1810,7 +1810,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-test-vector-lib"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -1849,7 +1849,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-urd"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1870,7 +1870,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-urd-lib"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -1904,7 +1904,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-vdg"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1927,7 +1927,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-vdg-lib"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -1961,7 +1961,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-vdr"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1982,7 +1982,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-vdr-lib"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -2017,7 +2017,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-wallet"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "ctor",
@@ -2041,7 +2041,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-wallet-storage-mock"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "did-webplus-core",
@@ -2059,7 +2059,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-wallet-storage-sqlite"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "did-webplus-core",
@@ -2078,7 +2078,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-wallet-store"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "async-trait",
  "did-webplus-core",
@@ -2096,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "did-webplus-wasm"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",

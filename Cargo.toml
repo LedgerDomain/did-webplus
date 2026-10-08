@@ -50,7 +50,7 @@ members = [
 
 [workspace.package]
 # This version is meant for all the did-webplus crates to stay in sync and to make version management easier.
-version = "0.6.0"
+version = "0.7.0"
 
 [workspace.dependencies]
 async-trait = "0.1.89"

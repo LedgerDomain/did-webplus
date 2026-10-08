@@ -1311,7 +1311,7 @@ mod tests {
                 .as_ref()
                 .unwrap()
                 .r#type(),
-            "https://ledgerdomain.github.io/did-webplus-spec/#VDR_FETCH_FAILED"
+            "https://ledgerdomain.github.io/did-webplus-spec#VDR_FETCH_FAILED"
         );
         // Failed fetch must not expand store state.
         assert_eq!(prediction.resolver_state_after.known_version_count, 4);

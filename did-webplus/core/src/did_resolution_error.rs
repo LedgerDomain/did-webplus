@@ -65,21 +65,20 @@ impl DIDResolutionError {
         }
     }
     /// Local-only resolution cannot complete
-    /// (`https://ledgerdomain.github.io/did-webplus-spec/#LOCAL_RESOLUTION_NOT_POSSIBLE`).
+    /// (`https://ledgerdomain.github.io/did-webplus-spec#LOCAL_RESOLUTION_NOT_POSSIBLE`).
     pub fn local_resolution_not_possible(detail: impl Into<String>) -> Self {
         Self {
-            r#type:
-                "https://ledgerdomain.github.io/did-webplus-spec/#LOCAL_RESOLUTION_NOT_POSSIBLE"
-                    .to_string(),
+            r#type: "https://ledgerdomain.github.io/did-webplus-spec#LOCAL_RESOLUTION_NOT_POSSIBLE"
+                .to_string(),
             title: "Local Resolution Not Possible".to_string(),
             detail: detail.into(),
         }
     }
     /// Full resolver VDR `did-documents.jsonl` fetch failed
-    /// (`https://ledgerdomain.github.io/did-webplus-spec/#VDR_FETCH_FAILED`).
+    /// (`https://ledgerdomain.github.io/did-webplus-spec#VDR_FETCH_FAILED`).
     pub fn vdr_fetch_failed(detail: impl Into<String>) -> Self {
         Self {
-            r#type: "https://ledgerdomain.github.io/did-webplus-spec/#VDR_FETCH_FAILED".to_string(),
+            r#type: "https://ledgerdomain.github.io/did-webplus-spec#VDR_FETCH_FAILED".to_string(),
             title: "VDR Fetch Failed".to_string(),
             detail: detail.into(),
         }
@@ -108,8 +107,8 @@ impl DIDResolutionError {
             | "https://www.w3.org/ns/did#INVALID_DID_DOCUMENT" => 400,
             "https://www.w3.org/ns/did#NOT_FOUND" => 404,
             "https://www.w3.org/ns/did#INTERNAL_ERROR"
-            | "https://ledgerdomain.github.io/did-webplus-spec/#VDR_FETCH_FAILED" => 500,
-            "https://ledgerdomain.github.io/did-webplus-spec/#LOCAL_RESOLUTION_NOT_POSSIBLE" => 501,
+            | "https://ledgerdomain.github.io/did-webplus-spec#VDR_FETCH_FAILED" => 500,
+            "https://ledgerdomain.github.io/did-webplus-spec#LOCAL_RESOLUTION_NOT_POSSIBLE" => 501,
             _ => 500,
         }
     }
